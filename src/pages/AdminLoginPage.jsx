@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
         <div className="auth-sidebar-content">
           <div className="auth-logo-section">
             <div className="auth-logo-badge">🕌</div>
-            <span className="auth-logo-text">Halal Certification Authority</span>
+            <span className="auth-logo-text">Halal Food Authority</span>
           </div>
 
           <h1>HFA Admin Portal</h1>

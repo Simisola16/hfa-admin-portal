@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const STATUS_BADGE = {
@@ -15,7 +15,23 @@ const STATUS_BADGE = {
   certificate_issued:'badge-green',
 };
 
-const ALL_STATUSES = ['submitted','under_review','approved','rejected','on_hold','audit_scheduled','audit_completed','certificate_issued'];
+const ALL_STATUSES = [
+  'APPLICATION RECEIVED',
+  'APPLICATION APPROVED/REJECT',
+  'PROPOSAL SENT',
+  'PROPOSAL ACCEPTED/REJECTED',
+  'INVOICE SENT',
+  'PAYMENT RECEIVED',
+  'PRODUCT APPROVAL FORMS RECEIVED',
+  'AUDIT-SESSION',
+  'APPLICATION SUCCESSFUL/UNSUCCESSFUL',
+  'AGREEMENT SENT',
+  'SIGNED COPY OF AGREEMENT SENT',
+  'INVOICE FOR FINAL PAYMENT SENT',
+  'FINAL PAYMENT RECEIVED',
+  'CERTIFICATE PROCESSING',
+  'SEND CERTIFICATE'
+];
 
 export default function AdminApplications() {
   const [apps, setApps] = useState([]);
@@ -43,7 +59,14 @@ export default function AdminApplications() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    
+    // Close dropdown when clicking outside
+    const handleGlobalClick = () => setOpenDropdown(null);
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   const filtered = apps.filter(a => {
     const matchSearch = !search || 
@@ -136,13 +159,66 @@ export default function AdminApplications() {
                     </td>
                     <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
                     <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`}>{app.status?.replace(/_/g, ' ')}</span></td>
-                    <td style={{textAlign:'center'}}>
+                    <td style={{textAlign:'center', position:'relative'}}>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setModalTab('details'); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenDropdown(openDropdown === app._id ? null : app._id);
+                        }}
                       >
-                        Manage
+                        <MoreVertical size={18} />
                       </button>
+                      
+                      {openDropdown === app._id && (
+                        <div className="dropdown-menu shadow-lg" style={{
+                          position: 'absolute', right: '40px', top: '10px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', zIndex: 100, minWidth: '180px', textAlign: 'left', overflow: 'hidden',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('details'); setOpenDropdown(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#334155', transition: 'background 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <Eye size={16} className="text-muted" /> View Details
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('processing'); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setOpenDropdown(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#334155', transition: 'background 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <Settings size={16} className="text-muted" /> Processing
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); markAsDone(app); setOpenDropdown(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#16a34a', transition: 'background 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f0fdf4'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <CheckCircle size={16} /> Processing Done
+                          </button>
+                          <Link 
+                            to={`/proposals?appId=${app._id}`}
+                            onClick={(e) => { e.stopPropagation(); setOpenDropdown(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#7c3aed', textDecoration: 'none', transition: 'background 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#faf5ff'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <ExternalLink size={16} /> View Proposal
+                          </Link>
+                          <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(app._id); setOpenDropdown(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#ef4444', transition: 'background 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <Trash2 size={16} /> Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -385,30 +461,86 @@ export default function AdminApplications() {
               {/* ── PROCESSING TAB ── */}
               {modalTab === 'processing' && (
                 <form id="process-form" onSubmit={(e) => { e.preventDefault(); handleUpdateStatus(manageModal._id, actionForm); }}>
-                  <div className="form-group">
-                    <label className="form-label">Application Status <span>*</span></label>
-                    <select className="form-control" value={actionForm.status} onChange={e => setActionForm(f => ({...f, status: e.target.value}))} required>
-                      {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-                    </select>
-                  </div>
-                  {(actionForm.status === 'audit_scheduled' || actionForm.status === 'under_review') && (
-                    <div className="form-grid">
-                      <div className="form-group">
-                        <label className="form-label">Assign Inspector</label>
-                        <select className="form-control" value={actionForm.inspector_id} onChange={e => setActionForm(f => ({...f, inspector_id: e.target.value}))}>
-                          <option value="">Select Inspector</option>
-                          {inspectors.map(i => <option key={i._id} value={i._id}>{i.full_name}</option>)}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Audit Date</label>
-                        <input type="date" className="form-control" value={actionForm.audit_date} onChange={e => setActionForm(f => ({...f, audit_date: e.target.value}))}/>
+                  <div className="detail-card mb-6" style={{ border: '1px solid #e2e8f0', background: '#f8fafc', padding: '24px' }}>
+                    
+                    {/* 15-Step Progress Tracker */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '40px' }}>
+                      {ALL_STATUSES.map((step, idx) => {
+                        const currentIndex = Math.max(0, ALL_STATUSES.indexOf(actionForm.status || manageModal.status || 'APPLICATION RECEIVED'));
+                        const isCompleted = idx <= currentIndex;
+                        
+                        let barColor = '#cbd5e1'; 
+                        let textColor = '#64748b';
+                        let bgColor = '#f1f5f9';
+                        let borderColor = '#e2e8f0';
+                        
+                        if (isCompleted) {
+                          barColor = '#22c55e'; // green
+                          textColor = '#0f172a';
+                          bgColor = '#f0fdf4';
+                          borderColor = '#bbf7d0';
+                        }
+
+                        return (
+                          <div 
+                            key={step}
+                            onClick={() => setActionForm(f => ({...f, status: step}))}
+                            style={{
+                              background: bgColor,
+                              border: `1px solid ${borderColor}`,
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'flex-start',
+                              textAlign: 'center',
+                              padding: '12px 6px',
+                              transition: 'all 0.2s',
+                              minHeight: '75px'
+                            }}
+                          >
+                            <div style={{ width: '90%', height: '8px', background: barColor, borderRadius: '4px', marginBottom: '10px' }}></div>
+                            <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, textTransform: 'uppercase', display: 'flex', gap: '4px', alignItems: 'center', lineHeight: '1.2' }}>
+                              {isCompleted && <CheckCircle size={12} style={{ color: '#22c55e', minWidth: '12px' }}/>}
+                              {step}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Application Details Table */}
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '40px 32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                      <h3 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 800, color: '#334155', marginBottom: '32px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {actionForm.status || manageModal.status || 'APPLICATION RECEIVED'}
+                      </h3>
+                      
+                      <div style={{ maxWidth: '650px', margin: '0 auto' }}>
+                        <h4 style={{ fontSize: '15px', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Application Details</h4>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', width: '35%', background: '#f8fafc', color: '#475569' }}>Application Number:</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', color: '#0f172a' }}>{manageModal.application_number}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Application Date:</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', color: '#0f172a' }}>{new Date(manageModal.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Application Category:</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', color: '#0f172a' }}>{manageModal.application_type} Certification – {manageModal.category}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Application Status:</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{actionForm.status || manageModal.status || 'APPLICATION RECEIVED'}</td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                  )}
-                  <div className="form-group">
-                    <label className="form-label">Notes to Client</label>
-                    <textarea className="form-control" rows={4} value={actionForm.notes} onChange={e => setActionForm(f => ({...f, notes: e.target.value}))} placeholder="This message will be included in the email notification..."/>
+                    
                   </div>
                 </form>
               )}

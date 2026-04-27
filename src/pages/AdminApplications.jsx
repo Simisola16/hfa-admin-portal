@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Filter, Eye, X, UserCheck, Calendar } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const STATUS_BADGE = {
-  submitted:'badge-blue', under_review:'badge-yellow', approved:'badge-green',
-  rejected:'badge-red', on_hold:'badge-orange', audit_scheduled:'badge-purple',
-  audit_completed:'badge-green', certificate_issued:'badge-green',
+  submitted:'badge-blue', 
+  under_review:'badge-yellow', 
+  approved:'badge-green',
+  rejected:'badge-red', 
+  on_hold:'badge-orange', 
+  audit_scheduled:'badge-purple',
+  audit_completed:'badge-green', 
+  certificate_issued:'badge-green',
 };
 
 const ALL_STATUSES = ['submitted','under_review','approved','rejected','on_hold','audit_scheduled','audit_completed','certificate_issued'];
@@ -17,72 +23,142 @@ export default function AdminApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [selected, setSelected] = useState(null);
-  const [actionModal, setActionModal] = useState(null);
+  const [selectedApp, setSelectedApp] = useState(null); 
+  const [manageModal, setManageModal] = useState(null); 
   const [actionForm, setActionForm] = useState({ status:'', notes:'', inspector_id:'', audit_date:'' });
   const [submitting, setSubmitting] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
 
-  const fetch = () => {
+  const fetchData = async () => {
     setLoading(true);
-    Promise.all([api.get('/api/applications'), api.get('/api/inspectors')])
-      .then(([a,i])=>{setApps(a.data||[]);setInspectors(i.data||[]);})
-      .catch(()=>toast.error('Failed to load'))
-      .finally(()=>setLoading(false));
+    try {
+      const [a, i] = await Promise.all([api.get('/api/applications'), api.get('/api/inspectors')]);
+      setApps(a.data || []);
+      setInspectors(i.data || []);
+    } catch (err) {
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(()=>{fetch();},[]);
 
-  const filtered = apps.filter(a=>{
-    const s = !search||a.application_number?.toLowerCase().includes(search.toLowerCase())||a.profiles?.company_name?.toLowerCase().includes(search.toLowerCase());
-    const st = !filterStatus||a.status===filterStatus;
-    return s&&st;
+  useEffect(() => { fetchData(); }, []);
+
+  const filtered = apps.filter(a => {
+    const matchSearch = !search || 
+      a.application_number?.toLowerCase().includes(search.toLowerCase()) || 
+      a.profiles?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
+      a.establishment_name?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = !filterStatus || a.status === filterStatus;
+    return matchSearch && matchStatus;
   });
 
-  const openAction = (app) => { setActionModal(app); setActionForm({status:app.status,notes:'',inspector_id:app.inspector_id||'',audit_date:app.audit_date||''}); };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault(); setSubmitting(true);
+  const handleUpdateStatus = async (appId, data) => {
+    setSubmitting(true);
     try {
-      await api.put(`/api/applications/${actionModal.id}/status`, actionForm);
-      toast.success('Application updated & email sent to client');
-      setActionModal(null); fetch();
-    } catch(err){toast.error(err.message);} finally{setSubmitting(false);}
+      await api.put(`/api/applications/${appId}/status`, data);
+      toast.success('Status updated successfully');
+      setManageModal(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this application? This cannot be undone.')) return;
+    try {
+      await api.delete(`/api/applications/${id}`);
+      toast.success('Application deleted');
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const markAsDone = async (app) => {
+    if (!window.confirm(`Mark ${app.application_number} as Approved / Processing Done?`)) return;
+    await handleUpdateStatus(app._id, { status: 'approved', notes: 'Application review completed. Status updated to Approved.' });
   };
 
   return (
-    <div>
+    <div className="page-content">
       <div className="toolbar">
         <div className="search-box">
           <Search size={15} className="search-icon"/>
-          <input placeholder="Search by app no. or client..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <input placeholder="Search by app no., client or company..." value={search} onChange={e => setSearch(e.target.value)}/>
         </div>
-        <select className="form-control" style={{width:'auto'}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+        <select className="form-control w-auto" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All Statuses</option>
-          {ALL_STATUSES.map(s=><option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+          {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
         </select>
-        <span style={{fontSize:12,color:'var(--text-muted)',marginLeft:'auto'}}>{filtered.length} applications</span>
+        <span className="ml-auto text-sm text-muted">{filtered.length} Applications</span>
       </div>
 
       <div className="card">
-        <div className="card-header"><div className="card-title">All Applications</div></div>
+        <div className="card-header">
+          <h3 className="card-title">Manage Applications</h3>
+        </div>
         <div className="table-wrap">
-          {loading?<div className="loading-overlay"><div className="spinner"/></div>:(
+          {loading ? <div className="loading-overlay"><div className="spinner"/></div> : (
             <table>
-              <thead><tr><th>App No.</th><th>Client / Company</th><th>Category</th><th>Site</th><th>Inspector</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>App No.</th>
+                  <th>Client / Company</th>
+                  <th>Site Name</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
               <tbody>
-                {filtered.map(app=>(
-                  <tr key={app.id}>
-                    <td style={{fontWeight:700,color:'var(--primary)'}}>{app.application_number}</td>
+                {filtered.map(app => (
+                  <tr key={app._id}>
+                    <td className="font-bold text-primary">{app.application_number}</td>
                     <td>
-                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.company_name||'—'}</div>
-                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.full_name}</div>
+                      <div className="font-semibold">{app.profiles?.company_name || '—'}</div>
+                      <div className="text-xs text-muted">{app.profiles?.full_name}</div>
                     </td>
-                    <td style={{maxWidth:200}}><span style={{fontSize:12,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</span></td>
-                    <td style={{fontSize:12}}>{app.site_name||'—'}</td>
-                    <td style={{fontSize:12}}>{app.inspectors?.full_name||<span style={{color:'var(--text-muted)'}}>Unassigned</span>}</td>
-                    <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
-                    <td><span className={`badge ${STATUS_BADGE[app.status]||'badge-gray'}`}>{app.status?.replace(/_/g,' ')}</span></td>
-                    <td>
-                      <button className="btn btn-primary btn-sm" onClick={()=>openAction(app)}>Manage</button>
+                    <td className="text-sm">{app.site_name || '—'}</td>
+                    <td className="truncate text-sm" style={{ maxWidth: 180 }}>{app.category}</td>
+                    <td className="text-sm">{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
+                    <td><span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`}>{app.status?.replace(/_/g, ' ')}</span></td>
+                    <td className="relative">
+                      <button className="btn-icon" onClick={() => setOpenDropdown(openDropdown === app._id ? null : app._id)}>
+                        <MoreVertical size={18} />
+                      </button>
+                      
+                      {openDropdown === app._id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
+                          <div className="dropdown-menu">
+                            <button onClick={() => { setSelectedApp(app); setOpenDropdown(null); }}>
+                              <Eye size={14} /> View Details
+                            </button>
+                            <button onClick={() => { 
+                              setManageModal(app); 
+                              setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); 
+                              setOpenDropdown(null); 
+                            }}>
+                              <FileSearch size={14} /> Processing
+                            </button>
+                            <button onClick={() => { markAsDone(app); setOpenDropdown(null); }} className="text-green">
+                              <CheckCircle size={14} /> Processing Done
+                            </button>
+                            <Link to={`/proposals?appId=${app._id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                              <ExternalLink size={14} /> View Proposal
+                            </Link>
+                            <div className="dropdown-divider"></div>
+                            <button onClick={() => { handleDelete(app._id); setOpenDropdown(null); }} className="text-red">
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -92,88 +168,176 @@ export default function AdminApplications() {
         </div>
       </div>
 
-      {/* Action Modal */}
-      {actionModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setActionModal(null)}>
-          <div className="modal" style={{maxWidth:560}}>
+      {selectedApp && (
+        <div className="modal-overlay" onClick={() => setSelectedApp(null)}>
+          <div className="modal" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Manage: {actionModal.application_number}</span>
-              <button className="modal-close" onClick={()=>setActionModal(null)}><X size={16}/></button>
+              <h2 className="modal-title">Application Details: {selectedApp.application_number}</h2>
+              <button className="modal-close" onClick={() => setSelectedApp(null)}><X size={20}/></button>
             </div>
-            <form onSubmit={handleUpdate}>
-              <div className="modal-body">
-                <div style={{background:'#f9fafb',borderRadius:12,padding:16,marginBottom:20,fontSize:13, border: '1px solid var(--border)'}}>
-                  <div style={{fontWeight:800, fontSize:15, marginBottom:8, color: 'var(--primary)'}}>{actionModal.establishment_name || actionModal.profiles?.company_name}</div>
-                  <div style={{marginBottom:12, lineHeight: 1.4}}>{actionModal.establishment_address}</div>
-                  
-                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginTop:12, paddingTop:12, borderTop:'1px solid #e2e8f0'}}>
-                    <div>
-                      <div style={{fontWeight:700, fontSize:11, color:'var(--text-muted)', textTransform:'uppercase'}}>Category</div>
-                      <div style={{fontWeight:600}}>{actionModal.category}</div>
-                    </div>
-                    <div>
-                      <div style={{fontWeight:700, fontSize:11, color:'var(--text-muted)', textTransform:'uppercase'}}>Staff / Schedule</div>
-                      <div style={{fontWeight:600}}>{actionModal.employee_count} staff | {actionModal.production_schedule || 'N/A'}</div>
-                    </div>
+            <div className="modal-body bg-light" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="card p-6">
+                  <h4 className="section-title"><Shield size={16}/> Basic Information</h4>
+                  <div className="detail-item">
+                    <label>Client</label>
+                    <div>{selectedApp.profiles?.company_name} ({selectedApp.profiles?.full_name})</div>
                   </div>
-
-                  <div style={{marginTop:12, paddingTop:12, borderTop:'1px solid #e2e8f0'}}>
-                    <div style={{fontWeight:700, fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', marginBottom:4}}>Halal Declarations</div>
-                    <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-                      <span className={`badge ${actionModal.has_porcine ? 'badge-red' : 'badge-green'}`}>
-                        {actionModal.has_porcine ? '⚠️ Porcine Handling' : '✅ No Porcine'}
-                      </span>
-                      <span className={`badge ${actionModal.has_intoxicants ? 'badge-red' : 'badge-green'}`}>
-                        {actionModal.has_intoxicants ? '⚠️ Intoxicants' : '✅ No Intoxicants'}
-                      </span>
-                    </div>
-                    {(actionModal.porcine_details || actionModal.intoxicants_details) && (
-                      <div style={{marginTop:8, fontSize:12, fontStyle:'italic', color:'#4b5563'}}>
-                        {actionModal.porcine_details && <div>Pork: {actionModal.porcine_details}</div>}
-                        {actionModal.intoxicants_details && <div>Alcohol: {actionModal.intoxicants_details}</div>}
-                      </div>
-                    )}
+                  <div className="detail-item">
+                    <label>Establishment Name</label>
+                    <div>{selectedApp.establishment_name}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Address</label>
+                    <div className="text-sm">{selectedApp.establishment_address}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Scope of Certification</label>
+                    <div className="text-sm italic">"{selectedApp.scope || 'No scope defined'}"</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Employee Count</label>
+                    <div>{selectedApp.employee_count} staff members</div>
                   </div>
                 </div>
 
+                <div className="card p-6">
+                  <h4 className="section-title"><Calendar size={16}/> Compliance & Operations</h4>
+                  <div className="detail-item">
+                    <label>Production Schedule</label>
+                    <div>{selectedApp.production_schedule}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Halal Coordinator</label>
+                    <div>{selectedApp.halal_coordinator}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>QA Manager</label>
+                    <div>{selectedApp.qa_contact}</div>
+                  </div>
+                  <div className="mt-4 flex gap-3">
+                    <span className={`badge ${selectedApp.has_porcine ? 'badge-red' : 'badge-green'}`}>
+                      {selectedApp.has_porcine ? '⚠️ Porcine' : '✅ No Porcine'}
+                    </span>
+                    <span className={`badge ${selectedApp.has_intoxicants ? 'badge-red' : 'badge-green'}`}>
+                      {selectedApp.has_intoxicants ? '⚠️ Intoxicants' : '✅ No Intoxicants'}
+                    </span>
+                  </div>
+                  {(selectedApp.porcine_details || selectedApp.intoxicants_details) && (
+                    <div className="mt-3 p-3 bg-white rounded border text-xs italic">
+                      {selectedApp.porcine_details && <div>Pork: {selectedApp.porcine_details}</div>}
+                      {selectedApp.intoxicants_details && <div className="mt-1">Alcohol: {selectedApp.intoxicants_details}</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="card p-6 mt-6">
+                <h4 className="section-title"><Package size={16}/> Products for Certification</h4>
+                <div className="table-wrap">
+                  <table className="table-sm">
+                    <thead>
+                      <tr><th>Product Name</th><th>Brand</th></tr>
+                    </thead>
+                    <tbody>
+                      {(selectedApp.products || []).map((p, idx) => (
+                        <tr key={idx}><td>{p.name}</td><td>{p.brand}</td></tr>
+                      ))}
+                      {(!selectedApp.products || selectedApp.products.length === 0) && (
+                        <tr><td colSpan="2" className="text-center py-4 opacity-50">No products listed</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="card p-6 mt-6">
+                <h4 className="section-title"><FileText size={16}/> Uploaded Documents</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedApp.documents && Object.entries(selectedApp.documents).map(([key, url]) => (
+                    url && typeof url === 'string' && (
+                      <a key={key} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white border rounded hover:bg-teal-50 transition-colors no-underline text-inherit">
+                        <FileText size={18} className="text-primary"/>
+                        <span className="text-sm font-semibold capitalize">{key.replace(/_/g, ' ')}</span>
+                        <ChevronRight size={14} className="ml-auto opacity-30"/>
+                      </a>
+                    )
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setSelectedApp(null)}>Close View</button>
+              <button className="btn btn-primary" onClick={() => { setManageModal(selectedApp); setSelectedApp(null); }}>
+                Update Status / Processing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {manageModal && (
+        <div className="modal-overlay" onClick={() => setManageModal(null)}>
+          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Processing: {manageModal.application_number}</h2>
+              <button className="modal-close" onClick={() => setManageModal(null)}><X size={20}/></button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateStatus(manageModal._id, actionForm); }}>
+              <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Update Status <span>*</span></label>
-                  <select className="form-control" value={actionForm.status} onChange={e=>setActionForm(f=>({...f,status:e.target.value}))} required>
-                    {ALL_STATUSES.map(s=><option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+                  <label className="form-label">Application Status <span>*</span></label>
+                  <select className="form-control" value={actionForm.status} onChange={e => setActionForm(f => ({...f, status: e.target.value}))} required>
+                    {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                   </select>
                 </div>
 
-                {(actionForm.status==='audit_scheduled'||actionForm.status==='under_review') && (
+                {(actionForm.status === 'audit_scheduled' || actionForm.status === 'under_review') && (
                   <div className="form-grid">
                     <div className="form-group">
                       <label className="form-label">Assign Inspector</label>
-                      <select className="form-control" value={actionForm.inspector_id} onChange={e=>setActionForm(f=>({...f,inspector_id:e.target.value}))}>
+                      <select className="form-control" value={actionForm.inspector_id} onChange={e => setActionForm(f => ({...f, inspector_id: e.target.value}))}>
                         <option value="">Select Inspector</option>
-                        {inspectors.map(i=><option key={i.id} value={i.id}>{i.full_name}</option>)}
+                        {inspectors.map(i => <option key={i._id} value={i._id}>{i.full_name}</option>)}
                       </select>
                     </div>
                     <div className="form-group">
                       <label className="form-label">Audit Date</label>
-                      <input type="date" className="form-control" value={actionForm.audit_date} onChange={e=>setActionForm(f=>({...f,audit_date:e.target.value}))}/>
+                      <input type="date" className="form-control" value={actionForm.audit_date} onChange={e => setActionForm(f => ({...f, audit_date: e.target.value}))}/>
                     </div>
                   </div>
                 )}
 
                 <div className="form-group">
-                  <label className="form-label">Notes to Client</label>
-                  <textarea className="form-control" rows={3} value={actionForm.notes} onChange={e=>setActionForm(f=>({...f,notes:e.target.value}))} placeholder="This message will be included in the email notification..."/>
+                  <label className="form-label">Internal Notes / Message to Client</label>
+                  <textarea className="form-control" rows={4} value={actionForm.notes} onChange={e => setActionForm(f => ({...f, notes: e.target.value}))} placeholder="Explain the current status or request more info..."/>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={()=>setActionModal(null)}>Cancel</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setManageModal(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting?<span className="spinner" style={{width:16,height:16}}/>:'Update & Notify Client'}
+                  {submitting ? 'Updating...' : 'Update Status'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .dropdown-menu { position: absolute; right: 0; top: 100%; width: 220px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; z-index: 100; padding: 6px; overflow: hidden; animation: slideIn 0.2s ease-out; }
+        .dropdown-menu button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: none; background: none; font-size: 13px; font-weight: 600; color: #4b5563; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s; }
+        .dropdown-menu button:hover { background: #f8fafc; color: var(--primary); }
+        .dropdown-menu button.text-red { color: #ef4444; }
+        .dropdown-menu button.text-red:hover { background: #fef2f2; }
+        .dropdown-menu button.text-green { color: #10b981; }
+        .dropdown-menu button.text-green:hover { background: #f0fdf4; }
+        .dropdown-divider { height: 1px; background: #e2e8f0; margin: 4px 6px; }
+        .detail-item { margin-bottom: 16px; }
+        .detail-item label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+        .detail-item div { font-weight: 600; color: #1e293b; line-height: 1.5; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+      `}} />
     </div>
   );
 }

@@ -61,7 +61,7 @@ export default function AdminSidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🕌</div>
+        <img src="/hfa-logo.png" alt="Logo" style={{ width: 32, height: 32, objectFit: 'contain', background: 'white', borderRadius: 6, padding: 2 }} />
         <div className="sidebar-logo-text">
           <span className="sidebar-logo-title">HFA Admin</span>
           <span className="sidebar-logo-sub">Halal Food Authority</span>

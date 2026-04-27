@@ -28,6 +28,7 @@ export default function AdminApplications() {
   const [actionForm, setActionForm] = useState({ status:'', notes:'', inspector_id:'', audit_date:'' });
   const [submitting, setSubmitting] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [modalTab, setModalTab] = useState('details');
 
   const fetchData = async () => {
     setLoading(true);
@@ -189,7 +190,7 @@ export default function AdminApplications() {
                     <td className="py-4 px-6 text-center">
                       <button
                         className="btn btn-primary btn-sm"
-                        onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); }}
+                        onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setModalTab('details'); }}
                       >
                         Manage
                       </button>
@@ -343,51 +344,164 @@ export default function AdminApplications() {
         </div>
       )}
 
-      {/* Manage/Processing Modal */}
+      {/* Unified Manage Modal */}
       {manageModal && (
         <div className="modal-overlay" onClick={() => setManageModal(null)}>
-          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Processing: {manageModal.application_number}</h2>
-              <button className="modal-close" onClick={() => setManageModal(null)}><X size={20}/></button>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateStatus(manageModal._id, actionForm); }}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Application Status <span>*</span></label>
-                  <select className="form-control" value={actionForm.status} onChange={e => setActionForm(f => ({...f, status: e.target.value}))} required>
-                    {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-                  </select>
+          <div className="modal" style={{ maxWidth: 720 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 4 }}>Application Management</div>
+                  <h2 className="modal-title">{manageModal.application_number}</h2>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{manageModal.profiles?.company_name} &middot; {new Date(manageModal.created_at).toLocaleDateString('en-GB')}</div>
                 </div>
+                <button className="modal-close" onClick={() => setManageModal(null)}><X size={20}/></button>
+              </div>
+              {/* Tabs */}
+              <div style={{ display:'flex', gap: 0, borderBottom: '2px solid #f1f5f9', width: '100%', marginBottom: -20 }}>
+                {[{id:'details', label:'View Details'}, {id:'processing', label:'Processing'}].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setModalTab(tab.id)}
+                    style={{
+                      padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 700,
+                      color: modalTab === tab.id ? 'var(--primary)' : '#94a3b8',
+                      borderBottom: modalTab === tab.id ? '2px solid var(--primary)' : '2px solid transparent',
+                      marginBottom: -2, transition: 'all 0.15s'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                {(actionForm.status === 'audit_scheduled' || actionForm.status === 'under_review') && (
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label className="form-label">Assign Inspector</label>
-                      <select className="form-control" value={actionForm.inspector_id} onChange={e => setActionForm(f => ({...f, inspector_id: e.target.value}))}>
-                        <option value="">Select Inspector</option>
-                        {inspectors.map(i => <option key={i._id} value={i._id}>{i.full_name}</option>)}
-                      </select>
+            <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+              {/* ── DETAILS TAB ── */}
+              {modalTab === 'details' && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+                    <div className="detail-item">
+                      <label>Company</label>
+                      <div>{manageModal.profiles?.company_name || '—'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{manageModal.profiles?.full_name}</div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Audit Date</label>
-                      <input type="date" className="form-control" value={actionForm.audit_date} onChange={e => setActionForm(f => ({...f, audit_date: e.target.value}))}/>
+                    <div className="detail-item">
+                      <label>Application Type</label>
+                      <div className="capitalize">{manageModal.application_type} Certification</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>Establishment</label>
+                      <div>{manageModal.establishment_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{manageModal.establishment_address}</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>Employees / Schedule</label>
+                      <div>{manageModal.employee_count} staff</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{manageModal.production_schedule}</div>
                     </div>
                   </div>
-                )}
 
-                <div className="form-group">
-                  <label className="form-label">Internal Notes / Message to Client</label>
-                  <textarea className="form-control" rows={4} value={actionForm.notes} onChange={e => setActionForm(f => ({...f, notes: e.target.value}))} placeholder="Explain the current status or request more info..."/>
+                  <div className="detail-item" style={{ marginBottom: 20 }}>
+                    <label>Scope of Certification</label>
+                    <div style={{ background: '#f0fdf4', padding: 14, borderRadius: 10, border: '1px solid #dcfce7', fontStyle: 'italic', color: '#166534', fontSize: 13 }}>
+                      "{manageModal.scope || 'No scope defined'}"
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                    <div className="detail-item">
+                      <label>Halal Coordinator</label>
+                      <div>{manageModal.halal_coordinator || '—'}</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>QA Manager</label>
+                      <div>{manageModal.qa_contact || '—'}</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>Finance</label>
+                      <div>{manageModal.finance_contact || '—'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <span className={`badge ${manageModal.has_porcine ? 'badge-red' : 'badge-green'}`}>
+                      {manageModal.has_porcine ? '⚠ Porcine Handling' : '✓ No Porcine'}
+                    </span>
+                    <span className={`badge ${manageModal.has_intoxicants ? 'badge-red' : 'badge-green'}`}>
+                      {manageModal.has_intoxicants ? '⚠ Intoxicants Used' : '✓ No Intoxicants'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setManageModal(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Updating...' : 'Update Status'}
+              )}
+
+              {/* ── PROCESSING TAB ── */}
+              {modalTab === 'processing' && (
+                <form id="process-form" onSubmit={(e) => { e.preventDefault(); handleUpdateStatus(manageModal._id, actionForm); }}>
+                  <div className="form-group">
+                    <label className="form-label">Application Status <span>*</span></label>
+                    <select className="form-control" value={actionForm.status} onChange={e => setActionForm(f => ({...f, status: e.target.value}))} required>
+                      {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                    </select>
+                  </div>
+                  {(actionForm.status === 'audit_scheduled' || actionForm.status === 'under_review') && (
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label className="form-label">Assign Inspector</label>
+                        <select className="form-control" value={actionForm.inspector_id} onChange={e => setActionForm(f => ({...f, inspector_id: e.target.value}))}>
+                          <option value="">Select Inspector</option>
+                          {inspectors.map(i => <option key={i._id} value={i._id}>{i.full_name}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Audit Date</label>
+                        <input type="date" className="form-control" value={actionForm.audit_date} onChange={e => setActionForm(f => ({...f, audit_date: e.target.value}))}/>
+                      </div>
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">Notes to Client</label>
+                    <textarea className="form-control" rows={4} value={actionForm.notes} onChange={e => setActionForm(f => ({...f, notes: e.target.value}))} placeholder="This message will be included in the email notification..."/>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+              {/* Left: Danger + Proposal */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: '#ef4444', borderColor: '#fecaca' }}
+                  onClick={() => { setManageModal(null); handleDelete(manageModal._id); }}
+                >
+                  <Trash2 size={14} /> Delete
                 </button>
+                <Link
+                  to={`/proposals?appId=${manageModal._id}`}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: '#7c3aed', borderColor: '#e9d5ff' }}
+                  onClick={() => setManageModal(null)}
+                >
+                  <ExternalLink size={14} /> View Proposal
+                </Link>
               </div>
-            </form>
+              {/* Right: Main actions */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setManageModal(null)}>Close</button>
+                {modalTab === 'details' ? (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => { markAsDone(manageModal); }}>
+                    <CheckCircle size={14} /> Processing Done
+                  </button>
+                ) : (
+                  <button type="submit" form="process-form" className="btn btn-primary" disabled={submitting}>
+                    {submitting ? 'Updating...' : 'Update Status'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

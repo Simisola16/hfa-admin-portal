@@ -186,48 +186,13 @@ export default function AdminApplications() {
                         {app.status?.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="action-btn-group">
-                        <button
-                          className="action-btn action-btn-view"
-                          onClick={() => setSelectedApp(app)}
-                          title="View Details"
-                        >
-                          <Eye size={14} />
-                          <span>Details</span>
-                        </button>
-                        <button
-                          className="action-btn action-btn-process"
-                          onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); }}
-                          title="Application Processing"
-                        >
-                          <FileSearch size={14} />
-                          <span>Processing</span>
-                        </button>
-                        <button
-                          className="action-btn action-btn-done"
-                          onClick={() => markAsDone(app)}
-                          title="Mark as Done"
-                        >
-                          <CheckCircle size={14} />
-                          <span>Done</span>
-                        </button>
-                        <Link
-                          to={`/proposals?appId=${app._id}`}
-                          className="action-btn action-btn-proposal"
-                          title="View Proposal"
-                        >
-                          <ExternalLink size={14} />
-                          <span>Proposal</span>
-                        </Link>
-                        <button
-                          className="action-btn action-btn-delete"
-                          onClick={() => handleDelete(app._id)}
-                          title="Delete Application"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                    <td className="py-4 px-6 text-center">
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); }}
+                      >
+                        Manage
+                      </button>
                     </td>
                   </tr>
                 ))}

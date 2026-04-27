@@ -155,7 +155,7 @@ export default function AdminApplications() {
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Type & Category</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Created</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-50">
@@ -186,41 +186,48 @@ export default function AdminApplications() {
                         {app.status?.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-right relative">
-                      <button 
-                        className={`p-2 rounded-lg transition-all ${openDropdown === app._id ? 'bg-primary text-white shadow-lg' : 'hover:bg-slate-100 text-slate-400'}`} 
-                        onClick={() => setOpenDropdown(openDropdown === app._id ? null : app._id)}
-                      >
-                        <MoreVertical size={18} />
-                      </button>
-                      
-                      {openDropdown === app._id && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
-                          <div className="dropdown-menu absolute right-full top-0 mr-2">
-                            <button className="dropdown-item" onClick={() => { setSelectedApp(app); setOpenDropdown(null); }}>
-                              <Eye size={16}/> View Details
-                            </button>
-                            <button className="dropdown-item" onClick={() => { 
-                              setManageModal(app); 
-                              setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); 
-                              setOpenDropdown(null); 
-                            }}>
-                              <FileSearch size={16} /> Processing
-                            </button>
-                            <button className="dropdown-item text-green" onClick={() => { markAsDone(app); setOpenDropdown(null); }}>
-                              <CheckCircle size={16} /> Processing Done
-                            </button>
-                            <Link to={`/proposals?appId=${app._id}`} className="dropdown-item">
-                              <ExternalLink size={16} /> View Proposal
-                            </Link>
-                            <div className="dropdown-divider"></div>
-                            <button className="dropdown-item text-red" onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}>
-                              <Trash2 size={16} /> Delete
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    <td className="py-4 px-6">
+                      <div className="action-btn-group">
+                        <button
+                          className="action-btn action-btn-view"
+                          onClick={() => setSelectedApp(app)}
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                          <span>Details</span>
+                        </button>
+                        <button
+                          className="action-btn action-btn-process"
+                          onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); }}
+                          title="Application Processing"
+                        >
+                          <FileSearch size={14} />
+                          <span>Processing</span>
+                        </button>
+                        <button
+                          className="action-btn action-btn-done"
+                          onClick={() => markAsDone(app)}
+                          title="Mark as Done"
+                        >
+                          <CheckCircle size={14} />
+                          <span>Done</span>
+                        </button>
+                        <Link
+                          to={`/proposals?appId=${app._id}`}
+                          className="action-btn action-btn-proposal"
+                          title="View Proposal"
+                        >
+                          <ExternalLink size={14} />
+                          <span>Proposal</span>
+                        </Link>
+                        <button
+                          className="action-btn action-btn-delete"
+                          onClick={() => handleDelete(app._id)}
+                          title="Delete Application"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -419,6 +426,77 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
+
+      <style>{`
+        .action-btn-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .action-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-decoration: none;
+          white-space: nowrap;
+          letter-spacing: 0.02em;
+        }
+        .action-btn-view {
+          background: #f1f5f9;
+          color: #475569;
+          border-color: #e2e8f0;
+        }
+        .action-btn-view:hover {
+          background: #e2e8f0;
+          color: #1e293b;
+          border-color: #cbd5e1;
+        }
+        .action-btn-process {
+          background: #eff6ff;
+          color: #2563eb;
+          border-color: #bfdbfe;
+        }
+        .action-btn-process:hover {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+        .action-btn-done {
+          background: #f0fdf4;
+          color: #16a34a;
+          border-color: #bbf7d0;
+        }
+        .action-btn-done:hover {
+          background: #dcfce7;
+          color: #15803d;
+        }
+        .action-btn-proposal {
+          background: #faf5ff;
+          color: #7c3aed;
+          border-color: #e9d5ff;
+        }
+        .action-btn-proposal:hover {
+          background: #f3e8ff;
+          color: #6d28d9;
+        }
+        .action-btn-delete {
+          background: transparent;
+          color: #94a3b8;
+          border-color: transparent;
+          padding: 5px 6px;
+        }
+        .action-btn-delete:hover {
+          background: #fef2f2;
+          color: #ef4444;
+          border-color: #fecaca;
+        }
+      `}</style>
     </div>
   );
 }

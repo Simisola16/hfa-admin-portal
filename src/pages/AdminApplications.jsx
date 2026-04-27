@@ -144,29 +144,24 @@ export default function AdminApplications() {
                           <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
                           <div className="dropdown-menu">
                             <button className="dropdown-item" onClick={() => { setSelectedApp(app); setOpenDropdown(null); }}>
-                              <Eye size={16} className="text-primary"/> 
-                              <span>View Application</span>
+                              <Eye size={16}/> View Details
                             </button>
                             <button className="dropdown-item" onClick={() => { 
                               setManageModal(app); 
                               setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); 
                               setOpenDropdown(null); 
                             }}>
-                              <FileSearch size={16} /> 
-                              <span>Application Processing</span>
+                              <FileSearch size={16} /> Processing
                             </button>
-                            <button className="dropdown-item text-success" onClick={() => { markAsDone(app); setOpenDropdown(null); }}>
-                              <CheckCircle size={16} /> 
-                              <span>Mark as Done</span>
+                            <button className="dropdown-item text-green" onClick={() => { markAsDone(app); setOpenDropdown(null); }}>
+                              <CheckCircle size={16} /> Processing Done
                             </button>
-                            <Link to={`/proposals?appId=${app._id}`} className="dropdown-item" style={{ textDecoration: 'none' }}>
-                              <ExternalLink size={16} /> 
-                              <span>View Linked Proposal</span>
+                            <Link to={`/proposals?appId=${app._id}`} className="dropdown-item">
+                              <ExternalLink size={16} /> View Proposal
                             </Link>
                             <div className="dropdown-divider"></div>
-                            <button className="dropdown-item text-danger" onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}>
-                              <Trash2 size={16} /> 
-                              <span>Delete Record</span>
+                            <button className="dropdown-item text-red" onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}>
+                              <Trash2 size={16} /> Delete
                             </button>
                           </div>
                         </>

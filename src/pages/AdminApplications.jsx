@@ -86,57 +86,17 @@ export default function AdminApplications() {
 
   return (
     <div className="page-content">
-      {/* Quick Stats Header */}
-      <div className="flex gap-4 mb-6">
-        <div className="stat-card flex-1 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FileText size={20}/></div>
-            <div>
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Applications</div>
-              <div className="text-2xl font-black text-slate-800">{apps.length}</div>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card flex-1 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg"><Calendar size={20}/></div>
-            <div>
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Review</div>
-              <div className="text-2xl font-black text-slate-800">{apps.filter(a=>['submitted','under_review'].includes(a.status)).length}</div>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card flex-1 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 text-green-600 rounded-lg"><CheckCircle size={20}/></div>
-            <div>
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Approved</div>
-              <div className="text-2xl font-black text-slate-800">{apps.filter(a=>a.status==='approved').length}</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="toolbar bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex items-center gap-4">
-        <div className="search-box flex-1 max-w-md relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-          <input 
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all" 
-            placeholder="Search by ID, Company or Site..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)}
-          />
+      <div className="toolbar">
+        <div className="search-box">
+          <Search size={15} className="search-icon"/>
+          <input placeholder="Search by app no. or client..." value={search} onChange={e => setSearch(e.target.value)}/>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-slate-400"/>
-          <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 outline-none" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All Statuses</option>
-            {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-          </select>
-        </div>
-        <button className="btn btn-ghost ml-auto hover:bg-slate-100" onClick={fetchData} title="Refresh Data">
-          <RefreshCw size={16} />
-        </button>
+        <select className="form-control" style={{width:'auto'}} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <option value="">All Statuses</option>
+          {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+        </select>
+        <span style={{fontSize:12,color:'var(--text-muted)',marginLeft:'auto'}}>{filtered.length} applications</span>
       </div>
 
       <div className="card">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2 } from 'lucide-react';
 
 export default function AdminClients() {
   const [clients, setClients] = useState([]);
@@ -20,13 +20,20 @@ export default function AdminClients() {
   }, []);
 
   const filtered = clients.filter(c => {
+    const isActive = c.is_active !== false;
+    
     // 1. Category Filtering
-    if (category === 'review') {
-      if (c.is_active !== false) return false;
+    if (category === 'bin') {
+      if (isActive) return false; // Only show suspended in Bin
+    } else if (category === 'review') {
+      // New companies with no applications yet
+      if (!isActive || c.appCount > 0) return false;
     } else if (category === 'processing') {
-      if (c.is_active === false || c.certCount > 0) return false;
+      // Companies with applications but none approved yet
+      if (!isActive || c.appCount === 0 || c.approvedAppCount > 0) return false;
     } else if (category === 'company') {
-      if (c.is_active === false || c.certCount === 0) return false;
+      // Certified companies (at least one approved application)
+      if (!isActive || (c.approvedAppCount || 0) === 0) return false;
     }
 
     // 2. Search Filtering
@@ -41,21 +48,24 @@ export default function AdminClients() {
     try { 
       await api.put(`/api/users/${id}/status`, { is_active: !current }); 
       toast.success(current ? 'Account suspended' : 'Account activated'); 
-      setClients(cs => cs.map(c => c.id === id ? { ...c, is_active: !current } : c)); 
+      // Refresh local state
+      setClients(cs => cs.map(c => c._id === id ? { ...c, is_active: !current } : c)); 
     } catch (err) {
       toast.error(err.message);
     }
   };
 
   const getTitle = () => {
-    if (category === 'review') return 'Review Companies (Pending Activation)';
-    if (category === 'processing') return 'Processing List (Active Applicants)';
+    if (category === 'review') return 'Review Companies (New Signups)';
+    if (category === 'processing') return 'Processing List (Pending Applications)';
+    if (category === 'bin') return 'Bin List (Suspended Companies)';
     return 'Company List (Certified Clients)';
   };
 
   const getIcon = () => {
     if (category === 'review') return <Shield size={20} />;
     if (category === 'processing') return <Briefcase size={20} />;
+    if (category === 'bin') return <Trash2 size={20} />;
     return <Award size={20} />;
   };
 
@@ -98,7 +108,7 @@ export default function AdminClients() {
                 </thead>
                 <tbody>
                   {filtered.map(c => (
-                    <tr key={c.id}>
+                    <tr key={c._id}>
                       <td>
                         <div style={{ fontWeight: 700, color: '#111827' }}>{c.company_name || '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.email}</div>
@@ -120,13 +130,13 @@ export default function AdminClients() {
                       <td style={{ fontSize: 12 }}>{new Date(c.created_at).toLocaleDateString('en-GB')}</td>
                       <td>
                         <span className={`badge ${c.is_active !== false ? 'badge-green' : 'badge-red'}`}>
-                          {c.is_active !== false ? 'Active' : 'Pending'}
+                          {c.is_active !== false ? 'Active' : 'Suspended'}
                         </span>
                       </td>
                       <td>
                         <button 
                           className={`btn ${c.is_active !== false ? 'btn-ghost' : 'btn-primary'} btn-sm`} 
-                          onClick={() => toggleStatus(c.id, c.is_active !== false)}
+                          onClick={() => toggleStatus(c._id, c.is_active !== false)}
                         >
                           {c.is_active !== false ? 'Suspend' : 'Activate Account'}
                         </button>

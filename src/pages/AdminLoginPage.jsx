@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
       <div className="auth-sidebar">
         <div className="auth-sidebar-content">
           <div className="auth-logo-section">
-            <div className="auth-logo-badge">🕌</div>
+            <img src="/logo.png" alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
             <span className="auth-logo-text">Halal Food Authority</span>
           </div>
 

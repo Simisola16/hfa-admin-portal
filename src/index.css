@@ -725,3 +725,120 @@ select.form-control { cursor: pointer; }
 .w-full { width: 100%; }
 .text-right { text-align: right; }
 .text-center { text-align: center; }
+/* ===== PREMIUM APPLICATION MANAGEMENT STYLES ===== */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--primary-light);
+}
+
+.detail-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 24px;
+  border: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.detail-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.doc-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.doc-link:hover {
+  background: white;
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(21,128,61,0.08);
+}
+
+.table-row-animate {
+  transition: all 0.2s ease;
+}
+
+.table-row-animate:hover {
+  background: #f0fdf4 !important;
+  transform: scale(1.002);
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  width: 240px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  border: 1px solid #e2e8f0;
+  z-index: 1000;
+  padding: 8px;
+  overflow: hidden;
+  animation: slideDropdown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(20px);
+}
+
+@keyframes slideDropdown {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b5563;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #f1f5f9;
+  color: var(--primary);
+  padding-left: 18px;
+}
+
+.dropdown-item.text-danger:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.dropdown-item.text-success:hover {
+  background: #f0fdf4;
+  color: #10b981;
+}
+
+.modal-glass {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

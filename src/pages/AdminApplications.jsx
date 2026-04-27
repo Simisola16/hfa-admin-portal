@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const STATUS_BADGE = {
@@ -117,7 +117,7 @@ export default function AdminApplications() {
               </thead>
               <tbody>
                 {filtered.map(app => (
-                  <tr key={app._id}>
+                  <tr key={app._id} className="table-row-animate">
                     <td className="font-bold text-primary">{app.application_number}</td>
                     <td>
                       <div className="font-semibold">{app.profiles?.company_name || '—'}</div>
@@ -126,9 +126,16 @@ export default function AdminApplications() {
                     <td className="text-sm">{app.site_name || '—'}</td>
                     <td className="truncate text-sm" style={{ maxWidth: 180 }}>{app.category}</td>
                     <td className="text-sm">{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
-                    <td><span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`}>{app.status?.replace(/_/g, ' ')}</span></td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`} style={{ border: '1px solid rgba(0,0,0,0.05)' }}>
+                        {app.status?.replace(/_/g, ' ')}
+                      </span>
+                    </td>
                     <td className="relative">
-                      <button className="btn-icon" onClick={() => setOpenDropdown(openDropdown === app._id ? null : app._id)}>
+                      <button 
+                        className={`btn-icon ${openDropdown === app._id ? 'bg-primary-light text-primary' : ''}`} 
+                        onClick={() => setOpenDropdown(openDropdown === app._id ? null : app._id)}
+                      >
                         <MoreVertical size={18} />
                       </button>
                       
@@ -136,25 +143,30 @@ export default function AdminApplications() {
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
                           <div className="dropdown-menu">
-                            <button onClick={() => { setSelectedApp(app); setOpenDropdown(null); }}>
-                              <Eye size={14} /> View Details
+                            <button className="dropdown-item" onClick={() => { setSelectedApp(app); setOpenDropdown(null); }}>
+                              <Eye size={16} className="text-primary"/> 
+                              <span>View Application</span>
                             </button>
-                            <button onClick={() => { 
+                            <button className="dropdown-item" onClick={() => { 
                               setManageModal(app); 
                               setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); 
                               setOpenDropdown(null); 
                             }}>
-                              <FileSearch size={14} /> Processing
+                              <FileSearch size={16} /> 
+                              <span>Application Processing</span>
                             </button>
-                            <button onClick={() => { markAsDone(app); setOpenDropdown(null); }} className="text-green">
-                              <CheckCircle size={14} /> Processing Done
+                            <button className="dropdown-item text-success" onClick={() => { markAsDone(app); setOpenDropdown(null); }}>
+                              <CheckCircle size={16} /> 
+                              <span>Mark as Done</span>
                             </button>
-                            <Link to={`/proposals?appId=${app._id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-                              <ExternalLink size={14} /> View Proposal
+                            <Link to={`/proposals?appId=${app._id}`} className="dropdown-item" style={{ textDecoration: 'none' }}>
+                              <ExternalLink size={16} /> 
+                              <span>View Linked Proposal</span>
                             </Link>
                             <div className="dropdown-divider"></div>
-                            <button onClick={() => { handleDelete(app._id); setOpenDropdown(null); }} className="text-red">
-                              <Trash2 size={14} /> Delete
+                            <button className="dropdown-item text-danger" onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}>
+                              <Trash2 size={16} /> 
+                              <span>Delete Record</span>
                             </button>
                           </div>
                         </>
@@ -168,114 +180,139 @@ export default function AdminApplications() {
         </div>
       </div>
 
+      {/* View Details Modal */}
       {selectedApp && (
         <div className="modal-overlay" onClick={() => setSelectedApp(null)}>
-          <div className="modal" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Application Details: {selectedApp.application_number}</h2>
-              <button className="modal-close" onClick={() => setSelectedApp(null)}><X size={20}/></button>
+          <div className="modal modal-glass" style={{ maxWidth: 1000 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'transparent' }}>
+              <div>
+                <h2 className="modal-title" style={{ fontSize: 24 }}>{selectedApp.application_number}</h2>
+                <div className="text-sm text-muted">Submitted on {new Date(selectedApp.created_at).toLocaleString('en-GB')}</div>
+              </div>
+              <button className="modal-close" onClick={() => setSelectedApp(null)}><X size={24}/></button>
             </div>
-            <div className="modal-body bg-light" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="card p-6">
-                  <h4 className="section-title"><Shield size={16}/> Basic Information</h4>
-                  <div className="detail-item">
-                    <label>Client</label>
-                    <div>{selectedApp.profiles?.company_name} ({selectedApp.profiles?.full_name})</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Establishment Name</label>
-                    <div>{selectedApp.establishment_name}</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Address</label>
-                    <div className="text-sm">{selectedApp.establishment_address}</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Scope of Certification</label>
-                    <div className="text-sm italic">"{selectedApp.scope || 'No scope defined'}"</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Employee Count</label>
-                    <div>{selectedApp.employee_count} staff members</div>
-                  </div>
-                </div>
-
-                <div className="card p-6">
-                  <h4 className="section-title"><Calendar size={16}/> Compliance & Operations</h4>
-                  <div className="detail-item">
-                    <label>Production Schedule</label>
-                    <div>{selectedApp.production_schedule}</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Halal Coordinator</label>
-                    <div>{selectedApp.halal_coordinator}</div>
-                  </div>
-                  <div className="detail-item">
-                    <label>QA Manager</label>
-                    <div>{selectedApp.qa_contact}</div>
-                  </div>
-                  <div className="mt-4 flex gap-3">
-                    <span className={`badge ${selectedApp.has_porcine ? 'badge-red' : 'badge-green'}`}>
-                      {selectedApp.has_porcine ? '⚠️ Porcine' : '✅ No Porcine'}
-                    </span>
-                    <span className={`badge ${selectedApp.has_intoxicants ? 'badge-red' : 'badge-green'}`}>
-                      {selectedApp.has_intoxicants ? '⚠️ Intoxicants' : '✅ No Intoxicants'}
-                    </span>
-                  </div>
-                  {(selectedApp.porcine_details || selectedApp.intoxicants_details) && (
-                    <div className="mt-3 p-3 bg-white rounded border text-xs italic">
-                      {selectedApp.porcine_details && <div>Pork: {selectedApp.porcine_details}</div>}
-                      {selectedApp.intoxicants_details && <div className="mt-1">Alcohol: {selectedApp.intoxicants_details}</div>}
+            <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto', padding: '0 32px 32px' }}>
+              <div className="grid grid-cols-12 gap-6">
+                {/* Profile Card */}
+                <div className="col-span-8">
+                  <div className="detail-card mb-6">
+                    <h4 className="section-title"><Shield size={18}/> Company & Scope Info</h4>
+                    <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                      <div className="detail-item">
+                        <label>Registered Company</label>
+                        <div style={{ fontSize: 16 }}>{selectedApp.profiles?.company_name}</div>
+                        <div className="text-sm text-muted">{selectedApp.profiles?.full_name}</div>
+                      </div>
+                      <div className="detail-item">
+                        <label>Application Type</label>
+                        <div className="capitalize">{selectedApp.application_type} Certification</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="detail-item">
+                          <label>Proposed Scope</label>
+                          <div style={{ background: '#f0fdf4', padding: 16, borderRadius: 12, border: '1px solid #dcfce7', fontStyle: 'italic', color: '#166534' }}>
+                            "{selectedApp.scope || 'No scope defined'}"
+                          </div>
+                        </div>
+                      </div>
+                      <div className="detail-item">
+                        <label>Establishment</label>
+                        <div>{selectedApp.establishment_name}</div>
+                        <div className="text-sm font-normal text-muted">{selectedApp.establishment_address}</div>
+                      </div>
+                      <div className="detail-item">
+                        <label>Operational Stats</label>
+                        <div>{selectedApp.employee_count} Employees</div>
+                        <div className="text-xs font-normal">Schedule: {selectedApp.production_schedule}</div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              <div className="card p-6 mt-6">
-                <h4 className="section-title"><Package size={16}/> Products for Certification</h4>
-                <div className="table-wrap">
-                  <table className="table-sm">
-                    <thead>
-                      <tr><th>Product Name</th><th>Brand</th></tr>
-                    </thead>
-                    <tbody>
-                      {(selectedApp.products || []).map((p, idx) => (
-                        <tr key={idx}><td>{p.name}</td><td>{p.brand}</td></tr>
+                  <div className="detail-card">
+                    <h4 className="section-title"><Package size={18}/> Product List</h4>
+                    <div className="table-wrap" style={{ border: '1px solid #f1f5f9', borderRadius: 12 }}>
+                      <table className="table-sm">
+                        <thead style={{ background: '#f8fafc' }}>
+                          <tr><th>Product Name</th><th>Brand / Label</th><th className="text-right">Category</th></tr>
+                        </thead>
+                        <tbody>
+                          {(selectedApp.products || []).map((p, idx) => (
+                            <tr key={idx}>
+                              <td className="font-bold">{p.name}</td>
+                              <td>{p.brand}</td>
+                              <td className="text-right text-muted">{p.category || 'General'}</td>
+                            </tr>
+                          ))}
+                          {(!selectedApp.products || selectedApp.products.length === 0) && (
+                            <tr><td colSpan="3" className="text-center py-8 opacity-40 italic">No products submitted with this application</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sidebar Info */}
+                <div className="col-span-4">
+                  <div className="detail-card mb-6" style={{ background: '#111827', color: 'white' }}>
+                    <h4 className="section-title" style={{ color: '#86efac', borderColor: 'rgba(255,255,255,0.1)' }}><UserCheck size={18}/> Key Contacts</h4>
+                    <div className="space-y-4">
+                      <div className="detail-item">
+                        <label style={{ color: 'rgba(255,255,255,0.5)' }}>Halal Coordinator</label>
+                        <div style={{ color: 'white' }}>{selectedApp.halal_coordinator || '—'}</div>
+                      </div>
+                      <div className="detail-item">
+                        <label style={{ color: 'rgba(255,255,255,0.5)' }}>QA Manager</label>
+                        <div style={{ color: 'white' }}>{selectedApp.qa_contact || '—'}</div>
+                      </div>
+                      <div className="detail-item">
+                        <label style={{ color: 'rgba(255,255,255,0.5)' }}>Finance Contact</label>
+                        <div style={{ color: 'white' }}>{selectedApp.finance_contact || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="detail-card mb-6">
+                    <h4 className="section-title"><FileText size={18}/> Documents</h4>
+                    <div className="space-y-3">
+                      {selectedApp.documents && Object.entries(selectedApp.documents).map(([key, url]) => (
+                        url && typeof url === 'string' && (
+                          <a key={key} href={url} target="_blank" rel="noreferrer" className="doc-link">
+                            <FileText size={18} />
+                            <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                          </a>
+                        )
                       ))}
-                      {(!selectedApp.products || selectedApp.products.length === 0) && (
-                        <tr><td colSpan="2" className="text-center py-4 opacity-50">No products listed</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    </div>
+                  </div>
 
-              <div className="card p-6 mt-6">
-                <h4 className="section-title"><FileText size={16}/> Uploaded Documents</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedApp.documents && Object.entries(selectedApp.documents).map(([key, url]) => (
-                    url && typeof url === 'string' && (
-                      <a key={key} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white border rounded hover:bg-teal-50 transition-colors no-underline text-inherit">
-                        <FileText size={18} className="text-primary"/>
-                        <span className="text-sm font-semibold capitalize">{key.replace(/_/g, ' ')}</span>
-                        <ChevronRight size={14} className="ml-auto opacity-30"/>
-                      </a>
-                    )
-                  ))}
+                  <div className="detail-card" style={{ background: '#fffbeb', borderColor: '#fef3c7' }}>
+                    <h4 className="section-title" style={{ color: '#92400e', borderColor: '#fde68a' }}><Shield size={18}/> Compliance</h4>
+                    <div className="space-y-4">
+                      <div className={`flex items-center gap-2 font-bold ${selectedApp.has_porcine ? 'text-red' : 'text-green'}`}>
+                        {selectedApp.has_porcine ? <X size={16}/> : <Check size={16}/>}
+                        Porcine Handling: {selectedApp.has_porcine ? 'YES' : 'NO'}
+                      </div>
+                      <div className={`flex items-center gap-2 font-bold ${selectedApp.has_intoxicants ? 'text-red' : 'text-green'}`}>
+                        {selectedApp.has_intoxicants ? <X size={16}/> : <Check size={16}/>}
+                        Intoxicants: {selectedApp.has_intoxicants ? 'YES' : 'NO'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setSelectedApp(null)}>Close View</button>
+            <div className="modal-footer" style={{ background: '#f8fafc' }}>
+              <button className="btn btn-ghost" onClick={() => setSelectedApp(null)}>Dismiss</button>
               <button className="btn btn-primary" onClick={() => { setManageModal(selectedApp); setSelectedApp(null); }}>
-                Update Status / Processing
+                Proceed to Processing
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Manage/Processing Modal */}
       {manageModal && (
         <div className="modal-overlay" onClick={() => setManageModal(null)}>
           <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
@@ -323,21 +360,6 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .dropdown-menu { position: absolute; right: 0; top: 100%; width: 220px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; z-index: 100; padding: 6px; overflow: hidden; animation: slideIn 0.2s ease-out; }
-        .dropdown-menu button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: none; background: none; font-size: 13px; font-weight: 600; color: #4b5563; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s; }
-        .dropdown-menu button:hover { background: #f8fafc; color: var(--primary); }
-        .dropdown-menu button.text-red { color: #ef4444; }
-        .dropdown-menu button.text-red:hover { background: #fef2f2; }
-        .dropdown-menu button.text-green { color: #10b981; }
-        .dropdown-menu button.text-green:hover { background: #f0fdf4; }
-        .dropdown-divider { height: 1px; background: #e2e8f0; margin: 4px 6px; }
-        .detail-item { margin-bottom: 16px; }
-        .detail-item label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
-        .detail-item div { font-weight: 600; color: #1e293b; line-height: 1.5; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-      `}} />
     </div>
   );
 }

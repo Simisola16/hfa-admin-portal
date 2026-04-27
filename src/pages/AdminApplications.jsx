@@ -85,7 +85,7 @@ export default function AdminApplications() {
   };
 
   return (
-    <div className="page-content bg-slate-50">
+    <div className="page-content">
       {/* Quick Stats Header */}
       <div className="flex gap-4 mb-6">
         <div className="stat-card flex-1 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
@@ -139,57 +139,46 @@ export default function AdminApplications() {
         </button>
       </div>
 
-      <div className="card shadow-md border-none overflow-visible">
-        <div className="table-wrap rounded-xl overflow-hidden">
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">All Applications</div>
+            <div className="card-subtitle">All certification applications submitted</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={fetchData}><RefreshCw size={13}/></button>
+        </div>
+        <div className="table-wrap">
           {loading ? (
-            <div className="py-20 flex flex-col items-center justify-center bg-white">
-              <div className="spinner mb-4" />
-              <div className="text-slate-400 font-medium">Synchronizing application records...</div>
-            </div>
+            <div className="loading-overlay"><div className="spinner"/></div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Reference No.</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Client Identity</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Site / Location</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Type & Category</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Created</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-50">
+            <table>
+              <thead><tr>
+                <th>App No.</th>
+                <th>Client / Company</th>
+                <th>Site Name</th>
+                <th>Type &amp; Category</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody>
                 {filtered.map(app => (
-                  <tr key={app._id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="py-4 px-6">
-                      <div className="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-bold inline-block border border-slate-200">
-                        {app.application_number}
-                      </div>
+                  <tr key={app._id}>
+                    <td style={{fontWeight:700,color:'var(--primary)'}}>{app.application_number}</td>
+                    <td>
+                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.company_name || '—'}</div>
+                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.full_name}</div>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="font-extrabold text-slate-800">{app.profiles?.company_name || '—'}</div>
-                      <div className="text-xs text-slate-400 font-medium">{app.profiles?.full_name}</div>
+                    <td style={{fontSize:12}}>{app.site_name || '—'}</td>
+                    <td>
+                      <div style={{fontSize:11,fontWeight:700,color:'var(--primary)',textTransform:'uppercase',marginBottom:2}}>{app.application_type}</div>
+                      <div style={{fontSize:12,color:'var(--text-muted)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</div>
                     </td>
-                    <td className="py-4 px-6 text-sm font-semibold text-slate-600">
-                      {app.site_name || '—'}
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="text-xs font-bold text-primary mb-1 uppercase">{app.application_type}</div>
-                      <div className="text-xs text-slate-400 truncate max-w-[200px]">{app.category}</div>
-                    </td>
-                    <td className="py-4 px-6 text-xs font-bold text-slate-400">
-                      {new Date(app.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${STATUS_BADGE[app.status] || 'badge-gray'}`}>
-                        {app.status === 'approved' ? <Check size={10}/> : <div className="w-1.5 h-1.5 rounded-full bg-current opacity-70"/>}
-                        {app.status?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-center">
+                    <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
+                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`}>{app.status?.replace(/_/g, ' ')}</span></td>
+                    <td style={{textAlign:'center'}}>
                       <button
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-ghost btn-sm"
                         onClick={() => { setManageModal(app); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setModalTab('details'); }}
                       >
                         Manage
@@ -201,12 +190,9 @@ export default function AdminApplications() {
             </table>
           )}
           {!loading && filtered.length === 0 && (
-            <div className="py-32 flex flex-col items-center justify-center bg-white text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
-                <FileText size={40} className="text-slate-200" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">No Applications Found</h3>
-              <p className="text-slate-400 max-w-xs mx-auto">We couldn't find any application matching your current filters. Try a different search term.</p>
+            <div className="empty-state">
+              <div className="empty-state-title">No Applications Found</div>
+              <div className="empty-state-text">No applications match your current search or filter.</div>
             </div>
           )}
         </div>

@@ -59,6 +59,8 @@ export default function AdminApplications() {
     }
   };
 
+  const location = window.location;
+
   useEffect(() => { 
     fetchData(); 
     
@@ -67,6 +69,19 @@ export default function AdminApplications() {
     document.addEventListener('click', handleGlobalClick);
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const appId = searchParams.get('appId');
+    if (appId && apps.length > 0) {
+      const targetApp = apps.find(a => a._id === appId || a.id === appId);
+      if (targetApp) {
+        setManageModal(targetApp);
+        setModalTab('details');
+        window.history.replaceState(null, '', '/applications');
+      }
+    }
+  }, [apps, location.search]);
 
   const filtered = apps.filter(a => {
     const matchSearch = !search || 

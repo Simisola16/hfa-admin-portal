@@ -507,7 +507,7 @@ export default function AdminApplications() {
                           <div 
                             key={step}
                             onClick={() => {
-                              if (step === 'PROPOSAL SENT' && !existingProposal) {
+                              if (step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) {
                                 setProposalForm({
                                   type: 'upload',
                                   title: `Proposal for ${manageModal.application_number}`,

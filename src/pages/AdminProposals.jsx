@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
 export default function AdminProposals() {
+  const [searchParams] = useSearchParams();
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -21,6 +23,16 @@ export default function AdminProposals() {
   useEffect(() => {
     fetchProposals();
   }, []);
+
+  useEffect(() => {
+    const appId = searchParams.get('appId');
+    if (appId && proposals.length > 0) {
+      const target = proposals.find(p => p.application_id?._id === appId);
+      if (target) {
+        setSelected(target);
+      }
+    }
+  }, [proposals, searchParams]);
 
   const filtered = proposals.filter(p => 
     !search || 

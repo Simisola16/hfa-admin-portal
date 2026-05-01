@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
 export default function AdminProposals() {
   const [proposals, setProposals] = useState([]);
@@ -13,7 +13,7 @@ export default function AdminProposals() {
   const fetchProposals = () => {
     setLoading(true);
     api.get('/api/proposals')
-      .then(d => setProposals(d.data || []))
+      .then(d => setProposals(d.data?.data || []))
       .catch(() => toast.error('Failed to load proposals'))
       .finally(() => setLoading(false));
   };
@@ -22,28 +22,11 @@ export default function AdminProposals() {
     fetchProposals();
   }, []);
 
-  const handleStatusUpdate = async (id, status) => {
-    const notes = prompt(`Please provide a reason for ${status}:`);
-    if (notes === null) return;
-    
-    setSubmitting(true);
-    try {
-      await api.put(`/api/proposals/${id}/status`, { status, notes });
-      toast.success(`Proposal ${status} successfully`);
-      fetchProposals();
-      setSelected(null);
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const filtered = proposals.filter(p => 
     !search || 
-    p.reference_number?.toLowerCase().includes(search.toLowerCase()) || 
     p.title?.toLowerCase().includes(search.toLowerCase()) ||
-    p.profiles?.company_name?.toLowerCase().includes(search.toLowerCase())
+    p.application_id?.profiles?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.application_id?.application_number?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -52,7 +35,7 @@ export default function AdminProposals() {
         <div className="search-box">
           <Search size={15} className="search-icon" />
           <input 
-            placeholder="Search proposals by reference, title or company..." 
+            placeholder="Search proposals by title, company or application ref..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -64,8 +47,8 @@ export default function AdminProposals() {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Client Proposals</div>
-          <div className="card-subtitle">Review and approve certification service proposals</div>
+          <div className="card-title">Sent Proposals</div>
+          <div className="card-subtitle">Manage and track certification proposals sent to clients</div>
         </div>
         <div className="table-wrap">
           {loading ? (
@@ -73,40 +56,35 @@ export default function AdminProposals() {
           ) : filtered.length === 0 ? (
             <div className="empty-state">
               <ClipboardList size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
-              <div className="empty-state-title">No proposals found</div>
-              <div className="empty-state-text">Pending proposals from clients will appear here</div>
+              <div className="empty-state-title">No Proposals Found</div>
+              <div className="empty-state-text">Proposals you send to clients from the Applications module will appear here</div>
             </div>
           ) : (
             <table>
               <thead>
                 <tr>
-                  <th>Ref Number</th>
                   <th>Proposal Title</th>
                   <th>Client</th>
-                  <th>Proposed Services</th>
+                  <th>Application Ref</th>
                   <th>Status</th>
-                  <th>Submitted</th>
+                  <th>Date Sent</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(p => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.reference_number}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{p.title}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.title}</div>
                     </td>
                     <td>
-                      <div style={{ fontSize: 13 }}>{p.profiles?.company_name || '—'}</div>
+                      <div style={{ fontWeight: 600 }}>{p.application_id?.profiles?.company_name || '—'}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name}</div>
                     </td>
-                    <td style={{ maxWidth: 250 }}>
-                      <span className="truncate" style={{ display: 'block', fontSize: 12 }}>
-                        {p.proposed_services}
-                      </span>
-                    </td>
+                    <td>{p.application_id?.application_number}</td>
                     <td>
                       <span className={`badge ${
-                        p.status === 'approved' ? 'badge-green' : 
+                        p.status === 'accepted' ? 'badge-green' : 
                         p.status === 'rejected' ? 'badge-red' : 
                         'badge-yellow'
                       }`}>
@@ -116,28 +94,10 @@ export default function AdminProposals() {
                     <td style={{ fontSize: 12 }}>
                       {new Date(p.created_at).toLocaleDateString('en-GB')}
                     </td>
-                    <td style={{ display: 'flex', gap: 6 }}>
+                    <td>
                       <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>
-                        <Eye size={14} />
+                        <Eye size={14} /> View Details
                       </button>
-                      {p.status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ color: 'var(--primary)' }}
-                            onClick={() => handleStatusUpdate(p.id, 'approved')}
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ color: 'var(--danger)' }}
-                            onClick={() => handleStatusUpdate(p.id, 'rejected')}
-                          >
-                            <XCircle size={14} />
-                          </button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -148,56 +108,74 @@ export default function AdminProposals() {
       </div>
 
       {selected && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal" style={{ maxWidth: 640 }}>
+        <div className="modal-overlay" onClick={() => setSelected(null)}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Proposal: {selected.reference_number}</span>
+              <span className="modal-title">Proposal Details</span>
               <button className="modal-close" onClick={() => setSelected(null)}><XCircle size={16}/></button>
             </div>
             <div className="modal-body">
-              <div style={{ marginBottom: 20 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{selected.title}</h3>
-                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
-                  <label className="form-label">Proposed Services & Scope</label>
-                  <div style={{ fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                    {selected.proposed_services}
+              <div style={{ marginBottom: 24 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selected.title}</h3>
+                <div style={{ fontSize: 13, color: '#64748b' }}>Status: <span className="capitalize">{selected.status}</span></div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                <div>
+                  <label className="form-label">Client</label>
+                  <div style={{ fontWeight: 600 }}>{selected.application_id?.profiles?.company_name}</div>
+                </div>
+                <div>
+                  <label className="form-label">Application</label>
+                  <div style={{ fontWeight: 600 }}>{selected.application_id?.application_number}</div>
+                </div>
+              </div>
+
+              {selected.proposal_url && (
+                <div style={{ marginBottom: 24 }}>
+                  <label className="form-label">Proposal Document</label>
+                  <a 
+                    href={selected.proposal_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm"
+                    style={{ gap: 8, marginTop: 4 }}
+                  >
+                    <Download size={14} /> Download PDF
+                  </a>
+                </div>
+              )}
+
+              {selected.admin_comment && (
+                <div className="form-group">
+                  <label className="form-label">Admin Comments (Sent to client)</label>
+                  <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, fontSize: 14, border: '1px solid #e2e8f0' }}>
+                    {selected.admin_comment}
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                <div>
-                  <label className="form-label">Estimated Product Count</label>
-                  <div style={{ fontWeight: 600 }}>{selected.estimated_products || 'Not specified'}</div>
+              {selected.status === 'rejected' && selected.client_comment && (
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#dc2626' }}>Client Rejection Reason</label>
+                  <div style={{ background: '#fef2f2', padding: 12, borderRadius: 8, fontSize: 14, border: '1px solid #fecaca', color: '#991b1b' }}>
+                    {selected.client_comment}
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label">Submission Date</label>
-                  <div>{new Date(selected.created_at).toLocaleString('en-GB')}</div>
+              )}
+              
+              {selected.status === 'accepted' && (
+                <div style={{ background: '#f0fdf4', padding: 16, borderRadius: 12, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <CheckCircle size={20} style={{ color: '#16a34a' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#166534', fontSize: 14 }}>Proposal Accepted</div>
+                    <div style={{ fontSize: 12, color: '#15803d' }}>The client has approved this proposal. You can proceed with invoicing.</div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Client Notes</label>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {selected.description || 'No additional notes provided'}
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--primary-light)', padding: 16, borderRadius: 12 }}>
-                <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase' }}>Client Profile</div>
-                <div style={{ fontWeight: 600 }}>{selected.profiles?.company_name}</div>
-                <div style={{ fontSize: 13 }}>{selected.profiles?.full_name}</div>
-                <div style={{ fontSize: 13, opacity: 0.7 }}>{selected.profiles?.email}</div>
-              </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>
-              {selected.status === 'pending' && (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleStatusUpdate(selected.id, 'rejected')}>Reject Proposal</button>
-                  <button className="btn btn-primary" onClick={() => handleStatusUpdate(selected.id, 'approved')}>Approve & Send Draft Invoice</button>
-                </div>
-              )}
             </div>
           </div>
         </div>

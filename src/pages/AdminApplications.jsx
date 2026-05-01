@@ -45,6 +45,9 @@ export default function AdminApplications() {
   const [submitting, setSubmitting] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [modalTab, setModalTab] = useState('details');
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalForm, setProposalForm] = useState({ title: '', admin_comment: '', file: null });
+  const [existingProposal, setExistingProposal] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -79,6 +82,10 @@ export default function AdminApplications() {
         setManageModal(targetApp);
         setModalTab('details');
         setSearchParams({}, { replace: true });
+        // Check for existing proposal
+        api.get(`/api/proposals/application/${targetApp._id || targetApp.id}`)
+          .then(res => setExistingProposal(res.data?.data || null))
+          .catch(() => setExistingProposal(null));
       }
     }
   }, [apps, searchParams, setSearchParams]);
@@ -499,7 +506,18 @@ export default function AdminApplications() {
                         return (
                           <div 
                             key={step}
-                            onClick={() => setActionForm(f => ({...f, status: step}))}
+                            onClick={() => {
+                              if (step === 'PROPOSAL SENT' && !existingProposal) {
+                                setProposalForm({
+                                  title: `Proposal for ${manageModal.application_number}`,
+                                  admin_comment: '',
+                                  file: null
+                                });
+                                setShowProposalModal(true);
+                                return;
+                              }
+                              setActionForm(f => ({...f, status: step}));
+                            }}
                             style={{
                               background: bgColor,
                               border: `1px solid ${borderColor}`,
@@ -512,7 +530,8 @@ export default function AdminApplications() {
                               textAlign: 'center',
                               padding: '12px 6px',
                               transition: 'all 0.2s',
-                              minHeight: '75px'
+                              minHeight: '75px',
+                              position: 'relative'
                             }}
                           >
                             <div style={{ width: '90%', height: '8px', background: barColor, borderRadius: '4px', marginBottom: '10px' }}></div>
@@ -520,6 +539,11 @@ export default function AdminApplications() {
                               {isCompleted && <CheckCircle size={12} style={{ color: '#22c55e', minWidth: '12px' }}/>}
                               {step}
                             </div>
+                            {step === 'PROPOSAL SENT' && existingProposal && (
+                              <div style={{ position:'absolute', bottom: 4, right: 4, color: '#22c55e' }}>
+                                <Shield size={12} title="Proposal exists" />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -594,6 +618,104 @@ export default function AdminApplications() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      {/* Send Proposal Modal */}
+      {showProposalModal && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Send New Proposal</span>
+              <button className="modal-close" onClick={() => setShowProposalModal(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
+                Upload a proposal document for <strong>{manageModal.profiles?.company_name}</strong>. 
+                This will be visible to the client on their portal.
+              </p>
+              
+              <div className="form-group">
+                <label className="form-label">Proposal Title <span>*</span></label>
+                <input 
+                  className="form-control" 
+                  value={proposalForm.title}
+                  onChange={e => setProposalForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Halal Certification Proposal 2024"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Proposal Document (PDF) <span>*</span></label>
+                <div 
+                  onClick={() => document.getElementById('proposal-file').click()}
+                  style={{ 
+                    border: '2px dashed #e2e8f0', padding: '24px', borderRadius: '12px', 
+                    textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+                    background: proposalForm.file ? '#f0fdf4' : '#fff'
+                  }}
+                  onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                  onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                >
+                  <FileText size={32} style={{ color: proposalForm.file ? '#22c55e' : '#94a3b8', marginBottom: 8 }} />
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {proposalForm.file ? proposalForm.file.name : 'Click to select proposal file'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Only PDF, DOCX or JPG/PNG allowed</div>
+                  <input 
+                    id="proposal-file" 
+                    type="file" 
+                    hidden 
+                    onChange={e => setProposalForm(f => ({ ...f, file: e.target.files[0] }))}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Admin Comments (Optional)</label>
+                <textarea 
+                  className="form-control" 
+                  rows={4}
+                  value={proposalForm.admin_comment}
+                  onChange={e => setProposalForm(f => ({ ...f, admin_comment: e.target.value }))}
+                  placeholder="Add any additional notes for the client..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowProposalModal(false)}>Cancel</button>
+              <button 
+                className="btn btn-primary" 
+                disabled={submitting || !proposalForm.title || !proposalForm.file}
+                onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append('title', proposalForm.title);
+                    formData.append('admin_comment', proposalForm.admin_comment);
+                    formData.append('proposal_file', proposalForm.file);
+                    formData.append('application_id', manageModal._id);
+                    formData.append('client_id', manageModal.client_id);
+                    formData.append('status', 'pending');
+
+                    const res = await api.post('/api/proposals', formData);
+                    setExistingProposal(res.data.data);
+                    
+                    // Automatically update application status to PROPOSAL SENT
+                    await api.put(`/api/applications/${manageModal._id}/status`, { status: 'PROPOSAL SENT' });
+                    
+                    toast.success('Proposal sent and status updated!');
+                    setShowProposalModal(false);
+                    fetchData(); // Refresh list
+                  } catch (err) {
+                    toast.error(err.message || 'Failed to send proposal');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+              >
+                {submitting ? 'Sending...' : 'Send Proposal'}
+              </button>
             </div>
           </div>
         </div>

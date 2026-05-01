@@ -745,11 +745,17 @@ export default function AdminApplications() {
                     } else if (proposalForm.type === 'write' && proposalForm.details) {
                       formData.append('details', proposalForm.details);
                     }
-                    formData.append('application_id', manageModal._id);
-                    formData.append('client_id', manageModal.client_id);
+                    const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
+                    if (!clientId) {
+                      toast.error('Error: Could not identify client ID for this application.');
+                      setSubmitting(false);
+                      return;
+                    }
+                    formData.append('application_id', manageModal._id || manageModal.id);
+                    formData.append('client_id', clientId);
                     formData.append('status', 'pending');
 
-                    const res = await api.post('/api/proposals', formData);
+                    const res = await api.post('/api/proposals', formData, true);
                     setExistingProposal(res.data.data);
                     
                     // Automatically update application status to PROPOSAL SENT

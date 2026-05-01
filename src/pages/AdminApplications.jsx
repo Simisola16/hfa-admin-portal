@@ -46,7 +46,7 @@ export default function AdminApplications() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [modalTab, setModalTab] = useState('details');
   const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposalForm, setProposalForm] = useState({ title: '', admin_comment: '', file: null });
+  const [proposalForm, setProposalForm] = useState({ type: 'upload', title: '', details: '', admin_comment: '', file: null });
   const [existingProposal, setExistingProposal] = useState(null);
 
   const fetchData = async () => {
@@ -509,7 +509,9 @@ export default function AdminApplications() {
                             onClick={() => {
                               if (step === 'PROPOSAL SENT' && !existingProposal) {
                                 setProposalForm({
+                                  type: 'upload',
                                   title: `Proposal for ${manageModal.application_number}`,
+                                  details: '',
                                   admin_comment: '',
                                   file: null
                                 });
@@ -624,16 +626,46 @@ export default function AdminApplications() {
       {/* Send Proposal Modal */}
       {showProposalModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">Send New Proposal</span>
               <button className="modal-close" onClick={() => setShowProposalModal(false)}><X size={18} /></button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
-                Upload a proposal document for <strong>{manageModal.profiles?.company_name}</strong>. 
+                Provide a proposal for <strong>{manageModal.profiles?.company_name}</strong>. 
                 This will be visible to the client on their portal.
               </p>
+
+              {/* Toggle Switch */}
+              <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', marginBottom: '24px' }}>
+                <button
+                  type="button"
+                  onClick={() => setProposalForm(f => ({ ...f, type: 'upload' }))}
+                  style={{
+                    flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+                    background: proposalForm.type === 'upload' ? '#fff' : 'transparent',
+                    color: proposalForm.type === 'upload' ? '#0f172a' : '#64748b',
+                    boxShadow: proposalForm.type === 'upload' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                >
+                  Upload Document
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProposalForm(f => ({ ...f, type: 'write' }))}
+                  style={{
+                    flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+                    background: proposalForm.type === 'write' ? '#fff' : 'transparent',
+                    color: proposalForm.type === 'write' ? '#0f172a' : '#64748b',
+                    boxShadow: proposalForm.type === 'write' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                >
+                  Write Proposal
+                </button>
+              </div>
               
               <div className="form-group">
                 <label className="form-label">Proposal Title <span>*</span></label>
@@ -645,55 +677,73 @@ export default function AdminApplications() {
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Proposal Document (PDF) <span>*</span></label>
-                <div 
-                  onClick={() => document.getElementById('proposal-file').click()}
-                  style={{ 
-                    border: '2px dashed #e2e8f0', padding: '24px', borderRadius: '12px', 
-                    textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
-                    background: proposalForm.file ? '#f0fdf4' : '#fff'
-                  }}
-                  onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                  onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
-                >
-                  <FileText size={32} style={{ color: proposalForm.file ? '#22c55e' : '#94a3b8', marginBottom: 8 }} />
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                    {proposalForm.file ? proposalForm.file.name : 'Click to select proposal file'}
+              {proposalForm.type === 'upload' ? (
+                <div className="form-group">
+                  <label className="form-label">Proposal Document (PDF) <span>*</span></label>
+                  <div 
+                    onClick={() => document.getElementById('proposal-file').click()}
+                    style={{ 
+                      border: '2px dashed #e2e8f0', padding: '32px 24px', borderRadius: '12px', 
+                      textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+                      background: proposalForm.file ? '#f0fdf4' : '#fff'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                  >
+                    <FileText size={40} style={{ color: proposalForm.file ? '#22c55e' : '#94a3b8', marginBottom: 12, margin: '0 auto' }} />
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
+                      {proposalForm.file ? proposalForm.file.name : 'Click to select proposal document'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Only PDF, DOCX or JPG/PNG allowed</div>
+                    <input 
+                      id="proposal-file" 
+                      type="file" 
+                      hidden 
+                      onChange={e => setProposalForm(f => ({ ...f, file: e.target.files[0] }))}
+                    />
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Only PDF, DOCX or JPG/PNG allowed</div>
-                  <input 
-                    id="proposal-file" 
-                    type="file" 
-                    hidden 
-                    onChange={e => setProposalForm(f => ({ ...f, file: e.target.files[0] }))}
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Proposal Details <span>*</span></label>
+                  <textarea 
+                    className="form-control" 
+                    rows={8}
+                    style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.5' }}
+                    value={proposalForm.details}
+                    onChange={e => setProposalForm(f => ({ ...f, details: e.target.value }))}
+                    placeholder="Write your professional proposal here. Include scope, duration, terms, and cost estimates..."
                   />
                 </div>
-              </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Admin Comments (Optional)</label>
                 <textarea 
                   className="form-control" 
-                  rows={4}
+                  rows={3}
                   value={proposalForm.admin_comment}
                   onChange={e => setProposalForm(f => ({ ...f, admin_comment: e.target.value }))}
-                  placeholder="Add any additional notes for the client..."
+                  placeholder="Add any internal notes or additional instructions for the client..."
                 />
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
               <button className="btn btn-ghost" onClick={() => setShowProposalModal(false)}>Cancel</button>
               <button 
                 className="btn btn-primary" 
-                disabled={submitting || !proposalForm.title || !proposalForm.file}
+                disabled={submitting || !proposalForm.title || (proposalForm.type === 'upload' ? !proposalForm.file : !proposalForm.details.trim())}
                 onClick={async () => {
                   setSubmitting(true);
                   try {
                     const formData = new FormData();
                     formData.append('title', proposalForm.title);
                     formData.append('admin_comment', proposalForm.admin_comment);
-                    formData.append('proposal_file', proposalForm.file);
+                    if (proposalForm.type === 'upload' && proposalForm.file) {
+                      formData.append('proposal_file', proposalForm.file);
+                    } else if (proposalForm.type === 'write' && proposalForm.details) {
+                      formData.append('details', proposalForm.details);
+                    }
                     formData.append('application_id', manageModal._id);
                     formData.append('client_id', manageModal.client_id);
                     formData.append('status', 'pending');

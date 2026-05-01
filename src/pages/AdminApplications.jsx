@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 
 const STATUS_BADGE = {
   submitted:'badge-blue', 
@@ -59,7 +59,8 @@ export default function AdminApplications() {
     }
   };
 
-  const location = window.location;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   useEffect(() => { 
     fetchData(); 
@@ -71,17 +72,16 @@ export default function AdminApplications() {
   }, []);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
     const appId = searchParams.get('appId');
     if (appId && apps.length > 0) {
       const targetApp = apps.find(a => a._id === appId || a.id === appId);
       if (targetApp) {
         setManageModal(targetApp);
         setModalTab('details');
-        window.history.replaceState(null, '', '/applications');
+        setSearchParams({}, { replace: true });
       }
     }
-  }, [apps, location.search]);
+  }, [apps, searchParams, setSearchParams]);
 
   const filtered = apps.filter(a => {
     const matchSearch = !search || 

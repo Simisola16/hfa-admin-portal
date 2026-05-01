@@ -44,9 +44,11 @@ export default function App() {
             <Route path="/reports" element={<AdminReports />} />
             <Route path="/proposals" element={<AdminProposals />} />
             <Route path="/exports" element={<AdminExports />} />
+            <Route path="/export" element={<AdminExports />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
             <Route path="/tickets" element={<AdminTickets />} />
+            <Route path="/users" element={<AdminClients />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
-  UserCheck, Calendar, BarChart3, Settings, Shield, Bell, FileBarChart, Briefcase
+  UserCheck, Calendar, BarChart3, Settings, Shield, Bell, FileBarChart,
+  Briefcase, Search, Wrench
 } from 'lucide-react';
 
 const navItems = [
@@ -12,43 +13,45 @@ const navItems = [
   {
     icon: Users, label: 'Manage Company', path: '/clients',
     children: [
-      { label: 'Company List', path: '/clients?category=company' },
+      { label: 'All Clients', path: '/clients' },
       { label: 'Processing List', path: '/clients?category=processing' },
-      { label: 'Review Company List', path: '/clients?category=review' },
-      { label: 'Bin List', path: '/clients?category=bin' },
+      { label: 'Review List', path: '/clients?category=review' },
     ]
   },
   {
     icon: FileText, label: 'Applications', path: '/applications',
     children: [
-      { label: 'Manage Application', path: '/applications' },
-      { label: 'New Application', path: '/applications?type=new' },
-      { label: 'Renewal Application', path: '/applications?type=renewal' },
-      { label: 'Surveillance Application', path: '/applications?type=surveillance' },
+      { label: 'All Applications', path: '/applications' },
+      { label: 'New Applications', path: '/applications?type=new' },
+      { label: 'Renewals', path: '/applications?type=renewal' },
+      { label: 'Surveillance', path: '/applications?type=surveillance' },
     ]
   },
   {
-    icon: ClipboardList, label: 'Logsheet', path: '/logsheet',
+    icon: ClipboardList, label: 'Logsheet', path: '/logsheet/accounts',
     children: [
       { label: 'Account Approval', path: '/logsheet/accounts' },
       { label: 'Product Review', path: '/logsheet/products' },
     ]
   },
   {
-    icon: Award, label: 'Certificate', path: '/certificates',
+    icon: Award, label: 'Certificates', path: '/certificates',
     children: [
-      { label: 'Manage Certificate', path: '/certificates' },
+      { label: 'All Certificates', path: '/certificates' },
       { label: 'Active Certificates', path: '/certificates?status=active' },
       { label: 'Expired Certificates', path: '/certificates?status=expired' },
     ]
   },
-  { icon: Ship, label: 'Export Certificates', path: '/export' },
+  { icon: Ship, label: 'Export Certificates', path: '/exports' },
+  { icon: Calendar, label: 'Audits', path: '/audits' },
+  { icon: Search, label: 'Inspectors', path: '/inspectors' },
+  { icon: Package, label: 'Products', path: '/products' },
+  { icon: MapPin, label: 'Sites', path: '/sites' },
+  { icon: Briefcase, label: 'Proposals', path: '/proposals' },
   { icon: MessageSquare, label: 'Tickets', path: '/tickets' },
-  { icon: UserCheck, label: 'Manage User\'s', path: '/users' },
-  { icon: MessageSquare, label: 'Message', path: '/messages' },
+  { icon: MessageSquare, label: 'Messages', path: '/messages' },
   { icon: FileBarChart, label: 'Invoices', path: '/invoices' },
   { icon: BarChart3, label: 'Analytics & Reports', path: '/reports' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export default function AdminSidebar() {

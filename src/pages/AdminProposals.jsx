@@ -131,7 +131,7 @@ export default function AdminProposals() {
                 </div>
               </div>
 
-              {selected.proposal_url && (
+              {selected.proposal_url ? (
                 <div style={{ marginBottom: 24 }}>
                   <label className="form-label">Proposal Document</label>
                   <a 
@@ -144,7 +144,14 @@ export default function AdminProposals() {
                     <Download size={14} /> Download PDF
                   </a>
                 </div>
-              )}
+              ) : selected.details ? (
+                <div style={{ marginBottom: 24 }}>
+                  <label className="form-label">Proposal Details</label>
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', whiteSpace: 'pre-wrap', fontSize: 14, color: '#334155', lineHeight: '1.6' }}>
+                    {selected.details}
+                  </div>
+                </div>
+              ) : null}
 
               {selected.admin_comment && (
                 <div className="form-group">

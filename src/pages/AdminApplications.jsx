@@ -623,6 +623,7 @@ export default function AdminApplications() {
             </div>
           </div>
         </div>
+      )}
       {/* Send Proposal Modal */}
       {showProposalModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>

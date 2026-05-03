@@ -193,49 +193,37 @@ export default function AdminApplications() {
                       </button>
                       
                       {openDropdown === app._id && (
-                        <div className="dropdown-menu shadow-lg" style={{
-                          position: 'absolute', right: '40px', top: '10px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', zIndex: 100, minWidth: '180px', textAlign: 'left', overflow: 'hidden',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                        }}>
+                        <div className="dropdown-menu">
                           <button 
+                            className="dropdown-item"
                             onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('details'); setOpenDropdown(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#334155', transition: 'background 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                           >
                             <Eye size={16} className="text-muted" /> View Details
                           </button>
                           <button 
+                            className="dropdown-item"
                             onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('processing'); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setOpenDropdown(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#334155', transition: 'background 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                           >
                             <Settings size={16} className="text-muted" /> Processing
                           </button>
                           <button 
+                            className="dropdown-item text-success"
                             onClick={(e) => { e.stopPropagation(); markAsDone(app); setOpenDropdown(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#16a34a', transition: 'background 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#f0fdf4'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                           >
                             <CheckCircle size={16} /> Processing Done
                           </button>
                           <Link 
                             to={`/proposals?appId=${app._id}`}
+                            className="dropdown-item"
                             onClick={(e) => { e.stopPropagation(); setOpenDropdown(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#7c3aed', textDecoration: 'none', transition: 'background 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#faf5ff'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{ color: '#7c3aed' }}
                           >
                             <ExternalLink size={16} /> View Proposal
                           </Link>
                           <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
                           <button 
+                            className="dropdown-item text-danger"
                             onClick={(e) => { e.stopPropagation(); handleDelete(app._id); setOpenDropdown(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#ef4444', transition: 'background 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                           >
                             <Trash2 size={16} /> Delete
                           </button>

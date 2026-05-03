@@ -186,49 +186,11 @@ export default function AdminApplications() {
                         className="btn btn-ghost btn-sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenDropdown(openDropdown === app._id ? null : app._id);
+                          setOpenDropdown(app._id);
                         }}
                       >
                         <MoreVertical size={18} />
                       </button>
-                      
-                      {openDropdown === app._id && (
-                        <div className="dropdown-menu">
-                          <button 
-                            className="dropdown-item"
-                            onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('details'); setOpenDropdown(null); }}
-                          >
-                            <Eye size={16} className="text-muted" /> View Details
-                          </button>
-                          <button 
-                            className="dropdown-item"
-                            onClick={(e) => { e.stopPropagation(); setManageModal(app); setModalTab('processing'); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setOpenDropdown(null); }}
-                          >
-                            <Settings size={16} className="text-muted" /> Processing
-                          </button>
-                          <button 
-                            className="dropdown-item text-success"
-                            onClick={(e) => { e.stopPropagation(); markAsDone(app); setOpenDropdown(null); }}
-                          >
-                            <CheckCircle size={16} /> Processing Done
-                          </button>
-                          <Link 
-                            to={`/proposals?appId=${app._id}`}
-                            className="dropdown-item"
-                            onClick={(e) => { e.stopPropagation(); setOpenDropdown(null); }}
-                            style={{ color: '#7c3aed' }}
-                          >
-                            <ExternalLink size={16} /> View Proposal
-                          </Link>
-                          <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
-                          <button 
-                            className="dropdown-item text-danger"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(app._id); setOpenDropdown(null); }}
-                          >
-                            <Trash2 size={16} /> Delete
-                          </button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -243,6 +205,67 @@ export default function AdminApplications() {
           )}
         </div>
       </div>
+
+      {/* Action Menu Pop-up Modal */}
+      {openDropdown && apps.find(a => a._id === openDropdown) && (
+        <div className="modal-overlay" onClick={() => setOpenDropdown(null)} style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 340, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Select Action</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{apps.find(a => a._id === openDropdown)?.application_number}</div>
+              </div>
+              <button className="modal-close" onClick={() => setOpenDropdown(null)}><X size={20}/></button>
+            </div>
+            <div style={{ padding: '16px' }}>
+              {(() => {
+                const app = apps.find(a => a._id === openDropdown);
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button 
+                      className="dropdown-item"
+                      style={{ padding: '12px 16px', fontSize: 14.5 }}
+                      onClick={() => { setManageModal(app); setModalTab('details'); setOpenDropdown(null); }}
+                    >
+                      <Eye size={18} className="text-muted" /> View Details
+                    </button>
+                    <button 
+                      className="dropdown-item"
+                      style={{ padding: '12px 16px', fontSize: 14.5 }}
+                      onClick={() => { setManageModal(app); setModalTab('processing'); setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' }); setOpenDropdown(null); }}
+                    >
+                      <Settings size={18} className="text-muted" /> Processing
+                    </button>
+                    <button 
+                      className="dropdown-item text-success"
+                      style={{ padding: '12px 16px', fontSize: 14.5 }}
+                      onClick={() => { markAsDone(app); setOpenDropdown(null); }}
+                    >
+                      <CheckCircle size={18} /> Processing Done
+                    </button>
+                    <Link 
+                      to={`/proposals?appId=${app._id}`}
+                      className="dropdown-item"
+                      style={{ padding: '12px 16px', fontSize: 14.5, color: '#7c3aed' }}
+                      onClick={() => { setOpenDropdown(null); }}
+                    >
+                      <ExternalLink size={18} /> View Proposal
+                    </Link>
+                    <div style={{ height: '1px', background: '#e2e8f0', margin: '8px 0' }}></div>
+                    <button 
+                      className="dropdown-item text-danger"
+                      style={{ padding: '12px 16px', fontSize: 14.5 }}
+                      onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}
+                    >
+                      <Trash2 size={18} /> Delete
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View Details Modal */}
       {selectedApp && (

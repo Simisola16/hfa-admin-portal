@@ -13,6 +13,8 @@ const STATUS_BADGE = {
   audit_scheduled:'badge-purple',
   audit_completed:'badge-green', 
   certificate_issued:'badge-green',
+  'PROPOSAL SENT': 'badge-purple',
+  'PROPOSAL ACCEPTED/REJECTED': 'badge-blue',
 };
 
 const ALL_STATUSES = [
@@ -762,7 +764,8 @@ export default function AdminApplications() {
                       setSubmitting(false);
                       return;
                     }
-                    formData.append('application_id', manageModal._id || manageModal.id);
+                    const appId = manageModal._id || manageModal.id;
+                    formData.append('application_id', appId);
                     formData.append('client_id', clientId);
                     formData.append('status', 'pending');
 
@@ -770,7 +773,11 @@ export default function AdminApplications() {
                     setExistingProposal(res.data.data);
                     
                     // Automatically update application status to PROPOSAL SENT
-                    await api.put(`/api/applications/${manageModal._id}/status`, { status: 'PROPOSAL SENT' });
+                    await api.put(`/api/applications/${appId}/status`, { status: 'PROPOSAL SENT' });
+                    
+                    // Immediately update local UI states to reflect the change
+                    setManageModal(prev => ({ ...prev, status: 'PROPOSAL SENT' }));
+                    setActionForm(prev => ({ ...prev, status: 'PROPOSAL SENT' }));
                     
                     toast.success('Proposal sent and status updated!');
                     setShowProposalModal(false);

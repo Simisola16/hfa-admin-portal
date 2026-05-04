@@ -15,7 +15,7 @@ export default function AdminProposals() {
   const fetchProposals = () => {
     setLoading(true);
     api.get('/api/proposals')
-      .then(d => setProposals(d.data?.data || []))
+      .then(d => setProposals(d.data || []))
       .catch(() => toast.error('Failed to load proposals'))
       .finally(() => setLoading(false));
   };

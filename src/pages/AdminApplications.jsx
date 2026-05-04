@@ -86,7 +86,7 @@ export default function AdminApplications() {
         setSearchParams({}, { replace: true });
         // Check for existing proposal
         api.get(`/api/proposals/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingProposal(res.data?.data || null))
+          .then(res => setExistingProposal(res.data || null))
           .catch(() => setExistingProposal(null));
       }
     }
@@ -804,7 +804,7 @@ export default function AdminApplications() {
                     formData.append('status', 'pending');
 
                     const res = await api.post('/api/proposals', formData, true);
-                    setExistingProposal(res.data.data);
+                    setExistingProposal(res.data);
                     
                     // Automatically update application status to PROPOSAL SENT
                     await api.put(`/api/applications/${appId}/status`, { status: 'PROPOSAL SENT' });

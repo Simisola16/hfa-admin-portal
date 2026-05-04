@@ -361,6 +361,15 @@ export default function AdminApplications() {
                     </div>
                   </div>
 
+                  {selectedApp.notes && (
+                    <div className="detail-card mb-6">
+                      <h4 className="section-title"><FileText size={18}/> Additional Notes</h4>
+                      <div style={{ fontSize: 14, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                        {selectedApp.notes}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="detail-card mb-6">
                     <h4 className="section-title"><FileText size={18}/> Documents</h4>
                     <div className="space-y-3">
@@ -482,13 +491,38 @@ export default function AdminApplications() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
                     <span className={`badge ${manageModal.has_porcine ? 'badge-red' : 'badge-green'}`}>
                       {manageModal.has_porcine ? '⚠ Porcine Handling' : '✓ No Porcine'}
                     </span>
                     <span className={`badge ${manageModal.has_intoxicants ? 'badge-red' : 'badge-green'}`}>
                       {manageModal.has_intoxicants ? '⚠ Intoxicants Used' : '✓ No Intoxicants'}
                     </span>
+                  </div>
+
+                  {manageModal.notes && (
+                    <div className="detail-item" style={{ marginBottom: 20 }}>
+                      <label>Additional Notes</label>
+                      <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap' }}>
+                        {manageModal.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="detail-item">
+                    <label>Documents</label>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+                      {manageModal.documents && Object.entries(manageModal.documents).map(([key, url]) => (
+                        url && typeof url === 'string' && (
+                          <a key={key} href={url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ textTransform: 'capitalize' }}>
+                            <FileText size={14} /> {key.replace(/_/g, ' ')}
+                          </a>
+                        )
+                      ))}
+                      {(!manageModal.documents || Object.keys(manageModal.documents).length === 0) && (
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>No documents uploaded.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

@@ -4,14 +4,14 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
-// Fix Cloudinary PDFs stored under /image/upload/ (not openable as PDF)
-// Rewrite to /raw/upload/fl_attachment/ — Supabase URLs pass through unchanged
+// Fix PDF download for Cloudinary-stored files:
+// Inject fl_attachment after /upload/ to force browser download
+// instead of trying to render inline (which fails for PDFs as images).
+// Supabase URLs pass through unchanged.
 function getPdfUrl(url) {
   if (!url) return url;
   if (url.includes('res.cloudinary.com')) {
-    return url
-      .replace('/image/upload/', '/raw/upload/fl_attachment/')
-      .replace('/video/upload/', '/raw/upload/fl_attachment/');
+    return url.replace('/upload/', '/upload/fl_attachment/');
   }
   return url;
 }

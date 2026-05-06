@@ -187,8 +187,8 @@ export default function AdminApplications() {
                   <tr key={app._id}>
                     <td style={{fontWeight:700,color:'var(--primary)'}}>{app.application_number}</td>
                     <td>
-                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.company_name || '—'}</div>
-                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.full_name}</div>
+                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.company_name || app.establishment_name || '—'}</div>
+                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.full_name || 'No contact name'}</div>
                     </td>
                     <td style={{fontSize:12}}>{app.site_name || '—'}</td>
                     <td>
@@ -303,8 +303,8 @@ export default function AdminApplications() {
                     <div className="grid grid-cols-2 gap-x-12 gap-y-6">
                       <div className="detail-item">
                         <label>Registered Company</label>
-                        <div style={{ fontSize: 16 }}>{selectedApp.profiles?.company_name}</div>
-                        <div className="text-sm text-muted">{selectedApp.profiles?.full_name}</div>
+                        <div style={{ fontSize: 16 }}>{selectedApp.profiles?.company_name || selectedApp.establishment_name || '—'}</div>
+                        <div className="text-sm text-muted">{selectedApp.profiles?.full_name || 'No contact name'}</div>
                       </div>
                       <div className="detail-item">
                         <label>Application Type</label>
@@ -628,7 +628,7 @@ export default function AdminApplications() {
                             </tr>
                             <tr>
                               <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Registered Company:</td>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', color: '#0f172a' }}>{manageModal.profiles?.company_name || '—'}</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', color: '#0f172a' }}>{manageModal.profiles?.company_name || manageModal.establishment_name || '—'}</td>
                             </tr>
                             <tr>
                               <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Application Date:</td>

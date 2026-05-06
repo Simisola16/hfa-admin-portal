@@ -110,7 +110,7 @@ export default function AdminClients() {
                   {filtered.map(c => (
                     <tr key={c._id}>
                       <td>
-                        <div style={{ fontWeight: 700, color: '#111827' }}>{c.company_name || '—'}</div>
+                        <div style={{ fontWeight: 700, color: '#111827' }}>{c.company_name || c.full_name || '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.email}</div>
                       </td>
                       <td>

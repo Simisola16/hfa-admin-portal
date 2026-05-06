@@ -98,7 +98,7 @@ export default function AdminDashboard() {
                   {recentApps.map(app=>(
                     <tr key={app.id || app._id}>
                       <td style={{fontWeight:700,color:'var(--primary)'}}>{app.application_number}</td>
-                      <td>{app.profiles?.company_name||'—'}</td>
+                      <td>{app.profiles?.company_name || app.establishment_name || '—'}</td>
                       <td style={{maxWidth:180}}><span className="truncate" style={{display:'block',fontSize:12}}>{app.category}</span></td>
                       <td>{app.site_name||'—'}</td>
                       <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>

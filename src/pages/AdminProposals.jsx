@@ -105,8 +105,8 @@ export default function AdminProposals() {
                       <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.title}</div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{p.application_id?.profiles?.company_name || '—'}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name}</div>
+                      <div style={{ fontWeight: 600 }}>{p.application_id?.profiles?.company_name || p.application_id?.establishment_name || '—'}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name || 'No contact name'}</div>
                     </td>
                     <td>{p.application_id?.application_number}</td>
                     <td>

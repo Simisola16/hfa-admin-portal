@@ -26,6 +26,20 @@ export const api = {
   post: (path, body, isFormData) => request('POST', path, body, isFormData),
   put: (path, body) => request('PUT', path, body),
   delete: (path) => request('DELETE', path),
+
+  /**
+   * Upload a PDF (or image) to Supabase Storage via the backend.
+   * @param {File}   file   - The File object from an <input type="file">
+   * @param {string} folder - Storage folder, e.g. 'proposals', 'invoices'
+   * @returns {Promise<string>} public Supabase URL
+   */
+  uploadPdf: async (file, folder = 'general') => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+    const data = await request('POST', '/api/upload', form, true);
+    return data.url;
+  },
 };
 
 export default api;

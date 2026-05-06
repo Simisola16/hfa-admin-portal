@@ -4,6 +4,20 @@ import toast from 'react-hot-toast';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity } from 'lucide-react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 
+const getPdfUrl = (url) => {
+  if (!url) return '#';
+  if (url.startsWith('/api/files/')) {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+    return `${API_URL}${url}`;
+  }
+  if (url.includes('res.cloudinary.com')) {
+    if (url.includes('/upload/') && !url.includes('fl_attachment')) {
+      return url.replace('/upload/', '/upload/fl_attachment/');
+    }
+  }
+  return url;
+};
+
 const STATUS_BADGE = {
   submitted:'badge-blue', 
   under_review:'badge-yellow', 
@@ -375,7 +389,7 @@ export default function AdminApplications() {
                     <div className="space-y-3">
                       {selectedApp.documents && Object.entries(selectedApp.documents).map(([key, url]) => (
                         url && typeof url === 'string' && (
-                          <a key={key} href={url} target="_blank" rel="noreferrer" className="doc-link">
+                          <a key={key} href={getPdfUrl(url)} target="_blank" rel="noreferrer" className="doc-link">
                             <FileText size={18} />
                             <span className="capitalize">{key.replace(/_/g, ' ')}</span>
                           </a>
@@ -514,7 +528,7 @@ export default function AdminApplications() {
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                       {manageModal.documents && Object.entries(manageModal.documents).map(([key, url]) => (
                         url && typeof url === 'string' && (
-                          <a key={key} href={url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ textTransform: 'capitalize' }}>
+                          <a key={key} href={getPdfUrl(url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ textTransform: 'capitalize' }}>
                             <FileText size={14} /> {key.replace(/_/g, ' ')}
                           </a>
                         )

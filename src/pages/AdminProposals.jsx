@@ -4,17 +4,20 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
-// Fix PDF download for Cloudinary-stored files:
-// Inject fl_attachment after /upload/ to force browser download
-// instead of trying to render inline (which fails for PDFs as images).
-// Supabase URLs pass through unchanged.
-function getPdfUrl(url) {
-  if (!url) return url;
+const getPdfUrl = (url) => {
+  if (!url) return '#';
+  if (url.startsWith('/api/files/')) {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+    return `${API_URL}${url}`;
+  }
+  // For old Cloudinary files that weren't migrated
   if (url.includes('res.cloudinary.com')) {
-    return url.replace('/upload/', '/upload/fl_attachment/');
+    if (url.includes('/upload/') && !url.includes('fl_attachment')) {
+      return url.replace('/upload/', '/upload/fl_attachment/');
+    }
   }
   return url;
-}
+};
 
 export default function AdminProposals() {
   const [searchParams] = useSearchParams();

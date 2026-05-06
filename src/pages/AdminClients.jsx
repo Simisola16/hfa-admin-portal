@@ -32,8 +32,8 @@ export default function AdminClients() {
       // Companies with applications but none approved yet
       if (!isActive || c.appCount === 0 || c.approvedAppCount > 0) return false;
     } else if (category === 'company') {
-      // Certified companies (at least one approved application)
-      if (!isActive || (c.approvedAppCount || 0) === 0) return false;
+      // Show all active registered companies
+      if (!isActive) return false;
     }
 
     // 2. Search Filtering

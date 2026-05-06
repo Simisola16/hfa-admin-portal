@@ -4,6 +4,18 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
+// Fix Cloudinary PDFs stored under /image/upload/ (not openable as PDF)
+// Rewrite to /raw/upload/fl_attachment/ — Supabase URLs pass through unchanged
+function getPdfUrl(url) {
+  if (!url) return url;
+  if (url.includes('res.cloudinary.com')) {
+    return url
+      .replace('/image/upload/', '/raw/upload/fl_attachment/')
+      .replace('/video/upload/', '/raw/upload/fl_attachment/');
+  }
+  return url;
+}
+
 export default function AdminProposals() {
   const [searchParams] = useSearchParams();
   const [proposals, setProposals] = useState([]);
@@ -147,7 +159,7 @@ export default function AdminProposals() {
                 <div style={{ marginBottom: 24 }}>
                   <label className="form-label">Proposal Document</label>
                   <a 
-                    href={selected.proposal_url} 
+                    href={getPdfUrl(selected.proposal_url)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="btn btn-outline btn-sm"

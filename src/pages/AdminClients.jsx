@@ -24,16 +24,16 @@ export default function AdminClients() {
     
     // 1. Category Filtering
     if (category === 'bin') {
-      if (isActive) return false; // Only show suspended in Bin
+      if (isActive) return false; // Only show suspended/inactive in Bin
     } else if (category === 'review') {
       // New companies with no applications yet
-      if (!isActive || c.appCount > 0) return false;
+      if (c.appCount > 0) return false;
     } else if (category === 'processing') {
       // Companies with applications but none approved yet
-      if (!isActive || c.appCount === 0 || c.approvedAppCount > 0) return false;
+      if (c.appCount === 0 || c.approvedAppCount > 0) return false;
     } else if (category === 'company') {
-      // Show all active registered companies
-      if (!isActive) return false;
+      // Show all registered companies
+      return true;
     }
 
     // 2. Search Filtering
@@ -56,10 +56,10 @@ export default function AdminClients() {
   };
 
   const getTitle = () => {
-    if (category === 'review') return 'Review Companies (New Signups)';
+    if (category === 'review') return 'Review Companies (No Applications)';
     if (category === 'processing') return 'Processing List (Pending Applications)';
-    if (category === 'bin') return 'Bin List (Suspended Companies)';
-    return 'Company List (Certified Clients)';
+    if (category === 'bin') return 'Bin List (Suspended / Inactive)';
+    return 'Company List (All Registered Clients)';
   };
 
   const getIcon = () => {

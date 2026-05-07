@@ -93,6 +93,7 @@ export default function AdminProposals() {
                   <th>Proposal Title</th>
                   <th>Client</th>
                   <th>Application Ref</th>
+                  <th>Est. Cost</th>
                   <th>Status</th>
                   <th>Date Sent</th>
                   <th>Actions</th>
@@ -109,6 +110,7 @@ export default function AdminProposals() {
                       <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name || 'No contact name'}</div>
                     </td>
                     <td>{p.application_id?.application_number}</td>
+                    <td style={{ fontWeight: 600 }}>£{p.estimated_cost || p.amount || '—'}</td>
                     <td>
                       <span className={`badge ${
                         p.status === 'accepted' ? 'badge-green' : 
@@ -144,7 +146,10 @@ export default function AdminProposals() {
             <div className="modal-body">
               <div style={{ marginBottom: 24 }}>
                 <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selected.title}</h3>
-                <div style={{ fontSize: 13, color: '#64748b' }}>Status: <span className="capitalize">{selected.status}</span></div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>Status: <span className="capitalize">{selected.status}</span></div>
+                  {selected.estimated_cost && <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', background: '#f0fdf4', padding: '2px 8px', borderRadius: 4 }}>Cost: £{selected.estimated_cost}</div>}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>

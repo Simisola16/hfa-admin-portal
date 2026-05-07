@@ -29,6 +29,7 @@ const STATUS_BADGE = {
   certificate_issued:'badge-green',
   'PROPOSAL SENT': 'badge-purple',
   'PROPOSAL ACCEPTED/REJECTED': 'badge-blue',
+  'PROPOSAL REJECTED': 'badge-red',
 };
 
 const ALL_STATUSES = [
@@ -549,7 +550,12 @@ export default function AdminApplications() {
                     {/* 15-Step Progress Tracker */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '40px' }}>
                       {ALL_STATUSES.map((step, idx) => {
-                        const currentIndex = Math.max(0, ALL_STATUSES.indexOf(actionForm.status || manageModal.status || 'APPLICATION RECEIVED'));
+                        const currentStatus = actionForm.status || manageModal.status || 'APPLICATION RECEIVED';
+                        let currentIndex = ALL_STATUSES.indexOf(currentStatus);
+                        
+                        // Handle Alternative status names
+                        if (currentStatus === 'PROPOSAL REJECTED') currentIndex = 3; // Index of PROPOSAL ACCEPTED/REJECTED
+                        
                         const isCompleted = idx <= currentIndex;
                         
                         let barColor = '#cbd5e1'; 
@@ -650,6 +656,20 @@ export default function AdminApplications() {
                               <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Application Status:</td>
                               <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{actionForm.status || manageModal.status || 'APPLICATION RECEIVED'}</td>
                             </tr>
+                            {existingProposal && (
+                              <>
+                                <tr>
+                                  <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Latest Proposal Status:</td>
+                                  <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: existingProposal.status === 'rejected' ? '#ef4444' : '#16a34a' }}>
+                                    {existingProposal.status?.toUpperCase()}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Estimated Cost:</td>
+                                  <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>£{existingProposal.estimated_cost || '—'}</td>
+                                </tr>
+                              </>
+                            )}
                           </tbody>
                         </table>
                       </div>

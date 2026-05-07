@@ -53,7 +53,6 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
-  const [readIds, setReadIds] = useState(new Set());
   const panelRef = useRef();
 
   const fetchNotifs = async () => {
@@ -61,7 +60,7 @@ export default function AdminLayout() {
     try {
       const res = await api.get('/api/notifications');
       setNotifications(res.data || []);
-      setUnread(res.unread || 0);
+      setUnread(res.unreadCount || 0);
     } catch {
       setNotifications([]);
     } finally {
@@ -69,7 +68,12 @@ export default function AdminLayout() {
     }
   };
 
-  useEffect(() => { fetchNotifs(); }, []);
+  useEffect(() => { 
+    fetchNotifs();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchNotifs, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -84,19 +88,29 @@ export default function AdminLayout() {
     setShowNotifs(v => !v);
   };
 
-  const markAllRead = () => {
-    setReadIds(new Set(notifications.map(n => n.id)));
-    setUnread(0);
+  const markAllRead = async () => {
+    try {
+      await api.put('/api/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnread(0);
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
-  const handleNotifClick = (n) => {
-    setReadIds(prev => new Set([...prev, n.id]));
-    setUnread(prev => Math.max(0, prev - 1));
+  const handleNotifClick = async (n) => {
+    if (!n.is_read) {
+      try {
+        await api.put(`/api/notifications/${n._id}/read`);
+        setNotifications(prev => prev.map(item => item._id === n._id ? { ...item, is_read: true } : item));
+        setUnread(prev => Math.max(0, prev - 1));
+      } catch (err) {
+        console.error('Failed to mark as read:', err);
+      }
+    }
     setShowNotifs(false);
     if (n.link) navigate(n.link);
   };
-
-  const effectiveUnread = Math.max(0, unread - readIds.size);
 
   return (
     <div className="app-layout">
@@ -118,68 +132,71 @@ export default function AdminLayout() {
                 style={{ position: 'relative' }}
               >
                 <Bell size={17} />
-                {effectiveUnread > 0 && (
+                {unread > 0 && (
                   <span style={{
                     position: 'absolute', top: 2, right: 2,
                     background: '#ef4444', color: 'white', borderRadius: '50%',
                     width: 16, height: 16, fontSize: 10, fontWeight: 800,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     lineHeight: 1, border: '2px solid white'
-                  }}>{effectiveUnread > 9 ? '9+' : effectiveUnread}</span>
+                  }}>{unread > 9 ? '9+' : unread}</span>
                 )}
               </button>
 
               {showNotifs && (
-                <div style={{
+                <div className="shadow-lg animate-in" style={{
                   position: 'absolute', right: 0, top: 'calc(100% + 10px)',
                   width: 380, maxHeight: 500, overflowY: 'auto',
                   background: 'white', border: '1px solid #e2e8f0',
-                  borderRadius: 14, boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
+                  borderRadius: 16, boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
                   zIndex: 9999
                 }}>
                   {/* Header */}
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
+                  <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 15 }}>Notifications</div>
-                      {effectiveUnread > 0 && <div style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>{effectiveUnread} unread</div>}
+                      <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>Notifications</div>
+                      {unread > 0 && <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>{unread} unread alerts</div>}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {effectiveUnread > 0 && <button onClick={markAllRead} style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: 'none', border: 'none', cursor: 'pointer' }}>Mark all read</button>}
-                      <button onClick={() => setShowNotifs(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center' }}><X size={16} /></button>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {unread > 0 && <button onClick={markAllRead} style={{ fontSize: 12, fontWeight: 700, color: '#15803d', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Mark all read</button>}
+                      <button onClick={() => setShowNotifs(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 6 }}><X size={16} /></button>
                     </div>
                   </div>
 
                   {/* List */}
-                  {notifLoading ? (
-                    <div style={{ padding: 32, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+                  {notifLoading && notifications.length === 0 ? (
+                    <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
                   ) : notifications.length === 0 ? (
-                    <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
-                      <Bell size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
-                      <div style={{ fontWeight: 600 }}>All clear!</div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>No new notifications.</div>
+                    <div style={{ padding: '60px 24px', textAlign: 'center', color: '#94a3b8' }}>
+                      <div style={{ background: '#f8fafc', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <Bell size={32} style={{ opacity: 0.3 }} />
+                      </div>
+                      <div style={{ fontWeight: 700, color: '#475569' }}>All clear!</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>You have no new notifications.</div>
                     </div>
                   ) : (
                     notifications.map(n => {
-                      const isRead = readIds.has(n.id);
+                      const isRead = n.is_read;
                       return (
                         <div
-                          key={n.id}
+                          key={n._id}
                           onClick={() => handleNotifClick(n)}
                           style={{
-                            padding: '14px 20px', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start',
+                            padding: '16px 24px', cursor: 'pointer', display: 'flex', gap: 14, alignItems: 'flex-start',
                             background: isRead ? 'white' : TYPE_BG[n.type] || '#f8fafc',
-                            borderBottom: '1px solid #f8fafc', transition: 'background 0.15s'
+                            borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.97)'}
-                          onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                          className="hover-notif"
                         >
-                          <div style={{ marginTop: 2 }}>{TYPE_ICON[n.type] || TYPE_ICON.info}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: isRead ? 500 : 700, fontSize: 13, color: '#0f172a', marginBottom: 2 }}>{n.title}</div>
-                            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.4 }}>{n.message}</div>
-                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{timeAgo(n.time)}</div>
+                          <div style={{ marginTop: 2, background: isRead ? '#f1f5f9' : 'white', padding: 8, borderRadius: 10, display: 'flex' }}>
+                            {TYPE_ICON[n.type] || TYPE_ICON.info}
                           </div>
-                          {!isRead && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#15803d', marginTop: 6, flexShrink: 0 }} />}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: isRead ? 600 : 800, fontSize: 14, color: isRead ? '#475569' : '#0f172a', marginBottom: 2 }}>{n.title}</div>
+                            <div style={{ fontSize: 13, color: isRead ? '#64748b' : '#334155', lineHeight: 1.5 }}>{n.message}</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, fontWeight: 500 }}>{timeAgo(n.created_at)}</div>
+                          </div>
+                          {!isRead && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#15803d', marginTop: 6, flexShrink: 0, boxShadow: '0 0 0 4px #dcfce7' }} />}
                         </div>
                       );
                     })
@@ -189,13 +206,13 @@ export default function AdminLayout() {
             </div>
 
             {/* Admin Avatar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
-              <div className="sidebar-avatar" style={{ width: 32, height: 32, fontSize: 12, background: 'var(--primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 16, borderLeft: '1px solid var(--border)' }}>
+              <div className="sidebar-avatar" style={{ width: 36, height: 36, fontSize: 13, background: 'var(--primary)', fontWeight: 700 }}>
                 {profile?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'A'}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{profile?.full_name || 'Admin'}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}><Shield size={10} /> Administrator</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{profile?.full_name || 'Admin'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}><Shield size={10} /> Administrator</span>
               </div>
             </div>
           </div>

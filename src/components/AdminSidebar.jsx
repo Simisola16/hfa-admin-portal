@@ -13,9 +13,10 @@ const navItems = [
   {
     icon: Users, label: 'Manage Company', path: '/clients',
     children: [
-      { label: 'All Clients', path: '/clients' },
-      { label: 'Processing List', path: '/clients?category=processing' },
       { label: 'Review List', path: '/clients?category=review' },
+      { label: 'Processing List', path: '/clients?category=processing' },
+      { label: 'All Clients', path: '/clients' },
+      { label: 'Bin List', path: '/clients?category=bin' },
     ]
   },
   {

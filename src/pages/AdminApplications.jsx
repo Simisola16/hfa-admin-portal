@@ -62,7 +62,7 @@ export default function AdminApplications() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [modalTab, setModalTab] = useState('details');
   const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposalForm, setProposalForm] = useState({ type: 'upload', title: '', details: '', admin_comment: '', file: null });
+  const [proposalForm, setProposalForm] = useState({ type: 'upload', title: '', estimated_cost: '', details: '', admin_comment: '', file: null });
   const [existingProposal, setExistingProposal] = useState(null);
 
   const fetchData = async () => {
@@ -564,6 +564,13 @@ export default function AdminApplications() {
                           borderColor = '#bbf7d0';
                         }
 
+                        // Special case: PROPOSAL SENT and it was rejected
+                        if (step === 'PROPOSAL SENT' && existingProposal?.status === 'rejected') {
+                          barColor = '#ef4444'; // red
+                          bgColor = '#fef2f2';
+                          borderColor = '#fecaca';
+                        }
+
                         return (
                           <div 
                             key={step}
@@ -572,6 +579,7 @@ export default function AdminApplications() {
                                 setProposalForm({
                                   type: 'upload',
                                   title: `Proposal for ${manageModal.application_number}`,
+                                  estimated_cost: existingProposal?.estimated_cost || '',
                                   details: '',
                                   admin_comment: '',
                                   file: null
@@ -743,6 +751,17 @@ export default function AdminApplications() {
                 />
               </div>
 
+              <div className="form-group">
+                <label className="form-label">Estimated Cost (£) <span>*</span></label>
+                <input 
+                  type="number"
+                  className="form-control" 
+                  value={proposalForm.estimated_cost}
+                  onChange={e => setProposalForm(f => ({ ...f, estimated_cost: e.target.value }))}
+                  placeholder="e.g. 500.00"
+                />
+              </div>
+
               {proposalForm.type === 'upload' ? (
                 <div className="form-group">
                   <label className="form-label">Proposal Document (PDF) <span>*</span></label>
@@ -804,6 +823,7 @@ export default function AdminApplications() {
                   try {
                     const formData = new FormData();
                     formData.append('title', proposalForm.title);
+                    formData.append('estimated_cost', proposalForm.estimated_cost);
                     formData.append('admin_comment', proposalForm.admin_comment);
                     if (proposalForm.type === 'upload' && proposalForm.file) {
                       formData.append('proposal_file', proposalForm.file);

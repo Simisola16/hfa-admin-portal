@@ -163,23 +163,37 @@ export default function AdminClients() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {c.suspension_reason || c.is_active === false ? (
-                          <button 
-                            className="btn btn-primary btn-sm" 
-                            style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600 }}
-                            onClick={() => handleStatusChange(c._id, true)}
-                          >
-                            Activate Account
-                          </button>
-                        ) : (
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ color: '#ef4444', fontWeight: 600 }}
-                            onClick={() => setSuspensionModal(c)}
-                          >
-                            Suspend
-                          </button>
-                        )}
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          {(c.suspension_reason || c.is_active === false || category === 'review') && (
+                            <button 
+                              className="btn btn-primary btn-sm" 
+                              style={{ 
+                                background: (c.is_active !== false && category === 'review') ? '#94a3b8' : '#10b981', 
+                                borderColor: (c.is_active !== false && category === 'review') ? '#94a3b8' : '#10b981', 
+                                fontWeight: 600,
+                                opacity: (c.is_active !== false && category === 'review') ? 0.6 : 1,
+                                cursor: (c.is_active !== false && category === 'review') ? 'default' : 'pointer'
+                              }}
+                              onClick={() => {
+                                if (c.is_active === false || c.suspension_reason) {
+                                  handleStatusChange(c._id, true);
+                                }
+                              }}
+                              disabled={c.is_active !== false && category === 'review' && !c.suspension_reason}
+                            >
+                              {c.is_active !== false && !c.suspension_reason ? 'Already Active' : 'Activate'}
+                            </button>
+                          )}
+                          {!c.suspension_reason && (
+                            <button 
+                              className="btn btn-ghost btn-sm" 
+                              style={{ color: '#ef4444', fontWeight: 600, border: '1px solid #fee2e2' }}
+                              onClick={() => setSuspensionModal(c)}
+                            >
+                              Suspend
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

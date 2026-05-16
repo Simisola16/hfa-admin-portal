@@ -557,6 +557,7 @@ export default function AdminApplications() {
                         if (currentStatus === 'PROPOSAL REJECTED') currentIndex = 3; // Index of PROPOSAL ACCEPTED/REJECTED
                         
                         const isCompleted = idx <= currentIndex;
+                        const isProposalRejected = step === 'PROPOSAL SENT' && existingProposal?.status === 'rejected';
                         
                         let barColor = '#cbd5e1'; 
                         let textColor = '#64748b';
@@ -564,17 +565,18 @@ export default function AdminApplications() {
                         let borderColor = '#e2e8f0';
                         
                         if (isCompleted) {
-                          barColor = '#22c55e'; // green
+                          barColor = '#22c55e';
                           textColor = '#0f172a';
                           bgColor = '#f0fdf4';
                           borderColor = '#bbf7d0';
                         }
 
-                        // Special case: PROPOSAL SENT and it was rejected
-                        if (step === 'PROPOSAL SENT' && existingProposal?.status === 'rejected') {
-                          barColor = '#ef4444'; // red
+                        // Special case: PROPOSAL SENT and it was rejected — override with red
+                        if (isProposalRejected) {
+                          barColor = '#ef4444';
                           bgColor = '#fef2f2';
                           borderColor = '#fecaca';
+                          textColor = '#dc2626';
                         }
 
                         return (
@@ -585,7 +587,7 @@ export default function AdminApplications() {
                                 setProposalForm({
                                   type: 'upload',
                                   title: `Proposal for ${manageModal.application_number}`,
-                                  estimated_cost: existingProposal?.estimated_cost || '',
+                                  estimated_cost: '',
                                   details: '',
                                   admin_comment: '',
                                   file: null
@@ -597,9 +599,9 @@ export default function AdminApplications() {
                             }}
                             style={{
                               background: bgColor,
-                              border: `1px solid ${borderColor}`,
+                              border: `2px solid ${borderColor}`,
                               borderRadius: '8px',
-                              cursor: 'pointer',
+                              cursor: (step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) ? 'pointer' : 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
@@ -608,15 +610,19 @@ export default function AdminApplications() {
                               padding: '12px 6px',
                               transition: 'all 0.2s',
                               minHeight: '75px',
-                              position: 'relative'
+                              position: 'relative',
+                              boxShadow: isProposalRejected ? '0 0 0 3px rgba(239,68,68,0.15)' : 'none'
                             }}
                           >
                             <div style={{ width: '90%', height: '8px', background: barColor, borderRadius: '4px', marginBottom: '10px' }}></div>
                             <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, textTransform: 'uppercase', display: 'flex', gap: '4px', alignItems: 'center', lineHeight: '1.2' }}>
-                              {isCompleted && <CheckCircle size={12} style={{ color: '#22c55e', minWidth: '12px' }}/>}
+                              {isProposalRejected ? <X size={12} style={{ color: '#ef4444', minWidth: '12px' }}/> : isCompleted && <CheckCircle size={12} style={{ color: '#22c55e', minWidth: '12px' }}/>}
                               {step}
                             </div>
-                            {step === 'PROPOSAL SENT' && existingProposal && (
+                            {isProposalRejected && (
+                              <div style={{ position:'absolute', bottom: 4, fontSize: '8px', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase' }}>REJECTED</div>
+                            )}
+                            {step === 'PROPOSAL SENT' && existingProposal && existingProposal.status !== 'rejected' && (
                               <div style={{ position:'absolute', bottom: 4, right: 4, color: '#22c55e' }}>
                                 <Shield size={12} title="Proposal exists" />
                               </div>
@@ -625,6 +631,34 @@ export default function AdminApplications() {
                         );
                       })}
                     </div>
+
+                    {/* Rejected Proposal Alert Banner */}
+                    {existingProposal?.status === 'rejected' && (
+                      <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)', border: '1.5px solid #fca5a5', borderRadius: '12px', padding: '18px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <div style={{ width: 40, height: 40, background: '#fee2e2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <X size={20} style={{ color: '#dc2626' }} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: '#991b1b', marginBottom: 3 }}>Proposal Rejected by Client</div>
+                            <div style={{ fontSize: 12, color: '#b91c1c', lineHeight: 1.4 }}>
+                              {existingProposal.client_comment ? `"${existingProposal.client_comment}"` : 'The client has declined the previous proposal. Please review and send a revised proposal.'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', border: 'none', whiteSpace: 'nowrap', fontSize: 13, padding: '10px 20px' }}
+                          onClick={() => {
+                            setProposalForm({ type: 'upload', title: `Revised Proposal for ${manageModal.application_number}`, estimated_cost: '', details: '', admin_comment: '', file: null });
+                            setShowProposalModal(true);
+                          }}
+                        >
+                          ↗ Resend New Proposal
+                        </button>
+                      </div>
+                    )}
 
                     {/* Application Details Table */}
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '40px 32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
@@ -717,12 +751,17 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
-      {/* Send Proposal Modal */}
+      {/* Send / Resend Proposal Modal */}
       {showProposalModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">Send New Proposal</span>
+            <div className="modal-header" style={{ background: existingProposal?.status === 'rejected' ? 'linear-gradient(135deg, #fef2f2, #fff)' : undefined, borderBottom: existingProposal?.status === 'rejected' ? '2px solid #fecaca' : undefined }}>
+              <div>
+                <span className="modal-title">{existingProposal?.status === 'rejected' ? '↗ Resend Revised Proposal' : 'Send New Proposal'}</span>
+                {existingProposal?.status === 'rejected' && (
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Client rejected the previous proposal — send a new one</div>
+                )}
+              </div>
               <button className="modal-close" onClick={() => setShowProposalModal(false)}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
@@ -881,7 +920,7 @@ export default function AdminApplications() {
                   }
                 }}
               >
-                {submitting ? 'Sending...' : 'Send Proposal'}
+                {submitting ? 'Sending...' : (existingProposal?.status === 'rejected' ? 'Resend Revised Proposal' : 'Send Proposal')}
               </button>
             </div>
           </div>

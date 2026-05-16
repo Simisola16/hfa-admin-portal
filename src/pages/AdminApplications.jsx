@@ -693,58 +693,58 @@ export default function AdminApplications() {
                       </div>
                     )}
 
-                    {/* Client-Uploaded Invoice Viewer */}
+                    {/* Invoice Viewer */}
                     {existingInvoice && (
-                      <div style={{ border: '1.5px solid #86efac', borderRadius: 14, overflow: 'hidden', marginBottom: 20, boxShadow: '0 4px 16px rgba(22,163,74,0.08)' }}>
+                      <div style={{ border: `1.5px solid ${existingInvoice.status === 'client_paid' ? '#60a5fa' : '#86efac'}`, borderRadius: 14, overflow: 'hidden', marginBottom: 20, boxShadow: existingInvoice.status === 'client_paid' ? '0 4px 16px rgba(59,130,246,0.08)' : '0 4px 16px rgba(22,163,74,0.08)' }}>
 
                         {/* Header bar */}
-                        <div style={{ background: 'linear-gradient(135deg,#f0fdf4,#f7fef9)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                        <div style={{ background: existingInvoice.status === 'client_paid' ? 'linear-gradient(135deg,#eff6ff,#f8fafc)' : 'linear-gradient(135deg,#f0fdf4,#f7fef9)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <div style={{ width: 42, height: 42, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <Receipt size={20} style={{ color: '#16a34a' }} />
+                            <div style={{ width: 42, height: 42, background: existingInvoice.status === 'client_paid' ? '#dbeafe' : '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Receipt size={20} style={{ color: existingInvoice.status === 'client_paid' ? '#2563eb' : '#16a34a' }} />
                             </div>
                             <div>
-                              <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 3 }}>
-                                ✓ Client Invoice — {existingInvoice.invoice_number}
+                              <div style={{ fontWeight: 800, fontSize: 14, color: existingInvoice.status === 'client_paid' ? '#1d4ed8' : '#166534', marginBottom: 3 }}>
+                                {existingInvoice.status === 'client_paid' ? `⚠️ Client Submitted Payment — ${existingInvoice.invoice_number}` : `✓ Invoice — ${existingInvoice.invoice_number}`}
                               </div>
                               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>£{parseFloat(existingInvoice.amount || 0).toFixed(2)}</span>
+                                <span style={{ fontSize: 12, color: existingInvoice.status === 'client_paid' ? '#1e40af' : '#15803d', fontWeight: 700 }}>£{parseFloat(existingInvoice.amount || 0).toFixed(2)}</span>
                                 {existingInvoice.due_date && <span style={{ fontSize: 12, color: '#64748b' }}>{new Date(existingInvoice.due_date).toLocaleDateString('en-GB')}</span>}
                                 <span style={{
                                   fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                                  background: existingInvoice.status === 'paid' ? '#dcfce7' : '#fef3c7',
-                                  color: existingInvoice.status === 'paid' ? '#15803d' : '#92400e',
+                                  background: existingInvoice.status === 'paid' ? '#dcfce7' : existingInvoice.status === 'client_paid' ? '#bfdbfe' : '#fef3c7',
+                                  color: existingInvoice.status === 'paid' ? '#15803d' : existingInvoice.status === 'client_paid' ? '#1e3a8a' : '#92400e',
                                   padding: '2px 8px', borderRadius: 4
-                                }}>{existingInvoice.status}</span>
+                                }}>{existingInvoice.status.replace(/_/g, ' ')}</span>
                               </div>
                               {existingInvoice.notes && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, fontStyle: 'italic' }}>{existingInvoice.notes}</div>}
                             </div>
                           </div>
 
                           {/* Action buttons */}
-                          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {existingInvoice.payment_proof_url && (
+                              <a
+                                href={getPdfUrl(existingInvoice.payment_proof_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline btn-sm"
+                                style={{ borderColor: '#60a5fa', color: '#2563eb', fontSize: 12, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                                title="View client's uploaded payment proof"
+                              >
+                                <FileSearch size={13} /> View Proof
+                              </a>
+                            )}
                             {existingInvoice.invoice_url && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowInvoicePdf(v => !v)}
-                                  className="btn btn-outline btn-sm"
-                                  style={{ borderColor: '#86efac', color: '#16a34a', fontSize: 12, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
-                                >
-                                  <FileText size={13} />
-                                  {showInvoicePdf ? 'Hide Invoice' : 'View Invoice'}
-                                </button>
-                                <a
-                                  href={getPdfUrl(existingInvoice.invoice_url)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-outline btn-sm"
-                                  style={{ borderColor: '#cbd5e1', color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}
-                                  title="Open in new tab"
-                                >
-                                  <Download size={13} />
-                                </a>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => setShowInvoicePdf(v => !v)}
+                                className="btn btn-outline btn-sm"
+                                style={{ borderColor: '#86efac', color: '#16a34a', fontSize: 12, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                              >
+                                <FileText size={13} />
+                                {showInvoicePdf ? 'Hide Invoice' : 'View Invoice'}
+                              </button>
                             )}
                             {existingInvoice.status !== 'paid' && (
                               <button
@@ -754,14 +754,17 @@ export default function AdminApplications() {
                                 onClick={async () => {
                                   try {
                                     await api.put(`/api/invoices/${existingInvoice._id || existingInvoice.id}`, { status: 'paid', payment_date: new Date().toISOString() });
+                                    await api.put(`/api/applications/${manageModal._id || manageModal.id}/status`, { status: 'PAYMENT RECEIVED' });
                                     setExistingInvoice(prev => ({ ...prev, status: 'paid' }));
-                                    toast.success('Invoice marked as paid!');
+                                    setManageModal(prev => ({ ...prev, status: 'PAYMENT RECEIVED' }));
+                                    setActionForm(prev => ({ ...prev, status: 'PAYMENT RECEIVED' }));
+                                    toast.success('Payment verified & status updated to PAYMENT RECEIVED!');
                                   } catch (err) {
                                     toast.error(err.message || 'Failed to mark as paid');
                                   }
                                 }}
                               >
-                                <CheckCircle size={13} /> Mark Paid
+                                <CheckCircle size={13} /> Verify Payment
                               </button>
                             )}
                           </div>

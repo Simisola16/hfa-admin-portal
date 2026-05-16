@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt } from 'lucide-react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 
 const getPdfUrl = (url) => {
@@ -69,6 +69,7 @@ export default function AdminApplications() {
   const [invoiceForm, setInvoiceForm] = useState({ title: '', amount: '', due_date: '', notes: '', file: null });
   const [existingInvoice, setExistingInvoice] = useState(null);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+  const [showInvoicePdf, setShowInvoicePdf] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -673,6 +674,106 @@ export default function AdminApplications() {
                         >
                           ↗ Resend New Proposal
                         </button>
+                      </div>
+                    )}
+
+                    {/* Client-Uploaded Invoice Viewer */}
+                    {existingInvoice && (
+                      <div style={{ border: '1.5px solid #86efac', borderRadius: 14, overflow: 'hidden', marginBottom: 20, boxShadow: '0 4px 16px rgba(22,163,74,0.08)' }}>
+
+                        {/* Header bar */}
+                        <div style={{ background: 'linear-gradient(135deg,#f0fdf4,#f7fef9)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <div style={{ width: 42, height: 42, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Receipt size={20} style={{ color: '#16a34a' }} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 3 }}>
+                                ✓ Client Invoice — {existingInvoice.invoice_number}
+                              </div>
+                              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>£{parseFloat(existingInvoice.amount || 0).toFixed(2)}</span>
+                                {existingInvoice.due_date && <span style={{ fontSize: 12, color: '#64748b' }}>{new Date(existingInvoice.due_date).toLocaleDateString('en-GB')}</span>}
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                                  background: existingInvoice.status === 'paid' ? '#dcfce7' : '#fef3c7',
+                                  color: existingInvoice.status === 'paid' ? '#15803d' : '#92400e',
+                                  padding: '2px 8px', borderRadius: 4
+                                }}>{existingInvoice.status}</span>
+                              </div>
+                              {existingInvoice.notes && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, fontStyle: 'italic' }}>{existingInvoice.notes}</div>}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                            {existingInvoice.invoice_url && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowInvoicePdf(v => !v)}
+                                  className="btn btn-outline btn-sm"
+                                  style={{ borderColor: '#86efac', color: '#16a34a', fontSize: 12, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                                >
+                                  <FileText size={13} />
+                                  {showInvoicePdf ? 'Hide Invoice' : 'View Invoice'}
+                                </button>
+                                <a
+                                  href={getPdfUrl(existingInvoice.invoice_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-outline btn-sm"
+                                  style={{ borderColor: '#cbd5e1', color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}
+                                  title="Open in new tab"
+                                >
+                                  <Download size={13} />
+                                </a>
+                              </>
+                            )}
+                            {existingInvoice.status !== 'paid' && (
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}
+                                onClick={async () => {
+                                  try {
+                                    await api.put(`/api/invoices/${existingInvoice._id || existingInvoice.id}`, { status: 'paid', payment_date: new Date().toISOString() });
+                                    setExistingInvoice(prev => ({ ...prev, status: 'paid' }));
+                                    toast.success('Invoice marked as paid!');
+                                  } catch (err) {
+                                    toast.error(err.message || 'Failed to mark as paid');
+                                  }
+                                }}
+                              >
+                                <CheckCircle size={13} /> Mark Paid
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Inline PDF Viewer */}
+                        {showInvoicePdf && existingInvoice.invoice_url && (
+                          <div style={{ borderTop: '1.5px solid #bbf7d0', background: '#f8fafc' }}>
+                            <div style={{ padding: '8px 16px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #dcfce7' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <FileText size={11} /> Invoice Document Preview
+                              </span>
+                              <a
+                                href={getPdfUrl(existingInvoice.invoice_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                              >
+                                <Download size={11} /> Open full PDF
+                              </a>
+                            </div>
+                            <iframe
+                              src={`${getPdfUrl(existingInvoice.invoice_url)}#toolbar=0&view=FitH`}
+                              title="Invoice PDF"
+                              style={{ width: '100%', height: 480, border: 'none', display: 'block' }}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, Settings, Shield, Bell, FileBarChart,
-  Briefcase, Search, Wrench
+  Briefcase, Search, Wrench, X
 } from 'lucide-react';
 
 const navItems = [
@@ -55,7 +55,7 @@ const navItems = [
   { icon: BarChart3, label: 'Analytics & Reports', path: '/reports' },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ isOpen, onClose }) {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState({});
@@ -63,13 +63,18 @@ export default function AdminSidebar() {
   const initials = profile?.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)||'A';
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
         <img src="/hfa-logo.png" alt="Logo" style={{ width: 32, height: 32, objectFit: 'contain', background: 'white', borderRadius: 6, padding: 2 }} />
         <div className="sidebar-logo-text">
           <span className="sidebar-logo-title">HFA Admin</span>
           <span className="sidebar-logo-sub">Halal Food Authority</span>
         </div>
+        {isOpen && (
+          <button className="sidebar-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <nav className="sidebar-nav">

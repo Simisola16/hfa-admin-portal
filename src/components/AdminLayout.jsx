@@ -53,6 +53,7 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const panelRef = useRef();
 
   const fetchNotifs = async () => {
@@ -80,8 +81,10 @@ export default function AdminLayout() {
       if (panelRef.current && !panelRef.current.contains(e.target)) setShowNotifs(false);
     };
     document.addEventListener('mousedown', handler);
+    // Close sidebar on route change
+    setSidebarOpen(false);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [location.pathname]);
 
   const toggleNotifs = () => {
     if (!showNotifs) fetchNotifs();
@@ -114,12 +117,18 @@ export default function AdminLayout() {
 
   return (
     <div className="app-layout">
-      <AdminSidebar />
+      <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
       <div className="main-content">
         <header className="topbar">
-          <div>
-            <div className="topbar-title">{page.title}</div>
-            <div className="topbar-subtitle">{page.sub}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="mobile-toggle" onClick={() => setSidebarOpen(true)}>
+              <Shield size={20} />
+            </button>
+            <div>
+              <div className="topbar-title">{page.title}</div>
+              <div className="topbar-subtitle">{page.sub}</div>
+            </div>
           </div>
           <div className="topbar-actions">
 

@@ -48,7 +48,7 @@ export default function AdminDashboard() {
   return (
     <div>
       {/* Welcome banner */}
-      <div style={{background:'linear-gradient(135deg,#15803d,#14532d)',borderRadius:'var(--radius-lg)',padding:'24px 28px',marginBottom:24,color:'white',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div className="welcome-banner" style={{background:'linear-gradient(135deg,#15803d,#14532d)',borderRadius:'var(--radius-lg)',padding:'24px 28px',marginBottom:24,color:'white',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
           <h2 style={{fontSize:20,fontWeight:800,marginBottom:4}}>HFA Admin Portal</h2>
           <p style={{opacity:0.85,fontSize:13}}>Halal Food Authority UK — Certification Management System</p>
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="stats-grid" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+      <div className="stats-grid">
         {statCards.map(s=>(
           <div className="stat-card" key={s.label} onClick={() => navigate(s.path)} style={{cursor: 'pointer'}}>
             <div className="stat-icon" style={{background:s.bg,color:s.color}}>{s.icon}</div>

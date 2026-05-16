@@ -612,13 +612,24 @@ export default function AdminApplications() {
                                 setShowProposalModal(true);
                                 return;
                               }
+                              if (step === 'INVOICE SENT' && !existingInvoice) {
+                                setInvoiceForm({
+                                  title: `Invoice for ${manageModal.application_number}`,
+                                  amount: existingProposal?.estimated_cost || '',
+                                  due_date: '',
+                                  notes: '',
+                                  file: null
+                                });
+                                setShowInvoiceModal(true);
+                                return;
+                              }
                               setActionForm(f => ({...f, status: step}));
                             }}
                             style={{
                               background: bgColor,
                               border: `2px solid ${borderColor}`,
                               borderRadius: '8px',
-                              cursor: (step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) ? 'pointer' : 'pointer',
+                              cursor: ((step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) || (step === 'INVOICE SENT' && !existingInvoice)) ? 'pointer' : 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
@@ -642,6 +653,11 @@ export default function AdminApplications() {
                             {step === 'PROPOSAL SENT' && existingProposal && existingProposal.status !== 'rejected' && (
                               <div style={{ position:'absolute', bottom: 4, right: 4, color: '#22c55e' }}>
                                 <Shield size={12} title="Proposal exists" />
+                              </div>
+                            )}
+                            {step === 'INVOICE SENT' && existingInvoice && (
+                              <div style={{ position:'absolute', bottom: 4, right: 4, color: '#22c55e' }}>
+                                <Receipt size={12} title="Invoice sent" />
                               </div>
                             )}
                           </div>
@@ -1045,6 +1061,157 @@ export default function AdminApplications() {
         </div>
       )}
 
+      {/* Invoice Modal for Admin */}
+      {showInvoiceModal && manageModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f0fdf4, #fff)', borderBottom: '2px solid #86efac' }}>
+              <div>
+                <span className="modal-title" style={{ color: '#166534' }}>🧾 Send Invoice</span>
+                <div style={{ fontSize: 12, color: '#15803d', marginTop: 4, fontWeight: 600 }}>
+                  {manageModal.application_number}
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowInvoiceModal(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
+                Upload the invoice for this application. This will notify the client and update the status to INVOICE SENT.
+              </p>
+
+              <div className="form-group">
+                <label className="form-label">Invoice Title <span>*</span></label>
+                <input
+                  className="form-control"
+                  value={invoiceForm.title}
+                  onChange={e => setInvoiceForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Halal Certification Invoice"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Amount (£) <span>*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    value={invoiceForm.amount}
+                    onChange={e => setInvoiceForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="e.g. 850.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Due Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={invoiceForm.due_date}
+                    onChange={e => setInvoiceForm(f => ({ ...f, due_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Invoice Document (PDF) <span>*</span></label>
+                <div
+                  onClick={() => document.getElementById('admin-invoice-file-input').click()}
+                  style={{
+                    border: '2px dashed #e2e8f0', padding: '28px 24px', borderRadius: '12px',
+                    textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+                    background: invoiceForm.file ? '#f0fdf4' : '#fff'
+                  }}
+                  onMouseOver={e => e.currentTarget.style.borderColor = '#16a34a'}
+                  onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                >
+                  <FileText size={36} style={{ color: invoiceForm.file ? '#16a34a' : '#94a3b8', marginBottom: 10, margin: '0 auto' }} />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#334155', marginTop: 8 }}>
+                    {invoiceForm.file ? invoiceForm.file.name : 'Click to upload invoice PDF'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>PDF, DOCX accepted</div>
+                  <input
+                    id="admin-invoice-file-input"
+                    type="file"
+                    hidden
+                    accept=".pdf,.doc,.docx"
+                    onChange={e => setInvoiceForm(f => ({ ...f, file: e.target.files[0] }))}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Notes (Optional)</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={invoiceForm.notes}
+                  onChange={e => setInvoiceForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Additional notes for the client..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection:'column', gap:12, alignItems:'stretch' }}>
+              <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#166534', display:'flex', alignItems:'center', gap:8 }}>
+                <CheckCircle size={14} style={{ color:'#16a34a', flexShrink:0 }} />
+                <span>Uploading will update the application status to <strong>INVOICE SENT</strong> and send an email to the client.</span>
+              </div>
+              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', padding:'10px 24px' }}
+                  disabled={invoiceSubmitting || !invoiceForm.title || !invoiceForm.amount || !invoiceForm.file}
+                  onClick={async () => {
+                    setInvoiceSubmitting(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('title', invoiceForm.title);
+                      formData.append('amount', invoiceForm.amount);
+                      if (invoiceForm.due_date) formData.append('due_date', invoiceForm.due_date);
+                      if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
+                      if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
+                      
+                      const appId = manageModal._id || manageModal.id;
+                      const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
+                      if (!clientId) {
+                        toast.error('Error: Could not identify client ID for this application.');
+                        setInvoiceSubmitting(false);
+                        return;
+                      }
+                      
+                      formData.append('application_id', appId);
+                      formData.append('client_id', clientId);
+
+                      const res = await api.post('/api/invoices', formData, true);
+                      setExistingInvoice(res.data);
+
+                      // Automatically update application status to INVOICE SENT
+                      await api.put(`/api/applications/${appId}/status`, { status: 'INVOICE SENT' });
+                      
+                      // Update local UI states
+                      setManageModal(prev => ({ ...prev, status: 'INVOICE SENT' }));
+                      setActionForm(prev => ({ ...prev, status: 'INVOICE SENT' }));
+
+                      toast.success('🧾 Invoice sent! Status updated to INVOICE SENT.');
+                      setShowInvoiceModal(false);
+                      fetchData();
+                    } catch (err) {
+                      toast.error(err.message || 'Failed to send invoice');
+                    } finally {
+                      setInvoiceSubmitting(false);
+                    }
+                  }}
+                >
+                  {invoiceSubmitting
+                    ? <><span className="spinner-white" style={{ width:14, height:14 }} /> Sending...</>
+                    : <><Receipt size={15} /> Send Invoice &amp; Update Status</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       <style>{`

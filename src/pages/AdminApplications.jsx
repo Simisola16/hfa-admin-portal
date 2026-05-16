@@ -70,6 +70,10 @@ export default function AdminApplications() {
   const [existingInvoice, setExistingInvoice] = useState(null);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [showInvoicePdf, setShowInvoicePdf] = useState(false);
+  const [existingAudit, setExistingAudit] = useState(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditForm, setAuditForm] = useState({ dates: ['', '', ''], auditors: [], nc_text: '', nc_file: null });
+  const [auditSubmitting, setAuditSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -112,6 +116,10 @@ export default function AdminApplications() {
         api.get(`/api/invoices/application/${targetApp._id || targetApp.id}`)
           .then(res => setExistingInvoice(res.data || null))
           .catch(() => setExistingInvoice(null));
+        // Check for existing audit
+        api.get(`/api/audits/application/${targetApp._id || targetApp.id}`)
+          .then(res => setExistingAudit(res.data?.data || null))
+          .catch(() => setExistingAudit(null));
       }
     }
   }, [apps, searchParams, setSearchParams]);
@@ -266,6 +274,7 @@ export default function AdminApplications() {
                         const appId = app._id || app.id;
                         api.get(`/api/proposals/application/${appId}`).then(res => setExistingProposal(res.data || null)).catch(() => setExistingProposal(null));
                         api.get(`/api/invoices/application/${appId}`).then(res => setExistingInvoice(res.data || null)).catch(() => setExistingInvoice(null));
+                        api.get(`/api/audits/application/${appId}`).then(res => setExistingAudit(res.data?.data || null)).catch(() => setExistingAudit(null));
                       }}
                     >
                       <Settings size={18} className="text-muted" /> Processing
@@ -623,13 +632,17 @@ export default function AdminApplications() {
                                 setShowInvoiceModal(true);
                                 return;
                               }
+                              if (step === 'AUDIT-SESSION') {
+                                setShowAuditModal(true);
+                                return;
+                              }
                               setActionForm(f => ({...f, status: step}));
                             }}
                             style={{
                               background: bgColor,
                               border: `2px solid ${borderColor}`,
                               borderRadius: '8px',
-                              cursor: ((step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) || (step === 'INVOICE SENT' && !existingInvoice)) ? 'pointer' : 'pointer',
+                              cursor: ((step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) || (step === 'INVOICE SENT' && !existingInvoice) || (step === 'AUDIT-SESSION')) ? 'pointer' : 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
@@ -1216,6 +1229,265 @@ export default function AdminApplications() {
         </div>
       )}
 
+      {/* Audit Modal for Admin */}
+      {showAuditModal && manageModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 650, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f8fafc, #fff)', borderBottom: '2px solid #e2e8f0', padding: '20px 24px' }}>
+              <div>
+                <span className="modal-title" style={{ color: '#1e293b' }}>🗓️ Audit Session Management</span>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, fontWeight: 600 }}>
+                  {manageModal.application_number}
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowAuditModal(false)}><X size={18} /></button>
+            </div>
+            
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '24px' }}>
+              {(!existingAudit || existingAudit.status === 'dates_rejected') && (
+                <div>
+                  {existingAudit?.status === 'dates_rejected' && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', color: '#b91c1c', fontSize: '13px' }}>
+                      <strong>⚠️ Client is unavailable on previously proposed dates.</strong> Please propose 3 new dates.
+                    </div>
+                  )}
+                  <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16 }}>Propose 3 Dates for Audit</h4>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">Date {i + 1}</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={auditForm.dates[i]}
+                          onChange={e => {
+                            const newDates = [...auditForm.dates];
+                            newDates[i] = e.target.value;
+                            setAuditForm({ ...auditForm, dates: newDates });
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 24, textAlign: 'right' }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={auditSubmitting || auditForm.dates.some(d => !d)}
+                      onClick={async () => {
+                        setAuditSubmitting(true);
+                        try {
+                          const res = await api.post('/api/audits/propose-dates', {
+                            application_id: manageModal._id || manageModal.id,
+                            client_id: manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id,
+                            dates: auditForm.dates
+                          });
+                          setExistingAudit(res.data.data);
+                          toast.success('3 Dates proposed to client successfully!');
+                        } catch (err) {
+                          toast.error(err.message || 'Failed to propose dates');
+                        } finally {
+                          setAuditSubmitting(false);
+                        }
+                      }}
+                    >
+                      {auditSubmitting ? 'Submitting...' : 'Submit Proposed Dates'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {existingAudit?.status === 'dates_proposed' && (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <Calendar size={48} style={{ color: '#94a3b8', margin: '0 auto 16px' }} />
+                  <h3 style={{ fontSize: 16, color: '#334155', marginBottom: 8 }}>Waiting for Client</h3>
+                  <p style={{ fontSize: 13, color: '#64748b' }}>
+                    You have proposed 3 dates. Waiting for the client to select 2 available dates.
+                  </p>
+                </div>
+              )}
+
+              {existingAudit?.status === 'dates_accepted' && (
+                <div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                    <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 8 }}>✓ Client Selected Dates</h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#15803d', fontSize: '13px' }}>
+                      {existingAudit.selected_dates?.map((d, i) => (
+                        <li key={i}>{new Date(d).toDateString()}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16 }}>Assign Auditor(s)</h4>
+                  {(() => {
+                    const isDual = manageModal.application_type === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+                    const numAuditors = isDual ? 2 : 1;
+                    
+                    if (auditForm.auditors.length !== numAuditors) {
+                      const initialAuditors = Array(numAuditors).fill({ name: '', email: '', contact_number: '', purpose: '' });
+                      setTimeout(() => setAuditForm(f => ({ ...f, auditors: initialAuditors })), 0);
+                      return null;
+                    }
+
+                    return (
+                      <div style={{ display: 'grid', gap: 24 }}>
+                        {auditForm.auditors.map((auditor, i) => (
+                          <div key={i} style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Auditor {i + 1} {isDual && i === 0 ? '(Lead)' : ''}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              <div className="form-group" style={{ marginBottom: 12 }}>
+                                <label className="form-label">Name</label>
+                                <input className="form-control" value={auditor.name} onChange={e => {
+                                  const newAuditors = [...auditForm.auditors];
+                                  newAuditors[i] = { ...auditor, name: e.target.value };
+                                  setAuditForm({ ...auditForm, auditors: newAuditors });
+                                }} />
+                              </div>
+                              <div className="form-group" style={{ marginBottom: 12 }}>
+                                <label className="form-label">Email</label>
+                                <input type="email" className="form-control" value={auditor.email} onChange={e => {
+                                  const newAuditors = [...auditForm.auditors];
+                                  newAuditors[i] = { ...auditor, email: e.target.value };
+                                  setAuditForm({ ...auditForm, auditors: newAuditors });
+                                }} />
+                              </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Contact Number</label>
+                                <input className="form-control" value={auditor.contact_number} onChange={e => {
+                                  const newAuditors = [...auditForm.auditors];
+                                  newAuditors[i] = { ...auditor, contact_number: e.target.value };
+                                  setAuditForm({ ...auditForm, auditors: newAuditors });
+                                }} />
+                              </div>
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Purpose</label>
+                                <input className="form-control" value={auditor.purpose} onChange={e => {
+                                  const newAuditors = [...auditForm.auditors];
+                                  newAuditors[i] = { ...auditor, purpose: e.target.value };
+                                  setAuditForm({ ...auditForm, auditors: newAuditors });
+                                }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  <div style={{ marginTop: 24, textAlign: 'right' }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={auditSubmitting || auditForm.auditors.some(a => !a.name || !a.email)}
+                      onClick={async () => {
+                        setAuditSubmitting(true);
+                        try {
+                          const res = await api.post('/api/audits/assign-auditors', {
+                            audit_id: existingAudit._id || existingAudit.id,
+                            auditors: auditForm.auditors
+                          });
+                          setExistingAudit(res.data.data);
+                          toast.success('Auditors assigned successfully!');
+                        } catch (err) {
+                          toast.error(err.message || 'Failed to assign auditors');
+                        } finally {
+                          setAuditSubmitting(false);
+                        }
+                      }}
+                    >
+                      {auditSubmitting ? 'Assigning...' : 'Assign Auditors'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h4 style={{ fontSize: 16, color: '#1e293b', margin: 0 }}>Assigned Auditors</h4>
+                  </div>
+                  <div style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
+                    {existingAudit.auditors?.map((a, i) => (
+                      <div key={i} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>{a.name}</div>
+                          <div style={{ fontSize: 12, color: '#64748b' }}>{a.email} • {a.contact_number}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#475569', background: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', height: 'fit-content' }}>
+                          {a.purpose || 'Audit'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 24 }}>
+                    <h4 style={{ fontSize: 16, color: '#b91c1c', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AlertCircle size={18} /> Non-Conformity (NC) Reports
+                    </h4>
+
+                    {existingAudit.nc_reports?.length > 0 && (
+                      <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+                        {existingAudit.nc_reports.map((nc, i) => (
+                          <div key={i} style={{ padding: '16px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
+                                {nc.status === 'corrected' ? '✓ Corrected by Client' : '⚠️ Pending Client Correction'}
+                              </span>
+                              <span style={{ fontSize: 11, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
+                            </div>
+                            <p style={{ fontSize: 13, color: '#334155', margin: '0 0 12px 0' }}>{nc.text}</p>
+                            {nc.document_url && (
+                              <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}>
+                                <FileText size={12} style={{ marginRight: 4 }}/> View Attached Document
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Flag New NC Report</div>
+                      <div className="form-group">
+                        <textarea className="form-control" rows={3} placeholder="Describe the non-conformity..." value={auditForm.nc_text} onChange={e => setAuditForm(f => ({ ...f, nc_text: e.target.value }))}></textarea>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 12 }}>
+                        <label className="form-label">Upload Correctivity Report (Optional PDF/Image)</label>
+                        <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                        disabled={auditSubmitting || !auditForm.nc_text}
+                        onClick={async () => {
+                          setAuditSubmitting(true);
+                          try {
+                            const formData = new FormData();
+                            formData.append('audit_id', existingAudit._id || existingAudit.id);
+                            formData.append('text', auditForm.nc_text);
+                            if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
+
+                            const res = await api.post('/api/audits/flag-nc', formData, true);
+                            setExistingAudit(res.data.data);
+                            setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
+                            toast.success('NC Report flagged successfully!');
+                          } catch (err) {
+                            toast.error(err.message || 'Failed to flag NC');
+                          } finally {
+                            setAuditSubmitting(false);
+                          }
+                        }}
+                      >
+                        {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .action-btn-group {

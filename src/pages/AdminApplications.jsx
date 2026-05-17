@@ -315,6 +315,16 @@ export default function AdminApplications() {
                     >
                       <ExternalLink size={18} /> View Proposal
                     </Link>
+                    {app.status === 'Create Logsheet' && (
+                      <Link 
+                        to={`/applications/${app._id}/logsheet`}
+                        className="dropdown-item text-primary"
+                        style={{ padding: '12px 16px', fontSize: 14.5, color: '#0284c7', background: '#f0f9ff' }}
+                        onClick={() => { setOpenDropdown(null); }}
+                      >
+                        <FileText size={18} /> Create Logsheet
+                      </Link>
+                    )}
                     <div style={{ height: '1px', background: '#e2e8f0', margin: '8px 0' }}></div>
                     <button 
                       className="dropdown-item text-danger"
@@ -1170,7 +1180,7 @@ export default function AdminApplications() {
                 >
                   <ExternalLink size={14} /> View Proposal
                 </Link>
-                {(manageModal.status === 'Create Logsheet') && (
+                {(manageModal.status === 'Create Logsheet' || (modalTab === 'processing' && actionForm?.status === 'Create Logsheet')) && (
                   <Link
                     to={`/applications/${manageModal._id}/logsheet`}
                     className="btn btn-primary btn-sm"

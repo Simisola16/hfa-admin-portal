@@ -79,6 +79,10 @@ export default function AdminApplications() {
   const [auditForm, setAuditForm] = useState({ dates: ['', '', ''], auditors: [], nc_text: '', nc_file: null });
   const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [auditModalTab, setAuditModalTab] = useState('dates'); // 'dates' or 'nc'
+  const [existingAgreement, setExistingAgreement] = useState(null);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreementForm, setAgreementForm] = useState({ type: 'upload', title: '', details: '', admin_comment: '', file: null });
+  const [agreementSubmitting, setAgreementSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -125,6 +129,10 @@ export default function AdminApplications() {
         api.get(`/api/audits/application/${targetApp._id || targetApp.id}`)
           .then(res => setExistingAudit(res.data || null))
           .catch(() => setExistingAudit(null));
+        // Check for existing agreement
+        api.get(`/api/agreements/application/${targetApp._id || targetApp.id}`)
+          .then(res => setExistingAgreement(res.data || null))
+          .catch(() => setExistingAgreement(null));
       }
     }
   }, [apps, searchParams, setSearchParams]);
@@ -280,6 +288,7 @@ export default function AdminApplications() {
                         api.get(`/api/proposals/application/${appId}`).then(res => setExistingProposal(res.data || null)).catch(() => setExistingProposal(null));
                         api.get(`/api/invoices/application/${appId}`).then(res => setExistingInvoice(res.data || null)).catch(() => setExistingInvoice(null));
                         api.get(`/api/audits/application/${appId}`).then(res => setExistingAudit(res.data || null)).catch(() => setExistingAudit(null));
+                        api.get(`/api/agreements/application/${appId}`).then(res => setExistingAgreement(res.data || null)).catch(() => setExistingAgreement(null));
                       }}
                     >
                       <Settings size={18} className="text-muted" /> Processing
@@ -647,6 +656,17 @@ export default function AdminApplications() {
                                 setShowAuditModal(true);
                                 return;
                               }
+                              if (step === 'AGREEMENT SENT' && !existingAgreement) {
+                                setAgreementForm({
+                                  type: 'upload',
+                                  title: `Certification Agreement for ${manageModal.application_number}`,
+                                  details: '',
+                                  admin_comment: '',
+                                  file: null
+                                });
+                                setShowAgreementModal(true);
+                                return;
+                              }
                               setActionForm(f => ({...f, status: step}));
                             }}
                             style={{
@@ -815,6 +835,82 @@ export default function AdminApplications() {
                               title="Invoice PDF"
                               style={{ width: '100%', height: 480, border: 'none', display: 'block' }}
                             />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+
+                    {/* Agreement Viewer */}
+                    {existingAgreement && (
+                      <div style={{ border: `1.5px solid ${existingAgreement.status === 'approved' ? '#10b981' : existingAgreement.status === 'signed' ? '#3b82f6' : '#64748b'}`, borderRadius: 14, overflow: 'hidden', marginBottom: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
+                        
+                        {/* Header bar */}
+                        <div style={{ background: existingAgreement.status === 'approved' ? 'linear-gradient(135deg,#ecfdf5,#f8fafc)' : existingAgreement.status === 'signed' ? 'linear-gradient(135deg,#eff6ff,#f8fafc)' : 'linear-gradient(135deg,#f8fafc,#fff)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <div style={{ width: 42, height: 42, background: existingAgreement.status === 'approved' ? '#d1fae5' : existingAgreement.status === 'signed' ? '#dbeafe' : '#f1f5f9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <FileText size={20} style={{ color: existingAgreement.status === 'approved' ? '#10b981' : existingAgreement.status === 'signed' ? '#3b82f6' : '#64748b' }} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 3 }}>
+                                {existingAgreement.title}
+                              </div>
+                              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                                  background: existingAgreement.status === 'approved' ? '#d1fae5' : existingAgreement.status === 'signed' ? '#dbeafe' : '#f3f4f6',
+                                  color: existingAgreement.status === 'approved' ? '#065f46' : existingAgreement.status === 'signed' ? '#1e40af' : '#374151',
+                                  padding: '2px 8px', borderRadius: 4
+                                }}>
+                                  Agreement Status: {existingAgreement.status.toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {existingAgreement.agreement_url && (
+                              <a href={getPdfUrl(existingAgreement.agreement_url)} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm" style={{ borderColor: '#64748b', color: '#475569', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <FileText size={13} /> View Sent Agreement
+                              </a>
+                            )}
+                            {existingAgreement.signed_agreement_url && (
+                              <a href={getPdfUrl(existingAgreement.signed_agreement_url)} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm" style={{ background: '#2563eb', borderColor: '#2563eb', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <FileText size={13} /> View Signed Copy
+                              </a>
+                            )}
+                            {existingAgreement.status === 'signed' && (
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: 12 }}
+                                onClick={async () => {
+                                  if (window.confirm('Do you want to approve this signed agreement? This will transition status to AGREEMENT SIGNED COPY RECEIVED.')) {
+                                    try {
+                                      const res = await api.put(`/api/agreements/${existingAgreement._id || existingAgreement.id}`, { status: 'approved' });
+                                      setExistingAgreement(res.data);
+                                      setManageModal(prev => ({ ...prev, status: 'AGREEMENT SIGNED COPY RECEIVED' }));
+                                      setActionForm(prev => ({ ...prev, status: 'AGREEMENT SIGNED COPY RECEIVED' }));
+                                      toast.success('Agreement approved successfully!');
+                                      fetchData();
+                                    } catch (err) {
+                                      toast.error(err.message || 'Failed to approve agreement');
+                                    }
+                                  }
+                                }}
+                              >
+                                Approve Agreement
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {existingAgreement.details && (
+                          <div style={{ padding: '16px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>Agreement Written Details</div>
+                            <div style={{ fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                              {existingAgreement.details}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1379,6 +1475,146 @@ export default function AdminApplications() {
                     ? <><span className="spinner-white" style={{ width:14, height:14 }} /> Sending...</>
                     : <><Receipt size={15} /> Send Invoice &amp; Update Status</>
                   }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agreement Modal for Admin */}
+      {showAgreementModal && manageModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">📄 Send Certification Agreement</span>
+              <button className="modal-close" onClick={() => setShowAgreementModal(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div className="form-group">
+                <label className="form-label">Agreement Title <span>*</span></label>
+                <input 
+                  type="text" 
+                  className="form-control"
+                  value={agreementForm.title}
+                  onChange={e => setAgreementForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Certification Agreement - Halal Food Authority"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Method of Agreement <span>*</span></label>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="agreement-type"
+                      checked={agreementForm.type === 'upload'}
+                      onChange={() => setAgreementForm(f => ({ ...f, type: 'upload' }))}
+                    /> Upload Agreement Document (PDF)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="agreement-type"
+                      checked={agreementForm.type === 'write'}
+                      onChange={() => setAgreementForm(f => ({ ...f, type: 'write' }))}
+                    /> Write Agreement Details
+                  </label>
+                </div>
+              </div>
+
+              {agreementForm.type === 'upload' ? (
+                <div className="form-group">
+                  <label className="form-label">Agreement Document (PDF) <span>*</span></label>
+                  <div
+                    onClick={() => document.getElementById('admin-agreement-file-input').click()}
+                    style={{
+                      border: '2px dashed #e2e8f0', padding: '28px 24px', borderRadius: '12px',
+                      textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+                      background: agreementForm.file ? '#f0fdf4' : '#fff'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.borderColor = '#1e3a8a'}
+                    onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                  >
+                    <FileText size={36} style={{ color: agreementForm.file ? '#16a34a' : '#94a3b8', marginBottom: 10, margin: '0 auto' }} />
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#334155', marginTop: 8 }}>
+                      {agreementForm.file ? agreementForm.file.name : 'Click to upload agreement PDF'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>PDF accepted</div>
+                    <input
+                      id="admin-agreement-file-input"
+                      type="file"
+                      hidden
+                      accept=".pdf"
+                      onChange={e => setAgreementForm(f => ({ ...f, file: e.target.files[0] }))}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Agreement Terms / Details <span>*</span></label>
+                  <textarea
+                    className="form-control"
+                    rows={8}
+                    value={agreementForm.details}
+                    onChange={e => setAgreementForm(f => ({ ...f, details: e.target.value }))}
+                    placeholder="Write or paste your custom certification agreement terms here..."
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Internal Admin Comments (Optional)</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={agreementForm.admin_comment}
+                  onChange={e => setAgreementForm(f => ({ ...f, admin_comment: e.target.value }))}
+                  placeholder="Notes for client or reference..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection:'column', gap:12, alignItems:'stretch' }}>
+              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#1e40af', display:'flex', alignItems:'center', gap:8 }}>
+                <CheckCircle size={14} style={{ color:'#2563eb', flexShrink:0 }} />
+                <span>Sending the agreement will update the application status to <strong>AGREEMENT SENT</strong> and alert the client.</span>
+              </div>
+              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setShowAgreementModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: 'none', padding:'10px 24px', color: '#fff' }}
+                  disabled={agreementSubmitting || !agreementForm.title || (agreementForm.type === 'upload' ? !agreementForm.file : !agreementForm.details.trim())}
+                  onClick={async () => {
+                    setAgreementSubmitting(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('title', agreementForm.title);
+                      formData.append('client_id', manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id);
+                      formData.append('application_id', manageModal._id || manageModal.id);
+                      if (agreementForm.type === 'write') formData.append('details', agreementForm.details);
+                      if (agreementForm.admin_comment) formData.append('admin_comment', agreementForm.admin_comment);
+                      if (agreementForm.file) formData.append('agreement_file', agreementForm.file);
+                      
+                      const res = await api.post('/api/agreements', formData, true);
+                      setExistingAgreement(res.data);
+
+                      toast.success('📄 Agreement sent! Status updated to AGREEMENT SENT.');
+                      setShowAgreementModal(false);
+                      
+                      // Refresh parent states
+                      setManageModal(prev => ({ ...prev, status: 'AGREEMENT SENT' }));
+                      setActionForm(prev => ({ ...prev, status: 'AGREEMENT SENT' }));
+                      fetchData();
+                    } catch (err) {
+                      toast.error(err.message || 'Failed to send agreement');
+                    } finally {
+                      setAgreementSubmitting(false);
+                    }
+                  }}
+                >
+                  {agreementSubmitting ? 'Sending...' : 'Send Agreement'}
                 </button>
               </div>
             </div>

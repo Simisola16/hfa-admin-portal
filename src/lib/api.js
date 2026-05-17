@@ -24,7 +24,7 @@ async function request(method, path, body, isFormData = false) {
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body, isFormData) => request('POST', path, body, isFormData),
-  put: (path, body) => request('PUT', path, body),
+  put: (path, body, isFormData) => request('PUT', path, body, isFormData),
   delete: (path) => request('DELETE', path),
 
   /**

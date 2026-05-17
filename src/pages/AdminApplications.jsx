@@ -636,7 +636,7 @@ export default function AdminApplications() {
                                 setShowInvoiceModal(true);
                                 return;
                               }
-                              if (step === 'AUDIT-SESSION') {
+                              if (step === 'AUDIT DATE FINALIZED') {
                                 setShowAuditModal(true);
                                 return;
                               }
@@ -646,7 +646,7 @@ export default function AdminApplications() {
                               background: bgColor,
                               border: `2px solid ${borderColor}`,
                               borderRadius: '8px',
-                              cursor: ((step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) || (step === 'INVOICE SENT' && !existingInvoice) || (step === 'AUDIT-SESSION')) ? 'pointer' : 'pointer',
+                              cursor: ((step === 'PROPOSAL SENT' && (!existingProposal || existingProposal.status === 'rejected')) || (step === 'INVOICE SENT' && !existingInvoice) || (step === 'AUDIT DATE FINALIZED')) ? 'pointer' : 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
@@ -1391,7 +1391,16 @@ export default function AdminApplications() {
                             auditors: auditForm.auditors
                           });
                           setExistingAudit(res.data);
-                          toast.success('Auditors assigned successfully!');
+
+                          // Automatically update application status to AUDIT DATE FINALIZED
+                          const appId = manageModal._id || manageModal.id;
+                          await api.put(`/api/applications/${appId}/status`, { status: 'AUDIT DATE FINALIZED' });
+                          
+                          setManageModal(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
+                          setActionForm(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
+
+                          toast.success('Auditors assigned and status updated to AUDIT DATE FINALIZED!');
+                          fetchData();
                         } catch (err) {
                           toast.error(err.message || 'Failed to assign auditors');
                         } finally {

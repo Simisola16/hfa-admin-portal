@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import {
   ClipboardList, Clock, CheckCircle, Package,
-  RefreshCw, TrendingUp, MapPin, Tag, ChevronDown, CheckCircle2, AlertTriangle, XCircle
+  RefreshCw, TrendingUp, MapPin, Tag, ChevronDown, CheckCircle2, AlertTriangle, XCircle, Calendar
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -44,6 +44,8 @@ export default function AdminDashboard() {
   const allApps  = stats?.applications  || [];
   const allCerts = stats?.certificates  || [];
   const allProds = stats?.products      || [];
+  const allAudits = stats?.audits       || [];
+  const upcomingAudits = allAudits.filter(a => a.status !== 'audit_completed').length;
 
   const count = (arr, key, val) => arr.filter(a => a[key] === val).length;
 
@@ -67,13 +69,13 @@ export default function AdminDashboard() {
       path: '/applications',
     },
     {
-      label: 'Pending Applications',
-      value: pendingApps,
-      trend: '0%',
-      icon: <Clock size={22} />,
-      iconBg: '#fff7ed',
-      iconColor: '#d97706',
-      path: '/applications',
+      label: 'Upcoming Audits',
+      value: upcomingAudits,
+      trend: 'Scheduled',
+      icon: <Calendar size={22} />,
+      iconBg: '#f5f3ff',
+      iconColor: '#7c3aed',
+      path: '/audits',
     },
     {
       label: 'Active Certificates',

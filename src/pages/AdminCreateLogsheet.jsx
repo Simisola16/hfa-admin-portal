@@ -4,32 +4,29 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, Clock, CheckCircle2, CheckSquare, PenTool, Check } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminCreateLogsheet() {
   const { appId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
   
   const [signatures, setSignatures] = useState([]);
-  const [selectedSigId, setSelectedSigId] = useState('');
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
   const [sigRole, setSigRole] = useState('');
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
 
-  const handleRoleChange = (role) => {
-    setSigRole(role);
-    const matched = signatures.find(s => s.username?.toLowerCase() === role.toLowerCase());
-    if (matched) {
-      setSelectedSigId(matched._id);
-    } else {
-      setSelectedSigId('');
-    }
-  };
+  const userSignature = signatures.find(s => 
+    (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
+    (s.username && user?.email && s.username.toLowerCase() === user.email.split('@')[0].toLowerCase()) ||
+    (s.name && user?.full_name && s.name.toLowerCase() === user.full_name.toLowerCase())
+  );
 
   const [form, setForm] = useState({
     company_name: '', company_address: '', manufacturing_address: '',
@@ -171,9 +168,8 @@ export default function AdminCreateLogsheet() {
       return;
     }
     
-    const matchedSig = signatures.find(s => s._id === selectedSigId);
-    if (!matchedSig) {
-      toast.error(`Please select an uploaded signature to apply.`);
+    if (!userSignature) {
+      toast.error(`Your authenticated user account does not have an uploaded digital signature in the system yet.`);
       return;
     }
 
@@ -181,14 +177,13 @@ export default function AdminCreateLogsheet() {
     try {
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         role: sigRole,
-        signature_url: matchedSig.signature_url,
-        signature_name: matchedSig.name,
+        signature_url: userSignature.signature_url,
+        signature_name: userSignature.name,
         comment: sigComment
       });
       toast.success(`Logsheet successfully signed as ${sigRole}!`);
       fetchData();
       setSigRole('');
-      setSelectedSigId('');
       setSigComment('');
     } catch (err) {
       toast.error(err.message || 'Failed to apply signature');
@@ -731,24 +726,6 @@ export default function AdminCreateLogsheet() {
                 />
               </div>
 
-              {/* Select Signature to Apply Dropdown */}
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Select Signature to Apply</label>
-                <select 
-                  className="form-control"
-                  value={selectedSigId}
-                  onChange={e => setSelectedSigId(e.target.value)}
-                  style={{ background: '#fff', fontSize: '14px', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', width: '100%' }}
-                >
-                  <option value="">-- Choose Signature --</option>
-                  {signatures.map(sig => (
-                    <option key={sig._id} value={sig._id}>
-                      {sig.name} ({sig.username || 'No designation'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Signature Role Selector */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px' }}>
                 {['Mufti', 'Ceo', 'Manager', 'Mufti2'].map(role => {
@@ -776,7 +753,7 @@ export default function AdminCreateLogsheet() {
                         name="signatureRole" 
                         value={role} 
                         checked={sigRole === role} 
-                        onChange={() => handleRoleChange(role)}
+                        onChange={() => setSigRole(role)}
                         style={{ display: 'none' }}
                       />
                       <span 
@@ -803,35 +780,39 @@ export default function AdminCreateLogsheet() {
               </div>
 
               {/* Show selected signature preview */}
-              {selectedSigId && (
-                <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
-                  {(() => {
-                    const matched = signatures.find(s => s._id === selectedSigId);
-                    if (matched) {
-                      return (
-                        <div style={{ padding: '14px 24px', border: '1px dashed #86efac', borderRadius: '10px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 6px -1px rgba(22, 101, 52, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Check size={18} style={{ color: '#16a34a' }} />
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontSize: '10px', color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Signature Active</div>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{matched.name}</div>
-                            </div>
-                          </div>
-                          <div style={{ borderLeft: '1px solid #dcfce7', height: '30px' }} />
-                          <img src={getPdfUrl(matched.signature_url)} alt="Signature Preview" style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              )}
+              <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
+                {userSignature ? (
+                  <div style={{ padding: '14px 24px', border: '1px dashed #86efac', borderRadius: '10px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 6px -1px rgba(22, 101, 52, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Check size={18} style={{ color: '#16a34a' }} />
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: '10px', color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Authenticated Signature Active</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{userSignature.name}</div>
+                      </div>
+                    </div>
+                    <div style={{ borderLeft: '1px solid #dcfce7', height: '30px' }} />
+                    <img src={getPdfUrl(userSignature.signature_url)} alt="Signature Preview" style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                  </div>
+                ) : (
+                  <div style={{ padding: '14px 24px', border: '1px dashed #fca5a5', borderRadius: '10px', background: '#fef2f2', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b', fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(153, 27, 27, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
+                    <span>⚠️ Your authenticated user account (<strong>{user?.full_name || 'Admin'}</strong>) does not have an uploaded digital signature in the system yet.</span>
+                    <button 
+                      type="button" 
+                      className="btn btn-ghost btn-sm" 
+                      onClick={() => navigate('/signatures')}
+                      style={{ color: '#b91c1c', textDecoration: 'underline', padding: '0 4px', fontWeight: 800 }}
+                    >
+                      Upload Signature
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <button 
                   onClick={handleSignLogsheet}
-                  disabled={isSigning || !sigRole || !selectedSigId}
+                  disabled={isSigning || !sigRole || !userSignature}
                   className="btn btn-primary"
                   style={{ 
                     padding: '12px 36px', 
@@ -844,7 +825,7 @@ export default function AdminCreateLogsheet() {
                     borderColor: '#6366f1',
                     boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.4)',
                     cursor: 'pointer',
-                    opacity: (isSigning || !sigRole || !selectedSigId) ? 0.6 : 1,
+                    opacity: (isSigning || !sigRole || !userSignature) ? 0.6 : 1,
                     transition: 'all 0.2s'
                   }}
                 >

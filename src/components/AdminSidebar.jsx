@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, Settings, Shield, Bell, FileBarChart,
-  Briefcase, Search, Wrench, X
+  Briefcase, Search, Wrench, X, PenTool
 } from 'lucide-react';
 
 const navItems = [
@@ -51,6 +51,7 @@ const navItems = [
   { icon: Briefcase, label: 'Proposals', path: '/proposals' },
   { icon: MessageSquare, label: 'Tickets', path: '/tickets' },
   { icon: MessageSquare, label: 'Messages', path: '/messages' },
+  { icon: PenTool, label: 'Signatures', path: '/signatures' },
   { icon: FileBarChart, label: 'Invoices', path: '/invoices' },
   { icon: BarChart3, label: 'Analytics & Reports', path: '/reports' },
 ];

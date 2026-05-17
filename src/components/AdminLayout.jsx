@@ -17,6 +17,7 @@ const pageTitles = {
   '/clients': { title: 'Clients', sub: 'Manage registered client accounts' },
   '/sites': { title: 'Sites', sub: 'All registered business sites' },
   '/invoices': { title: 'Invoices', sub: 'Manage client invoices' },
+  '/signatures': { title: 'Signatures', sub: 'Manage user and auditor digital signatures' },
   '/reports': { title: 'Reports & Analytics', sub: 'System-wide reporting' },
   '/proposals': { title: 'Proposals', sub: 'Manage client proposals' },
 };

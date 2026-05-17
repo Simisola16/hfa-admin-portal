@@ -21,6 +21,7 @@ import AdminProposals from './pages/AdminProposals';
 import AdminExports from './pages/AdminExports';
 import AdminLogsheets from './pages/AdminLogsheets';
 import AdminTickets from './pages/AdminTickets';
+import AdminSignatures from './pages/AdminSignatures';
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
             <Route path="/tickets" element={<AdminTickets />} />
+            <Route path="/signatures" element={<AdminSignatures />} />
             <Route path="/users" element={<AdminClients />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

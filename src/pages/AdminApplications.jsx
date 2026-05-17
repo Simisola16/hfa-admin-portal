@@ -78,6 +78,7 @@ export default function AdminApplications() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditForm, setAuditForm] = useState({ dates: ['', '', ''], auditors: [], nc_text: '', nc_file: null });
   const [auditSubmitting, setAuditSubmitting] = useState(false);
+  const [auditModalTab, setAuditModalTab] = useState('dates'); // 'dates' or 'nc'
 
   const fetchData = async () => {
     setLoading(true);
@@ -637,6 +638,12 @@ export default function AdminApplications() {
                                 return;
                               }
                               if (step === 'AUDIT DATE FINALIZED') {
+                                setAuditModalTab('dates');
+                                setShowAuditModal(true);
+                                return;
+                              }
+                              if (step === 'NC REPORTS') {
+                                setAuditModalTab('nc');
                                 setShowAuditModal(true);
                                 return;
                               }
@@ -1579,104 +1586,106 @@ export default function AdminApplications() {
                     ))}
                   </div>
 
-                  <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 24 }}>
-                    <h4 style={{ fontSize: 16, color: '#b91c1c', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <AlertCircle size={18} /> Non-Conformity (NC) Reports
-                    </h4>
+                  {auditModalTab === 'nc' && (
+                    <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 24 }}>
+                      <h4 style={{ fontSize: 16, color: '#b91c1c', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <AlertCircle size={18} /> Non-Conformity (NC) Reports
+                      </h4>
 
-                    {existingAudit.nc_reports?.length > 0 && (
-                      <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
-                        {existingAudit.nc_reports.map((nc, i) => (
-                          <div key={i} style={{ padding: '16px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
-                                {nc.status === 'corrected' ? '✓ Corrected by Client' : '⚠️ Pending Client Correction'}
-                              </span>
-                              <span style={{ fontSize: 11, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
+                      {existingAudit.nc_reports?.length > 0 && (
+                        <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+                          {existingAudit.nc_reports.map((nc, i) => (
+                            <div key={i} style={{ padding: '16px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
+                                  {nc.status === 'corrected' ? '✓ Corrected by Client' : '⚠️ Pending Client Correction'}
+                                </span>
+                                <span style={{ fontSize: 11, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
+                              </div>
+                              <p style={{ fontSize: 13, color: '#334155', margin: '0 0 12px 0' }}>{nc.text}</p>
+                              {nc.document_url && (
+                                <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}>
+                                  <FileText size={12} style={{ marginRight: 4 }}/> View Attached Document
+                                </a>
+                              )}
                             </div>
-                            <p style={{ fontSize: 13, color: '#334155', margin: '0 0 12px 0' }}>{nc.text}</p>
-                            {nc.document_url && (
-                              <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}>
-                                <FileText size={12} style={{ marginRight: 4 }}/> View Attached Document
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
 
-                    <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Flag New NC Report</div>
-                      <div className="form-group">
-                        <textarea className="form-control" rows={3} placeholder="Describe the non-conformity..." value={auditForm.nc_text} onChange={e => setAuditForm(f => ({ ...f, nc_text: e.target.value }))}></textarea>
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 12 }}>
-                        <label className="form-label">Upload Correctivity Report (Optional PDF/Image)</label>
-                        <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button
-                          className="btn btn-primary"
-                          style={{ background: '#dc2626', borderColor: '#dc2626' }}
-                          disabled={auditSubmitting || !auditForm.nc_text}
-                          onClick={async () => {
-                            setAuditSubmitting(true);
-                            try {
-                              const formData = new FormData();
-                              formData.append('audit_id', existingAudit._id || existingAudit.id);
-                              formData.append('text', auditForm.nc_text);
-                              if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
-
-                              const res = await api.post('/api/audits/flag-nc', formData, true);
-                              setExistingAudit(res.data);
-                              setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
-                              toast.success('NC Report flagged successfully!');
-                            } catch (err) {
-                              toast.error(err.message || 'Failed to flag NC');
-                            } finally {
-                              setAuditSubmitting(false);
-                            }
-                          }}
-                        >
-                          {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
-                        </button>
-
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ borderColor: '#16a34a', color: '#16a34a' }}
-                          disabled={auditSubmitting}
-                          onClick={async () => {
-                            if (window.confirm('Are you sure there are no Non-Conformity (NC) reports for this audit session? This will complete the audit and update the status to NC REPORTS CLOSED.')) {
+                      <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Flag New NC Report</div>
+                        <div className="form-group">
+                          <textarea className="form-control" rows={3} placeholder="Describe the non-conformity..." value={auditForm.nc_text} onChange={e => setAuditForm(f => ({ ...f, nc_text: e.target.value }))}></textarea>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 12 }}>
+                          <label className="form-label">Upload Correctivity Report (Optional PDF/Image)</label>
+                          <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <button
+                            className="btn btn-primary"
+                            style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                            disabled={auditSubmitting || !auditForm.nc_text}
+                            onClick={async () => {
                               setAuditSubmitting(true);
                               try {
-                                const res = await api.post('/api/audits/complete-clean', {
-                                  audit_id: existingAudit._id || existingAudit.id
-                                });
+                                const formData = new FormData();
+                                formData.append('audit_id', existingAudit._id || existingAudit.id);
+                                formData.append('text', auditForm.nc_text);
+                                if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
+
+                                const res = await api.post('/api/audits/flag-nc', formData, true);
                                 setExistingAudit(res.data);
-
-                                // Automatically update application status to NC REPORTS CLOSED
-                                const appId = manageModal._id || manageModal.id;
-                                await api.put(`/api/applications/${appId}/status`, { status: 'NC REPORTS CLOSED' });
-                                
-                                setManageModal(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
-                                setActionForm(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
-
-                                toast.success('Audit completed successfully with No NC reports! Status updated to NC REPORTS CLOSED.');
-                                fetchData();
+                                setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
+                                toast.success('NC Report flagged successfully!');
                               } catch (err) {
-                                toast.error(err.message || 'Failed to complete audit');
+                                toast.error(err.message || 'Failed to flag NC');
                               } finally {
                                 setAuditSubmitting(false);
                               }
-                            }
-                          }}
-                        >
-                          ✓ No Report (Clean Audit)
-                        </button>
+                            }}
+                          >
+                            {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ borderColor: '#16a34a', color: '#16a34a' }}
+                            disabled={auditSubmitting}
+                            onClick={async () => {
+                              if (window.confirm('Are you sure there are no Non-Conformity (NC) reports for this audit session? This will complete the audit and update the status to NC REPORTS CLOSED.')) {
+                                setAuditSubmitting(true);
+                                try {
+                                  const res = await api.post('/api/audits/complete-clean', {
+                                    audit_id: existingAudit._id || existingAudit.id
+                                  });
+                                  setExistingAudit(res.data);
+
+                                  // Automatically update application status to NC REPORTS CLOSED
+                                  const appId = manageModal._id || manageModal.id;
+                                  await api.put(`/api/applications/${appId}/status`, { status: 'NC REPORTS CLOSED' });
+                                  
+                                  setManageModal(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
+                                  setActionForm(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
+
+                                  toast.success('Audit completed successfully with No NC reports! Status updated to NC REPORTS CLOSED.');
+                                  fetchData();
+                                } catch (err) {
+                                  toast.error(err.message || 'Failed to complete audit');
+                                } finally {
+                                  setAuditSubmitting(false);
+                                }
+                              }
+                            }}
+                          >
+                            ✓ No Report (Clean Audit)
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

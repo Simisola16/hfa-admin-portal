@@ -283,7 +283,7 @@ export default function AdminDashboard() {
             <table className="hca-activity-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {['COMPANY / APPLICANT', 'TYPE', 'STATUS', 'DATE'].map(h => (
+                  {['COMPANY / APPLICANT', 'TYPE', 'DATE'].map(h => (
                     <th key={h} style={{ textAlign: 'left', fontSize: '11px', fontWeight: 800, color: '#94a3b8', padding: '12px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                   ))}
                 </tr>
@@ -291,18 +291,17 @@ export default function AdminDashboard() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '60px' }}>
+                    <td colSpan={3} style={{ textAlign: 'center', padding: '60px' }}>
                       <div className="spinner" style={{ margin: '0 auto' }} />
                     </td>
                   </tr>
                 ) : recentApps.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8', padding: '60px', fontSize: '13.5px', fontWeight: 500 }}>
+                    <td colSpan={3} style={{ textAlign: 'center', color: '#94a3b8', padding: '60px', fontSize: '13.5px', fontWeight: 500 }}>
                       No recent activity in system
                     </td>
                   </tr>
                 ) : recentApps.map((a, i) => {
-                  const badge = getStatusBadge(a.status);
                   return (
                     <tr key={a._id || a.id || i} style={{ borderBottom: '1px solid #f8fafc' }}>
                       <td style={{ padding: '16px 8px', fontSize: '13.5px', fontWeight: 700, color: '#1e293b' }}>
@@ -327,23 +326,6 @@ export default function AdminDashboard() {
                         }}>
                           <Tag size={10} />
                           {a._actType || (a.category ? 'Application' : 'Certificate')}
-                        </span>
-                      </td>
-                      <td style={{ padding: '16px 8px' }}>
-                        <span style={{ 
-                          background: badge.bg, 
-                          color: badge.text, 
-                          fontSize: '11px', 
-                          fontWeight: 700, 
-                          borderRadius: '30px', 
-                          padding: '4px 10px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          textTransform: 'capitalize'
-                        }}>
-                          {badge.icon}
-                          {a.status?.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td style={{ padding: '16px 8px', fontSize: '12.5px', color: '#64748b', fontWeight: 500 }}>

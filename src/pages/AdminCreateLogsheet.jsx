@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, CheckCircle2, CheckSquare } from 'lucide-react';
+import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, CheckCircle2, CheckSquare, PenTool, Check } from 'lucide-react';
+import { getPdfUrl } from '../lib/pdfUtils';
 
 export default function AdminCreateLogsheet() {
   const { appId } = useParams();
@@ -11,6 +12,13 @@ export default function AdminCreateLogsheet() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
+  
+  const [signatures, setSignatures] = useState([]);
+  const [currentLogsheet, setCurrentLogsheet] = useState(null);
+  const [sigRole, setSigRole] = useState('');
+  const [sigComment, setSigComment] = useState('');
+  const [isSigning, setIsSigning] = useState(false);
+  const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
 
   const [form, setForm] = useState({
     company_name: '', company_address: '', manufacturing_address: '',
@@ -50,10 +58,12 @@ export default function AdminCreateLogsheet() {
       }
 
       // 3. See if logsheet exists
+      let logsheetObj = null;
       let logsheetData = {};
       try {
         const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
-        logsheetData = logRes.data;
+        logsheetObj = logRes.data?.data || logRes.data;
+        logsheetData = logsheetObj || {};
       } catch (e) {
         // Not found, use defaults from app & audit
         if (appData) {
@@ -112,7 +122,16 @@ export default function AdminCreateLogsheet() {
         }
       }
 
+      setCurrentLogsheet(logsheetObj);
       setForm(f => ({ ...f, ...logsheetData, confirmed: false }));
+
+      // 4. Fetch signatures for signing panel
+      try {
+        const sigsRes = await api.get('/api/signatures');
+        setSignatures(Array.isArray(sigsRes) ? sigsRes : []);
+      } catch (e) {
+        console.log('Failed to fetch signatures', e);
+      }
     } catch (err) {
       toast.error('Failed to load application data');
       console.error(err);
@@ -131,6 +150,55 @@ export default function AdminCreateLogsheet() {
       toast.success('Document uploaded!', { id: 'upload' });
     } catch (err) {
       toast.error('Upload failed', { id: 'upload' });
+    }
+  };
+
+  const handleSignLogsheet = async (e) => {
+    e.preventDefault();
+    if (!sigRole) {
+      toast.error('Please select a signature role first');
+      return;
+    }
+    
+    const matchedSig = signatures.find(s => s.username?.toLowerCase() === sigRole.toLowerCase());
+    if (!matchedSig) {
+      toast.error(`No uploaded signature found for role/username "${sigRole}" in the database.`);
+      return;
+    }
+
+    setIsSigning(true);
+    try {
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        role: sigRole,
+        signature_url: matchedSig.signature_url,
+        signature_name: matchedSig.name,
+        comment: sigComment
+      });
+      toast.success(`Logsheet successfully signed as ${sigRole}!`);
+      fetchData();
+      setSigRole('');
+      setSigComment('');
+    } catch (err) {
+      toast.error(err.message || 'Failed to apply signature');
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
+  const handleSendToReview = async (e) => {
+    e.preventDefault();
+    setIsSendingWithoutSig(true);
+    try {
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        sendWithoutSignature: true,
+        comment: sigComment
+      });
+      toast.success('Logsheet sent to review without signature successfully');
+      navigate('/logsheet/waiting-signature');
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit review');
+    } finally {
+      setIsSendingWithoutSig(false);
     }
   };
 
@@ -458,12 +526,243 @@ export default function AdminCreateLogsheet() {
         </form>
       </div>
 
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      {/* SIGNATURE PANEL CARD */}
+      {currentLogsheet && (
+        <div className="card" style={{ marginTop: '30px', padding: '30px', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-in-out' }}>
+          {/* Section Header */}
+          <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '20px', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <PenTool size={22} style={{ color: 'var(--primary)' }} />
+              Logsheet Sign-Off Matrix
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
+              Authorized reviewers can electronically sign this application logsheet decision.
+            </p>
+          </div>
+
+          {/* Render Applied Signatures Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+            {/* Mufti Signature Display */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.mufti_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Mufti</span>
+              {currentLogsheet.mufti_signature ? (
+                <>
+                  <img src={getPdfUrl(currentLogsheet.mufti_signature)} alt="Mufti Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.mufti_sign_name}</span>
+                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.mufti_sign_date).toLocaleDateString('en-GB')}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
+              )}
+            </div>
+
+            {/* CEO Signature Display */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.ceo_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>CEO</span>
+              {currentLogsheet.ceo_signature ? (
+                <>
+                  <img src={getPdfUrl(currentLogsheet.ceo_signature)} alt="CEO Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.ceo_sign_name}</span>
+                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.ceo_sign_date).toLocaleDateString('en-GB')}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
+              )}
+            </div>
+
+            {/* Manager Signature Display */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.manager_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Manager</span>
+              {currentLogsheet.manager_signature ? (
+                <>
+                  <img src={getPdfUrl(currentLogsheet.manager_signature)} alt="Manager Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.manager_sign_name}</span>
+                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.manager_sign_date).toLocaleDateString('en-GB')}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
+              )}
+            </div>
+
+            {/* Mufti2 Signature Display */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.mufti2_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Mufti 2</span>
+              {currentLogsheet.mufti2_signature ? (
+                <>
+                  <img src={getPdfUrl(currentLogsheet.mufti2_signature)} alt="Mufti 2 Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.mufti2_sign_name}</span>
+                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.mufti2_sign_date).toLocaleDateString('en-GB')}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
+              )}
+            </div>
+          </div>
+
+          {/* Only render signing decision panel if status is 'Waiting for Signature' */}
+          {currentLogsheet.status === 'Waiting for Signature' && (
+            <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '28px' }}>
+              {/* Note / Comment Text Area */}
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Signature Comments / Review Notes</label>
+                <textarea 
+                  className="form-control"
+                  rows={4}
+                  placeholder="Enter comments, conditions, or reasons for signing..."
+                  value={sigComment}
+                  onChange={e => setSigComment(e.target.value)}
+                  style={{ background: '#fff', fontSize: '14px', padding: '14px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
+                />
+              </div>
+
+              {/* Signature Role Selector */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px' }}>
+                {['Mufti', 'Ceo', 'Manager', 'Mufti2'].map(role => {
+                  return (
+                    <label 
+                      key={role} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px', 
+                        cursor: 'pointer', 
+                        fontSize: '14px', 
+                        fontWeight: 700, 
+                        color: sigRole === role ? '#4f46e5' : '#475569',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        background: sigRole === role ? '#f5f3ff' : '#f8fafc',
+                        border: `2px solid ${sigRole === role ? '#4f46e5' : '#e2e8f0'}`,
+                        transition: 'all 0.2s',
+                        boxShadow: sigRole === role ? '0 4px 6px -1px rgba(79, 70, 229, 0.1)' : 'none'
+                      }}
+                    >
+                      <input 
+                        type="radio" 
+                        name="signatureRole" 
+                        value={role} 
+                        checked={sigRole === role} 
+                        onChange={() => setSigRole(role)}
+                        style={{ display: 'none' }}
+                      />
+                      <span 
+                        style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          borderRadius: '50%', 
+                          border: `2px solid ${sigRole === role ? '#4f46e5' : '#cbd5e1'}`, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          background: sigRole === role ? '#4f46e5' : 'transparent',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {sigRole === role && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
+                      </span>
+                      <span>
+                        {role === 'Ceo' ? 'Ceo' : role === 'Mufti2' ? 'Mufti2' : role}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Show matching signature preview */}
+              {sigRole && (
+                <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
+                  {(() => {
+                    const matched = signatures.find(s => s.username?.toLowerCase() === sigRole.toLowerCase());
+                    if (matched) {
+                      return (
+                        <div style={{ padding: '14px 24px', border: '1px dashed #86efac', borderRadius: '10px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 6px -1px rgba(22, 101, 52, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Check size={18} style={{ color: '#16a34a' }} />
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontSize: '10px', color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Signature Active</div>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{matched.name}</div>
+                            </div>
+                          </div>
+                          <div style={{ borderLeft: '1px solid #dcfce7', height: '30px' }} />
+                          <img src={getPdfUrl(matched.signature_url)} alt="Signature Preview" style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div style={{ padding: '14px 24px', border: '1px dashed #fca5a5', borderRadius: '10px', background: '#fef2f2', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b', fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(153, 27, 27, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
+                          <span>⚠️ No uploaded signature image found for username <strong>"{sigRole.toLowerCase()}"</strong>.</span>
+                          <button 
+                            type="button" 
+                            className="btn btn-ghost btn-sm" 
+                            onClick={() => navigate('/signatures')}
+                            style={{ color: '#b91c1c', textDecoration: 'underline', padding: '0 4px', fontWeight: 800 }}
+                          >
+                            Upload Signature
+                          </button>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={handleSignLogsheet}
+                  disabled={isSigning || !sigRole || !signatures.some(s => s.username?.toLowerCase() === sigRole.toLowerCase())}
+                  className="btn btn-primary"
+                  style={{ 
+                    padding: '12px 36px', 
+                    fontSize: '14px', 
+                    fontWeight: 700, 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    background: '#6366f1',
+                    borderColor: '#6366f1',
+                    boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.4)',
+                    cursor: 'pointer',
+                    opacity: (isSigning || !sigRole || !signatures.some(s => s.username?.toLowerCase() === sigRole.toLowerCase())) ? 0.6 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isSigning ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }} /> APPLYING SIGNATURE...</span>
+                  ) : (
+                    <>
+                      <PenTool size={16} />
+                      SIGN
+                    </>
+                  )}
+                </button>
+
+                <button 
+                  onClick={handleSendToReview}
+                  disabled={isSendingWithoutSig}
+                  className="btn btn-ghost"
+                  style={{ 
+                    padding: '12px 24px', 
+                    fontSize: '14px', 
+                    fontWeight: 700,
+                    color: '#6366f1',
+                    border: '1px solid #cbd5e1',
+                    background: 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isSendingWithoutSig ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px' }} /> SENDING...</span>
+                  ) : (
+                    'SEND TO REVIEW WITHOUT SIGNATURE'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

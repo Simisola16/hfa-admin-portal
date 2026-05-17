@@ -1281,7 +1281,7 @@ export default function AdminApplications() {
                             client_id: manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id,
                             dates: auditForm.dates
                           });
-                          setExistingAudit(res.data.data);
+                          setExistingAudit(res.data);
                           toast.success('3 Dates proposed to client successfully!');
                         } catch (err) {
                           toast.error(err.message || 'Failed to propose dates');
@@ -1386,7 +1386,7 @@ export default function AdminApplications() {
                             audit_id: existingAudit._id || existingAudit.id,
                             auditors: auditForm.auditors
                           });
-                          setExistingAudit(res.data.data);
+                          setExistingAudit(res.data);
                           toast.success('Auditors assigned successfully!');
                         } catch (err) {
                           toast.error(err.message || 'Failed to assign auditors');
@@ -1468,7 +1468,7 @@ export default function AdminApplications() {
                             if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
 
                             const res = await api.post('/api/audits/flag-nc', formData, true);
-                            setExistingAudit(res.data.data);
+                            setExistingAudit(res.data);
                             setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
                             toast.success('NC Report flagged successfully!');
                           } catch (err) {

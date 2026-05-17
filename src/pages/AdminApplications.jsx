@@ -122,7 +122,7 @@ export default function AdminApplications() {
           .catch(() => setExistingInvoice(null));
         // Check for existing audit
         api.get(`/api/audits/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingAudit(res.data?.data || null))
+          .then(res => setExistingAudit(res.data || null))
           .catch(() => setExistingAudit(null));
       }
     }
@@ -278,7 +278,7 @@ export default function AdminApplications() {
                         const appId = app._id || app.id;
                         api.get(`/api/proposals/application/${appId}`).then(res => setExistingProposal(res.data || null)).catch(() => setExistingProposal(null));
                         api.get(`/api/invoices/application/${appId}`).then(res => setExistingInvoice(res.data || null)).catch(() => setExistingInvoice(null));
-                        api.get(`/api/audits/application/${appId}`).then(res => setExistingAudit(res.data?.data || null)).catch(() => setExistingAudit(null));
+                        api.get(`/api/audits/application/${appId}`).then(res => setExistingAudit(res.data || null)).catch(() => setExistingAudit(null));
                       }}
                     >
                       <Settings size={18} className="text-muted" /> Processing

@@ -1170,7 +1170,7 @@ export default function AdminApplications() {
                 >
                   <ExternalLink size={14} /> View Proposal
                 </Link>
-                {(manageModal.status === 'APPLICATION SUCCESSFUL/UNSUCCESSFUL' || manageModal.status === 'Create Logsheet') && (
+                {(manageModal.status === 'Create Logsheet') && (
                   <Link
                     to={`/applications/${manageModal._id}/logsheet`}
                     className="btn btn-primary btn-sm"

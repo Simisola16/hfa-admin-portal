@@ -46,7 +46,13 @@ const navItems = [
     ]
   },
   { icon: Ship, label: 'Export Certificates', path: '/exports' },
-  { icon: Calendar, label: 'Audits', path: '/audits' },
+  {
+    icon: Calendar, label: 'Audits', path: '/audits',
+    children: [
+      { label: 'All Audits', path: '/audits' },
+      { label: 'Upcoming Audits', path: '/audits?filter=upcoming' },
+    ]
+  },
   { icon: Package, label: 'Products', path: '/products' },
   { icon: MapPin, label: 'Sites', path: '/sites' },
   { icon: Briefcase, label: 'Proposals', path: '/proposals' },

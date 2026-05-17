@@ -70,7 +70,7 @@ export default function AdminApplications() {
   const [proposalForm, setProposalForm] = useState({ type: 'upload', title: '', estimated_cost: '', details: '', admin_comment: '', file: null });
   const [existingProposal, setExistingProposal] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [invoiceForm, setInvoiceForm] = useState({ title: '', amount: '', due_date: '', notes: '', file: null });
+  const [invoiceForm, setInvoiceForm] = useState({ title: '', amount: '', due_date: '', notes: '', file: null, target_status: 'INVOICE SENT' });
   const [existingInvoice, setExistingInvoice] = useState(null);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
   const [showInvoicePdf, setShowInvoicePdf] = useState(false);
@@ -641,7 +641,20 @@ export default function AdminApplications() {
                                   amount: existingProposal?.estimated_cost || '',
                                   due_date: '',
                                   notes: '',
-                                  file: null
+                                  file: null,
+                                  target_status: 'INVOICE SENT'
+                                });
+                                setShowInvoiceModal(true);
+                                return;
+                              }
+                              if (step === 'INVOICE FOR FINAL PAYMENT SENT') {
+                                setInvoiceForm({
+                                  title: `Final Invoice for ${manageModal.application_number}`,
+                                  amount: '',
+                                  due_date: '',
+                                  notes: '',
+                                  file: null,
+                                  target_status: 'INVOICE FOR FINAL PAYMENT SENT'
                                 });
                                 setShowInvoiceModal(true);
                                 return;
@@ -797,12 +810,15 @@ export default function AdminApplications() {
                                 style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none', fontSize: 12, whiteSpace: 'nowrap' }}
                                 onClick={async () => {
                                   try {
+                                    const isFinal = manageModal.status === 'INVOICE FOR FINAL PAYMENT SENT' || manageModal.status === 'FINAL PAYMENT RECEIVED';
+                                    const nextStatus = isFinal ? 'FINAL PAYMENT RECEIVED' : 'PAYMENT RECEIVED';
+
                                     await api.put(`/api/invoices/${existingInvoice._id || existingInvoice.id}`, { status: 'paid', payment_date: new Date().toISOString() });
-                                    await api.put(`/api/applications/${manageModal._id || manageModal.id}/status`, { status: 'PAYMENT RECEIVED' });
+                                    await api.put(`/api/applications/${manageModal._id || manageModal.id}/status`, { status: nextStatus });
                                     setExistingInvoice(prev => ({ ...prev, status: 'paid' }));
-                                    setManageModal(prev => ({ ...prev, status: 'PAYMENT RECEIVED' }));
-                                    setActionForm(prev => ({ ...prev, status: 'PAYMENT RECEIVED' }));
-                                    toast.success('Payment verified & status updated to PAYMENT RECEIVED!');
+                                    setManageModal(prev => ({ ...prev, status: nextStatus }));
+                                    setActionForm(prev => ({ ...prev, status: nextStatus }));
+                                    toast.success(`Payment verified & status updated to ${nextStatus}!`);
                                   } catch (err) {
                                     toast.error(err.message || 'Failed to mark as paid');
                                   }
@@ -1422,7 +1438,7 @@ export default function AdminApplications() {
             <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection:'column', gap:12, alignItems:'stretch' }}>
               <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#166534', display:'flex', alignItems:'center', gap:8 }}>
                 <CheckCircle size={14} style={{ color:'#16a34a', flexShrink:0 }} />
-                <span>Uploading will update the application status to <strong>INVOICE SENT</strong> and send an email to the client.</span>
+                <span>Uploading will update the application status to <strong>{invoiceForm.target_status || 'INVOICE SENT'}</strong> and send an email to the client.</span>
               </div>
               <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
                 <button className="btn btn-ghost" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
@@ -1439,6 +1455,7 @@ export default function AdminApplications() {
                       if (invoiceForm.due_date) formData.append('due_date', invoiceForm.due_date);
                       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
                       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
+                      formData.append('target_status', invoiceForm.target_status || 'INVOICE SENT');
                       
                       const appId = manageModal._id || manageModal.id;
                       const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
@@ -1454,14 +1471,15 @@ export default function AdminApplications() {
                       const res = await api.post('/api/invoices', formData, true);
                       setExistingInvoice(res.data);
 
-                      // Automatically update application status to INVOICE SENT
-                      await api.put(`/api/applications/${appId}/status`, { status: 'INVOICE SENT' });
+                      const targetStatus = invoiceForm.target_status || 'INVOICE SENT';
+                      // Automatically update application status
+                      await api.put(`/api/applications/${appId}/status`, { status: targetStatus });
                       
                       // Update local UI states
-                      setManageModal(prev => ({ ...prev, status: 'INVOICE SENT' }));
-                      setActionForm(prev => ({ ...prev, status: 'INVOICE SENT' }));
+                      setManageModal(prev => ({ ...prev, status: targetStatus }));
+                      setActionForm(prev => ({ ...prev, status: targetStatus }));
 
-                      toast.success('🧾 Invoice sent! Status updated to INVOICE SENT.');
+                      toast.success(`🧾 Invoice sent! Status updated to ${targetStatus}.`);
                       setShowInvoiceModal(false);
                       fetchData();
                     } catch (err) {

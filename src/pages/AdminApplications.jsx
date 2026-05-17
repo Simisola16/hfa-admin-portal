@@ -39,8 +39,10 @@ const ALL_STATUSES = [
   'PROPOSAL ACCEPTED/REJECTED',
   'INVOICE SENT',
   'PAYMENT RECEIVED',
+  'PROPOSE AUDIT DATE',
   'AUDIT DATE FINALIZED',
-  'AUDIT-SESSION',
+  'ASSIGN AUDITOR',
+  'AUDITED',
   'NC REPORTS',
   'NC REPORTS CLOSED',
   'AUDIT REPORT SUBMITTED',
@@ -663,7 +665,7 @@ export default function AdminApplications() {
                                 setShowInvoiceModal(true);
                                 return;
                               }
-                              if (step === 'AUDIT DATE FINALIZED') {
+                              if (['PROPOSE AUDIT DATE', 'AUDIT DATE FINALIZED', 'ASSIGN AUDITOR'].includes(step)) {
                                 setAuditModalTab('dates');
                                 setShowAuditModal(true);
                                 return;
@@ -1859,11 +1861,50 @@ export default function AdminApplications() {
                 <div>
                   <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
                     <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 8 }}>✓ Client Selected Dates</h4>
-                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#15803d', fontSize: '13px' }}>
+                    <p style={{ fontSize: 13, color: '#15803d', marginBottom: 12 }}>Please finalize 1 date from the 2 dates selected by the client.</p>
+                    <div style={{ display: 'grid', gap: 12 }}>
                       {existingAudit.selected_dates?.map((d, i) => (
-                        <li key={i}>{new Date(d).toDateString()}</li>
+                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '12px', border: '1px solid #bbf7d0', borderRadius: '8px', background: auditForm.finalized_date === d ? '#dcfce7' : '#fff' }}>
+                          <input type="radio" name="finalized_date" value={d} onChange={e => setAuditForm({...auditForm, finalized_date: e.target.value})} checked={auditForm.finalized_date === d} />
+                          <span style={{ fontSize: '14px', color: '#166534', fontWeight: 700 }}>{new Date(d).toDateString()}</span>
+                        </label>
                       ))}
-                    </ul>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 24, textAlign: 'right' }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={auditSubmitting || !auditForm.finalized_date}
+                      onClick={async () => {
+                        setAuditSubmitting(true);
+                        try {
+                          const res = await api.post('/api/audits/finalize-date', {
+                            audit_id: existingAudit._id || existingAudit.id,
+                            finalized_date: auditForm.finalized_date
+                          });
+                          setExistingAudit(res.data);
+                          setManageModal(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
+                          setActionForm(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
+                          toast.success('Audit date finalized successfully!');
+                          fetchData();
+                        } catch (err) {
+                          toast.error(err.message || 'Failed to finalize date');
+                        } finally {
+                          setAuditSubmitting(false);
+                        }
+                      }}
+                    >
+                      {auditSubmitting ? 'Finalizing...' : 'Finalize Audit Date'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {existingAudit?.status === 'date_finalized' && (
+                <div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                    <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 4 }}>✓ Audit Date Finalized</h4>
+                    <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>{new Date(existingAudit.finalized_date).toDateString()}</p>
                   </div>
 
                   <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16 }}>Assign Auditor(s)</h4>
@@ -1937,14 +1978,11 @@ export default function AdminApplications() {
                           });
                           setExistingAudit(res.data);
 
-                          // Automatically update application status to AUDIT DATE FINALIZED
-                          const appId = manageModal._id || manageModal.id;
-                          await api.put(`/api/applications/${appId}/status`, { status: 'AUDIT DATE FINALIZED' });
-                          
-                          setManageModal(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
-                          setActionForm(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
+                          // Update application status to ASSIGN AUDITOR
+                          setManageModal(prev => ({ ...prev, status: 'ASSIGN AUDITOR' }));
+                          setActionForm(prev => ({ ...prev, status: 'ASSIGN AUDITOR' }));
 
-                          toast.success('Auditors assigned and status updated to AUDIT DATE FINALIZED!');
+                          toast.success('Auditors assigned and status updated to ASSIGN AUDITOR!');
                           fetchData();
                         } catch (err) {
                           toast.error(err.message || 'Failed to assign auditors');

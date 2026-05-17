@@ -47,6 +47,7 @@ const ALL_STATUSES = [
   'NC REPORTS CLOSED',
   'AUDIT REPORT SUBMITTED',
   'APPLICATION SUCCESSFUL/UNSUCCESSFUL',
+  'Create Logsheet',
   'AGREEMENT SENT',
   'SIGNED COPY OF AGREEMENT SENT',
   'AGREEMENT SIGNED COPY RECEIVED',
@@ -1151,7 +1152,7 @@ export default function AdminApplications() {
             </div>
 
             <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-              {/* Left: Danger + Proposal */}
+              {/* Left: Danger + Proposal + Logsheet */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
@@ -1169,6 +1170,15 @@ export default function AdminApplications() {
                 >
                   <ExternalLink size={14} /> View Proposal
                 </Link>
+                {(manageModal.status === 'APPLICATION SUCCESSFUL/UNSUCCESSFUL' || manageModal.status === 'Create Logsheet') && (
+                  <Link
+                    to={`/applications/${manageModal._id}/logsheet`}
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setManageModal(null)}
+                  >
+                    📝 Create Logsheet
+                  </Link>
+                )}
               </div>
               {/* Right: Main actions */}
               <div style={{ display: 'flex', gap: 8 }}>

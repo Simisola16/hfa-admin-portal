@@ -20,6 +20,7 @@ import AdminReports from './pages/AdminReports';
 import AdminProposals from './pages/AdminProposals';
 import AdminExports from './pages/AdminExports';
 import AdminLogsheets from './pages/AdminLogsheets';
+import AdminCreateLogsheet from './pages/AdminCreateLogsheet';
 import AdminTickets from './pages/AdminTickets';
 import AdminSignatures from './pages/AdminSignatures';
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/applications" element={<AdminApplications />} />
+            <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/clients" element={<AdminClients />} />
             <Route path="/inspectors" element={<AdminInspectors />} />

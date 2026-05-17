@@ -225,6 +225,20 @@ export default function AdminCreateLogsheet() {
     }
   };
 
+  const isReadOnly = currentLogsheet && currentLogsheet.status === 'Waiting for Signature';
+
+  const renderField = (label, value, isDate = false, customStyle = {}) => {
+    const formatted = isDate ? (value ? new Date(value).toLocaleDateString('en-GB') : '—') : (value || '—');
+    return (
+      <div className="form-group" style={customStyle}>
+        <label className="form-label">{label}</label>
+        <div style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#334155', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+          {formatted}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="loading-overlay"><div className="spinner" /></div>;
 
   return (
@@ -234,6 +248,21 @@ export default function AdminCreateLogsheet() {
       </button>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01)' }}>
+        {/* Read-Only Status Banner */}
+        {isReadOnly && (
+          <div style={{ background: '#fff7ed', borderBottom: '1px solid #ffedd5', padding: '16px 30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: '#ffedd5', color: '#ea580c', padding: '8px', borderRadius: '50%', display: 'flex' }}>
+              <Clock size={20} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#c2410c' }}>Logsheet Sign-Off Review Mode (Locked)</h4>
+              <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9a3412', fontWeight: 500 }}>
+                This record is finalized and locked for editing. Only executive electronic signatures can be applied below.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Beautiful Header */}
         <div style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', padding: '30px', borderBottom: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -298,231 +327,306 @@ export default function AdminCreateLogsheet() {
           <div style={{ padding: 30, flex: 1, background: '#fff' }}>
             {/* Tab 1 */}
             {activeTab === 1 && (
-              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                <div className="form-group">
-                  <label className="form-label">Company Name</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Contact Person</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Company Address</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Manufacturing Address</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Contact E-mail</label>
-                  <input type="email" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Nature of the business</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Product Category</label>
-                  <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} />
-                </div>
-                
-                <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+              isReadOnly ? (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  {renderField('Company Name', form.company_name)}
+                  {renderField('Contact Person', form.contact_person)}
+                  {renderField('Company Address', form.company_address, false, { gridColumn: '1 / -1' })}
+                  {renderField('Manufacturing Address', form.manufacturing_address, false, { gridColumn: '1 / -1' })}
+                  {renderField('Contact E-mail', form.contact_email)}
+                  {renderField('Nature of the business', form.nature_of_business)}
+                  {renderField('Product Category', form.product_category)}
+                  
+                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
 
-                <div className="form-group">
-                  <label className="form-label">Issue date of certificate</label>
-                  <input type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Expiry date of certificate</label>
-                  <input type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Current Cycle Start Date</label>
-                  <input type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Original Cycle Start Date</label>
-                  <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
-                </div>
+                  {renderField('Issue date of certificate', form.issue_date, true)}
+                  {renderField('Expiry date of certificate', form.expiry_date, true)}
+                  {renderField('Current Cycle Start Date', form.current_cycle_start, true)}
+                  {renderField('Original Cycle Start Date', form.original_cycle_start, true)}
 
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Supporting Document (Optional)</label>
-                  {form.document_url ? (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                      <CheckCircle2 size={18} color="#16a34a" />
-                      <a href={form.document_url} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>Document Uploaded Successfully</a>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '' })}>Remove</button>
-                    </div>
-                  ) : (
-                    <label className="file-upload-box" style={{ display: 'flex', flexDirection: 'column', padding: 30, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 12, cursor: 'pointer', background: '#f8fafc', transition: 'all 0.2s' }}>
-                      <div style={{ background: '#e2e8f0', padding: 12, borderRadius: '50%', marginBottom: 12 }}>
-                        <UploadCloud size={24} color="#475569" />
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Supporting Document</label>
+                    {form.document_url ? (
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                        <CheckCircle2 size={18} color="#16a34a" />
+                        <a href={form.document_url} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>View Uploaded Document</a>
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>Click to Upload File</div>
-                      <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>PDF, PNG, or JPG (Max 5MB)</div>
-                      <input type="file" style={{ display: 'none' }} onChange={handleFileChange} />
-                    </label>
-                  )}
+                    ) : (
+                      <div style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', color: '#64748b', fontStyle: 'italic' }}>
+                        No supporting document uploaded
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  <div className="form-group">
+                    <label className="form-label">Company Name</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Contact Person</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Company Address</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Manufacturing Address</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Contact E-mail</label>
+                    <input type="email" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Nature of the business</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Product Category</label>
+                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} />
+                  </div>
+                  
+                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+
+                  <div className="form-group">
+                    <label className="form-label">Issue date of certificate</label>
+                    <input type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Expiry date of certificate</label>
+                    <input type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Current Cycle Start Date</label>
+                    <input type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Original Cycle Start Date</label>
+                    <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Supporting Document (Optional)</label>
+                    {form.document_url ? (
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                        <CheckCircle2 size={18} color="#16a34a" />
+                        <a href={form.document_url} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>Document Uploaded Successfully</a>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '' })}>Remove</button>
+                      </div>
+                    ) : (
+                      <label className="file-upload-box" style={{ display: 'flex', flexDirection: 'column', padding: 30, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 12, cursor: 'pointer', background: '#f8fafc', transition: 'all 0.2s' }}>
+                        <div style={{ background: '#e2e8f0', padding: 12, borderRadius: '50%', marginBottom: 12 }}>
+                          <UploadCloud size={24} color="#475569" />
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>Click to Upload File</div>
+                        <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>PDF, PNG, or JPG (Max 5MB)</div>
+                        <input type="file" style={{ display: 'none' }} onChange={handleFileChange} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )
             )}
 
             {/* Tab 2 */}
             {activeTab === 2 && (
-              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                <div className="form-group">
-                  <label className="form-label">Audit Type</label>
-                  <select className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
-                    <option value="Initial">Initial</option>
-                    <option value="Surveillance">Surveillance</option>
-                    <option value="Re-audit">Re-audit</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Audit Date</label>
-                  <input type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Auditors</label>
-                  <input type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">NCS Close (if any)</label>
-                  <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Audit Documentation reviewed and found satisfactory</label>
-                  <input type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Pork free statement / signed pork policy submitted</label>
-                  <input type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} />
-                </div>
-                
-                <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+              isReadOnly ? (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  {renderField('Audit Type', form.audit_type)}
+                  {renderField('Audit Date', form.audit_date, true)}
+                  {renderField('Auditors', form.auditors)}
+                  {renderField('NCS Close (if any)', form.ncs_close)}
+                  {renderField('Audit Documentation reviewed and found satisfactory', form.docs_satisfactory, false, { gridColumn: '1 / -1' })}
+                  {renderField('Pork free statement / signed pork policy submitted', form.pork_free_statement, false, { gridColumn: '1 / -1' })}
+                  
+                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
 
-                <div className="form-group">
-                  <label className="form-label">Reviewed By</label>
-                  <input type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} />
+                  {renderField('Reviewed By', form.reviewed_by)}
+                  {renderField('Reviewer Name', form.reviewer_name)}
+                  {renderField('Date of Review', form.review_date, true, { gridColumn: '1 / -1' })}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Reviewer Name</label>
-                  <input type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} />
+              ) : (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  <div className="form-group">
+                    <label className="form-label">Audit Type</label>
+                    <select className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
+                      <option value="Initial">Initial</option>
+                      <option value="Surveillance">Surveillance</option>
+                      <option value="Re-audit">Re-audit</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Audit Date</label>
+                    <input type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Auditors</label>
+                    <input type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">NCS Close (if any)</label>
+                    <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Audit Documentation reviewed and found satisfactory</label>
+                    <input type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Pork free statement / signed pork policy submitted</label>
+                    <input type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} />
+                  </div>
+                  
+                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+
+                  <div className="form-group">
+                    <label className="form-label">Reviewed By</label>
+                    <input type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Reviewer Name</label>
+                    <input type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Date of Review</label>
+                    <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
+                  </div>
                 </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Date of Review</label>
-                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
-                </div>
-              </div>
+              )
             )}
 
             {/* Tab 3 */}
             {activeTab === 3 && (
-              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                <div className="form-group">
-                  <label className="form-label">Annual certificate</label>
-                  <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
+              isReadOnly ? (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  {renderField('Annual certificate', form.annual_certificate)}
+                  {renderField('Batch certificate', form.batch_certificate)}
+                  {renderField('Only addition of new products', form.new_products_only)}
+                  {renderField('Addition of new site (or line)', form.new_site_line)}
+                  {renderField('New Client', form.new_client)}
+                  {renderField('Agreement Signed', form.agreement_signed)}
+                  {renderField('Status Date', form.status_date, true, { gridColumn: '1 / -1' })}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Batch certificate</label>
-                  <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
+              ) : (
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
+                  <div className="form-group">
+                    <label className="form-label">Annual certificate</label>
+                    <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Batch certificate</label>
+                    <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Only addition of new products</label>
+                    <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Addition of new site (or line)</label>
+                    <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">New Client</label>
+                    <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Agreement Signed</label>
+                    <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
+                      <option value="Yes">Yes</option><option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Status Date</label>
+                    <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Only addition of new products</label>
-                  <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Addition of new site (or line)</label>
-                  <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">New Client</label>
-                  <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Agreement Signed</label>
-                  <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Status Date</label>
-                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
-                </div>
-              </div>
+              )
             )}
 
             {/* Tab 4 */}
             {activeTab === 4 && (
-              <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-                <div className="form-group">
-                  <label className="form-label">Comment / Reason</label>
-                  <textarea 
-                    className="form-control" 
-                    rows={8}
-                    style={{ background: '#f8fafc', fontSize: 15, padding: 16 }}
-                    placeholder="Enter final review comments, notes, or specific reasons for certification..."
-                    value={form.comment} 
-                    onChange={e => setForm({ ...form, comment: e.target.value })} 
-                  />
+              isReadOnly ? (
+                <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+                  <div className="form-group">
+                    <label className="form-label">Comment / Reason</label>
+                    <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#334155', minHeight: '150px', whiteSpace: 'pre-wrap' }}>
+                      {form.comment || '—'}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+                  <div className="form-group">
+                    <label className="form-label">Comment / Reason</label>
+                    <textarea 
+                      className="form-control" 
+                      rows={8}
+                      style={{ background: '#f8fafc', fontSize: 15, padding: 16 }}
+                      placeholder="Enter final review comments, notes, or specific reasons for certification..."
+                      value={form.comment} 
+                      onChange={e => setForm({ ...form, comment: e.target.value })} 
+                    />
+                  </div>
+                </div>
+              )
             )}
           </div>
 
           {/* Fixed Footer */}
-          <div style={{ background: '#f8fafc', padding: '20px 30px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <label style={{ 
-              display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', 
-              background: form.confirmed ? '#f0fdf4' : '#fff', 
-              border: `1px solid ${form.confirmed ? '#86efac' : '#cbd5e1'}`, 
-              padding: '12px 16px', borderRadius: 8, transition: 'all 0.2s'
-            }}>
-              <input 
-                type="checkbox" 
-                checked={form.confirmed}
-                onChange={e => setForm({ ...form, confirmed: e.target.checked })}
-                style={{ width: 20, height: 20, cursor: 'pointer' }}
-              />
-              <span style={{ fontWeight: 600, color: form.confirmed ? '#166534' : '#334155' }}>
-                I have confirmed that the product on the client dashboard is correct with the matrix.
-              </span>
-            </label>
+          {!isReadOnly && (
+            <div style={{ background: '#f8fafc', padding: '20px 30px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <label style={{ 
+                display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', 
+                background: form.confirmed ? '#f0fdf4' : '#fff', 
+                border: `1px solid ${form.confirmed ? '#86efac' : '#cbd5e1'}`, 
+                padding: '12px 16px', borderRadius: 8, transition: 'all 0.2s'
+              }}>
+                <input 
+                  type="checkbox" 
+                  checked={form.confirmed}
+                  onChange={e => setForm({ ...form, confirmed: e.target.checked })}
+                  style={{ width: 20, height: 20, cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: 600, color: form.confirmed ? '#166534' : '#334155' }}>
+                  I have confirmed that the product on the client dashboard is correct with the matrix.
+                </span>
+              </label>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#64748b' }}>
-                {form.confirmed ? 'Ready to submit logsheet.' : 'Please confirm the checklist above to submit.'}
-              </span>
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                disabled={submitting || !form.confirmed} 
-                style={{ 
-                  padding: '12px 32px', 
-                  fontSize: 15, 
-                  fontWeight: 600,
-                  opacity: (!form.confirmed || submitting) ? 0.6 : 1,
-                  boxShadow: '0 4px 14px 0 rgba(2,132,199,0.39)'
-                }}
-              >
-                {submitting ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 16, height: 16, borderTopColor: '#fff' }} /> Saving...</span>
-                ) : 'Submit Logsheet & Advance Status'}
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: '#64748b' }}>
+                  {form.confirmed ? 'Ready to submit logsheet.' : 'Please confirm the checklist above to submit.'}
+                </span>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={submitting || !form.confirmed} 
+                  style={{ 
+                    padding: '12px 32px', 
+                    fontSize: 15, 
+                    fontWeight: 600,
+                    opacity: (!form.confirmed || submitting) ? 0.6 : 1,
+                    boxShadow: '0 4px 14px 0 rgba(2,132,199,0.39)'
+                  }}
+                >
+                  {submitting ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 16, height: 16, borderTopColor: '#fff' }} /> Saving...</span>
+                  ) : 'Submit Logsheet & Advance Status'}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </form>
       </div>
 

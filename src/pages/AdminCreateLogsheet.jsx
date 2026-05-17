@@ -17,7 +17,7 @@ export default function AdminCreateLogsheet() {
   
   const [signatures, setSignatures] = useState([]);
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
-  const [sigRole, setSigRole] = useState('');
+  const [sigRoles, setSigRoles] = useState([]);
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
@@ -164,8 +164,8 @@ export default function AdminCreateLogsheet() {
 
   const handleSignLogsheet = async (e) => {
     e.preventDefault();
-    if (!sigRole) {
-      toast.error('Please select a signature role first');
+    if (sigRoles.length === 0) {
+      toast.error('Please select at least one role to sign');
       return;
     }
     
@@ -177,14 +177,14 @@ export default function AdminCreateLogsheet() {
     setIsSigning(true);
     try {
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
-        role: sigRole,
+        role: sigRoles,
         signature_url: userSignature.signature_url,
         signature_name: userSignature.name,
         comment: sigComment
       });
-      toast.success(`Logsheet successfully signed as ${sigRole}!`);
+      toast.success(`Logsheet successfully signed as ${sigRoles.join(', ')}!`);
       fetchData();
-      setSigRole('');
+      setSigRoles([]);
       setSigComment('');
     } catch (err) {
       toast.error(err.message || 'Failed to apply signature');
@@ -750,9 +750,31 @@ export default function AdminCreateLogsheet() {
                 />
               </div>
 
-              {/* Signature Role Selector */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px' }}>
+              {/* Signature Role Selector Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Select Signature Roles to Apply ({sigRoles.length} selected)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sigRoles.length === 4) {
+                      setSigRoles([]);
+                    } else {
+                      setSigRoles(['Mufti', 'Ceo', 'Manager', 'Mufti2']);
+                    }
+                  }}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '12px', fontWeight: 800, padding: '4px 12px', border: '1px solid #cbd5e1', borderRadius: '20px', background: '#fff', color: '#4f46e5', cursor: 'pointer' }}
+                >
+                  {sigRoles.length === 4 ? 'Deselect All' : 'Select All Roles (Sign Everything)'}
+                </button>
+              </div>
+
+              {/* Signature Role Selector Grid */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '28px' }}>
                 {['Mufti', 'Ceo', 'Manager', 'Mufti2'].map(role => {
+                  const isSelected = sigRoles.includes(role);
                   return (
                     <label 
                       key={role} 
@@ -763,40 +785,46 @@ export default function AdminCreateLogsheet() {
                         cursor: 'pointer', 
                         fontSize: '14px', 
                         fontWeight: 700, 
-                        color: sigRole === role ? '#4f46e5' : '#475569',
-                        padding: '8px 16px',
-                        borderRadius: '20px',
-                        background: sigRole === role ? '#f5f3ff' : '#f8fafc',
-                        border: `2px solid ${sigRole === role ? '#4f46e5' : '#e2e8f0'}`,
+                        color: isSelected ? '#4f46e5' : '#475569',
+                        padding: '10px 20px',
+                        borderRadius: '24px',
+                        background: isSelected ? '#f5f3ff' : '#f8fafc',
+                        border: `2px solid ${isSelected ? '#4f46e5' : '#e2e8f0'}`,
                         transition: 'all 0.2s',
-                        boxShadow: sigRole === role ? '0 4px 6px -1px rgba(79, 70, 229, 0.1)' : 'none'
+                        boxShadow: isSelected ? '0 4px 6px -1px rgba(79, 70, 229, 0.1)' : 'none'
                       }}
                     >
                       <input 
-                        type="radio" 
+                        type="checkbox" 
                         name="signatureRole" 
                         value={role} 
-                        checked={sigRole === role} 
-                        onChange={() => setSigRole(role)}
+                        checked={isSelected} 
+                        onChange={() => {
+                          if (isSelected) {
+                            setSigRoles(sigRoles.filter(r => r !== role));
+                          } else {
+                            setSigRoles([...sigRoles, role]);
+                          }
+                        }}
                         style={{ display: 'none' }}
                       />
                       <span 
                         style={{ 
                           width: '16px', 
                           height: '16px', 
-                          borderRadius: '50%', 
-                          border: `2px solid ${sigRole === role ? '#4f46e5' : '#cbd5e1'}`, 
+                          borderRadius: '4px', 
+                          border: `2px solid ${isSelected ? '#4f46e5' : '#cbd5e1'}`, 
                           display: 'flex', 
                           alignItems: 'center', 
                           justifyContent: 'center',
-                          background: sigRole === role ? '#4f46e5' : 'transparent',
+                          background: isSelected ? '#4f46e5' : 'transparent',
                           transition: 'all 0.2s'
                         }}
                       >
-                        {sigRole === role && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
+                        {isSelected && <Check size={11} style={{ color: '#fff', strokeWidth: 4 }} />}
                       </span>
                       <span>
-                        {role === 'Ceo' ? 'Ceo' : role === 'Mufti2' ? 'Mufti2' : role}
+                        {role === 'Ceo' ? 'CEO' : role === 'Mufti2' ? 'Mufti 2' : role}
                       </span>
                     </label>
                   );
@@ -836,7 +864,7 @@ export default function AdminCreateLogsheet() {
               <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <button 
                   onClick={handleSignLogsheet}
-                  disabled={isSigning || !sigRole || !userSignature}
+                  disabled={isSigning || sigRoles.length === 0 || !userSignature}
                   className="btn btn-primary"
                   style={{ 
                     padding: '12px 36px', 
@@ -849,7 +877,7 @@ export default function AdminCreateLogsheet() {
                     borderColor: '#6366f1',
                     boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.4)',
                     cursor: 'pointer',
-                    opacity: (isSigning || !sigRole || !userSignature) ? 0.6 : 1,
+                    opacity: (isSigning || sigRoles.length === 0 || !userSignature) ? 0.6 : 1,
                     transition: 'all 0.2s'
                   }}
                 >

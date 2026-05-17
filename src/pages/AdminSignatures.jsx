@@ -11,6 +11,8 @@ export default function AdminSignatures() {
   
   // Form State
   const [formData, setFormData] = useState({ name: '', username: '', file: null });
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -29,9 +31,45 @@ export default function AdminSignatures() {
     }
   };
 
+  const fetchStaffUsers = async () => {
+    try {
+      const res = await api.get('/api/users');
+      const allUsers = res.data?.data || res.data || [];
+      const staff = allUsers.filter(u => u.role !== 'client');
+      setStaffUsers(staff);
+    } catch (err) {
+      console.error('Failed to fetch staff users', err);
+    }
+  };
+
   useEffect(() => {
     fetchSignatures();
   }, [search]);
+
+  useEffect(() => {
+    fetchStaffUsers();
+  }, []);
+
+  const handleStaffSelect = (e) => {
+    const val = e.target.value;
+    setSelectedStaffId(val);
+    if (val === 'custom') {
+      setFormData(prev => ({ ...prev, name: '', username: '' }));
+    } else if (val) {
+      const user = staffUsers.find(u => u._id === val);
+      if (user) {
+        // Extract prefix from email as username, e.g. "mufti" from "mufti@hfa.com"
+        const emailPrefix = user.email ? user.email.split('@')[0] : '';
+        setFormData(prev => ({ 
+          ...prev, 
+          name: user.full_name || '', 
+          username: emailPrefix || user.email || '' 
+        }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, name: '', username: '' }));
+    }
+  };
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -80,6 +118,7 @@ export default function AdminSignatures() {
       await api.post('/api/signatures', data, true); // true for multipart
       toast.success('Signature added successfully');
       setFormData({ name: '', username: '', file: null });
+      setSelectedStaffId('');
       if (fileInputRef.current) fileInputRef.current.value = '';
       fetchSignatures();
     } catch (err) {
@@ -122,15 +161,36 @@ export default function AdminSignatures() {
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Username</label>
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Select Staff Member</label>
+              <select
+                className="form-control"
+                style={{ background: '#f8fafc', fontSize: 13, fontWeight: 500 }}
+                value={selectedStaffId}
+                onChange={handleStaffSelect}
+              >
+                <option value="">-- Choose Staff Member --</option>
+                {staffUsers.map(user => (
+                  <option key={user._id} value={user._id}>
+                    {user.full_name || user.email} ({user.role})
+                  </option>
+                ))}
+                <option value="custom">-- Custom Name / Role --</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Username / Designation</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="Enter username"
+                placeholder="e.g. mufti, ceo, manager, mufti2"
                 value={formData.username}
                 onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
                 required
               />
+              <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                Note: Map to standard designations like <strong>mufti</strong>, <strong>ceo</strong>, <strong>manager</strong>, <strong>mufti2</strong> for logsheet sign-offs.
+              </span>
             </div>
             
             <div className="form-group">

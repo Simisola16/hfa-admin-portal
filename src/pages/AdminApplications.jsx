@@ -83,6 +83,10 @@ export default function AdminApplications() {
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [agreementForm, setAgreementForm] = useState({ type: 'upload', title: '', details: '', admin_comment: '', file: null });
   const [agreementSubmitting, setAgreementSubmitting] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [certificateForm, setCertificateForm] = useState({ certificate_type: 'Halal Certification', issue_date: '', expiry_date: '', products_covered: '', certificate_number: '', file: null });
+  const [certificateSubmitting, setCertificateSubmitting] = useState(false);
+  const [existingCertificate, setExistingCertificate] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -678,6 +682,18 @@ export default function AdminApplications() {
                                   file: null
                                 });
                                 setShowAgreementModal(true);
+                                return;
+                              }
+                              if (step === 'SEND CERTIFICATE') {
+                                setCertificateForm({
+                                  certificate_type: 'Halal Certification',
+                                  issue_date: new Date().toISOString().split('T')[0],
+                                  expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+                                  products_covered: '',
+                                  certificate_number: `HFA-CERT-${Date.now().toString().slice(-6)}`,
+                                  file: null
+                                });
+                                setShowCertificateModal(true);
                                 return;
                               }
                               setActionForm(f => ({...f, status: step}));
@@ -1640,8 +1656,130 @@ export default function AdminApplications() {
         </div>
       )}
 
+      {/* 🏅 Certificate Issuance Modal */}
+      {showCertificateModal && manageModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f0fdf4, #fff)', borderBottom: '2px solid #86efac' }}>
+              <div>
+                <span className="modal-title" style={{ color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🏅 Issue Halal Certificate
+                </span>
+                <div style={{ fontSize: 12, color: '#15803d', marginTop: 4, fontWeight: 600 }}>
+                  {manageModal.application_number} — {manageModal.establishment_name}
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowCertificateModal(false)}><X size={18} /></button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #f7fef9)', border: '1.5px solid #86efac', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 14, alignItems: 'center' }}>
+                <div style={{ width: 44, height: 44, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>🏅</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 2 }}>Issuing Final Halal Certificate</div>
+                  <div style={{ fontSize: 12, color: '#15803d', lineHeight: 1.5 }}>The client will be notified via email and in-portal notification. The certificate will appear in their portal immediately.</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label">Certificate Number <span>*</span></label>
+                  <input className="form-control" value={certificateForm.certificate_number} onChange={e => setCertificateForm(f => ({ ...f, certificate_number: e.target.value }))} placeholder="HFA-CERT-123456" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Certificate Type <span>*</span></label>
+                  <select className="form-control" value={certificateForm.certificate_type} onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}>
+                    <option>Halal Certification</option>
+                    <option>Annual Certification – Food and General processing</option>
+                    <option>Annual Certification – Meat Processing</option>
+                    <option>UAE/GSO Approved Halal Certification</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Issue Date <span>*</span></label>
+                  <input type="date" className="form-control" value={certificateForm.issue_date} onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Expiry Date <span>*</span></label>
+                  <input type="date" className="form-control" value={certificateForm.expiry_date} onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Products / Scope Covered</label>
+                <textarea className="form-control" rows={3} value={certificateForm.products_covered} onChange={e => setCertificateForm(f => ({ ...f, products_covered: e.target.value }))} placeholder="List products, brands or production lines covered by this certificate..." />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Upload Certificate PDF <span>*</span></label>
+                <div
+                  onClick={() => document.getElementById('cert-file-input').click()}
+                  style={{ border: `2px dashed ${certificateForm.file ? '#16a34a' : '#e2e8f0'}`, background: certificateForm.file ? '#f0fdf4' : '#fafbff', borderRadius: 12, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.borderColor = '#16a34a'}
+                  onMouseOut={e => e.currentTarget.style.borderColor = certificateForm.file ? '#16a34a' : '#e2e8f0'}
+                >
+                  {certificateForm.file ? (
+                    <><div style={{ fontSize: 32, marginBottom: 8 }}>✅</div><div style={{ fontWeight: 700, color: '#166534', fontSize: 14 }}>{certificateForm.file.name}</div><div style={{ fontSize: 12, color: '#15803d', marginTop: 4 }}>Click to replace</div></>
+                  ) : (
+                    <><div style={{ fontSize: 32, marginBottom: 8 }}>📄</div><div style={{ fontWeight: 600, color: '#334155', fontSize: 14 }}>Click to upload Certificate PDF</div><div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>PDF only, max 20MB</div></>
+                  )}
+                  <input id="cert-file-input" type="file" hidden accept=".pdf" onChange={e => setCertificateForm(f => ({ ...f, file: e.target.files[0] }))} />
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircle size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <span>Issuing will update status to <strong>SEND CERTIFICATE</strong> and notify the client immediately.</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setShowCertificateModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', padding: '10px 28px' }}
+                  disabled={certificateSubmitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date || !certificateForm.file}
+                  onClick={async () => {
+                    setCertificateSubmitting(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('certificate_number', certificateForm.certificate_number);
+                      formData.append('certificate_type', certificateForm.certificate_type);
+                      formData.append('issue_date', certificateForm.issue_date);
+                      formData.append('expiry_date', certificateForm.expiry_date);
+                      if (certificateForm.products_covered) formData.append('products_covered', certificateForm.products_covered);
+                      formData.append('certificate_file', certificateForm.file);
+                      const appId = manageModal._id || manageModal.id;
+                      const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
+                      if (!clientId) { toast.error('Cannot identify client ID.'); setCertificateSubmitting(false); return; }
+                      formData.append('application_id', appId);
+                      formData.append('client_id', clientId);
+                      if (manageModal.site_id) formData.append('site_id', manageModal.site_id);
+                      const res = await api.post('/api/certificates', formData, true);
+                      setExistingCertificate(res.data);
+                      setManageModal(prev => ({ ...prev, status: 'SEND CERTIFICATE' }));
+                      setActionForm(prev => ({ ...prev, status: 'SEND CERTIFICATE' }));
+                      toast.success('🏅 Certificate issued and client notified!');
+                      setShowCertificateModal(false);
+                      fetchData();
+                    } catch (err) {
+                      toast.error(err.message || 'Failed to issue certificate');
+                    } finally {
+                      setCertificateSubmitting(false);
+                    }
+                  }}
+                >
+                  {certificateSubmitting ? <><span className="spinner-white" style={{ width: 14, height: 14 }} /> Issuing...</> : <>🏅 Issue Certificate</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Audit Modal for Admin */}
       {showAuditModal && manageModal && (
+
         <div className="modal-overlay" style={{ zIndex: 1200 }}>
           <div className="modal" style={{ maxWidth: 650, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f8fafc, #fff)', borderBottom: '2px solid #e2e8f0', padding: '20px 24px' }}>

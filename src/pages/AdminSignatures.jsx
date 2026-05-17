@@ -71,6 +71,17 @@ export default function AdminSignatures() {
     }
   };
 
+  const handleNameChange = (e) => {
+    const nameVal = e.target.value;
+    setFormData(prev => {
+      const updated = { ...prev, name: nameVal };
+      if (selectedStaffId === 'custom') {
+        updated.username = nameVal.toLowerCase().replace(/\s+/g, '');
+      }
+      return updated;
+    });
+  };
+
   // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -161,7 +172,7 @@ export default function AdminSignatures() {
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Select Staff Member</label>
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Username</label>
               <select
                 className="form-control"
                 style={{ background: '#f8fafc', fontSize: 13, fontWeight: 500 }}
@@ -177,21 +188,6 @@ export default function AdminSignatures() {
                 <option value="custom">-- Custom Name / Role --</option>
               </select>
             </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Username / Designation</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="e.g. mufti, ceo, manager, mufti2"
-                value={formData.username}
-                onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                required
-              />
-              <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
-                Note: Map to standard designations like <strong>mufti</strong>, <strong>ceo</strong>, <strong>manager</strong>, <strong>mufti2</strong> for logsheet sign-offs.
-              </span>
-            </div>
             
             <div className="form-group">
               <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Full Name</label>
@@ -200,7 +196,7 @@ export default function AdminSignatures() {
                 className="form-control"
                 placeholder="Enter full name"
                 value={formData.name}
-                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={handleNameChange}
                 required
               />
             </div>

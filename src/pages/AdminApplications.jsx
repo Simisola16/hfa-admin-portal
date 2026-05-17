@@ -1614,31 +1614,67 @@ export default function AdminApplications() {
                         <label className="form-label">Upload Correctivity Report (Optional PDF/Image)</label>
                         <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
                       </div>
-                      <button
-                        className="btn btn-primary"
-                        style={{ background: '#dc2626', borderColor: '#dc2626' }}
-                        disabled={auditSubmitting || !auditForm.nc_text}
-                        onClick={async () => {
-                          setAuditSubmitting(true);
-                          try {
-                            const formData = new FormData();
-                            formData.append('audit_id', existingAudit._id || existingAudit.id);
-                            formData.append('text', auditForm.nc_text);
-                            if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                          disabled={auditSubmitting || !auditForm.nc_text}
+                          onClick={async () => {
+                            setAuditSubmitting(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('audit_id', existingAudit._id || existingAudit.id);
+                              formData.append('text', auditForm.nc_text);
+                              if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
 
-                            const res = await api.post('/api/audits/flag-nc', formData, true);
-                            setExistingAudit(res.data);
-                            setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
-                            toast.success('NC Report flagged successfully!');
-                          } catch (err) {
-                            toast.error(err.message || 'Failed to flag NC');
-                          } finally {
-                            setAuditSubmitting(false);
-                          }
-                        }}
-                      >
-                        {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
-                      </button>
+                              const res = await api.post('/api/audits/flag-nc', formData, true);
+                              setExistingAudit(res.data);
+                              setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
+                              toast.success('NC Report flagged successfully!');
+                            } catch (err) {
+                              toast.error(err.message || 'Failed to flag NC');
+                            } finally {
+                              setAuditSubmitting(false);
+                            }
+                          }}
+                        >
+                          {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ borderColor: '#16a34a', color: '#16a34a' }}
+                          disabled={auditSubmitting}
+                          onClick={async () => {
+                            if (window.confirm('Are you sure there are no Non-Conformity (NC) reports for this audit session? This will complete the audit and update the status to NC REPORTS CLOSED.')) {
+                              setAuditSubmitting(true);
+                              try {
+                                const res = await api.post('/api/audits/complete-clean', {
+                                  audit_id: existingAudit._id || existingAudit.id
+                                });
+                                setExistingAudit(res.data);
+
+                                // Automatically update application status to NC REPORTS CLOSED
+                                const appId = manageModal._id || manageModal.id;
+                                await api.put(`/api/applications/${appId}/status`, { status: 'NC REPORTS CLOSED' });
+                                
+                                setManageModal(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
+                                setActionForm(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
+
+                                toast.success('Audit completed successfully with No NC reports! Status updated to NC REPORTS CLOSED.');
+                                fetchData();
+                              } catch (err) {
+                                toast.error(err.message || 'Failed to complete audit');
+                              } finally {
+                                setAuditSubmitting(false);
+                              }
+                            }
+                          }}
+                        >
+                          ✓ No Report (Clean Audit)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

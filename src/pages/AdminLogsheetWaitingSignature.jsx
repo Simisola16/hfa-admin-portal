@@ -119,6 +119,22 @@ export default function AdminLogsheetWaitingSignature() {
           from { opacity: 0; transform: translateY(-8px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @media (max-width: 767px) {
+          .desktop-only-table {
+            display: none !important;
+          }
+          .mobile-only-cards {
+            display: grid !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .desktop-only-table {
+            display: block !important;
+          }
+          .mobile-only-cards {
+            display: none !important;
+          }
+        }
       `}</style>
 
       {/* Premium Header */}
@@ -182,7 +198,7 @@ export default function AdminLogsheetWaitingSignature() {
         </div>
 
         {/* Responsive Table Wrapper */}
-        <div className="table-wrap" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '300px' }}>
+        <div className="table-wrap" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '300px', padding: '12px' }}>
           {loading ? (
             <div className="loading-overlay"><div className="spinner" /></div>
           ) : filteredLogsheets.length === 0 ? (
@@ -196,182 +212,246 @@ export default function AdminLogsheetWaitingSignature() {
               </div>
             </div>
           ) : (
-            <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#fafafb', borderBottom: '1.5px solid #ffedd5' }}>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company Name</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Person</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>App Type</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logsheet Type</th>
-                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* DESKTOP TABLE view */}
+              <div className="desktop-only-table">
+                <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#fafafb', borderBottom: '1.5px solid #ffedd5' }}>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company Name</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Person</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>App Type</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logsheet Type</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogsheets.map(l => (
+                      <tr key={l._id} style={{ borderBottom: '1px solid #ffedd5' }}>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: '#ea580c' }}>
+                          {l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {l.company_name}
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
+                          <div style={{ fontWeight: 500 }}>{l.contact_person || '—'}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{l.contact_email}</div>
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
+                          {l.reviewer_name || 'Admin'}
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {new Date(l.created_at).toLocaleDateString('en-GB')}
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <MapPin size={13} style={{ color: 'var(--text-muted)', minWidth: '13px' }} />
+                            {l.manufacturing_address || 'Main Site'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                          {l.application_id?.category || '—'}
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <span className="badge badge-orange" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', fontWeight: 700, background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }}>
+                            <Clock size={11} />
+                            Waiting for Signature
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4f46e5' }}>
+                            <Tag size={12} />
+                            {l.audit_type || 'Initial'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 24px', textAlign: 'center', position: 'relative' }}>
+                          <button 
+                            className="btn btn-sm action-drop-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown === l._id ? null : l._id);
+                            }}
+                            style={{ padding: '6px 12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                          >
+                            Action <ChevronDown size={14} />
+                          </button>
+                          {activeDropdown === l._id && (
+                            <div 
+                              className="dropdown-menu-card"
+                              style={{ 
+                                position: 'absolute', 
+                                right: '24px', 
+                                top: '48px', 
+                                background: 'white', 
+                                border: '1px solid #fed7aa', 
+                                borderRadius: '10px', 
+                                boxShadow: '0 10px 25px -5px rgba(249, 115, 22, 0.1), 0 8px 10px -6px rgba(249, 115, 22, 0.05)',
+                                zIndex: 100, 
+                                minWidth: '160px',
+                                padding: '6px'
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <Link 
+                                to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', color: '#2563eb', textDecoration: 'none', borderRadius: '6px', background: 'transparent', fontWeight: 600 }}
+                                className="dropdown-item"
+                              >
+                                <Eye size={14} /> Details
+                              </Link>
+                              <button 
+                                onClick={(e) => handleMarkAsDone(l._id, e)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#16a34a', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                                className="dropdown-item"
+                              >
+                                <CheckSquare size={14} /> Done (Sign)
+                              </button>
+                              <button 
+                                onClick={(e) => handleDelete(l._id, e)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#dc2626', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                                className="dropdown-item"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE/TABLET view CARDS */}
+              <div className="mobile-only-cards" style={{ display: 'none', gridTemplateColumns: '1fr', gap: '16px', padding: '8px 0' }}>
                 {filteredLogsheets.map(l => (
-                  <tr key={l._id} style={{ borderBottom: '1px solid #ffedd5' }}>
-                    {/* Logsheet ID */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: '#ea580c' }}>
-                      {l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
-                    </td>
-                    
-                    {/* Company Name */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {l.company_name}
-                    </td>
-
-                    {/* Contact Person */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                      <div style={{ fontWeight: 500 }}>{l.contact_person || '—'}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{l.contact_email}</div>
-                    </td>
-
-                    {/* Created By */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                      {l.reviewer_name || 'Admin'}
-                    </td>
-
-                    {/* Date */}
-                    <td style={{ padding: '16px 24px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {new Date(l.created_at).toLocaleDateString('en-GB')}
-                    </td>
-
-                    {/* Site */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <MapPin size={13} style={{ color: 'var(--text-muted)', minWidth: '13px' }} />
-                        {l.manufacturing_address || 'Main Site'}
-                      </div>
-                    </td>
-
-                    {/* App Type */}
-                    <td style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {l.application_id?.category || '—'}
-                    </td>
-
-                    {/* Status Badge */}
-                    <td style={{ padding: '16px 24px' }}>
-                      <span className="badge badge-orange" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', fontWeight: 700, background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }}>
-                        <Clock size={11} />
+                  <div 
+                    key={l._id} 
+                    style={{ 
+                      background: 'white', 
+                      border: '1.5px solid #fed7aa', 
+                      borderRadius: '16px', 
+                      padding: '20px', 
+                      boxShadow: '0 4px 6px -1px rgba(249,115,22,0.02), 0 2px 4px -1px rgba(249,115,22,0.01)',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#ea580c' }}>
+                        #{l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
+                      </span>
+                      <span className="badge badge-orange" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, padding: '4px 10px', fontSize: '11px', borderRadius: '20px', background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }}>
+                        <Clock size={10} />
                         Waiting for Signature
                       </span>
-                    </td>
+                    </div>
 
-                    {/* Logsheet Type */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4f46e5' }}>
-                        <Tag size={12} />
-                        {l.audit_type || 'Initial'}
-                      </span>
-                    </td>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#7c2d12', margin: 0 }}>
+                        {l.company_name}
+                      </h3>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff7ed', color: '#c2410c', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '6px', border: '1px solid #fed7aa' }}>
+                        <Tag size={10} />
+                        {l.audit_type || 'Initial'} Logsheet
+                      </div>
+                    </div>
 
-                    {/* Legacy Popover Dropdown Action Row */}
-                    <td style={{ padding: '16px 24px', textAlign: 'center', position: 'relative' }}>
-                      <button 
-                        className="btn btn-sm action-drop-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === l._id ? null : l._id);
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', borderTop: '1px solid #ffedd5', paddingTop: '12px', fontSize: '13px' }}>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Person</div>
+                        <div style={{ fontWeight: 600, color: '#475569', marginTop: '2px' }}>{l.contact_person || '—'}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>{l.contact_email}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By / Date</div>
+                        <div style={{ fontWeight: 600, color: '#475569', marginTop: '2px' }}>{l.reviewer_name || 'Admin'}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>{new Date(l.created_at).toLocaleDateString('en-GB')}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#7c2d12', background: '#fffaf5', padding: '10px 14px', borderRadius: '10px', border: '1px dashed #fed7aa' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <MapPin size={12} style={{ color: '#ea580c' }} />
+                        <span>{l.manufacturing_address || 'Main Site'}</span>
+                      </div>
+                      <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
+                        Category: {l.application_id?.category || '—'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #ffedd5', paddingTop: '14px', marginTop: '4px' }}>
+                      <Link 
+                        to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                        style={{ 
+                          flex: 1, 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '6px', 
+                          padding: '10px', 
+                          borderRadius: '10px', 
+                          background: '#f0f9ff', 
+                          color: '#0369a1', 
+                          textDecoration: 'none', 
+                          fontSize: '13px', 
+                          fontWeight: 700, 
+                          textAlign: 'center'
                         }}
-                        style={{ padding: '6px 12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                       >
-                        Action <ChevronDown size={14} />
+                        <Eye size={14} /> Details
+                      </Link>
+
+                      <button 
+                        onClick={(e) => handleMarkAsDone(l._id, e)}
+                        style={{ 
+                          flex: 1.2, 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '6px', 
+                          padding: '10px', 
+                          borderRadius: '10px', 
+                          background: '#ecfdf5', 
+                          color: '#047857', 
+                          border: 'none',
+                          fontSize: '13px', 
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <CheckSquare size={14} /> Done (Sign)
                       </button>
 
-                      {/* Dropdown Menu */}
-                      {activeDropdown === l._id && (
-                        <div 
-                          className="dropdown-menu-card"
-                          style={{ 
-                            position: 'absolute', 
-                            right: '24px', 
-                            top: '48px', 
-                            background: 'white', 
-                            border: '1px solid #fed7aa', 
-                            borderRadius: '10px', 
-                            boxShadow: '0 10px 25px -5px rgba(249, 115, 22, 0.1), 0 8px 10px -6px rgba(249, 115, 22, 0.05)',
-                            zIndex: 100, 
-                            minWidth: '160px',
-                            padding: '6px'
-                          }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {/* Details Icon */}
-                          <Link 
-                            to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
-                            style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '8px', 
-                              padding: '10px 12px', 
-                              fontSize: '13px', 
-                              color: '#2563eb', 
-                              textDecoration: 'none', 
-                              borderRadius: '6px', 
-                              background: 'transparent',
-                              fontWeight: 600
-                            }}
-                            className="dropdown-item"
-                          >
-                            <Eye size={14} /> Details
-                          </Link>
-
-                          {/* Done/Sign Icon */}
-                          <button 
-                            onClick={(e) => handleMarkAsDone(l._id, e)}
-                            style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '8px', 
-                              width: '100%',
-                              border: 'none',
-                              textAlign: 'left',
-                              padding: '10px 12px', 
-                              fontSize: '13px', 
-                              color: '#16a34a', 
-                              borderRadius: '6px', 
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              fontWeight: 600
-                            }}
-                            className="dropdown-item"
-                          >
-                            <CheckSquare size={14} /> Done (Sign)
-                          </button>
-
-                          {/* Delete Icon */}
-                          <button 
-                            onClick={(e) => handleDelete(l._id, e)}
-                            style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '8px', 
-                              width: '100%',
-                              border: 'none',
-                              textAlign: 'left',
-                              padding: '10px 12px', 
-                              fontSize: '13px', 
-                              color: '#dc2626', 
-                              borderRadius: '6px', 
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              fontWeight: 600
-                            }}
-                            className="dropdown-item"
-                          >
-                            <Trash2 size={14} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                      <button 
+                        onClick={(e) => handleDelete(l._id, e)}
+                        style={{ 
+                          padding: '10px 14px', 
+                          borderRadius: '10px', 
+                          background: '#fef2f2', 
+                          color: '#b91c1c', 
+                          border: 'none',
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>

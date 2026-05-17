@@ -252,7 +252,7 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const isReadOnly = currentLogsheet && currentLogsheet.status === 'Waiting for Signature';
+  const isReadOnly = !!currentLogsheet;
 
   const renderField = (label, value, isDate = false, customStyle = {}) => {
     const formatted = isDate ? (value ? new Date(value).toLocaleDateString('en-GB') : '—') : (value || '—');
@@ -277,14 +277,18 @@ export default function AdminCreateLogsheet() {
       <div className="card" style={{ padding: 0, overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01)' }}>
         {/* Read-Only Status Banner */}
         {isReadOnly && (
-          <div style={{ background: '#fff7ed', borderBottom: '1px solid #ffedd5', padding: '16px 30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: '#ffedd5', color: '#ea580c', padding: '8px', borderRadius: '50%', display: 'flex' }}>
-              <Clock size={20} />
+          <div style={{ background: currentLogsheet?.status === 'Waiting for Signature' ? '#fff7ed' : '#f0fdf4', borderBottom: `1px solid ${currentLogsheet?.status === 'Waiting for Signature' ? '#ffedd5' : '#dcfce7'}`, padding: '16px 30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: currentLogsheet?.status === 'Waiting for Signature' ? '#ffedd5' : '#dcfce7', color: currentLogsheet?.status === 'Waiting for Signature' ? '#ea580c' : '#16a34a', padding: '8px', borderRadius: '50%', display: 'flex' }}>
+              {currentLogsheet?.status === 'Waiting for Signature' ? <Clock size={20} /> : <CheckCircle2 size={20} />}
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#c2410c' }}>Logsheet Sign-Off Review Mode (Locked)</h4>
-              <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9a3412', fontWeight: 500 }}>
-                This record is finalized and locked for editing. Only executive electronic signatures can be applied below.
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: currentLogsheet?.status === 'Waiting for Signature' ? '#c2410c' : '#166534' }}>
+                {currentLogsheet?.status === 'Waiting for Signature' ? 'Logsheet Sign-Off Review Mode (Locked)' : `Logsheet Completed & Signed (${currentLogsheet?.status})`}
+              </h4>
+              <p style={{ margin: '2px 0 0', fontSize: '13px', color: currentLogsheet?.status === 'Waiting for Signature' ? '#9a3412' : '#15803d', fontWeight: 500 }}>
+                {currentLogsheet?.status === 'Waiting for Signature' 
+                  ? 'This record is finalized and locked for editing. Only executive electronic signatures can be applied below.'
+                  : 'This logsheet decision record is fully signed, locked, and finalized.'}
               </p>
             </div>
           </div>

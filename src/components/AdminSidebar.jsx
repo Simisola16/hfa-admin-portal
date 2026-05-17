@@ -33,6 +33,8 @@ const navItems = [
     children: [
       { label: 'Account Approval', path: '/logsheet/accounts' },
       { label: 'Product Review', path: '/logsheet/products' },
+      { label: 'Manage Logsheet', path: '/logsheet/manage' },
+      { label: 'Waiting for Signature', path: '/logsheet/waiting-signature' },
     ]
   },
   {

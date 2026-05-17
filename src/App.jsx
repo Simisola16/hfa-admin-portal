@@ -21,6 +21,8 @@ import AdminProposals from './pages/AdminProposals';
 import AdminExports from './pages/AdminExports';
 import AdminLogsheets from './pages/AdminLogsheets';
 import AdminCreateLogsheet from './pages/AdminCreateLogsheet';
+import AdminLogsheetManage from './pages/AdminLogsheetManage';
+import AdminLogsheetWaitingSignature from './pages/AdminLogsheetWaitingSignature';
 import AdminTickets from './pages/AdminTickets';
 import AdminSignatures from './pages/AdminSignatures';
 
@@ -50,6 +52,8 @@ export default function App() {
             <Route path="/export" element={<AdminExports />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
+            <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />
+            <Route path="/logsheet/waiting-signature" element={<AdminLogsheetWaitingSignature />} />
             <Route path="/tickets" element={<AdminTickets />} />
             <Route path="/signatures" element={<AdminSignatures />} />
             <Route path="/users" element={<AdminClients />} />

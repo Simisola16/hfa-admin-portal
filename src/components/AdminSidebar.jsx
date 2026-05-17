@@ -47,7 +47,6 @@ const navItems = [
   },
   { icon: Ship, label: 'Export Certificates', path: '/exports' },
   { icon: Calendar, label: 'Audits', path: '/audits' },
-  { icon: Search, label: 'Inspectors', path: '/inspectors' },
   { icon: Package, label: 'Products', path: '/products' },
   { icon: MapPin, label: 'Sites', path: '/sites' },
   { icon: Briefcase, label: 'Proposals', path: '/proposals' },

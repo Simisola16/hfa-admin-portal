@@ -14,11 +14,22 @@ export default function AdminCreateLogsheet() {
   const [application, setApplication] = useState(null);
   
   const [signatures, setSignatures] = useState([]);
+  const [selectedSigId, setSelectedSigId] = useState('');
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
   const [sigRole, setSigRole] = useState('');
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
+
+  const handleRoleChange = (role) => {
+    setSigRole(role);
+    const matched = signatures.find(s => s.username?.toLowerCase() === role.toLowerCase());
+    if (matched) {
+      setSelectedSigId(matched._id);
+    } else {
+      setSelectedSigId('');
+    }
+  };
 
   const [form, setForm] = useState({
     company_name: '', company_address: '', manufacturing_address: '',
@@ -160,9 +171,9 @@ export default function AdminCreateLogsheet() {
       return;
     }
     
-    const matchedSig = signatures.find(s => s.username?.toLowerCase() === sigRole.toLowerCase());
+    const matchedSig = signatures.find(s => s._id === selectedSigId);
     if (!matchedSig) {
-      toast.error(`No uploaded signature found for role/username "${sigRole}" in the database.`);
+      toast.error(`Please select an uploaded signature to apply.`);
       return;
     }
 
@@ -177,6 +188,7 @@ export default function AdminCreateLogsheet() {
       toast.success(`Logsheet successfully signed as ${sigRole}!`);
       fetchData();
       setSigRole('');
+      setSelectedSigId('');
       setSigComment('');
     } catch (err) {
       toast.error(err.message || 'Failed to apply signature');
@@ -719,6 +731,24 @@ export default function AdminCreateLogsheet() {
                 />
               </div>
 
+              {/* Select Signature to Apply Dropdown */}
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Select Signature to Apply</label>
+                <select 
+                  className="form-control"
+                  value={selectedSigId}
+                  onChange={e => setSelectedSigId(e.target.value)}
+                  style={{ background: '#fff', fontSize: '14px', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', width: '100%' }}
+                >
+                  <option value="">-- Choose Signature --</option>
+                  {signatures.map(sig => (
+                    <option key={sig._id} value={sig._id}>
+                      {sig.name} ({sig.username || 'No designation'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Signature Role Selector */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px' }}>
                 {['Mufti', 'Ceo', 'Manager', 'Mufti2'].map(role => {
@@ -746,7 +776,7 @@ export default function AdminCreateLogsheet() {
                         name="signatureRole" 
                         value={role} 
                         checked={sigRole === role} 
-                        onChange={() => setSigRole(role)}
+                        onChange={() => handleRoleChange(role)}
                         style={{ display: 'none' }}
                       />
                       <span 
@@ -772,11 +802,11 @@ export default function AdminCreateLogsheet() {
                 })}
               </div>
 
-              {/* Show matching signature preview */}
-              {sigRole && (
+              {/* Show selected signature preview */}
+              {selectedSigId && (
                 <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
                   {(() => {
-                    const matched = signatures.find(s => s.username?.toLowerCase() === sigRole.toLowerCase());
+                    const matched = signatures.find(s => s._id === selectedSigId);
                     if (matched) {
                       return (
                         <div style={{ padding: '14px 24px', border: '1px dashed #86efac', borderRadius: '10px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 6px -1px rgba(22, 101, 52, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
@@ -791,21 +821,8 @@ export default function AdminCreateLogsheet() {
                           <img src={getPdfUrl(matched.signature_url)} alt="Signature Preview" style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                         </div>
                       );
-                    } else {
-                      return (
-                        <div style={{ padding: '14px 24px', border: '1px dashed #fca5a5', borderRadius: '10px', background: '#fef2f2', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b', fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(153, 27, 27, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
-                          <span>⚠️ No uploaded signature image found for username <strong>"{sigRole.toLowerCase()}"</strong>.</span>
-                          <button 
-                            type="button" 
-                            className="btn btn-ghost btn-sm" 
-                            onClick={() => navigate('/signatures')}
-                            style={{ color: '#b91c1c', textDecoration: 'underline', padding: '0 4px', fontWeight: 800 }}
-                          >
-                            Upload Signature
-                          </button>
-                        </div>
-                      );
                     }
+                    return null;
                   })()}
                 </div>
               )}
@@ -814,7 +831,7 @@ export default function AdminCreateLogsheet() {
               <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <button 
                   onClick={handleSignLogsheet}
-                  disabled={isSigning || !sigRole || !signatures.some(s => s.username?.toLowerCase() === sigRole.toLowerCase())}
+                  disabled={isSigning || !sigRole || !selectedSigId}
                   className="btn btn-primary"
                   style={{ 
                     padding: '12px 36px', 
@@ -827,7 +844,7 @@ export default function AdminCreateLogsheet() {
                     borderColor: '#6366f1',
                     boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.4)',
                     cursor: 'pointer',
-                    opacity: (isSigning || !sigRole || !signatures.some(s => s.username?.toLowerCase() === sigRole.toLowerCase())) ? 0.6 : 1,
+                    opacity: (isSigning || !sigRole || !selectedSigId) ? 0.6 : 1,
                     transition: 'all 0.2s'
                   }}
                 >

@@ -40,13 +40,22 @@ export default function AdminCreateLogsheet() {
       const appData = appRes.data;
       setApplication(appData);
 
-      // 2. See if logsheet exists
+      // 2. Fetch audit details (if any)
+      let auditData = null;
+      try {
+        const auditRes = await api.get(`/api/audits/application/${appId}`);
+        auditData = auditRes.data?.data || auditRes.data;
+      } catch (e) {
+        console.log('No audit found for this application yet');
+      }
+
+      // 3. See if logsheet exists
       let logsheetData = {};
       try {
         const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
         logsheetData = logRes.data;
       } catch (e) {
-        // Not found, use defaults from app
+        // Not found, use defaults from app & audit
         if (appData) {
           logsheetData = {
             company_name: appData.profiles?.company_name || '',
@@ -57,6 +66,49 @@ export default function AdminCreateLogsheet() {
             nature_of_business: appData.business_type || '',
             product_category: appData.product_category || ''
           };
+
+          // Map application type to Audit Type
+          if (appData.application_type) {
+            const lowerType = appData.application_type.toLowerCase();
+            if (lowerType.includes('initial')) {
+              logsheetData.audit_type = 'Initial';
+            } else if (lowerType.includes('surveillance')) {
+              logsheetData.audit_type = 'Surveillance';
+            } else if (lowerType.includes('renewal')) {
+              logsheetData.audit_type = 'Re-audit';
+            }
+          }
+        }
+
+        // Populate from Audit if found
+        if (auditData) {
+          if (auditData.finalized_date) {
+            logsheetData.audit_date = auditData.finalized_date;
+          } else if (auditData.selected_dates && auditData.selected_dates.length > 0) {
+            logsheetData.audit_date = auditData.selected_dates[0];
+          }
+
+          if (auditData.auditors && auditData.auditors.length > 0) {
+            logsheetData.auditors = auditData.auditors.map(a => a.name).join(', ');
+          }
+
+          if (auditData.nc_reports) {
+            const outstanding = auditData.nc_reports.filter(nc => nc.status !== 'corrected');
+            if (auditData.nc_reports.length === 0) {
+              logsheetData.ncs_close = 'No NCs flagged';
+            } else if (outstanding.length === 0) {
+              const lastCorrected = auditData.nc_reports.reduce((latest, nc) => {
+                if (!nc.corrected_at) return latest;
+                const d = new Date(nc.corrected_at);
+                return !latest || d > latest ? d : latest;
+              }, null);
+              logsheetData.ncs_close = lastCorrected 
+                ? `All NCs corrected by ${new Date(lastCorrected).toLocaleDateString('en-GB')}`
+                : 'All NCs corrected';
+            } else {
+              logsheetData.ncs_close = `${outstanding.length} NC(s) outstanding`;
+            }
+          }
         }
       }
 

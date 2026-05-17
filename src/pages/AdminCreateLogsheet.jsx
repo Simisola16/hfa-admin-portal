@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, CheckCircle2, CheckSquare, PenTool, Check } from 'lucide-react';
+import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, Clock, CheckCircle2, CheckSquare, PenTool, Check } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 
 export default function AdminCreateLogsheet() {

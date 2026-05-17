@@ -21,6 +21,7 @@ export default function AdminCreateLogsheet() {
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const userSignature = signatures.find(s => 
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
@@ -206,6 +207,25 @@ export default function AdminCreateLogsheet() {
       toast.error(err.message || 'Failed to submit review');
     } finally {
       setIsSendingWithoutSig(false);
+    }
+  };
+
+  const handleFinalizeSignOff = async (e) => {
+    e.preventDefault();
+    if (!window.confirm("Are you sure you want to finalize the sign-off? This will lock the logsheet and advance its status to Signed.")) {
+      return;
+    }
+    setIsFinalizing(true);
+    try {
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        finalizeSignOff: true
+      });
+      toast.success("Logsheet sign-off finalized successfully!");
+      navigate('/logsheet/waiting-signature');
+    } catch (err) {
+      toast.error(err.message || 'Failed to finalize sign-off');
+    } finally {
+      setIsFinalizing(false);
     }
   };
 
@@ -834,10 +854,42 @@ export default function AdminCreateLogsheet() {
                   ) : (
                     <>
                       <PenTool size={16} />
-                      SIGN
+                      SIGN ROLE
                     </>
                   )}
                 </button>
+
+                {currentLogsheet && (currentLogsheet.mufti_signature || currentLogsheet.ceo_signature || currentLogsheet.manager_signature || currentLogsheet.mufti2_signature) && (
+                  <button 
+                    onClick={handleFinalizeSignOff}
+                    disabled={isFinalizing}
+                    className="btn"
+                    style={{ 
+                      padding: '12px 36px', 
+                      fontSize: '14px', 
+                      fontWeight: 700, 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      background: '#10b981',
+                      borderColor: '#10b981',
+                      color: 'white',
+                      boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.4)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      opacity: isFinalizing ? 0.6 : 1
+                    }}
+                  >
+                    {isFinalizing ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }} /> FINALIZING...</span>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        FINALIZE SIGN-OFF & LOCK
+                      </>
+                    )}
+                  </button>
+                )}
 
                 <button 
                   onClick={handleSendToReview}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, CheckCircle2, CheckSquare } from 'lucide-react';
 
 export default function AdminCreateLogsheet() {
   const { appId } = useParams();

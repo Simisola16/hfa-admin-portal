@@ -82,6 +82,45 @@ export default function AdminLogsheetWaitingSignature() {
 
   return (
     <div style={{ padding: '0 8px' }}>
+      <style>{`
+        .premium-table tr {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .premium-table tr:hover {
+          background-color: #fcf8f5 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.05), 0 4px 6px -2px rgba(249, 115, 22, 0.02);
+        }
+        .premium-select, .premium-input {
+          transition: all 0.2s ease-in-out;
+          border: 1.5px solid #fed7aa !important;
+        }
+        .premium-select:focus, .premium-input:focus {
+          border-color: #f97316 !important;
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15) !important;
+          background-color: #fff !important;
+        }
+        .action-drop-btn {
+          transition: all 0.2s ease-in-out;
+          border: 1px solid #fed7aa;
+          background: #fff;
+          font-weight: 700;
+          color: #c2410c;
+        }
+        .action-drop-btn:hover {
+          background: #fff7ed;
+          border-color: #ea580c;
+          color: #7c2d12;
+        }
+        .dropdown-menu-card {
+          animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* Premium Header */}
       <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -93,32 +132,32 @@ export default function AdminLogsheetWaitingSignature() {
             All draft logsheets that require executive or administrator electronic signatures.
           </p>
         </div>
-        <button className="btn btn-ghost" onClick={fetchLogsheets} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button className="btn btn-ghost" onClick={fetchLogsheets} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fed7aa', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, color: '#c2410c' }}>
           <RefreshCw size={16} className={loading ? 'spin' : ''} />
           Reload
         </button>
       </div>
 
       {/* Main Table Card */}
-      <div className="card" style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'visible' }}>
+      <div className="card" style={{ border: '1px solid #ffedd5', borderRadius: '16px', overflow: 'visible', boxShadow: '0 4px 6px -1px rgba(249, 115, 22, 0.05), 0 2px 4px -1px rgba(249, 115, 22, 0.03)' }}>
         
         {/* Filters Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: '#fff5ed', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #ffedd5', background: 'linear-gradient(135deg, #fffaf5 0%, #fff1e6 100%)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: '#c2410c' }}>Pending Signatures</span>
-            <span className="badge badge-orange" style={{ borderRadius: '20px', padding: '3px 8px', fontSize: '11px', fontWeight: 700, background: '#ea580c', color: 'white' }}>
-              {filteredLogsheets.length} Unsigned
+            <span style={{ fontSize: '16px', fontWeight: 800, color: '#c2410c' }}>Pending Signatures</span>
+            <span className="badge badge-orange" style={{ borderRadius: '20px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, background: '#ea580c', color: 'white' }}>
+              {filteredLogsheets.length} Unsigned Records
             </span>
           </div>
 
-          {/* Legacy Search Row Replication */}
+          {/* Search Row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '500px' }}>
             <div style={{ position: 'relative', width: '160px' }}>
               <select 
-                className="form-control"
+                className="form-control premium-select"
                 value={searchField}
                 onChange={e => setSearchField(e.target.value)}
-                style={{ paddingRight: '32px', height: '38px', fontSize: '13px', cursor: 'pointer', background: 'white', borderColor: '#fdba74' }}
+                style={{ paddingRight: '32px', height: '40px', fontSize: '13px', cursor: 'pointer', background: 'white', borderRadius: '10px', fontWeight: 600, color: '#c2410c' }}
               >
                 <option value="company_name">Company Name</option>
                 <option value="id">Logsheet ID</option>
@@ -132,12 +171,12 @@ export default function AdminLogsheetWaitingSignature() {
               <input
                 type="text"
                 placeholder={`Search by ${searchField.replace('_', ' ')}...`}
-                className="form-control"
+                className="form-control premium-input"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ paddingLeft: '36px', height: '38px', fontSize: '13px', background: 'white', borderColor: '#fdba74' }}
+                style={{ paddingLeft: '38px', height: '40px', fontSize: '13px', background: 'white', borderRadius: '10px' }}
               />
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#c2410c' }} />
+              <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#c2410c' }} />
             </div>
           </div>
         </div>
@@ -157,26 +196,26 @@ export default function AdminLogsheetWaitingSignature() {
               </div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ID</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Company Name</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Contact Person</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Created By</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Date</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Site</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>App Type</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Logsheet Type</th>
-                  <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>Action</th>
+                <tr style={{ background: '#fafafb', borderBottom: '1.5px solid #ffedd5' }}>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company Name</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Person</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>App Type</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logsheet Type</th>
+                  <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLogsheets.map(l => (
-                  <tr key={l._id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s', hover: { background: '#f8fafc' } }}>
+                  <tr key={l._id} style={{ borderBottom: '1px solid #ffedd5' }}>
                     {/* Logsheet ID */}
-                    <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                    <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: '#ea580c' }}>
                       {l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
                     </td>
                     
@@ -233,29 +272,30 @@ export default function AdminLogsheetWaitingSignature() {
                     {/* Legacy Popover Dropdown Action Row */}
                     <td style={{ padding: '16px 24px', textAlign: 'center', position: 'relative' }}>
                       <button 
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-sm action-drop-btn"
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveDropdown(activeDropdown === l._id ? null : l._id);
                         }}
-                        style={{ padding: '4px 8px', borderRadius: '4px' }}
+                        style={{ padding: '6px 12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                       >
-                        Action <ChevronDown size={14} style={{ marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }} />
+                        Action <ChevronDown size={14} />
                       </button>
 
                       {/* Dropdown Menu */}
                       {activeDropdown === l._id && (
                         <div 
+                          className="dropdown-menu-card"
                           style={{ 
                             position: 'absolute', 
                             right: '24px', 
                             top: '48px', 
                             background: 'white', 
-                            border: '1px solid var(--border)', 
-                            borderRadius: '8px', 
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                            border: '1px solid #fed7aa', 
+                            borderRadius: '10px', 
+                            boxShadow: '0 10px 25px -5px rgba(249, 115, 22, 0.1), 0 8px 10px -6px rgba(249, 115, 22, 0.05)',
                             zIndex: 100, 
-                            minWidth: '150px',
+                            minWidth: '160px',
                             padding: '6px'
                           }}
                           onClick={e => e.stopPropagation()}
@@ -273,8 +313,7 @@ export default function AdminLogsheetWaitingSignature() {
                               textDecoration: 'none', 
                               borderRadius: '6px', 
                               background: 'transparent',
-                              transition: 'background 0.2s',
-                              hover: { background: '#f0f9ff' }
+                              fontWeight: 600
                             }}
                             className="dropdown-item"
                           >
@@ -297,8 +336,7 @@ export default function AdminLogsheetWaitingSignature() {
                               borderRadius: '6px', 
                               background: 'transparent',
                               cursor: 'pointer',
-                              transition: 'background 0.2s',
-                              hover: { background: '#f0fdf4' }
+                              fontWeight: 600
                             }}
                             className="dropdown-item"
                           >
@@ -321,8 +359,7 @@ export default function AdminLogsheetWaitingSignature() {
                               borderRadius: '6px', 
                               background: 'transparent',
                               cursor: 'pointer',
-                              transition: 'background 0.2s',
-                              hover: { background: '#fef2f2' }
+                              fontWeight: 600
                             }}
                             className="dropdown-item"
                           >

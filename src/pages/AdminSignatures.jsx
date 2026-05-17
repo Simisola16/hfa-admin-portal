@@ -20,8 +20,8 @@ export default function AdminSignatures() {
   const fetchSignatures = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/signatures', { params: { search } });
-      setSignatures(res.data || []);
+      const res = await api.get(`/api/signatures${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+      setSignatures(Array.isArray(res) ? res : []);
     } catch (err) {
       toast.error('Failed to load signatures');
     } finally {

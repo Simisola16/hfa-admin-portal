@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle } from 'lucide-react';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { STATUS_LABELS, STATUS_BADGE } from '../lib/applicationStatuses';
+import ProposalModal from '../components/ProposalModal';
+import AgreementModal from '../components/AgreementModal';
+import CertificateModal from '../components/CertificateModal';
+import AuditManageModal from '../components/AuditManageModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -18,15 +23,9 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-const STATUS_BADGE = {
-  submitted:'badge-blue', 
-  under_review:'badge-yellow', 
-  approved:'badge-green',
-  rejected:'badge-red', 
-  on_hold:'badge-orange', 
-  audit_scheduled:'badge-purple',
-  audit_completed:'badge-green', 
-  certificate_issued:'badge-green',
+// STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
+// (kept here as fallback for any old status strings that may appear)
+const LEGACY_BADGE = {
   'PROPOSAL SENT': 'badge-purple',
   'PROPOSAL ACCEPTED/REJECTED': 'badge-blue',
   'PROPOSAL REJECTED': 'badge-red',
@@ -69,6 +68,7 @@ export default function AdminApplications() {
   const [submitting, setSubmitting] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [modalTab, setModalTab] = useState('details');
+  const navigate = useNavigate();
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalForm, setProposalForm] = useState({ type: 'upload', title: '', estimated_cost: '', details: '', admin_comment: '', file: null });
   const [existingProposal, setExistingProposal] = useState(null);
@@ -234,7 +234,7 @@ export default function AdminApplications() {
                       <div style={{fontSize:12,color:'var(--text-muted)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</div>
                     </td>
                     <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
-                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || 'badge-gray'}`}>{app.status?.replace(/_/g, ' ')}</span></td>
+                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || LEGACY_BADGE[app.status] || 'badge-gray'}`}>{STATUS_LABELS[app.status] || app.status?.replace(/_/g, ' ')}</span></td>
                     <td style={{textAlign:'center', position:'relative'}}>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -276,6 +276,7 @@ export default function AdminApplications() {
                 const app = apps.find(a => a._id === openDropdown);
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {/* Option 1: View Details */}
                     <button 
                       className="dropdown-item"
                       style={{ padding: '12px 16px', fontSize: 14.5 }}
@@ -283,55 +284,16 @@ export default function AdminApplications() {
                     >
                       <Eye size={18} className="text-muted" /> View Details
                     </button>
+                    {/* Option 2: Processing — navigates to dedicated processing page */}
                     <button 
                       className="dropdown-item"
                       style={{ padding: '12px 16px', fontSize: 14.5 }}
                       onClick={() => {
-                        setManageModal(app);
-                        setModalTab('processing');
-                        setActionForm({ status: app.status, notes: '', inspector_id: app.inspector_id || '', audit_date: app.audit_date || '' });
                         setOpenDropdown(null);
-                        const appId = app._id || app.id;
-                        api.get(`/api/proposals/application/${appId}`).then(res => setExistingProposal(res.data || null)).catch(() => setExistingProposal(null));
-                        api.get(`/api/invoices/application/${appId}`).then(res => setExistingInvoice(res.data || null)).catch(() => setExistingInvoice(null));
-                        api.get(`/api/audits/application/${appId}`).then(res => setExistingAudit(res.data || null)).catch(() => setExistingAudit(null));
-                        api.get(`/api/agreements/application/${appId}`).then(res => setExistingAgreement(res.data || null)).catch(() => setExistingAgreement(null));
+                        navigate(`/applications/${app._id}/processing`);
                       }}
                     >
                       <Settings size={18} className="text-muted" /> Processing
-                    </button>
-                    <button 
-                      className="dropdown-item text-success"
-                      style={{ padding: '12px 16px', fontSize: 14.5 }}
-                      onClick={() => { markAsDone(app); setOpenDropdown(null); }}
-                    >
-                      <CheckCircle size={18} /> Processing Done
-                    </button>
-                    <Link 
-                      to={`/proposals?appId=${app._id}`}
-                      className="dropdown-item"
-                      style={{ padding: '12px 16px', fontSize: 14.5, color: '#7c3aed' }}
-                      onClick={() => { setOpenDropdown(null); }}
-                    >
-                      <ExternalLink size={18} /> View Proposal
-                    </Link>
-                    {app.status === 'Create Logsheet' && (
-                      <Link 
-                        to={`/applications/${app._id}/logsheet`}
-                        className="dropdown-item text-primary"
-                        style={{ padding: '12px 16px', fontSize: 14.5, color: '#0284c7', background: '#f0f9ff' }}
-                        onClick={() => { setOpenDropdown(null); }}
-                      >
-                        <FileText size={18} /> Create Logsheet
-                      </Link>
-                    )}
-                    <div style={{ height: '1px', background: '#e2e8f0', margin: '8px 0' }}></div>
-                    <button 
-                      className="dropdown-item text-danger"
-                      style={{ padding: '12px 16px', fontSize: 14.5 }}
-                      onClick={() => { handleDelete(app._id); setOpenDropdown(null); }}
-                    >
-                      <Trash2 size={18} /> Delete
                     </button>
                   </div>
                 );
@@ -340,6 +302,7 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
+
 
       {/* View Details Modal */}
       {selectedApp && (
@@ -1208,181 +1171,19 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
-      {/* Send / Resend Proposal Modal */}
-      {showProposalModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: existingProposal?.status === 'rejected' ? 'linear-gradient(135deg, #fef2f2, #fff)' : undefined, borderBottom: existingProposal?.status === 'rejected' ? '2px solid #fecaca' : undefined }}>
-              <div>
-                <span className="modal-title">{existingProposal?.status === 'rejected' ? '↗ Resend Revised Proposal' : 'Send New Proposal'}</span>
-                {existingProposal?.status === 'rejected' && (
-                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Client rejected the previous proposal — send a new one</div>
-                )}
-              </div>
-              <button className="modal-close" onClick={() => setShowProposalModal(false)}><X size={18} /></button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
-                Provide a proposal for <strong>{manageModal.profiles?.company_name}</strong>. 
-                This will be visible to the client on their portal.
-              </p>
-
-              {/* Toggle Switch */}
-              <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', marginBottom: '24px' }}>
-                <button
-                  type="button"
-                  onClick={() => setProposalForm(f => ({ ...f, type: 'upload' }))}
-                  style={{
-                    flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
-                    background: proposalForm.type === 'upload' ? '#fff' : 'transparent',
-                    color: proposalForm.type === 'upload' ? '#0f172a' : '#64748b',
-                    boxShadow: proposalForm.type === 'upload' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                >
-                  Upload Document
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProposalForm(f => ({ ...f, type: 'write' }))}
-                  style={{
-                    flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
-                    background: proposalForm.type === 'write' ? '#fff' : 'transparent',
-                    color: proposalForm.type === 'write' ? '#0f172a' : '#64748b',
-                    boxShadow: proposalForm.type === 'write' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                >
-                  Write Proposal
-                </button>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Proposal Title <span>*</span></label>
-                <input 
-                  className="form-control" 
-                  value={proposalForm.title}
-                  onChange={e => setProposalForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Halal Certification Proposal 2024"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Estimated Cost (£) <span>*</span></label>
-                <input 
-                  type="number"
-                  className="form-control" 
-                  value={proposalForm.estimated_cost}
-                  onChange={e => setProposalForm(f => ({ ...f, estimated_cost: e.target.value }))}
-                  placeholder="e.g. 500.00"
-                />
-              </div>
-
-              {proposalForm.type === 'upload' ? (
-                <div className="form-group">
-                  <label className="form-label">Proposal Document (PDF) <span>*</span></label>
-                  <div 
-                    onClick={() => document.getElementById('proposal-file').click()}
-                    style={{ 
-                      border: '2px dashed #e2e8f0', padding: '32px 24px', borderRadius: '12px', 
-                      textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
-                      background: proposalForm.file ? '#f0fdf4' : '#fff'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                    onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
-                  >
-                    <FileText size={40} style={{ color: proposalForm.file ? '#22c55e' : '#94a3b8', marginBottom: 12, margin: '0 auto' }} />
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
-                      {proposalForm.file ? proposalForm.file.name : 'Click to select proposal document'}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Only PDF, DOCX or JPG/PNG allowed</div>
-                    <input 
-                      id="proposal-file" 
-                      type="file" 
-                      hidden 
-                      onChange={e => setProposalForm(f => ({ ...f, file: e.target.files[0] }))}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="form-group">
-                  <label className="form-label">Proposal Details <span>*</span></label>
-                  <textarea 
-                    className="form-control" 
-                    rows={8}
-                    style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.5' }}
-                    value={proposalForm.details}
-                    onChange={e => setProposalForm(f => ({ ...f, details: e.target.value }))}
-                    placeholder="Write your professional proposal here. Include scope, duration, terms, and cost estimates..."
-                  />
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Admin Comments (Optional)</label>
-                <textarea 
-                  className="form-control" 
-                  rows={3}
-                  value={proposalForm.admin_comment}
-                  onChange={e => setProposalForm(f => ({ ...f, admin_comment: e.target.value }))}
-                  placeholder="Add any internal notes or additional instructions for the client..."
-                />
-              </div>
-            </div>
-            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-              <button className="btn btn-ghost" onClick={() => setShowProposalModal(false)}>Cancel</button>
-              <button 
-                className="btn btn-primary" 
-                disabled={submitting || !proposalForm.title || (proposalForm.type === 'upload' ? !proposalForm.file : !proposalForm.details.trim())}
-                onClick={async () => {
-                  setSubmitting(true);
-                  try {
-                    const formData = new FormData();
-                    formData.append('title', proposalForm.title);
-                    formData.append('estimated_cost', proposalForm.estimated_cost);
-                    formData.append('admin_comment', proposalForm.admin_comment);
-                    if (proposalForm.type === 'upload' && proposalForm.file) {
-                      formData.append('proposal_file', proposalForm.file);
-                    } else if (proposalForm.type === 'write' && proposalForm.details) {
-                      formData.append('details', proposalForm.details);
-                    }
-                    const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
-                    if (!clientId) {
-                      toast.error('Error: Could not identify client ID for this application.');
-                      setSubmitting(false);
-                      return;
-                    }
-                    const appId = manageModal._id || manageModal.id;
-                    formData.append('application_id', appId);
-                    formData.append('client_id', clientId);
-                    formData.append('status', 'pending');
-
-                    const res = await api.post('/api/proposals', formData, true);
-                    setExistingProposal(res.data);
-                    
-                    // Automatically update application status to PROPOSAL SENT
-                    await api.put(`/api/applications/${appId}/status`, { status: 'PROPOSAL SENT' });
-                    
-                    // Immediately update local UI states to reflect the change
-                    setManageModal(prev => ({ ...prev, status: 'PROPOSAL SENT' }));
-                    setActionForm(prev => ({ ...prev, status: 'PROPOSAL SENT' }));
-                    
-                    toast.success('Proposal sent and status updated!');
-                    setShowProposalModal(false);
-                    fetchData(); // Refresh list
-                  } catch (err) {
-                    toast.error(err.message || 'Failed to send proposal');
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
-              >
-                {submitting ? 'Sending...' : (existingProposal?.status === 'rejected' ? 'Resend Revised Proposal' : 'Send Proposal')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Send / Resend Proposal Modal (Extracted) */}
+      <ProposalModal
+        isOpen={showProposalModal}
+        onClose={() => setShowProposalModal(false)}
+        app={manageModal}
+        proposal={existingProposal}
+        onSuccess={() => {
+          fetchData();
+          if (manageModal) {
+            setManageModal(null);
+          }
+        }}
+      />
 
       {/* Invoice Modal for Admin */}
       {showInvoiceModal && manageModal && (
@@ -1537,611 +1338,19 @@ export default function AdminApplications() {
           </div>
         </div>
       )}
-
-      {/* Agreement Modal for Admin */}
-      {showAgreementModal && manageModal && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">📄 Send Certification Agreement</span>
-              <button className="modal-close" onClick={() => setShowAgreementModal(false)}><X size={18} /></button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <div className="form-group">
-                <label className="form-label">Agreement Title <span>*</span></label>
-                <input 
-                  type="text" 
-                  className="form-control"
-                  value={agreementForm.title}
-                  onChange={e => setAgreementForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Certification Agreement - Halal Food Authority"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Method of Agreement <span>*</span></label>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="agreement-type"
-                      checked={agreementForm.type === 'upload'}
-                      onChange={() => setAgreementForm(f => ({ ...f, type: 'upload' }))}
-                    /> Upload Agreement Document (PDF)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="agreement-type"
-                      checked={agreementForm.type === 'write'}
-                      onChange={() => setAgreementForm(f => ({ ...f, type: 'write' }))}
-                    /> Write Agreement Details
-                  </label>
-                </div>
-              </div>
-
-              {agreementForm.type === 'upload' ? (
-                <div className="form-group">
-                  <label className="form-label">Agreement Document (PDF) <span>*</span></label>
-                  <div
-                    onClick={() => document.getElementById('admin-agreement-file-input').click()}
-                    style={{
-                      border: '2px dashed #e2e8f0', padding: '28px 24px', borderRadius: '12px',
-                      textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
-                      background: agreementForm.file ? '#f0fdf4' : '#fff'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.borderColor = '#1e3a8a'}
-                    onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
-                  >
-                    <FileText size={36} style={{ color: agreementForm.file ? '#16a34a' : '#94a3b8', marginBottom: 10, margin: '0 auto' }} />
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#334155', marginTop: 8 }}>
-                      {agreementForm.file ? agreementForm.file.name : 'Click to upload agreement PDF'}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>PDF accepted</div>
-                    <input
-                      id="admin-agreement-file-input"
-                      type="file"
-                      hidden
-                      accept=".pdf"
-                      onChange={e => setAgreementForm(f => ({ ...f, file: e.target.files[0] }))}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="form-group">
-                  <label className="form-label">Agreement Terms / Details <span>*</span></label>
-                  <textarea
-                    className="form-control"
-                    rows={8}
-                    value={agreementForm.details}
-                    onChange={e => setAgreementForm(f => ({ ...f, details: e.target.value }))}
-                    placeholder="Write or paste your custom certification agreement terms here..."
-                  />
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Internal Admin Comments (Optional)</label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={agreementForm.admin_comment}
-                  onChange={e => setAgreementForm(f => ({ ...f, admin_comment: e.target.value }))}
-                  placeholder="Notes for client or reference..."
-                />
-              </div>
-            </div>
-            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection:'column', gap:12, alignItems:'stretch' }}>
-              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#1e40af', display:'flex', alignItems:'center', gap:8 }}>
-                <CheckCircle size={14} style={{ color:'#2563eb', flexShrink:0 }} />
-                <span>Sending the agreement will update the application status to <strong>AGREEMENT SENT</strong> and alert the client.</span>
-              </div>
-              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
-                <button className="btn btn-ghost" onClick={() => setShowAgreementModal(false)}>Cancel</button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: 'none', padding:'10px 24px', color: '#fff' }}
-                  disabled={agreementSubmitting || !agreementForm.title || (agreementForm.type === 'upload' ? !agreementForm.file : !agreementForm.details.trim())}
-                  onClick={async () => {
-                    setAgreementSubmitting(true);
-                    try {
-                      const formData = new FormData();
-                      formData.append('title', agreementForm.title);
-                      formData.append('client_id', manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id);
-                      formData.append('application_id', manageModal._id || manageModal.id);
-                      if (agreementForm.type === 'write') formData.append('details', agreementForm.details);
-                      if (agreementForm.admin_comment) formData.append('admin_comment', agreementForm.admin_comment);
-                      if (agreementForm.file) formData.append('agreement_file', agreementForm.file);
-                      
-                      const res = await api.post('/api/agreements', formData, true);
-                      setExistingAgreement(res.data);
-
-                      toast.success('📄 Agreement sent! Status updated to AGREEMENT SENT.');
-                      setShowAgreementModal(false);
-                      
-                      // Refresh parent states
-                      setManageModal(prev => ({ ...prev, status: 'AGREEMENT SENT' }));
-                      setActionForm(prev => ({ ...prev, status: 'AGREEMENT SENT' }));
-                      fetchData();
-                    } catch (err) {
-                      toast.error(err.message || 'Failed to send agreement');
-                    } finally {
-                      setAgreementSubmitting(false);
-                    }
-                  }}
-                >
-                  {agreementSubmitting ? 'Sending...' : 'Send Agreement'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🏅 Certificate Issuance Modal */}
-      {showCertificateModal && manageModal && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f0fdf4, #fff)', borderBottom: '2px solid #86efac' }}>
-              <div>
-                <span className="modal-title" style={{ color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🏅 Issue Halal Certificate
-                </span>
-                <div style={{ fontSize: 12, color: '#15803d', marginTop: 4, fontWeight: 600 }}>
-                  {manageModal.application_number} — {manageModal.establishment_name}
-                </div>
-              </div>
-              <button className="modal-close" onClick={() => setShowCertificateModal(false)}><X size={18} /></button>
-            </div>
-
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #f7fef9)', border: '1.5px solid #86efac', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 14, alignItems: 'center' }}>
-                <div style={{ width: 44, height: 44, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>🏅</div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 2 }}>Issuing Final Halal Certificate</div>
-                  <div style={{ fontSize: 12, color: '#15803d', lineHeight: 1.5 }}>The client will be notified via email and in-portal notification. The certificate will appear in their portal immediately.</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="form-group">
-                  <label className="form-label">Certificate Number <span>*</span></label>
-                  <input className="form-control" value={certificateForm.certificate_number} onChange={e => setCertificateForm(f => ({ ...f, certificate_number: e.target.value }))} placeholder="HFA-CERT-123456" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Certificate Type <span>*</span></label>
-                  <select className="form-control" value={certificateForm.certificate_type} onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}>
-                    <option>Halal Certification</option>
-                    <option>Annual Certification – Food and General processing</option>
-                    <option>Annual Certification – Meat Processing</option>
-                    <option>UAE/GSO Approved Halal Certification</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Issue Date <span>*</span></label>
-                  <input type="date" className="form-control" value={certificateForm.issue_date} onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Expiry Date <span>*</span></label>
-                  <input type="date" className="form-control" value={certificateForm.expiry_date} onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Products / Scope Covered</label>
-                <textarea className="form-control" rows={3} value={certificateForm.products_covered} onChange={e => setCertificateForm(f => ({ ...f, products_covered: e.target.value }))} placeholder="List products, brands or production lines covered by this certificate..." />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Upload Certificate PDF <span>*</span></label>
-                <div
-                  onClick={() => document.getElementById('cert-file-input').click()}
-                  style={{ border: `2px dashed ${certificateForm.file ? '#16a34a' : '#e2e8f0'}`, background: certificateForm.file ? '#f0fdf4' : '#fafbff', borderRadius: 12, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                  onMouseOver={e => e.currentTarget.style.borderColor = '#16a34a'}
-                  onMouseOut={e => e.currentTarget.style.borderColor = certificateForm.file ? '#16a34a' : '#e2e8f0'}
-                >
-                  {certificateForm.file ? (
-                    <><div style={{ fontSize: 32, marginBottom: 8 }}>✅</div><div style={{ fontWeight: 700, color: '#166534', fontSize: 14 }}>{certificateForm.file.name}</div><div style={{ fontSize: 12, color: '#15803d', marginTop: 4 }}>Click to replace</div></>
-                  ) : (
-                    <><div style={{ fontSize: 32, marginBottom: 8 }}>📄</div><div style={{ fontWeight: 600, color: '#334155', fontSize: 14 }}>Click to upload Certificate PDF</div><div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>PDF only, max 20MB</div></>
-                  )}
-                  <input id="cert-file-input" type="file" hidden accept=".pdf" onChange={e => setCertificateForm(f => ({ ...f, file: e.target.files[0] }))} />
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
-                <span>Issuing will update status to <strong>SEND CERTIFICATE</strong> and notify the client immediately.</span>
-              </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button className="btn btn-ghost" onClick={() => setShowCertificateModal(false)}>Cancel</button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', padding: '10px 28px' }}
-                  disabled={certificateSubmitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date || !certificateForm.file}
-                  onClick={async () => {
-                    setCertificateSubmitting(true);
-                    try {
-                      const formData = new FormData();
-                      formData.append('certificate_number', certificateForm.certificate_number);
-                      formData.append('certificate_type', certificateForm.certificate_type);
-                      formData.append('issue_date', certificateForm.issue_date);
-                      formData.append('expiry_date', certificateForm.expiry_date);
-                      if (certificateForm.products_covered) formData.append('products_covered', certificateForm.products_covered);
-                      formData.append('certificate_file', certificateForm.file);
-                      const appId = manageModal._id || manageModal.id;
-                      const clientId = manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id;
-                      if (!clientId) { toast.error('Cannot identify client ID.'); setCertificateSubmitting(false); return; }
-                      formData.append('application_id', appId);
-                      formData.append('client_id', clientId);
-                      if (manageModal.site_id) formData.append('site_id', manageModal.site_id);
-                      const res = await api.post('/api/certificates', formData, true);
-                      setExistingCertificate(res.data);
-                      setManageModal(prev => ({ ...prev, status: 'SEND CERTIFICATE' }));
-                      setActionForm(prev => ({ ...prev, status: 'SEND CERTIFICATE' }));
-                      toast.success('🏅 Certificate issued and client notified!');
-                      setShowCertificateModal(false);
-                      fetchData();
-                    } catch (err) {
-                      toast.error(err.message || 'Failed to issue certificate');
-                    } finally {
-                      setCertificateSubmitting(false);
-                    }
-                  }}
-                >
-                  {certificateSubmitting ? <><span className="spinner-white" style={{ width: 14, height: 14 }} /> Issuing...</> : <>🏅 Issue Certificate</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Audit Modal for Admin */}
-      {showAuditModal && manageModal && (
-
-        <div className="modal-overlay" style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 650, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f8fafc, #fff)', borderBottom: '2px solid #e2e8f0', padding: '20px 24px' }}>
-              <div>
-                <span className="modal-title" style={{ color: '#1e293b' }}>🗓️ Audit Session Management</span>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, fontWeight: 600 }}>
-                  {manageModal.application_number}
-                </div>
-              </div>
-              <button className="modal-close" onClick={() => setShowAuditModal(false)}><X size={18} /></button>
-            </div>
-            
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '24px' }}>
-              {(!existingAudit || existingAudit.status === 'dates_rejected') && (
-                <div>
-                  {existingAudit?.status === 'dates_rejected' && (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', color: '#b91c1c', fontSize: '13px' }}>
-                      <strong>⚠️ Client is unavailable on previously proposed dates.</strong> Please propose 3 new dates.
-                    </div>
-                  )}
-                  <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16 }}>Propose 3 Dates for Audit</h4>
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    {[0, 1, 2].map(i => (
-                      <div key={i} className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Date {i + 1}</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={auditForm.dates[i]}
-                          onChange={e => {
-                            const newDates = [...auditForm.dates];
-                            newDates[i] = e.target.value;
-                            setAuditForm({ ...auditForm, dates: newDates });
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 24, textAlign: 'right' }}>
-                    <button
-                      className="btn btn-primary"
-                      disabled={auditSubmitting || auditForm.dates.some(d => !d)}
-                      onClick={async () => {
-                        setAuditSubmitting(true);
-                        try {
-                          const res = await api.post('/api/audits/propose-dates', {
-                            application_id: manageModal._id || manageModal.id,
-                            client_id: manageModal.client_id || manageModal.profiles?._id || manageModal.profiles?.id,
-                            dates: auditForm.dates
-                          });
-                          setExistingAudit(res.data);
-                          toast.success('3 Dates proposed to client successfully!');
-                        } catch (err) {
-                          toast.error(err.message || 'Failed to propose dates');
-                        } finally {
-                          setAuditSubmitting(false);
-                        }
-                      }}
-                    >
-                      {auditSubmitting ? 'Submitting...' : 'Submit Proposed Dates'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {existingAudit?.status === 'dates_proposed' && (
-                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <Calendar size={48} style={{ color: '#94a3b8', margin: '0 auto 16px' }} />
-                  <h3 style={{ fontSize: 16, color: '#334155', marginBottom: 8 }}>Waiting for Client</h3>
-                  <p style={{ fontSize: 13, color: '#64748b' }}>
-                    You have proposed 3 dates. Waiting for the client to select 2 available dates.
-                  </p>
-                </div>
-              )}
-
-              {existingAudit?.status === 'dates_accepted' && (
-                <div>
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                    <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 8 }}>✓ Client Selected Dates</h4>
-                    <p style={{ fontSize: 13, color: '#15803d', marginBottom: 12 }}>Please finalize 1 date from the 2 dates selected by the client.</p>
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      {existingAudit.selected_dates?.map((d, i) => (
-                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '12px', border: '1px solid #bbf7d0', borderRadius: '8px', background: auditForm.finalized_date === d ? '#dcfce7' : '#fff' }}>
-                          <input type="radio" name="finalized_date" value={d} onChange={e => setAuditForm({...auditForm, finalized_date: e.target.value})} checked={auditForm.finalized_date === d} />
-                          <span style={{ fontSize: '14px', color: '#166534', fontWeight: 700 }}>{new Date(d).toDateString()}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 24, textAlign: 'right' }}>
-                    <button
-                      className="btn btn-primary"
-                      disabled={auditSubmitting || !auditForm.finalized_date}
-                      onClick={async () => {
-                        setAuditSubmitting(true);
-                        try {
-                          const res = await api.post('/api/audits/finalize-date', {
-                            audit_id: existingAudit._id || existingAudit.id,
-                            finalized_date: auditForm.finalized_date
-                          });
-                          setExistingAudit(res.data);
-                          setManageModal(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
-                          setActionForm(prev => ({ ...prev, status: 'AUDIT DATE FINALIZED' }));
-                          toast.success('Audit date finalized successfully!');
-                          fetchData();
-                        } catch (err) {
-                          toast.error(err.message || 'Failed to finalize date');
-                        } finally {
-                          setAuditSubmitting(false);
-                        }
-                      }}
-                    >
-                      {auditSubmitting ? 'Finalizing...' : 'Finalize Audit Date'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {existingAudit?.status === 'date_finalized' && (
-                <div>
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                    <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 4 }}>✓ Audit Date Finalized</h4>
-                    <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>{new Date(existingAudit.finalized_date).toDateString()}</p>
-                  </div>
-
-                  <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16 }}>Assign Auditor(s)</h4>
-                  {(() => {
-                    const isDual = manageModal.application_type === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-                    const numAuditors = isDual ? 2 : 1;
-                    
-                    if (auditForm.auditors.length !== numAuditors) {
-                      const initialAuditors = Array(numAuditors).fill({ name: '', email: '', contact_number: '', purpose: '' });
-                      setTimeout(() => setAuditForm(f => ({ ...f, auditors: initialAuditors })), 0);
-                      return null;
-                    }
-
-                    return (
-                      <div style={{ display: 'grid', gap: 24 }}>
-                        {auditForm.auditors.map((auditor, i) => (
-                          <div key={i} style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Auditor {i + 1} {isDual && i === 0 ? '(Lead)' : ''}</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                              <div className="form-group" style={{ marginBottom: 12 }}>
-                                <label className="form-label">Name</label>
-                                <input className="form-control" value={auditor.name} onChange={e => {
-                                  const newAuditors = [...auditForm.auditors];
-                                  newAuditors[i] = { ...auditor, name: e.target.value };
-                                  setAuditForm({ ...auditForm, auditors: newAuditors });
-                                }} />
-                              </div>
-                              <div className="form-group" style={{ marginBottom: 12 }}>
-                                <label className="form-label">Email</label>
-                                <input type="email" className="form-control" value={auditor.email} onChange={e => {
-                                  const newAuditors = [...auditForm.auditors];
-                                  newAuditors[i] = { ...auditor, email: e.target.value };
-                                  setAuditForm({ ...auditForm, auditors: newAuditors });
-                                }} />
-                              </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                              <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label">Contact Number</label>
-                                <input className="form-control" value={auditor.contact_number} onChange={e => {
-                                  const newAuditors = [...auditForm.auditors];
-                                  newAuditors[i] = { ...auditor, contact_number: e.target.value };
-                                  setAuditForm({ ...auditForm, auditors: newAuditors });
-                                }} />
-                              </div>
-                              <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label">Purpose</label>
-                                <input className="form-control" value={auditor.purpose} onChange={e => {
-                                  const newAuditors = [...auditForm.auditors];
-                                  newAuditors[i] = { ...auditor, purpose: e.target.value };
-                                  setAuditForm({ ...auditForm, auditors: newAuditors });
-                                }} />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  <div style={{ marginTop: 24, textAlign: 'right' }}>
-                    <button
-                      className="btn btn-primary"
-                      disabled={auditSubmitting || auditForm.auditors.some(a => !a.name || !a.email)}
-                      onClick={async () => {
-                        setAuditSubmitting(true);
-                        try {
-                          const res = await api.post('/api/audits/assign-auditors', {
-                            audit_id: existingAudit._id || existingAudit.id,
-                            auditors: auditForm.auditors
-                          });
-                          setExistingAudit(res.data);
-
-                          // Update application status to ASSIGN AUDITOR
-                          setManageModal(prev => ({ ...prev, status: 'ASSIGN AUDITOR' }));
-                          setActionForm(prev => ({ ...prev, status: 'ASSIGN AUDITOR' }));
-
-                          toast.success('Auditors assigned and status updated to ASSIGN AUDITOR!');
-                          fetchData();
-                        } catch (err) {
-                          toast.error(err.message || 'Failed to assign auditors');
-                        } finally {
-                          setAuditSubmitting(false);
-                        }
-                      }}
-                    >
-                      {auditSubmitting ? 'Assigning...' : 'Assign Auditors'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h4 style={{ fontSize: 16, color: '#1e293b', margin: 0 }}>Assigned Auditors</h4>
-                  </div>
-                  <div style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
-                    {existingAudit.auditors?.map((a, i) => (
-                      <div key={i} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>{a.name}</div>
-                          <div style={{ fontSize: 12, color: '#64748b' }}>{a.email} • {a.contact_number}</div>
-                        </div>
-                        <div style={{ fontSize: 12, color: '#475569', background: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', height: 'fit-content' }}>
-                          {a.purpose || 'Audit'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {auditModalTab === 'nc' && (
-                    <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 24 }}>
-                      <h4 style={{ fontSize: 16, color: '#b91c1c', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <AlertCircle size={18} /> Non-Conformity (NC) Reports
-                      </h4>
-
-                      {existingAudit.nc_reports?.length > 0 && (
-                        <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
-                          {existingAudit.nc_reports.map((nc, i) => (
-                            <div key={i} style={{ padding: '16px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
-                                  {nc.status === 'corrected' ? '✓ Corrected by Client' : '⚠️ Pending Client Correction'}
-                                </span>
-                                <span style={{ fontSize: 11, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
-                              </div>
-                              <p style={{ fontSize: 13, color: '#334155', margin: '0 0 12px 0' }}>{nc.text}</p>
-                              {nc.document_url && (
-                                <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}>
-                                  <FileText size={12} style={{ marginRight: 4 }}/> View Attached Document
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Flag New NC Report</div>
-                        <div className="form-group">
-                          <textarea className="form-control" rows={3} placeholder="Describe the non-conformity..." value={auditForm.nc_text} onChange={e => setAuditForm(f => ({ ...f, nc_text: e.target.value }))}></textarea>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 12 }}>
-                          <label className="form-label">Upload Correctivity Report (Optional PDF/Image)</label>
-                          <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <button
-                            className="btn btn-primary"
-                            style={{ background: '#dc2626', borderColor: '#dc2626' }}
-                            disabled={auditSubmitting || !auditForm.nc_text}
-                            onClick={async () => {
-                              setAuditSubmitting(true);
-                              try {
-                                const formData = new FormData();
-                                formData.append('audit_id', existingAudit._id || existingAudit.id);
-                                formData.append('text', auditForm.nc_text);
-                                if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
-
-                                const res = await api.post('/api/audits/flag-nc', formData, true);
-                                setExistingAudit(res.data);
-                                setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
-                                toast.success('NC Report flagged successfully!');
-                              } catch (err) {
-                                toast.error(err.message || 'Failed to flag NC');
-                              } finally {
-                                setAuditSubmitting(false);
-                              }
-                            }}
-                          >
-                            {auditSubmitting ? 'Flagging...' : 'Flag NC Report'}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            style={{ borderColor: '#16a34a', color: '#16a34a' }}
-                            disabled={auditSubmitting}
-                            onClick={async () => {
-                              if (window.confirm('Are you sure there are no Non-Conformity (NC) reports for this audit session? This will complete the audit and update the status to NC REPORTS CLOSED.')) {
-                                setAuditSubmitting(true);
-                                try {
-                                  const res = await api.post('/api/audits/complete-clean', {
-                                    audit_id: existingAudit._id || existingAudit.id
-                                  });
-                                  setExistingAudit(res.data);
-
-                                  // Automatically update application status to NC REPORTS CLOSED
-                                  const appId = manageModal._id || manageModal.id;
-                                  await api.put(`/api/applications/${appId}/status`, { status: 'NC REPORTS CLOSED' });
-                                  
-                                  setManageModal(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
-                                  setActionForm(prev => ({ ...prev, status: 'NC REPORTS CLOSED' }));
-
-                                  toast.success('Audit completed successfully with No NC reports! Status updated to NC REPORTS CLOSED.');
-                                  fetchData();
-                                } catch (err) {
-                                  toast.error(err.message || 'Failed to complete audit');
-                                } finally {
-                                  setAuditSubmitting(false);
-                                }
-                              }
-                            }}
-                          >
-                            ✓ No Report (Clean Audit)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Agreement Modal (Extracted) */}
+      <AgreementModal
+        isOpen={showAgreementModal}
+        onClose={() => setShowAgreementModal(false)}
+        app={manageModal}
+        agreement={existingAgreement}
+        onSuccess={() => {
+          fetchData();
+          if (manageModal) {
+            setManageModal(null);
+          }
+        }}
+      />
 
       <style>{`
         .action-btn-group {

@@ -5,7 +5,7 @@ import { Eye, EyeOff, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,11 +16,9 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = await login(email, password);
-      if (data.profile?.role !== 'admin') {
-        toast.error('Access denied. Admin credentials required.');
-        return;
-      }
+      // login() now calls /api/auth/admin/login with { username, password }.
+      // The backend enforces role === 'admin'; a 401 is thrown for any failure.
+      await login(username, password);
       toast.success('Welcome back, Admin!');
       navigate('/dashboard');
     } catch (err) {
@@ -69,13 +67,14 @@ export default function AdminLoginPage() {
 
             <form onSubmit={handleSubmit}>
               <div className="auth-input-group">
-                <label>Admin E-Mail <span style={{ color: '#ef4444' }}>*</span></label>
+                <label>Username <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
-                  type="email"
+                  type="text"
                   className="auth-input"
-                  placeholder="admin@hfa.co.uk"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  placeholder="admin"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -89,6 +88,7 @@ export default function AdminLoginPage() {
                     placeholder="••••••"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     required
                   />
                   <button 

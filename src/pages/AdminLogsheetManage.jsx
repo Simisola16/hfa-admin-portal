@@ -4,7 +4,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
   FileText, Search, Trash2, Eye, CheckSquare, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2 
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail 
 } from 'lucide-react';
 
 export default function AdminLogsheetManage() {
@@ -57,6 +57,18 @@ export default function AdminLogsheetManage() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.message || 'Failed to update logsheet status');
+    }
+  };
+
+  const handleResendEmails = async (id, e) => {
+    e.stopPropagation();
+    setActiveDropdown(null);
+    try {
+      const res = await api.post(`/api/application-logsheets/${id}/resend-emails`);
+      toast.success(res.data?.message || 'Signatory emails resent successfully');
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Failed to resend emails';
+      toast.error(msg);
     }
   };
 
@@ -336,6 +348,13 @@ export default function AdminLogsheetManage() {
                                 className="dropdown-item"
                               >
                                 <Trash2 size={14} /> Delete
+                              </button>
+                              <button 
+                                onClick={(e) => handleResendEmails(l._id, e)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#0e7490', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                                className="dropdown-item"
+                              >
+                                <Mail size={14} /> Resend Emails
                               </button>
                             </div>
                           )}

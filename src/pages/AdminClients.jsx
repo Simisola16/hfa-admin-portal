@@ -35,15 +35,18 @@ export default function AdminClients() {
     if (category === 'bin') {
       // Suspended companies
       if (!isSuspended && isActive) return false;
-    } else if (category === 'review') {
-      // New companies (0 applications) and not suspended
-      if (isSuspended || c.appCount > 0) return false;
-    } else if (category === 'processing') {
-      // Companies with applications but none approved yet, and not suspended
-      if (isSuspended || c.appCount === 0 || c.approvedAppCount > 0) return false;
-    } else if (category === 'company') {
-      // Finished applications (at least one approved) and not suspended
-      if (isSuspended || (c.approvedAppCount || 0) === 0) return false;
+    } else {
+      if (isSuspended) return false;
+      if (category === 'review') {
+        // New signups: 0 applications
+        if (c.appCount > 0) return false;
+      } else if (category === 'processing') {
+        // Processing: Has applications, but no active certificate yet
+        if (c.appCount === 0 || (c.certCount || 0) > 0) return false;
+      } else if (category === 'company') {
+        // Certified: Has at least one active certificate
+        if ((c.certCount || 0) === 0) return false;
+      }
     }
 
     // 2. Search Filtering
@@ -96,7 +99,14 @@ export default function AdminClients() {
           <input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, alignItems: 'center' }}>
-          <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>{filtered.length} {category === 'company' ? 'Certified' : category}s</span>
+          <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
+            {filtered.length} {
+              category === 'company' ? 'Certified Companies' :
+              category === 'bin' ? 'Suspended Companies' :
+              category === 'review' ? 'New Signups' :
+              category === 'processing' ? 'Processing Companies' : 'Companies'
+            }
+          </span>
         </div>
       </div>
 
@@ -145,7 +155,7 @@ export default function AdminClients() {
                             <FileText size={12} /> {c.appCount || 0}
                           </span>
                           <span title="Active Certificates" style={{ fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, background: '#f0fdf4', padding: '4px 8px', borderRadius: 6, color: '#166534' }}>
-                            <Award size={12} /> {c.approvedAppCount || 0}
+                            <Award size={12} /> {c.certCount || 0}
                           </span>
                         </div>
                       </td>

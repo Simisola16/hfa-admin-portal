@@ -121,7 +121,7 @@ export default function AdminProposals() {
                       </span>
                     </td>
                     <td style={{ fontSize: 12 }}>
-                      {new Date(p.created_at).toLocaleDateString('en-GB')}
+                      {p.createdAt || p.created_at ? new Date(p.createdAt || p.created_at).toLocaleDateString('en-GB') : '—'}
                     </td>
                     <td>
                       <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>

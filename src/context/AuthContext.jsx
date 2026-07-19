@@ -23,8 +23,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (email, password) => {
-    const data = await api.post('/api/auth/login', { email, password });
+  /**
+   * Admin-portal login — authenticates via username (not email).
+   * Calls the dedicated /api/auth/admin/login endpoint which only
+   * accepts users with role === 'admin'.
+   */
+  const login = async (username, password) => {
+    const data = await api.post('/api/auth/admin/login', { username, password });
     localStorage.setItem('hfa_token', data.token);
     setUser(data.user);
     setProfile(data.user);

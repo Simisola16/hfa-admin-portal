@@ -25,6 +25,7 @@ import AdminLogsheetManage from './pages/AdminLogsheetManage';
 import AdminLogsheetWaitingSignature from './pages/AdminLogsheetWaitingSignature';
 import AdminTickets from './pages/AdminTickets';
 import AdminSignatures from './pages/AdminSignatures';
+import ApplicationProcessing from './pages/ApplicationProcessing';
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
+            <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/clients" element={<AdminClients />} />
             <Route path="/inspectors" element={<AdminInspectors />} />

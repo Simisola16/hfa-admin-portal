@@ -55,6 +55,10 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
     // Rest of the flow (Phases 6–9)
     const restFlow = [
       'invoice_sent',
+      'payment_received',
+      'dates_proposed',
+      'dates_accepted',
+      'date_finalized',
       'audit_assigned',
       'audit_report_submitted',
       'logsheet_created',
@@ -66,7 +70,8 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
     stepsToShow.push(...restFlow);
   }
 
-  const currentIndex = stepsToShow.indexOf(status);
+  const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
+  const currentIndex = stepsToShow.indexOf(normStatus);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;

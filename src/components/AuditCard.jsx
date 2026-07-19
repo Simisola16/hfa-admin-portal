@@ -2,7 +2,8 @@ import React from 'react';
 import { Calendar, Users, Lock, ChevronRight } from 'lucide-react';
 
 export default function AuditCard({ audit, status }) {
-  const isAvailable = ['invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(status) || audit;
+  const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
+  const isAvailable = ['invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || audit;
 
   if (!isAvailable) {
     return (

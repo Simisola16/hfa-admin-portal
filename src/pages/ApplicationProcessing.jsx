@@ -155,14 +155,14 @@ export default function ApplicationProcessing() {
     );
   }
 
-  const status = app.status || 'submitted';
+  const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
 
   // Helper flags for action stepper
   const showSendProposalAction = status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected';
   const showInvoiceAction = status === 'proposal_approved' || status === 'invoice_sent';
-  const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status);
+  const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status) || (invoice && (invoice.status === 'paid' || invoice.status === 'client_paid'));
   const showCreateLogsheetAction = status === 'audit_report_submitted';
   const showSendAgreementAction = ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
   const showCertificateAction = status === 'agreement_signed';

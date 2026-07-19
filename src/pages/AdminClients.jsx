@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminClients() {
   const { user: loggedInUser } = useAuth();
   const [users, setUsers] = useState([]);
+  const [impersonationLogs, setImpersonationLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [impersonatingId, setImpersonatingId] = useState(null);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const category = searchParams.get('category') || 'company';
@@ -36,9 +39,23 @@ export default function AdminClients() {
       .finally(() => setLoading(false));
   };
 
+  const fetchImpersonationLogs = () => {
+    setLogsLoading(true);
+    api.get('/api/auth/impersonate/logs')
+      .then(res => setImpersonationLogs(res || []))
+      .catch(() => toast.error('Failed to load impersonation logs'))
+      .finally(() => setLogsLoading(false));
+  };
+
   useEffect(() => { 
     fetchUsers(); 
   }, []);
+
+  useEffect(() => {
+    if (category === 'impersonations') {
+      fetchImpersonationLogs();
+    }
+  }, [category]);
 
   const handleRoleChange = async (userId, newRole) => {
     try {
@@ -93,11 +110,36 @@ export default function AdminClients() {
     }
   };
 
+  const handleImpersonate = async (clientId) => {
+    setImpersonatingId(clientId);
+    try {
+      // 1. POST request to generate single-use opaque code
+      const res = await api.post(`/api/auth/impersonate/${clientId}`);
+      const code = res.code;
+      if (!code) throw new Error('Failed to retrieve impersonation code.');
+
+      // 2. Open client portal in new tab with the opaque code
+      const clientOrigin = window.location.origin.includes('localhost') 
+        ? 'http://localhost:5173'
+        : window.location.origin.replace('admin.', 'portal.').replace('-admin', '');
+      
+      const impersonateUrl = `${clientOrigin}/login?impersonate_code=${code}`;
+      
+      toast.success('Impersonation session created! Opening in a new tab.');
+      window.open(impersonateUrl, '_blank');
+    } catch (err) {
+      toast.error(err.message || 'Failed to initiate impersonation.');
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
   const getTitle = () => {
     if (category === 'review') return 'Review Companies (New Signups)';
     if (category === 'processing') return 'Processing List (Pending Applications)';
     if (category === 'bin') return 'Bin List (Suspended Companies)';
     if (category === 'staff') return 'HFA Staff & User Management';
+    if (category === 'impersonations') return 'Admin Impersonation Logs';
     return 'Company List (Certified Clients)';
   };
 
@@ -106,6 +148,7 @@ export default function AdminClients() {
     if (category === 'processing') return <Briefcase size={20} />;
     if (category === 'bin') return <Trash2 size={20} />;
     if (category === 'staff') return <UserCheck size={20} />;
+    if (category === 'impersonations') return <History size={20} />;
     return <Award size={20} />;
   };
 
@@ -155,7 +198,10 @@ export default function AdminClients() {
         <button className={`btn btn-sm ${category === 'review' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'review' })}>New Signups</button>
         <button className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'bin' })}>Suspended</button>
         {isAdmin && (
-          <button className={`btn btn-sm ${category === 'staff' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'staff' })}>HFA Staff</button>
+          <>
+            <button className={`btn btn-sm ${category === 'staff' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'staff' })}>HFA Staff</button>
+            <button className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'impersonations' })}>Impersonation Logs</button>
+          </>
         )}
       </div>
 
@@ -171,7 +217,7 @@ export default function AdminClients() {
             </button>
           )}
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
-            {filtered.length} {category === 'staff' ? 'Staff Members' : 'Companies'}
+            {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} ${category === 'staff' ? 'Staff Members' : 'Companies'}`}
           </span>
         </div>
       </div>
@@ -182,14 +228,71 @@ export default function AdminClients() {
           <div>
             <div className="card-title" style={{ fontSize: 18, fontWeight: 700 }}>{getTitle()}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {category === 'staff' ? 'Manage internal HFA roles and credentials' : 'Manage corporate clients and their status'}
+              {category === 'staff' ? 'Manage internal HFA roles and credentials' : 
+               category === 'impersonations' ? 'Tamper-evident audit trail of all administrator impersonation actions' : 
+               'Manage corporate clients and their status'}
             </div>
           </div>
         </div>
 
         <div className="table-wrap">
-          {loading ? <div className="loading-overlay"><div className="spinner" /></div> :
-            filtered.length === 0 ? (
+          {loading && category !== 'impersonations' ? <div className="loading-overlay"><div className="spinner" /></div> :
+            category === 'impersonations' ? (
+              // Impersonation Logs Table
+              logsLoading ? <div className="loading-overlay"><div className="spinner" /></div> :
+              impersonationLogs.length === 0 ? (
+                <div className="empty-state" style={{ padding: '60px 20px' }}>
+                  <History size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
+                  <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>No impersonation history</div>
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Administrator</th>
+                      <th>Client Company</th>
+                      <th>Start Time</th>
+                      <th>End Time</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {impersonationLogs.map(l => {
+                      const adminName = l.admin_id?.full_name || 'Deleted Admin';
+                      const adminEmail = l.admin_id?.email || '—';
+                      const clientName = l.client_id?.company_name || l.client_id?.full_name || 'Deleted Client';
+                      const clientEmail = l.client_id?.email || '—';
+                      
+                      return (
+                        <tr key={l._id} className="hover-row">
+                          <td>
+                            <div style={{ fontWeight: 700, color: '#111827', fontSize: 14 }}>{adminName}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{adminEmail}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 700, color: '#111827', fontSize: 14 }}>{clientName}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{clientEmail}</div>
+                          </td>
+                          <td style={{ fontSize: 13, fontWeight: 500 }}>
+                            {new Date(l.started_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                          <td style={{ fontSize: 13, fontWeight: 500 }}>
+                            {l.ended_at ? new Date(l.ended_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
+                          </td>
+                          <td>
+                            {l.ended_at ? (
+                              <span className="badge badge-gray" style={{ fontSize: 10 }}>Ended</span>
+                            ) : (
+                              <span className="badge badge-yellow" style={{ fontSize: 10 }}>Active Session</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )
+            ) : filtered.length === 0 ? (
               <div className="empty-state" style={{ padding: '60px 20px' }}>
                 <div className="empty-state-icon" style={{ background: '#f8fafc', color: '#cbd5e1', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><Users size={32} /></div>
                 <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>No users found</div>
@@ -289,7 +392,29 @@ export default function AdminClients() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {isAdmin && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ 
+                                color: '#d97706', 
+                                fontWeight: 700, 
+                                border: '1px solid #fde68a', 
+                                background: '#fef3c7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}
+                              disabled={impersonatingId !== null}
+                              onClick={() => handleImpersonate(c._id)}
+                            >
+                              {impersonatingId === c._id ? (
+                                <span className="spinner" style={{ width: 12, height: 12, borderTopColor: '#d97706' }} />
+                              ) : (
+                                'Login as Client'
+                              )}
+                            </button>
+                          )}
                           {(c.suspension_reason || c.is_active === false || category === 'review') && (
                             <button 
                               className="btn btn-primary btn-sm" 

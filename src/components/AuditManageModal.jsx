@@ -190,8 +190,16 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           
           {/* Propose Dates Phase */}
-          {!existingAudit && (
+          {(!existingAudit || existingAudit?.status === 'dates_rejected') && (
             <div>
+              {existingAudit?.status === 'dates_rejected' && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                  <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.4 }}>
+                    <strong>Dates Rejected by Client:</strong> The client was unavailable on the previously proposed dates. Please propose 3 new date options below.
+                  </div>
+                </div>
+              )}
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
                 Propose 3 possible audit dates to the client. They will select 2 dates from their portal.
               </p>

@@ -27,6 +27,8 @@ import AdminTickets from './pages/AdminTickets';
 import AdminSignatures from './pages/AdminSignatures';
 import ApplicationProcessing from './pages/ApplicationProcessing';
 
+import AdminAddOnApplications from './pages/AdminAddOnApplications';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -38,6 +40,7 @@ export default function App() {
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/applications" element={<AdminApplications />} />
+            <Route path="/addon-applications" element={<AdminAddOnApplications />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />

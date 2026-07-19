@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase,
-  X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight,
+  X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -30,6 +30,7 @@ const NAV_SECTIONS = [
           { label: 'Surveillance',      path: '/applications?type=surveillance' },
         ],
       },
+      { icon: PlusCircle, label: 'Add-on Requests', path: '/addon-applications' },
       {
         icon: Users, label: 'Companies', path: '/clients',
         children: [

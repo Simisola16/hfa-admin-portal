@@ -1,5 +1,5 @@
 import React from 'react';
-import { Receipt, Download, Lock, CheckCircle, Clock } from 'lucide-react';
+import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -10,7 +10,7 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function InvoiceCard({ invoice, status }) {
+export default function InvoiceCard({ invoice, status, onConfirmPayment, confirmingPayment }) {
   const isAvailable = ['proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(status) || invoice;
 
   if (!isAvailable) {
@@ -33,19 +33,22 @@ export default function InvoiceCard({ invoice, status }) {
     );
   }
 
+  const isClientPaid = invoice.status === 'client_paid';
+  const isPaid = invoice.status === 'paid';
+
   return (
-    <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: 'white', borderRadius: 20, border: isClientPaid ? '2px solid #fb923c' : '1px solid #e2e8f0', boxShadow: isClientPaid ? '0 0 0 3px rgba(251,146,60,0.12)' : '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: isClientPaid ? '#fff7ed' : '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Receipt size={18} style={{ color: '#ea580c' }} />
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Certification Invoice</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No: {invoice.invoice_number} &middot; Status: <span style={{
               fontWeight: 700,
-              color: invoice.status === 'paid' ? '#15803d' : invoice.status === 'client_paid' ? '#b45309' : '#b91c1c'
-            }}>{invoice.status === 'paid' ? 'Paid' : invoice.status === 'client_paid' ? 'Paid (Awaiting Confirmation)' : 'Unpaid'}</span></div>
+              color: isPaid ? '#15803d' : isClientPaid ? '#b45309' : '#b91c1c'
+            }}>{isPaid ? '✓ Confirmed Paid' : isClientPaid ? '⏳ Paid (Awaiting Confirmation)' : 'Unpaid'}</span></div>
           </div>
         </div>
         {invoice.invoice_url && (
@@ -66,10 +69,60 @@ export default function InvoiceCard({ invoice, status }) {
           </div>
         </div>
 
-        {invoice.payment_proof_url && (
+        {/* Client paid — awaiting confirmation banner */}
+        {isClientPaid && (
+          <div style={{ marginBottom: 20, background: 'linear-gradient(135deg, #fff7ed, #fffbeb)', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #fb923c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertCircle size={18} style={{ color: '#ea580c' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#9a3412' }}>Client has submitted payment proof</div>
+                <div style={{ fontSize: 11, color: '#c2410c', marginTop: 2 }}>Please review the receipt and confirm payment to proceed.</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {invoice.payment_proof_url && (
+                <a href={getPdfUrl(invoice.payment_proof_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ borderColor: '#fdba74', color: '#ea580c' }}>
+                  View Receipt
+                </a>
+              )}
+              {onConfirmPayment && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', fontWeight: 700, padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 6 }}
+                  onClick={onConfirmPayment}
+                  disabled={confirmingPayment}
+                >
+                  <ShieldCheck size={14} />
+                  {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Paid confirmation */}
+        {isPaid && invoice.payment_proof_url && (
+          <div style={{ marginBottom: 20, background: '#f0fdf4', padding: 14, borderRadius: 10, border: '1px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CheckCircle size={16} style={{ color: '#16a34a' }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>Payment Confirmed</div>
+                <div style={{ fontSize: 11, color: '#15803d' }}>Receipt verified by admin</div>
+              </div>
+            </div>
+            <a href={getPdfUrl(invoice.payment_proof_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ borderColor: '#86efac', color: '#15803d' }}>
+              View Receipt
+            </a>
+          </div>
+        )}
+
+        {/* Proof uploaded but not yet client_paid (legacy) */}
+        {!isClientPaid && !isPaid && invoice.payment_proof_url && (
           <div style={{ marginBottom: 20, background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {invoice.status === 'paid' ? <CheckCircle size={16} style={{ color: '#16a34a' }} /> : <Clock size={16} style={{ color: '#b45309' }} />}
+              <Clock size={16} style={{ color: '#b45309' }} />
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>Client Payment Proof Submitted</div>
                 <div style={{ fontSize: 11, color: '#64748b' }}>Uploaded by client for verification</div>

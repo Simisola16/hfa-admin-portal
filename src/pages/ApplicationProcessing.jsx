@@ -50,6 +50,7 @@ export default function ApplicationProcessing() {
   // Inline forms/submission states
   const [rejectReason, setRejectReason] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   const fetchApp = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -81,6 +82,21 @@ export default function ApplicationProcessing() {
     const interval = setInterval(() => fetchApp(true), 20000);
     return () => clearInterval(interval);
   }, [fetchApp]);
+
+  const handleConfirmPayment = async () => {
+    if (!invoice) return;
+    setConfirmingPayment(true);
+    try {
+      await api.put(`/api/invoices/${invoice._id || invoice.id}/confirm-payment`, {});
+      setInvoice(prev => ({ ...prev, status: 'paid' }));
+      toast.success('Payment confirmed! Application moved to Payment Received.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm payment.');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
 
   const handleApprove = async () => {
     setActionSubmitting(true);
@@ -280,7 +296,13 @@ export default function ApplicationProcessing() {
           <ProposalCard app={app} proposal={proposal} />
 
           {/* Invoice Card */}
-          <InvoiceCard app={app} invoice={invoice} />
+          <InvoiceCard
+            app={app}
+            invoice={invoice}
+            status={app?.status}
+            onConfirmPayment={invoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            confirmingPayment={confirmingPayment}
+          />
 
           {/* Audit Card */}
           <AuditCard app={app} audit={audit} onManage={() => setShowAuditModal(true)} />

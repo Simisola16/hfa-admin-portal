@@ -12,8 +12,9 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function AuditManageModal({ isOpen, onClose, app, existingAudit: propExistingAudit, onSuccess }) {
-  const [existingAudit, setExistingAudit] = useState(null);
+export default function AuditManageModal({ isOpen, onClose, app, existingAudits: propExistingAudits, onSuccess }) {
+  const [existingAudits, setExistingAudits] = useState([]);
+  const [activeStage, setActiveStage] = useState(1);
   const [auditModalTab, setAuditModalTab] = useState('schedule'); // 'schedule' or 'nc'
   const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [auditForm, setAuditForm] = useState({
@@ -24,34 +25,36 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
     finalized_date: ''
   });
 
-  // Sync prop existingAudit with local state
+  const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+
+  // Sync prop existingAudits with local state
   useEffect(() => {
-    setExistingAudit(propExistingAudit || null);
-    if (propExistingAudit) {
-      if (propExistingAudit.status === 'auditors_assigned' || propExistingAudit.status === 'audit_completed') {
+    setExistingAudits(propExistingAudits || []);
+    if (propExistingAudits && propExistingAudits.length > 0) {
+      const currentAudit = propExistingAudits.find(a => a.stage === activeStage);
+      if (currentAudit && (currentAudit.status === 'auditors_assigned' || currentAudit.status === 'audit_completed')) {
         setAuditModalTab('schedule');
       }
     }
-  }, [propExistingAudit, isOpen]);
+  }, [propExistingAudits, isOpen, activeStage]);
 
   // Load audit from backend if not provided as prop
   useEffect(() => {
-    if (isOpen && app && !propExistingAudit) {
+    if (isOpen && app && (!propExistingAudits || propExistingAudits.length === 0)) {
       api.get(`/api/audits/application/${app._id || app.id}`)
         .then(res => {
-          setExistingAudit(res.data);
-          if (res.data?.status === 'auditors_assigned' || res.data?.status === 'audit_completed') {
-            setAuditModalTab('schedule');
-          }
+          setExistingAudits(res.data?.data || res.data || []);
         })
-        .catch(() => setExistingAudit(null));
+        .catch(() => setExistingAudits([]));
     }
-  }, [isOpen, app, propExistingAudit]);
+  }, [isOpen, app, propExistingAudits]);
+
+  const existingAudit = existingAudits.find(a => a.stage === activeStage);
 
   // Setup initial auditors list depending on dual exporter or single
   useEffect(() => {
     if (existingAudit?.status === 'date_finalized' && auditForm.auditors.length === 0) {
-      const isDual = app?.application_type === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+      const isDual = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
       const numAuditors = isDual ? 2 : 1;
       const initialAuditors = Array(numAuditors).fill(null).map((_, i) => ({
         name: '',
@@ -62,7 +65,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
       }));
       setAuditForm(f => ({ ...f, auditors: initialAuditors }));
     }
-  }, [existingAudit, app]);
+  }, [existingAudit, app, activeStage]);
 
   if (!isOpen) return null;
 
@@ -76,9 +79,9 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
       const res = await api.post('/api/audits/propose-dates', {
         application_id: app._id || app.id,
         client_id: app.client_id || app.profiles?._id || app.profiles?.id,
-        dates: auditForm.dates
+        dates: auditForm.dates,
+        stage: activeStage
       });
-      setExistingAudit(res.data);
       toast.success('3 Dates proposed to client successfully!');
       onSuccess();
     } catch (err) {
@@ -99,7 +102,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
         audit_id: existingAudit._id || existingAudit.id,
         finalized_date: auditForm.finalized_date
       });
-      setExistingAudit(res.data);
       toast.success('Audit date finalized successfully!');
       onSuccess();
     } catch (err) {
@@ -120,7 +122,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
         audit_id: existingAudit._id || existingAudit.id,
         auditors: auditForm.auditors
       });
-      setExistingAudit(res.data);
       toast.success('Auditors assigned successfully!');
       onSuccess();
     } catch (err) {
@@ -143,7 +144,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
       if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
 
       const res = await api.post('/api/audits/flag-nc', formData, true);
-      setExistingAudit(res.data);
       setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
       toast.success('NC Report flagged successfully!');
       onSuccess();
@@ -161,10 +161,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
         const res = await api.post('/api/audits/complete-clean', {
           audit_id: existingAudit._id || existingAudit.id
         });
-        setExistingAudit(res.data?.data || res.data);
-        toast.success('Audit completed — status advanced to Audit Report Submitted.');
+        toast.success('Audit completed successfully.');
         onSuccess();
-        onClose();
+        if (!isDualStage || activeStage === 2) {
+          onClose();
+        }
       } catch (err) {
         toast.error(err.message || 'Failed to complete audit');
       } finally {
@@ -188,6 +189,31 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudit: 
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+          
+          {isDualStage && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: 4, background: '#f1f5f9', borderRadius: 8 }}>
+              <button
+                type="button"
+                style={{ flex: 1, padding: '8px 12px', border: 'none', background: activeStage === 1 ? '#fff' : 'transparent', color: activeStage === 1 ? '#1d4ed8' : '#64748b', fontWeight: 700, borderRadius: 6, boxShadow: activeStage === 1 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => setActiveStage(1)}
+              >
+                Stage 1 Audit
+              </button>
+              <button
+                type="button"
+                style={{ flex: 1, padding: '8px 12px', border: 'none', background: activeStage === 2 ? '#fff' : 'transparent', color: activeStage === 2 ? '#1d4ed8' : '#64748b', fontWeight: 700, borderRadius: 6, boxShadow: activeStage === 2 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: existingAudits.find(a => a.stage === 1)?.status === 'audit_completed' ? 'pointer' : 'not-allowed', opacity: existingAudits.find(a => a.stage === 1)?.status === 'audit_completed' ? 1 : 0.6, transition: 'all 0.2s' }}
+                onClick={() => {
+                  if (existingAudits.find(a => a.stage === 1)?.status === 'audit_completed') {
+                    setActiveStage(2);
+                  } else {
+                    toast.error('Stage 2 is locked until Stage 1 is completed.');
+                  }
+                }}
+              >
+                Stage 2 Audit {existingAudits.find(a => a.stage === 1)?.status !== 'audit_completed' && '🔒'}
+              </button>
+            </div>
+          )}
           
           {/* Propose Dates Phase */}
           {(!existingAudit || existingAudit?.status === 'dates_rejected') && (

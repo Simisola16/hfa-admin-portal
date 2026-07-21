@@ -1,9 +1,23 @@
 import React from 'react';
-import { Calendar, Users, Lock, ChevronRight } from 'lucide-react';
+import { Calendar, Users, Lock } from 'lucide-react';
 
-export default function AuditCard({ audit, status }) {
+export default function AuditCard({ audits, status, app, onManage }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
-  const isAvailable = ['invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || audit;
+  const hasAudits = audits && audits.length > 0;
+  const isAvailable = ['invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'audit_successful', 'on_hold', 'final_invoice_sent', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || hasAudits;
+
+  const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+  const stage2 = audits?.find(a => a.stage === 2);
+  // Show the most relevant audit for details
+  const audit = (isDualStage ? (stage2 || stage1) : stage1) || null;
+
+  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
+  const roleColors = {
+    lead_auditor: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+    sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+    audit_trainee: { bg: '#fefce8', color: '#a16207', border: '#fde68a' },
+  };
 
   if (!isAvailable) {
     return (
@@ -15,41 +29,75 @@ export default function AuditCard({ audit, status }) {
     );
   }
 
-  if (!audit) {
+  if (!hasAudits) {
     return (
       <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', padding: 24, textAlign: 'center' }}>
         <Calendar size={28} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
         <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>No Audit Scheduled</div>
         <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Audit dates have not been proposed or scheduled yet.</div>
+        {onManage && (
+          <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={onManage}>
+            Schedule Audit
+          </button>
+        )}
       </div>
     );
   }
 
-  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
-  const roleColors = {
-    lead_auditor: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-    sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    audit_trainee: { bg: '#fefce8', color: '#a16207', border: '#fde68a' },
+  const stageStatusColor = (stageAudit) => {
+    if (!stageAudit) return { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b' };
+    if (stageAudit.status === 'audit_completed') return { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' };
+    if (['auditors_assigned', 'date_finalized', 'dates_accepted'].includes(stageAudit.status)) return { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' };
+    if (stageAudit.status === 'dates_proposed') return { bg: '#fefce8', border: '#fde68a', color: '#a16207' };
+    return { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b' };
   };
 
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Users size={18} style={{ color: '#1d4ed8' }} />
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Users size={18} style={{ color: '#1d4ed8' }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Assigned Audit Team</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{(audit?.status || 'pending').replace(/_/g, ' ')}</span></div>
+          </div>
         </div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Assigned Audit Team</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{audit.status.replace(/_/g, ' ')}</span></div>
-        </div>
+        {onManage && (
+          <button className="btn btn-ghost btn-sm" onClick={onManage} style={{ fontSize: 12 }}>
+            Manage
+          </button>
+        )}
       </div>
       <div style={{ padding: '20px 24px' }}>
-        {audit.finalized_date ? (
+        {/* Two-stage progress bar for UAE/GSO */}
+        {isDualStage && (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            {[1, 2].map(stageNum => {
+              const stageAudit = audits.find(a => a.stage === stageNum);
+              const sc = stageStatusColor(stageAudit);
+              const isLocked = stageNum === 2 && stage1?.status !== 'audit_completed';
+              return (
+                <div key={stageNum} style={{ flex: 1, padding: '10px 14px', background: sc.bg, borderRadius: 10, border: `1px solid ${sc.border}`, opacity: isLocked ? 0.5 : 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Stage {stageNum} {isLocked ? '🔒' : stageAudit?.status === 'audit_completed' ? '✓' : ''}
+                  </div>
+                  <div style={{ fontSize: 11, color: sc.color, marginTop: 2, textTransform: 'capitalize' }}>
+                    {stageAudit ? stageAudit.status.replace(/_/g, ' ') : (isLocked ? 'Locked' : 'Pending')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {audit?.finalized_date ? (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Calendar size={15} style={{ color: '#15803d' }} />
             <span style={{ fontSize: 14, color: '#15803d', fontWeight: 700 }}>Confirmed Audit Date: {new Date(audit.finalized_date).toDateString()}</span>
           </div>
-        ) : audit.status === 'dates_proposed' ? (
+        ) : audit?.status === 'dates_proposed' ? (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fefce8', borderRadius: 10, border: '1px solid #fde68a' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Awaiting Date Choice from Client</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -64,7 +112,7 @@ export default function AuditCard({ audit, status }) {
           </div>
         )}
 
-        {audit.auditors && audit.auditors.length > 0 ? (
+        {audit?.auditors && audit.auditors.length > 0 ? (
           <div style={{ display: 'grid', gap: 10 }}>
             {audit.auditors.map((a, i) => {
               const rc = roleColors[a.role] || roleColors.audit_trainee;

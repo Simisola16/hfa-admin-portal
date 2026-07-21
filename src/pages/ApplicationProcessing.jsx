@@ -9,6 +9,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import ProcessingTimeline from '../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../lib/applicationStatuses';
+import { getSocket } from '../lib/socket';
 
 // Extracted Modals
 import ProposalModal from '../components/ProposalModal';
@@ -36,18 +37,20 @@ export default function ApplicationProcessing() {
   const [proposal, setProposal] = useState(null);
   const [invoice, setInvoice] = useState(null);
   const [agreement, setAgreement] = useState(null);
-  const [audit, setAudit] = useState(null);
+  const [audits, setAudits] = useState([]);
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceModalType, setInvoiceModalType] = useState('initial'); // 'initial' | 'final'
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   // Inline forms/submission states
+  const [approveCategory, setApproveCategory] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -68,7 +71,7 @@ export default function ApplicationProcessing() {
       setProposal(propRes.data || null);
       setInvoice(invRes.data || null);
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
-      setAudit(auditRes.data || null);
+      setAudits(auditRes.data?.data || auditRes.data || []);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {
@@ -77,11 +80,54 @@ export default function ApplicationProcessing() {
     }
   }, [appId]);
 
+  const [socketConnected, setSocketConnected] = useState(true);
+
   useEffect(() => {
     fetchApp();
+  }, [fetchApp]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('hfa_token');
+    if (!token) return;
+
+    const socket = getSocket(token);
+    if (!socket) return;
+
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+    const handleConnectError = () => setSocketConnected(false);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+
+    // Sync initial state
+    setSocketConnected(socket.connected);
+
+    const handleUpdate = (data) => {
+      if (data.appId === appId) {
+        // Silent re-fetch to sync fresh DB state with zero UI disruption
+        fetchApp(true);
+      }
+    };
+
+    socket.on('application_updated', handleUpdate);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('application_updated', handleUpdate);
+    };
+  }, [appId]);
+
+  // Fallback Polling (only if socket is disconnected)
+  useEffect(() => {
+    if (socketConnected) return;
+
     const interval = setInterval(() => fetchApp(true), 20000);
     return () => clearInterval(interval);
-  }, [fetchApp]);
+  }, [socketConnected, fetchApp]);
 
   const handleConfirmPayment = async () => {
     if (!invoice) return;
@@ -101,7 +147,7 @@ export default function ApplicationProcessing() {
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
-      const res = await api.put(`/api/applications/${appId}/approve`, {});
+      const res = await api.put(`/api/applications/${appId}/approve`, { category: approveCategory || app.category });
       setApp(res.data);
       setShowApproveModal(false);
       toast.success('Application approved successfully!');
@@ -128,6 +174,23 @@ export default function ApplicationProcessing() {
       fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Rejection failed.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handlePostAuditDecision = async (newStatus) => {
+    setActionSubmitting(true);
+    try {
+      const res = await api.put(`/api/applications/${appId}/status`, { 
+        status: newStatus, 
+        note: newStatus === 'audit_successful' ? 'Audit marked successful by admin' : 'Application put on hold post-audit' 
+      });
+      setApp(res.data);
+      toast.success(newStatus === 'audit_successful' ? 'Application marked as successful.' : 'Application put on hold.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update status.');
     } finally {
       setActionSubmitting(false);
     }
@@ -161,9 +224,18 @@ export default function ApplicationProcessing() {
 
   // Helper flags for action stepper
   const showSendProposalAction = status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected';
+  
+  // For initial invoice
   const showInvoiceAction = status === 'proposal_approved' || status === 'invoice_sent';
-  const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status) || (invoice && (invoice.status === 'paid' || invoice.status === 'client_paid'));
-  const showCreateLogsheetAction = status === 'audit_report_submitted';
+  
+  const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status) || (invoice && (invoice.status === 'paid' || invoice.status === 'client_paid') && status === 'invoice_sent');
+  
+  const showPostAuditDecision = status === 'audit_report_submitted' || status === 'on_hold';
+  
+  const showFinalInvoiceAction = status === 'audit_successful' || status === 'final_invoice_sent';
+  
+  const showCreateLogsheetAction = ['final_invoice_sent', 'logsheet_created'].includes(status) || status === 'audit_successful'; 
+  
   const showSendAgreementAction = ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
   const showCertificateAction = status === 'agreement_signed';
 
@@ -191,6 +263,23 @@ export default function ApplicationProcessing() {
             {app.profiles?.company_name || app.establishment_name} &middot; Submitted {new Date(app.created_at).toLocaleDateString('en-GB')}
           </div>
         </div>
+        {!socketConnected && (
+          <span style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#991b1b',
+            padding: '4px 8px',
+            borderRadius: 6,
+            fontSize: 10,
+            fontWeight: 700
+          }}>
+            <span className="spinner" style={{ width: 8, height: 8, borderTopColor: '#991b1b', display: 'inline-block' }} />
+            Disconnected (Polling)
+          </span>
+        )}
         <button className="btn btn-ghost btn-sm" onClick={() => fetchApp(true)} title="Refresh">
           <RefreshCw size={14} />
         </button>
@@ -239,9 +328,9 @@ export default function ApplicationProcessing() {
               <button
                 className="btn btn-primary"
                 style={{ gap: 8, background: '#854d0e' }}
-                onClick={() => setShowInvoiceModal(true)}
+                onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
               >
-                <Receipt size={16} /> {invoice ? 'Resend Invoice' : 'Send Invoice'}
+                <Receipt size={16} /> {invoice ? 'Resend Initial Invoice' : 'Send Initial Invoice'}
               </button>
             )}
 
@@ -255,13 +344,48 @@ export default function ApplicationProcessing() {
               </button>
             )}
 
+            {showPostAuditDecision && (
+              <>
+                {status !== 'on_hold' && (
+                  <button className="btn btn-ghost" style={{ gap: 8, border: '1px solid #e2e8f0' }} onClick={() => handlePostAuditDecision('on_hold')} disabled={actionSubmitting}>
+                    <XCircle size={16} color="#64748b" /> Put On Hold
+                  </button>
+                )}
+                <button className="btn btn-primary" style={{ gap: 8, background: '#16a34a' }} onClick={() => handlePostAuditDecision('audit_successful')} disabled={actionSubmitting}>
+                  <CheckCircle size={16} /> Mark Successful
+                </button>
+              </>
+            )}
+
+            {showFinalInvoiceAction && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#854d0e' }}
+                onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
+              >
+                <Receipt size={16} /> Send Final Invoice
+              </button>
+            )}
+
             {showCreateLogsheetAction && (
               <button
                 className="btn btn-primary"
-                style={{ gap: 8, background: '#0e7490' }}
-                onClick={() => navigate(`/applications/${appId}/logsheet`)}
+                style={{
+                  gap: 8,
+                  background: '#0e7490',
+                  opacity: (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) ? 1 : 0.5,
+                  cursor: (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) ? 'pointer' : 'not-allowed'
+                }}
+                onClick={() => {
+                  if (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) {
+                    navigate(`/applications/${appId}/logsheet`);
+                  } else {
+                    toast.error('The Final Invoice must be sent and paid before a LogSheet can be created.');
+                  }
+                }}
+                title={status === 'logsheet_created' ? 'Manage LogSheet' : (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid') ? 'Create LogSheet' : 'Locked: Final invoice must be paid'}
               >
-                <ClipboardList size={16} /> Create LogSheet
+                <ClipboardList size={16} /> {status === 'logsheet_created' ? 'Manage LogSheet' : 'Create LogSheet'}
               </button>
             )}
 
@@ -305,7 +429,7 @@ export default function ApplicationProcessing() {
           />
 
           {/* Audit Card */}
-          <AuditCard app={app} audit={audit} onManage={() => setShowAuditModal(true)} />
+          <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
 
           {/* Logsheet Card (Admin Only) */}
           <LogsheetCard app={app} />
@@ -365,9 +489,22 @@ export default function ApplicationProcessing() {
               <button className="modal-close" onClick={() => setShowApproveModal(false)}><X size={18} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                Are you sure you want to approve this application? This will advance the status to <strong>APPROVED</strong> and allow you to submit a proposal.
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                You are about to approve this application. Please confirm the final category before approving.
               </p>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Final Category</label>
+                <select 
+                  className="form-control" 
+                  value={approveCategory || app?.category} 
+                  onChange={e => setApproveCategory(e.target.value)}
+                  disabled={actionSubmitting}
+                >
+                  <option value="Annual Certification – Food and General processing">Annual Certification – Food and General processing</option>
+                  <option value="Annual Certification – Meat Processing">Annual Certification – Meat Processing</option>
+                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">UAE/GSO Approved Halal Certification For Exporters To UAE</option>
+                </select>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowApproveModal(false)} disabled={actionSubmitting}>Cancel</button>
@@ -424,6 +561,7 @@ export default function ApplicationProcessing() {
         onClose={() => setShowInvoiceModal(false)}
         app={app}
         invoice={invoice}
+        invoiceType={invoiceModalType}
         onSuccess={() => fetchApp(true)}
       />
 
@@ -431,7 +569,7 @@ export default function ApplicationProcessing() {
         isOpen={showAuditModal}
         onClose={() => setShowAuditModal(false)}
         app={app}
-        existingAudit={audit}
+        existingAudits={audits}
         onSuccess={() => fetchApp(true)}
       />
 

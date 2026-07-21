@@ -3,7 +3,7 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-export default function InvoiceModal({ isOpen, onClose, app, invoice, onSuccess }) {
+export default function InvoiceModal({ isOpen, onClose, app, invoice, invoiceType, onSuccess }) {
   const [invoiceForm, setInvoiceForm] = useState({
     title: '',
     amount: '',
@@ -14,14 +14,17 @@ export default function InvoiceModal({ isOpen, onClose, app, invoice, onSuccess 
 
   useEffect(() => {
     if (isOpen) {
+      const isFinal = invoiceType === 'final';
       setInvoiceForm({
-        title: invoice ? `Revised Invoice for ${app.application_number}` : `Invoice for ${app.application_number}`,
+        title: invoice
+          ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${app.application_number}`
+          : `${isFinal ? 'Final ' : ''}Invoice for ${app.application_number}`,
         amount: invoice?.amount || '',
         notes: invoice?.notes || '',
         file: null
       });
     }
-  }, [isOpen, app, invoice]);
+  }, [isOpen, app, invoice, invoiceType]);
 
   if (!isOpen) return null;
 
@@ -46,7 +49,9 @@ export default function InvoiceModal({ isOpen, onClose, app, invoice, onSuccess 
       formData.append('amount', invoiceForm.amount);
       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
-      formData.append('target_status', 'invoice_sent');
+      const isFinal = invoiceType === 'final';
+      formData.append('invoice_type', isFinal ? 'final' : 'initial');
+      formData.append('target_status', isFinal ? 'final_invoice_sent' : 'invoice_sent');
 
       const clientId = app.client_id || app.profiles?._id || app.profiles?.id;
       if (!clientId) {
@@ -71,7 +76,7 @@ export default function InvoiceModal({ isOpen, onClose, app, invoice, onSuccess 
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
       <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{invoice ? 'Send Revised Invoice' : 'Send Invoice'}</div>
+          <div className="modal-title">{invoiceType === 'final' ? 'Send Final Invoice' : (invoice ? 'Send Revised Invoice' : 'Send Invoice')}</div>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>

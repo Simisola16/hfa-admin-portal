@@ -61,13 +61,27 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
       'date_finalized',
       'audit_assigned',
       'audit_report_submitted',
-      'logsheet_created',
-      'logsheet_signed',
-      'agreement_sent',
-      'agreement_signed',
-      'certificate_issued',
     ];
     stepsToShow.push(...restFlow);
+
+    // Handle On Hold branch
+    const appOnHoldInHistory = status === 'on_hold' || statusHistory.some(h => h.status === 'on_hold');
+    if (appOnHoldInHistory) {
+      stepsToShow.push('on_hold');
+    }
+
+    // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
+    if (status !== 'on_hold') {
+      stepsToShow.push(
+        'audit_successful',
+        'final_invoice_sent',
+        'logsheet_created',
+        'logsheet_signed',
+        'agreement_sent',
+        'agreement_signed',
+        'certificate_issued'
+      );
+    }
   }
 
   const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
@@ -91,12 +105,16 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
         const isCurrent = currentIndex === idx;
         const isPending = currentIndex < idx;
         const isRejectedStep = s === 'rejected' || s === 'proposal_rejected';
+        const isHoldStep = s === 'on_hold';
 
         let circleColor, lineColor, labelColor, bgColor, borderColor;
 
         if (isRejectedStep && (status === s || (s === 'proposal_rejected' && status === 'proposal_rejected'))) {
           circleColor = '#dc2626'; lineColor = '#fecaca';
           labelColor = '#991b1b'; bgColor = '#fef2f2'; borderColor = '#fecaca';
+        } else if (isHoldStep && status === 'on_hold') {
+          circleColor = '#64748b'; lineColor = '#e2e8f0'; // Muted slate/grey
+          labelColor = '#334155'; bgColor = '#f8fafc'; borderColor = '#cbd5e1';
         } else if (isComplete) {
           circleColor = '#15803d'; lineColor = '#86efac';
           labelColor = '#0f172a'; bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
@@ -118,7 +136,7 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
               <div style={{
                 width: 32, height: 32,
                 borderRadius: '50%',
-                background: (isComplete || isCurrent) ? circleColor : '#f1f5f9',
+                background: (isComplete || isCurrent || (isHoldStep && status === 'on_hold')) ? circleColor : '#f1f5f9',
                 border: isCurrent ? `3px solid ${circleColor}` : `2px solid ${isComplete ? circleColor : '#e2e8f0'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
@@ -128,6 +146,8 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
               }}>
                 {isRejectedStep && isRejected ? (
                   <XCircle size={18} color="white" />
+                ) : isHoldStep && status === 'on_hold' ? (
+                  <Clock size={16} color="white" />
                 ) : isComplete ? (
                   <CheckCircle size={16} color="white" strokeWidth={2.5} />
                 ) : isCurrent ? (

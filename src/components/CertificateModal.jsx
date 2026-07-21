@@ -16,11 +16,15 @@ export default function CertificateModal({ isOpen, onClose, app, onSuccess }) {
 
   useEffect(() => {
     if (isOpen && app) {
+      const isThreeYear = app.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+      const yearsToAdd = isThreeYear ? 3 : 1;
+      const expiryDate = new Date();
+      expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
       setCertificateForm({
         certificate_number: `HFA-CERT-${Date.now().toString().slice(-8)}`,
-        certificate_type: 'Halal Certification',
+        certificate_type: isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification',
         issue_date: new Date().toISOString().split('T')[0],
-        expiry_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+        expiry_date: expiryDate.toISOString().split('T')[0],
         products_covered: '',
         file: null
       });

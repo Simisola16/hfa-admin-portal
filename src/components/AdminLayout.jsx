@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import { useAuth } from '../context/AuthContext';
-import { Bell, Shield, X, CheckCircle, AlertCircle, Info, AlertTriangle, FileText, Menu } from 'lucide-react';
+import { Bell, Shield, X, CheckCircle, AlertCircle, Info, AlertTriangle, FileText, Menu, ChevronRight } from 'lucide-react';
 import api from '../lib/api';
+import toast from 'react-hot-toast';
+import { getSocket } from '../lib/socket';
 
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
@@ -81,6 +83,64 @@ export default function AdminLayout() {
   const [notifLoading, setNotifLoading] = useState(false);
   const panelRef = useRef();
 
+  const [animateBell, setAnimateBell] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(true);
+
+  const showToast = (notif) => {
+    const iconMap = {
+      success: <CheckCircle size={18} style={{ color: '#16a34a' }} />,
+      warning: <AlertTriangle size={18} style={{ color: '#d97706' }} />,
+      error: <AlertCircle size={18} style={{ color: '#ef4444' }} />,
+      info: <Info size={18} style={{ color: '#3b82f6' }} />
+    };
+
+    const bgMap = {
+      success: '#f0fdf4',
+      warning: '#fffbeb',
+      error: '#fef2f2',
+      info: '#eff6ff'
+    };
+
+    const borderMap = {
+      success: '#bbf7d0',
+      warning: '#fef3c7',
+      error: '#fecaca',
+      info: '#bfdbfe'
+    };
+
+    toast.custom((t) => (
+      <div
+        onClick={() => {
+          toast.dismiss(t.id);
+          if (notif.link) navigate(notif.link);
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '14px 20px',
+          background: bgMap[notif.type] || 'white',
+          border: `1.5px solid ${borderMap[notif.type] || '#e2e8f0'}`,
+          borderRadius: '12px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          cursor: 'pointer',
+          maxWidth: '380px',
+          width: '100%',
+          animation: t.visible ? 'slideIn 0.3s ease' : 'fadeOut 0.3s ease',
+          fontFamily: 'Inter, sans-serif'
+        }}
+      >
+        <div style={{ flexShrink: 0 }}>
+          {iconMap[notif.type] || iconMap.info}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{notif.title}</div>
+          <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', lineHeight: 1.4 }}>{notif.message}</div>
+        </div>
+      </div>
+    ), { id: notif._id || notif.id, duration: 60000 });
+  };
+
   const fetchNotifs = async () => {
     setNotifLoading(true);
     try {
@@ -94,11 +154,56 @@ export default function AdminLayout() {
     }
   };
 
+  // Socket connection and listener
+  useEffect(() => {
+    const token = localStorage.getItem('hfa_token');
+    if (!token) return;
+
+    const socket = getSocket(token);
+    if (!socket) return;
+
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+    const handleConnectError = () => setSocketConnected(false);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+
+    // Sync initial state
+    setSocketConnected(socket.connected);
+
+    const handleNotification = (notif) => {
+      setNotifications(prev => [notif, ...prev]);
+      setUnread(prev => prev + 1);
+
+      // Trigger bell pulse animation
+      setAnimateBell(true);
+      setTimeout(() => setAnimateBell(false), 1000);
+
+      // Show toast
+      showToast(notif);
+    };
+
+    socket.on('notification', handleNotification);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('notification', handleNotification);
+    };
+  }, [profile]);
+
+  // Initial load + Fallback Polling (only if socket is disconnected)
   useEffect(() => {
     fetchNotifs();
-    const interval = setInterval(fetchNotifs, 60000);
+
+    if (socketConnected) return;
+
+    const interval = setInterval(fetchNotifs, 20000);
     return () => clearInterval(interval);
-  }, []);
+  }, [socketConnected]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -177,10 +282,28 @@ export default function AdminLayout() {
           </div>
 
           <div className="topbar-actions">
+            {!socketConnected && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: '#fffbeb',
+                border: '1px solid #fef08a',
+                color: '#854d0e',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 700,
+                fontFamily: 'Inter, sans-serif'
+              }}>
+                <span className="spinner" style={{ width: 10, height: 10, borderTopColor: '#854d0e', display: 'inline-block' }} />
+                <span>Reconnecting...</span>
+              </div>
+            )}
             {/* Notification Bell */}
             <div style={{ position: 'relative' }} ref={panelRef}>
               <button
-                className="icon-btn"
+                className={`icon-btn ${animateBell ? 'bell-pulse' : ''}`}
                 title="Notifications"
                 onClick={toggleNotifs}
                 style={{ position: 'relative' }}
@@ -280,6 +403,29 @@ export default function AdminLayout() {
         <main className="page-content">
           <Outlet />
         </main>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes bellPulse {
+            0% { transform: scale(1); }
+            15% { transform: scale(1.3) rotate(10deg); }
+            30% { transform: scale(1.3) rotate(-10deg); }
+            45% { transform: scale(1.3) rotate(10deg); }
+            60% { transform: scale(1.3) rotate(-10deg); }
+            75% { transform: scale(1.1) rotate(5deg); }
+            90% { transform: scale(1.1) rotate(-5deg); }
+            100% { transform: scale(1) rotate(0); }
+          }
+          .bell-pulse {
+            animation: bellPulse 0.8s ease-in-out;
+          }
+          @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+          @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+          }
+        `}} />
       </div>
     </div>
   );

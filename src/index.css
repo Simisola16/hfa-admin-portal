@@ -519,6 +519,14 @@ select.form-control { cursor: pointer; }
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+.spinner-white {
+  width: 20px; height: 20px;
+  border: 2.5px dashed rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .loading-overlay {

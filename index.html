@@ -4,10 +4,83 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>admin</title>
+    <title>HFA Admin Portal</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        .initial-loader {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          background-color: #F5F7FA;
+          font-family: 'Inter', sans-serif;
+          position: fixed;
+          top: 0;
+          left: 0;
+          z-index: 9999;
+        }
+        .initial-spinner {
+          position: relative;
+          width: 60px;
+          height: 60px;
+        }
+        .initial-spinner-circle {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          border: 4px solid transparent;
+          border-top-color: #1B7A7A;
+          border-radius: 50%;
+          animation: spin-clockwise 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        .initial-spinner-inner {
+          position: absolute;
+          top: 6px; left: 6px; right: 6px; bottom: 6px;
+          border: 4px solid transparent;
+          border-top-color: #F9B000;
+          border-radius: 50%;
+          animation: spin-counter-clockwise 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        .initial-loader-logo {
+          margin-bottom: 24px;
+          width: 80px;
+          height: 80px;
+          object-fit: contain;
+          animation: pulse 2s ease-in-out infinite;
+        }
+        .initial-loader-text {
+          margin-top: 24px;
+          font-size: 14px;
+          color: #64748B;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+        }
+        @keyframes spin-clockwise {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes spin-counter-clockwise {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(-360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+      </style>
+      <div class="initial-loader">
+        <img class="initial-loader-logo" src="/logo.png" alt="HFA Logo" onerror="this.src='/hfa-logo.png'; this.onerror=null;" />
+        <div class="initial-spinner">
+          <div class="initial-spinner-circle"></div>
+          <div class="initial-spinner-inner"></div>
+        </div>
+        <div class="initial-loader-text">Loading HFA Admin Portal...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

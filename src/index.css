@@ -1029,11 +1029,11 @@ select.form-control { cursor: pointer; }
 ═══════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 14px;
   margin-bottom: 24px;
 }
-@media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px)  { .kpi-grid { grid-template-columns: 1fr; } }
 
@@ -1121,7 +1121,7 @@ select.form-control { cursor: pointer; }
 ═══════════════════════════════════════════════════ */
 @media (max-width: 1280px) {
   .page-content { padding: 20px; }
-  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 /* ═══════════════════════════════════════════════════

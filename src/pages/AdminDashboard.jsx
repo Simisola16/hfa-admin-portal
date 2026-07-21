@@ -4,7 +4,7 @@ import api from '../lib/api';
 import {
   ClipboardList, Clock, CheckCircle, Award, Calendar, Briefcase,
   RefreshCw, ArrowRight, AlertTriangle, TrendingUp, ChevronRight,
-  Layers, Users, FileText,
+  Layers, Users, FileText, XCircle,
 } from 'lucide-react';
 
 /* ─── Status display helpers ─────────────────────────────────── */
@@ -85,15 +85,20 @@ export default function AdminDashboard() {
                      + count(allApps, 'status', 'audit_report_submitted');
   const activeCerts  = count(allCerts, 'status', 'active');
   const certTotal    = allCerts.length;
+  const now          = new Date();
+  const expiredCerts = allCerts.filter(c =>
+    c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now)
+  ).length;
 
   /* ─── KPI cards ─── */
   const KPI = [
-    { label: 'Submitted',         sub: 'Awaiting review',       value: submitted,    accent: '#3b82f6', iconBg: '#eff6ff', iconColor: '#2563eb', icon: <ClipboardList size={20}/>, path: '/applications', urgent: submitted > 0 },
-    { label: 'Under Review',      sub: 'Being processed',       value: underReview,  accent: '#f59e0b', iconBg: '#fffbeb', iconColor: '#d97706', icon: <Clock         size={20}/>, path: '/applications' },
-    { label: 'Proposals Pending', sub: 'Awaiting client reply', value: proposalSent, accent: '#8b5cf6', iconBg: '#f5f3ff', iconColor: '#7c3aed', icon: <Briefcase     size={20}/>, path: '/proposals' },
-    { label: 'Audits Active',     sub: 'In progress',           value: auditsActive, accent: '#06b6d4', iconBg: '#ecfeff', iconColor: '#0891b2', icon: <Calendar      size={20}/>, path: '/audits' },
-    { label: 'Active Certs',      sub: 'Currently valid',       value: activeCerts,  accent: '#10b981', iconBg: '#f0fdf4', iconColor: '#059669', icon: <Award         size={20}/>, path: '/certificates' },
-    { label: 'Total Certs',       sub: 'All time issued',       value: certTotal,    accent: '#15803d', iconBg: '#f0fdf4', iconColor: '#15803d', icon: <CheckCircle   size={20}/>, path: '/certificates' },
+    { label: 'Submitted',          sub: 'Awaiting review',       value: submitted,    accent: '#3b82f6', iconBg: '#eff6ff', iconColor: '#2563eb', icon: <ClipboardList size={20}/>, path: '/applications', urgent: submitted > 0 },
+    { label: 'Under Review',       sub: 'Being processed',       value: underReview,  accent: '#f59e0b', iconBg: '#fffbeb', iconColor: '#d97706', icon: <Clock         size={20}/>, path: '/applications' },
+    { label: 'Pending Proposals',  sub: 'Awaiting client reply', value: proposalSent, accent: '#8b5cf6', iconBg: '#f5f3ff', iconColor: '#7c3aed', icon: <Briefcase     size={20}/>, path: '/proposals' },
+    { label: 'Audits Active',      sub: 'In progress',           value: auditsActive, accent: '#06b6d4', iconBg: '#ecfeff', iconColor: '#0891b2', icon: <Calendar      size={20}/>, path: '/audits' },
+    { label: 'Active Certs',       sub: 'Currently valid',       value: activeCerts,  accent: '#10b981', iconBg: '#f0fdf4', iconColor: '#059669', icon: <Award         size={20}/>, path: '/certificates' },
+    { label: 'Total Certs',        sub: 'All time issued',       value: certTotal,    accent: '#15803d', iconBg: '#f0fdf4', iconColor: '#15803d', icon: <CheckCircle   size={20}/>, path: '/certificates' },
+    { label: 'Expired Certs',      sub: 'Lapsed or past expiry', value: expiredCerts, accent: '#ef4444', iconBg: '#fef2f2', iconColor: '#b91c1c', icon: <XCircle       size={20}/>, path: '/certificates', urgent: expiredCerts > 0 },
   ];
 
   /* ─── Needs Attention list ─── */
@@ -149,28 +154,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Quick Actions ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {[
-          { icon: <FileText size={18} style={{ color: '#2563eb' }} />, label: 'Processing Queue', sub: 'Review submitted applications', path: '/applications', accent: '#eff6ff' },
-          { icon: <Briefcase size={18} style={{ color: '#7c3aed' }} />, label: 'Pending Proposals', sub: 'Open proposals awaiting response', path: '/proposals', accent: '#f5f3ff' },
-          { icon: <Calendar size={18} style={{ color: '#0891b2' }} />, label: 'Manage Audits', sub: 'Assign auditors and review findings', path: '/audits', accent: '#ecfeff' },
-        ].map(qa => (
-          <button
-            key={qa.label}
-            className="quick-action-btn"
-            onClick={() => navigate(qa.path)}
-          >
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: qa.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-              {qa.icon}
-            </div>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>{qa.label}</div>
-            <div style={{ fontSize: 11.5, color: '#64748b' }}>{qa.sub}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* ── 6 KPI Cards ── */}
+      {/* ── 7 KPI Cards ── */}
       <div className="kpi-grid">
         {KPI.map(k => (
           <div

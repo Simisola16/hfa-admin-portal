@@ -32,10 +32,11 @@ const NAV_SECTIONS = [
       {
         icon: FileText, label: 'Applications', path: '/applications',
         children: [
-          { label: 'All Applications', path: '/applications' },
-          { label: 'New Applications',  path: '/applications?type=new' },
-          { label: 'Renewals',          path: '/applications?type=renewal' },
-          { label: 'Surveillance',      path: '/applications?type=surveillance' },
+          { label: 'All Applications',        path: '/applications' },
+          { label: 'New Applications',        path: '/applications?type=new' },
+          { label: 'Certified Applications',  path: '/applications?type=certified' },
+          { label: 'Renewals',                path: '/applications?type=renewal' },
+          { label: 'Surveillance',            path: '/applications?type=surveillance' },
         ],
       },
       { icon: PlusCircle, label: 'Add-on Requests', path: '/addon-applications' },

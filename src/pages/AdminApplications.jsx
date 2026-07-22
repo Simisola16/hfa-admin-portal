@@ -144,14 +144,78 @@ export default function AdminApplications() {
     }
   }, [apps, searchParams, setSearchParams]);
 
+  const typeParam = searchParams.get('type') || (location.pathname.includes('/certified') ? 'certified' : null);
+
+  const isTerminalStatus = (statusStr) => {
+    if (!statusStr) return false;
+    const s = statusStr.toLowerCase().replace(/ /g, '_');
+    return s === 'certificate_issued' || s === 'send_certificate' || s === 'rejected';
+  };
+
+  const isCertifiedStatus = (statusStr) => {
+    if (!statusStr) return false;
+    const s = statusStr.toLowerCase().replace(/ /g, '_');
+    return s === 'certificate_issued' || s === 'send_certificate' || s === 'certificate_processing';
+  };
+
   const filtered = apps.filter(a => {
+    // 1. View Type Filter
+    if (typeParam === 'new') {
+      // New Applications view: exclude terminal states (certificate_issued and rejected)
+      if (isTerminalStatus(a.status)) return false;
+    } else if (typeParam === 'certified') {
+      // Certified Applications view: show only certified applications
+      if (!isCertifiedStatus(a.status)) return false;
+    } else if (typeParam === 'renewal') {
+      if (a.application_type !== 'renewal') return false;
+    } else if (typeParam === 'surveillance') {
+      if (a.application_type !== 'surveillance') return false;
+    }
+
+    // 2. Search Filter
     const matchSearch = !search || 
       a.application_number?.toLowerCase().includes(search.toLowerCase()) || 
       a.profiles?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
       a.establishment_name?.toLowerCase().includes(search.toLowerCase());
+
+    // 3. Dropdown Status Filter
     const matchStatus = !filterStatus || a.status === filterStatus;
+
     return matchSearch && matchStatus;
   });
+
+  const getPageTitleAndSub = () => {
+    if (typeParam === 'new') {
+      return {
+        title: 'New Applications (In-Progress)',
+        sub: 'Active and in-progress applications awaiting or undergoing certification review'
+      };
+    }
+    if (typeParam === 'certified') {
+      return {
+        title: 'Certified Applications',
+        sub: 'Applications that have successfully completed certification and been issued certificates'
+      };
+    }
+    if (typeParam === 'renewal') {
+      return {
+        title: 'Renewal Applications',
+        sub: 'Certification renewal requests submitted by existing clients'
+      };
+    }
+    if (typeParam === 'surveillance') {
+      return {
+        title: 'Surveillance Applications',
+        sub: 'Ongoing surveillance and compliance review applications'
+      };
+    }
+    return {
+      title: 'All Applications',
+      sub: 'All certification applications submitted across all stages and history'
+    };
+  };
+
+  const pageMeta = getPageTitleAndSub();
 
   const handleUpdateStatus = async (appId, data) => {
     setSubmitting(true);
@@ -201,8 +265,8 @@ export default function AdminApplications() {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">All Applications</div>
-            <div className="card-subtitle">All certification applications submitted</div>
+            <div className="card-title">{pageMeta.title}</div>
+            <div className="card-subtitle">{pageMeta.sub}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={fetchData}><RefreshCw size={13}/></button>
         </div>

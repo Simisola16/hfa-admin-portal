@@ -40,6 +40,7 @@ export default function App() {
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/applications" element={<AdminApplications />} />
+            <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />

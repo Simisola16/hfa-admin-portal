@@ -1025,36 +1025,72 @@ select.form-control { cursor: pointer; }
 .main-content.sidebar-collapsed { margin-left: var(--sidebar-w-collapsed); }
 
 /* ═══════════════════════════════════════════════════
-   DASHBOARD KPI GRID
+   DASHBOARD KPI GRID (4-CARD NEW STYLE)
 ═══════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
 }
-@media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px)  { .kpi-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
+@media (max-width: 560px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
 
 .kpi-card {
   background: white;
-  border: 1px solid #e8edf2;
-  border-radius: 12px;
-  padding: 18px 18px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
   cursor: pointer;
   transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .kpi-card:hover {
-  border-color: #c8d5e0;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
   transform: translateY(-2px);
 }
-.kpi-card-bar {
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; border-radius: 12px 12px 0 0;
+
+.kpi-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: -0.01em;
+}
+
+.kpi-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-card-value {
+  font-size: 34px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 14px;
+}
+
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ═══════════════════════════════════════════════════

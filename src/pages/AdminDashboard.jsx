@@ -81,24 +81,24 @@ export default function AdminDashboard() {
   const submitted    = count(allApps, 'status', 'submitted');
   const underReview  = count(allApps, 'status', 'under_review');
   const proposalSent = count(allApps, 'status', 'proposal_sent');
-  const auditsActive = count(allApps, 'status', 'audit_assigned')
-                     + count(allApps, 'status', 'audit_report_submitted');
-  const activeCerts  = count(allCerts, 'status', 'active');
-  const certTotal    = allCerts.length;
   const now          = new Date();
+  
+  // Active Certs queried directly from Certificate model data (allCerts): status === 'active' AND not expired
+  const activeCerts  = allCerts.filter(c =>
+    c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now)
+  ).length;
+
+  const certTotal    = allCerts.length;
   const expiredCerts = allCerts.filter(c =>
     c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now)
   ).length;
 
-  /* ─── KPI cards ─── */
+  /* ─── 4 KPI cards (new style) ─── */
   const KPI = [
-    { label: 'Submitted',          sub: 'Awaiting review',       value: submitted,    accent: '#3b82f6', iconBg: '#eff6ff', iconColor: '#2563eb', icon: <ClipboardList size={20}/>, path: '/applications', urgent: submitted > 0 },
-    { label: 'Under Review',       sub: 'Being processed',       value: underReview,  accent: '#f59e0b', iconBg: '#fffbeb', iconColor: '#d97706', icon: <Clock         size={20}/>, path: '/applications' },
-    { label: 'Pending Proposals',  sub: 'Awaiting client reply', value: proposalSent, accent: '#8b5cf6', iconBg: '#f5f3ff', iconColor: '#7c3aed', icon: <Briefcase     size={20}/>, path: '/proposals' },
-    { label: 'Audits Active',      sub: 'In progress',           value: auditsActive, accent: '#06b6d4', iconBg: '#ecfeff', iconColor: '#0891b2', icon: <Calendar      size={20}/>, path: '/audits' },
-    { label: 'Active Certs',       sub: 'Currently valid',       value: activeCerts,  accent: '#10b981', iconBg: '#f0fdf4', iconColor: '#059669', icon: <Award         size={20}/>, path: '/certificates' },
-    { label: 'Total Certs',        sub: 'All time issued',       value: certTotal,    accent: '#15803d', iconBg: '#f0fdf4', iconColor: '#15803d', icon: <CheckCircle   size={20}/>, path: '/certificates' },
-    { label: 'Expired Certs',      sub: 'Lapsed or past expiry', value: expiredCerts, accent: '#ef4444', iconBg: '#fef2f2', iconColor: '#b91c1c', icon: <XCircle       size={20}/>, path: '/certificates', urgent: expiredCerts > 0 },
+    { id: 'submitted',          label: 'Submitted',          value: submitted,    iconBg: '#eff6ff', iconColor: '#2563eb', icon: <ClipboardList size={20}/>, path: '/applications' },
+    { id: 'under_review',       label: 'Under Review',       value: underReview,  iconBg: '#fffbeb', iconColor: '#d97706', icon: <Clock         size={20}/>, path: '/applications' },
+    { id: 'pending_proposals',  label: 'Pending Proposals',  value: proposalSent, iconBg: '#f5f3ff', iconColor: '#7c3aed', icon: <Briefcase     size={20}/>, path: '/proposals' },
+    { id: 'active_certs',       label: 'Active Certs',       value: activeCerts,  iconBg: '#f0fdf4', iconColor: '#059669', icon: <Award         size={20}/>, path: '/certificates' },
   ];
 
   /* ─── Needs Attention list ─── */
@@ -154,103 +154,31 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── 7 KPI Cards ── */}
+      {/* ── 4 KPI Cards (New Visual Style) ── */}
       <div className="kpi-grid">
         {KPI.map(k => (
           <div
-            key={k.label}
+            key={k.id}
             className="kpi-card"
             onClick={() => navigate(k.path)}
           >
-            <div className="kpi-card-bar" style={{ background: k.accent }} />
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: k.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: k.iconColor }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <span className="kpi-card-label">{k.label}</span>
+              <div className="kpi-icon-box" style={{ background: k.iconBg, color: k.iconColor }}>
                 {k.icon}
               </div>
-              {k.urgent && (
-                <span style={{ background: '#fef2f2', color: '#b91c1c', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <AlertTriangle size={9} /> Action needed
-                </span>
-              )}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.03em', lineHeight: 1 }}>
+            <div className="kpi-card-value">
               {loading ? '—' : k.value}
             </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginTop: 4 }}>{k.label}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{k.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Bottom row: Needs Attention + Pipeline ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 16, alignItems: 'start' }}>
+      {/* ── Bottom row: Application Pipeline (Left) + Needs Attention (Right) ── */}
+      <div className="dashboard-bottom-grid">
 
-        {/* Needs Your Attention */}
-        <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div className="dash-section-header">
-            <div>
-              <div className="dash-section-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
-                Needs Your Attention
-              </div>
-              <div className="dash-section-sub">Applications waiting for action</div>
-            </div>
-            <Link
-              to="/applications"
-              style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-            >
-              View all <ChevronRight size={12} />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <div className="spinner" style={{ margin: '0 auto' }} />
-            </div>
-          ) : needsAttention.length === 0 ? (
-            <div style={{ padding: '36px 20px', textAlign: 'center' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <CheckCircle size={22} style={{ color: '#15803d' }} />
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>All clear!</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>No applications need immediate attention.</div>
-            </div>
-          ) : (
-            <div className="attention-list">
-              {needsAttention.map(a => {
-                const days = daysAgo(a.created_at);
-                const isUrgent = days > 3;
-                return (
-                  <div
-                    key={a._id}
-                    className="attention-item"
-                    onClick={() => navigate(`/applications/${a._id}/processing`)}
-                  >
-                    <div className="attention-urgency-dot" style={{ background: isUrgent ? '#ef4444' : '#f59e0b' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.establishment_name || a.site_name || a.application_number || 'Untitled Application'}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 2 }}>
-                        <span>#{a.application_number}</span>
-                        <span>·</span>
-                        <span style={{ textTransform: 'capitalize' }}>{a.application_type}</span>
-                        <span>·</span>
-                        <span style={{ color: isUrgent ? '#ef4444' : '#94a3b8', fontWeight: isUrgent ? 700 : 500 }}>
-                          {days === 0 ? 'Today' : `${days}d ago`}
-                        </span>
-                      </div>
-                    </div>
-                    <StatusBadge status={a.status} />
-                    <ArrowRight size={13} style={{ color: '#cbd5e1', flexShrink: 0 }} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Pipeline Table */}
+        {/* Application Pipeline (LEFT) */}
         <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
           <div className="dash-section-header">
             <div>
@@ -322,6 +250,103 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Needs Your Attention (RIGHT) */}
+        <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <div className="dash-section-header">
+            <div>
+              <div className="dash-section-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+                Needs Your Attention
+              </div>
+              <div className="dash-section-sub">Applications & items waiting for action</div>
+            </div>
+            <Link
+              to="/applications"
+              style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              View all <ChevronRight size={12} />
+            </Link>
+          </div>
+
+          {/* Expired Certs Alert inside Needs Your Attention */}
+          {!loading && expiredCerts > 0 && (
+            <div
+              onClick={() => navigate('/certificates')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 16px',
+                margin: '12px 16px 4px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 10,
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+            >
+              <XCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#991b1b' }}>
+                  {expiredCerts} Expired Certificate{expiredCerts > 1 ? 's' : ''}
+                </div>
+                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 1 }}>
+                  Lapsed or past expiry date — review for renewal
+                </div>
+              </div>
+              <ChevronRight size={14} style={{ color: '#ef4444' }} />
+            </div>
+          )}
+
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <div className="spinner" style={{ margin: '0 auto' }} />
+            </div>
+          ) : needsAttention.length === 0 && expiredCerts === 0 ? (
+            <div style={{ padding: '36px 20px', textAlign: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <CheckCircle size={22} style={{ color: '#15803d' }} />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>All clear!</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>No applications or certificates need immediate attention.</div>
+            </div>
+          ) : (
+            <div className="attention-list">
+              {needsAttention.map(a => {
+                const days = daysAgo(a.created_at);
+                const isUrgent = days > 3;
+                return (
+                  <div
+                    key={a._id}
+                    className="attention-item"
+                    onClick={() => navigate(`/applications/${a._id}/processing`)}
+                  >
+                    <div className="attention-urgency-dot" style={{ background: isUrgent ? '#ef4444' : '#f59e0b' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {a.establishment_name || a.site_name || a.application_number || 'Untitled Application'}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 2 }}>
+                        <span>#{a.application_number}</span>
+                        <span>·</span>
+                        <span style={{ textTransform: 'capitalize' }}>{a.application_type}</span>
+                        <span>·</span>
+                        <span style={{ color: isUrgent ? '#ef4444' : '#94a3b8', fontWeight: isUrgent ? 700 : 500 }}>
+                          {days === 0 ? 'Today' : `${days}d ago`}
+                        </span>
+                      </div>
+                    </div>
+                    <StatusBadge status={a.status} />
+                    <ArrowRight size={13} style={{ color: '#cbd5e1', flexShrink: 0 }} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

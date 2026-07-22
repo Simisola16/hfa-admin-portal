@@ -78,8 +78,8 @@ export default function AdminProducts() {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Product Review Queue</div>
-          <div className="card-subtitle">Manage and certify client products</div>
+          <div className="card-title">Product List</div>
+          <div className="card-subtitle">Manage and review client products for certification</div>
         </div>
         <div className="table-wrap">
           {loading ? (

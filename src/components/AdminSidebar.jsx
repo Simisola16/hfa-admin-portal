@@ -39,7 +39,6 @@ const NAV_SECTIONS = [
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
         ],
       },
-      { icon: PlusCircle, label: 'Add-on Requests', path: '/addon-applications' },
     ],
   },
   {
@@ -75,7 +74,13 @@ const NAV_SECTIONS = [
     items: [
       { icon: UserCheck, label: 'Inspectors', path: '/inspectors' },
       { icon: MapPin,    label: 'Sites',      path: '/sites' },
-      { icon: Package,   label: 'Products',   path: '/products' },
+      {
+        icon: Package, label: 'Products', path: '/products',
+        children: [
+          { label: 'Product List',    path: '/products' },
+          { label: 'Add-on Requests', path: '/addon-applications' },
+        ],
+      },
     ],
   },
   {

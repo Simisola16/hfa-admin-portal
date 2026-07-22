@@ -28,6 +28,7 @@ import AdminSignatures from './pages/AdminSignatures';
 import ApplicationProcessing from './pages/ApplicationProcessing';
 
 import AdminAddOnApplications from './pages/AdminAddOnApplications';
+import AdminManageProducts from './pages/AdminManageProducts';
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/messages" element={<AdminMessages />} />
             <Route path="/sites" element={<AdminSites />} />
             <Route path="/products" element={<AdminProducts />} />
+            <Route path="/products/manage" element={<AdminManageProducts />} />
             <Route path="/reports" element={<AdminReports />} />
             <Route path="/proposals" element={<AdminProposals />} />
             <Route path="/exports" element={<AdminExports />} />

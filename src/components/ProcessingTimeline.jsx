@@ -74,11 +74,12 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
     if (status !== 'on_hold') {
       stepsToShow.push(
         'audit_successful',
-        'final_invoice_sent',
         'logsheet_created',
         'logsheet_signed',
         'agreement_sent',
         'agreement_signed',
+        'final_invoice_sent',
+        'final_invoice_paid',
         'certificate_issued'
       );
     }

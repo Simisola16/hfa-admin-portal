@@ -36,6 +36,7 @@ export default function ApplicationProcessing() {
   // Core records for child components
   const [proposal, setProposal] = useState(null);
   const [invoice, setInvoice] = useState(null);
+  const [allInvoices, setAllInvoices] = useState([]);
   const [agreement, setAgreement] = useState(null);
   const [audits, setAudits] = useState([]);
 
@@ -59,10 +60,11 @@ export default function ApplicationProcessing() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [appRes, propRes, invRes, agreementRes, auditRes] = await Promise.all([
+      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/proposals/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
+        api.get(`/api/invoices/application/${appId}/all`).catch(() => ({ data: { data: [] } })),
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null }))
       ]);
@@ -70,6 +72,7 @@ export default function ApplicationProcessing() {
       setApp(appRes.data);
       setProposal(propRes.data || null);
       setInvoice(invRes.data || null);
+      setAllInvoices(allInvRes.data?.data || allInvRes.data || []);
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
       setAudits(auditRes.data?.data || auditRes.data || []);
     } catch (err) {
@@ -232,12 +235,16 @@ export default function ApplicationProcessing() {
   
   const showPostAuditDecision = status === 'audit_report_submitted' || status === 'on_hold';
   
-  const showFinalInvoiceAction = status === 'audit_successful' || status === 'final_invoice_sent';
-  
-  const showCreateLogsheetAction = ['final_invoice_sent', 'logsheet_created'].includes(status) || status === 'audit_successful'; 
+  const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
+  const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
+
+  const showCreateLogsheetAction = ['audit_successful', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed'].includes(status);
   
   const showSendAgreementAction = ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
-  const showCertificateAction = status === 'agreement_signed';
+  
+  const showFinalInvoiceAction = ['agreement_signed', 'final_invoice_sent', 'final_invoice_paid'].includes(status);
+  
+  const showCertificateAction = ['agreement_signed', 'final_invoice_sent', 'final_invoice_paid'].includes(status);
 
   return (
     <div className="page-content">
@@ -357,35 +364,14 @@ export default function ApplicationProcessing() {
               </>
             )}
 
-            {showFinalInvoiceAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#854d0e' }}
-                onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
-              >
-                <Receipt size={16} /> Send Final Invoice
-              </button>
-            )}
-
             {showCreateLogsheetAction && (
               <button
                 className="btn btn-primary"
-                style={{
-                  gap: 8,
-                  background: '#0e7490',
-                  opacity: (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) ? 1 : 0.5,
-                  cursor: (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) ? 'pointer' : 'not-allowed'
-                }}
-                onClick={() => {
-                  if (status === 'logsheet_created' || (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid')) {
-                    navigate(`/applications/${appId}/logsheet`);
-                  } else {
-                    toast.error('The Final Invoice must be sent and paid before a LogSheet can be created.');
-                  }
-                }}
-                title={status === 'logsheet_created' ? 'Manage LogSheet' : (invoice && invoice.invoice_type === 'final' && invoice.status === 'paid') ? 'Create LogSheet' : 'Locked: Final invoice must be paid'}
+                style={{ gap: 8, background: '#0e7490' }}
+                onClick={() => navigate(`/applications/${appId}/logsheet`)}
+                title={['logsheet_created', 'logsheet_signed'].includes(status) ? 'Manage LogSheet' : 'Create LogSheet'}
               >
-                <ClipboardList size={16} /> {status === 'logsheet_created' ? 'Manage LogSheet' : 'Create LogSheet'}
+                <ClipboardList size={16} /> {['logsheet_created', 'logsheet_signed'].includes(status) ? 'Manage LogSheet' : 'Create LogSheet'}
               </button>
             )}
 
@@ -399,11 +385,33 @@ export default function ApplicationProcessing() {
               </button>
             )}
 
+            {showFinalInvoiceAction && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#854d0e' }}
+                onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
+              >
+                <Receipt size={16} /> {finalInvoice ? 'Resend Final Invoice' : 'Send Final Invoice'}
+              </button>
+            )}
+
             {showCertificateAction && (
               <button
                 className="btn btn-primary"
-                style={{ gap: 8, background: '#16a34a' }}
-                onClick={() => setShowCertificateModal(true)}
+                style={{
+                  gap: 8,
+                  background: '#16a34a',
+                  opacity: isFinalInvoicePaid ? 1 : 0.5,
+                  cursor: isFinalInvoicePaid ? 'pointer' : 'not-allowed'
+                }}
+                onClick={() => {
+                  if (isFinalInvoicePaid) {
+                    setShowCertificateModal(true);
+                  } else {
+                    toast.error('Final invoice must be paid before certificate issuance');
+                  }
+                }}
+                title={isFinalInvoicePaid ? 'Issue Certificate' : 'Locked: Final invoice must be paid before certificate issuance'}
               >
                 <Award size={16} /> Issue Certificate
               </button>

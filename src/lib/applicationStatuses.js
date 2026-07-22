@@ -22,11 +22,12 @@ export const STATUS_ORDER = [
   'audit_report_submitted',
   'on_hold',
   'audit_successful',
-  'final_invoice_sent',
   'logsheet_created',
   'logsheet_signed',
   'agreement_sent',
   'agreement_signed',
+  'final_invoice_sent',
+  'final_invoice_paid',
   'certificate_issued',
 ];
 
@@ -47,11 +48,12 @@ export const STATUS_LABELS = {
   audit_report_submitted:  'Audit Report Submitted',
   on_hold:                 'On Hold',
   audit_successful:        'Audit Successful',
-  final_invoice_sent:      'Final Invoice Sent',
   logsheet_created:        'Logsheet Created',
   logsheet_signed:         'Logsheet Signed',
   agreement_sent:          'Agreement Sent',
   agreement_signed:        'Agreement Signed',
+  final_invoice_sent:      'Final Invoice Sent',
+  final_invoice_paid:      'Final Invoice Paid',
   certificate_issued:      'Certificate Issued',
 };
 
@@ -72,11 +74,12 @@ export const STATUS_BADGE = {
   audit_report_submitted:  'badge-yellow',
   on_hold:                 'badge-gray',
   audit_successful:        'badge-green',
-  final_invoice_sent:      'badge-purple',
   logsheet_created:        'badge-yellow',
   logsheet_signed:         'badge-green',
   agreement_sent:          'badge-purple',
   agreement_signed:        'badge-green',
+  final_invoice_sent:      'badge-purple',
+  final_invoice_paid:      'badge-green',
   certificate_issued:      'badge-green',
 };
 

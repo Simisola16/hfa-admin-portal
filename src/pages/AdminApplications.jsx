@@ -276,15 +276,7 @@ export default function AdminApplications() {
                 const app = apps.find(a => a._id === openDropdown);
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {/* Option 1: View Details */}
-                    <button 
-                      className="dropdown-item"
-                      style={{ padding: '12px 16px', fontSize: 14.5 }}
-                      onClick={() => { setManageModal(app); setModalTab('details'); setOpenDropdown(null); }}
-                    >
-                      <Eye size={18} className="text-muted" /> View Details
-                    </button>
-                    {/* Option 2: Processing — navigates to dedicated processing page */}
+                    {/* Single Action: Processing — navigates to dedicated processing page */}
                     <button 
                       className="dropdown-item"
                       style={{ padding: '12px 16px', fontSize: 14.5 }}

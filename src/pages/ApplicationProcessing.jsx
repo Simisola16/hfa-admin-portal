@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertTriangle, ClipboardList, Download, Award, PenTool, Receipt
+  ChevronRight, AlertTriangle, ClipboardList, Download, Award, PenTool, Receipt, ExternalLink
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -49,6 +49,7 @@ export default function ApplicationProcessing() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
 
   // Inline forms/submission states
   const [approveCategory, setApproveCategory] = useState('');
@@ -287,6 +288,14 @@ export default function ApplicationProcessing() {
             Disconnected (Polling)
           </span>
         )}
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e2e8f0', background: 'white', fontWeight: 700, color: 'var(--text-primary)' }}
+          onClick={() => setShowClientModal(true)}
+        >
+          <Building2 size={15} style={{ color: 'var(--primary)' }} />
+          View Client Details
+        </button>
         <button className="btn btn-ghost btn-sm" onClick={() => fetchApp(true)} title="Refresh">
           <RefreshCw size={14} />
         </button>
@@ -482,6 +491,25 @@ export default function ApplicationProcessing() {
                   <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.profiles?.full_name || app.contact_name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{app.profiles?.email || app.contact_email}</div>
                 </div>
+                <div style={{ marginTop: 6, paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      gap: 6,
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: 9,
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      background: '#f8fafc'
+                    }}
+                    onClick={() => setShowClientModal(true)}
+                  >
+                    <Building2 size={15} style={{ color: 'var(--primary)' }} />
+                    View Full Client Profile
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -595,6 +623,85 @@ export default function ApplicationProcessing() {
         app={app}
         onSuccess={() => fetchApp(true)}
       />
+
+      {/* Client Details Modal */}
+      {showClientModal && (
+        <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowClientModal(false)}>
+          <div className="modal" style={{ maxWidth: 540, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#15803d' }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {app.profiles?.company_name || app.establishment_name || 'Client Profile'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Client & Company Overview</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowClientModal(false)}><X size={18}/></button>
+            </div>
+
+            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
+              {/* Profile Header Card */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Contact Name</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{app.profiles?.full_name || app.contact_name || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Email Address</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#2563eb', marginTop: 2 }}>{app.profiles?.email || app.contact_email || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Telephone</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{app.contact_phone || app.profiles?.phone || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Account Status</div>
+                  <div style={{ marginTop: 3 }}>
+                    <span style={{ background: '#f0fdf4', color: '#15803d', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <CheckCircle size={10} /> Active Client
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Site & Application Scope info */}
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>
+                  Registered Establishment & Scope
+                </div>
+                <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{app.establishment_name || app.site_name || 'Main Facility'}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.establishment_address || 'Address not specified'}</div>
+                  {app.scope && (
+                    <div style={{ fontSize: 12, color: '#475569', marginTop: 8, background: '#f1f5f9', padding: '8px 10px', borderRadius: 6 }}>
+                      <strong>Scope:</strong> {app.scope}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 7, fontSize: 13 }}
+                onClick={() => {
+                  setShowClientModal(false);
+                  const searchStr = app.profiles?.company_name || app.profiles?.email || app.establishment_name;
+                  navigate(`/clients?search=${encodeURIComponent(searchStr)}`);
+                }}
+              >
+                <ExternalLink size={14} /> Open in Companies Directory
+              </button>
+              <button className="btn btn-ghost" onClick={() => setShowClientModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

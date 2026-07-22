@@ -15,6 +15,14 @@ const NAV_SECTIONS = [
     label: 'OVERVIEW',
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+      {
+        icon: Users, label: 'Companies', path: '/clients',
+        children: [
+          { label: 'All Clients',       path: '/clients' },
+          { label: 'Review List',       path: '/clients?category=review' },
+          { label: 'Processing List',   path: '/clients?category=processing' },
+        ],
+      },
     ],
   },
   {
@@ -31,14 +39,6 @@ const NAV_SECTIONS = [
         ],
       },
       { icon: PlusCircle, label: 'Add-on Requests', path: '/addon-applications' },
-      {
-        icon: Users, label: 'Companies', path: '/clients',
-        children: [
-          { label: 'All Clients',       path: '/clients' },
-          { label: 'Review List',       path: '/clients?category=review' },
-          { label: 'Processing List',   path: '/clients?category=processing' },
-        ],
-      },
     ],
   },
   {

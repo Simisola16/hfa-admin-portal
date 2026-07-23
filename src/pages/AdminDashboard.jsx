@@ -20,16 +20,22 @@ const STATUS_META = {
   audit_assigned:         { label: 'Audit Assigned',    color: '#0e7490',  bg: '#cffafe' },
   audit_report_submitted: { label: 'Audit Submitted',   color: '#0e7490',  bg: '#cffafe' },
   certificate_issued:     { label: 'Cert Issued',       color: '#15803d',  bg: '#dcfce7' },
+  final_invoice_paid:     { label: 'Invoice Paid',      color: '#15803d',  bg: '#dcfce7' },
+  agreement_signed:       { label: 'Agreement Signed',  color: '#0e7490',  bg: '#cffafe' },
 };
 
 function StatusBadge({ status }) {
-  const s = STATUS_META[status] || { label: status || '—', color: '#334155', bg: '#f1f5f9' };
+  const s = STATUS_META[status] || {
+    label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    color: '#334155',
+    bg: '#f1f5f9'
+  };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
-      padding: '4px 12px', borderRadius: 12,
-      fontSize: 12, fontWeight: 500, fontFamily: 'Inter, sans-serif',
-      color: s.color, background: s.bg,
+      padding: '3px 8px', borderRadius: 10,
+      fontSize: 11, fontWeight: 500, fontFamily: 'Inter, sans-serif',
+      color: s.color, background: s.bg, whiteSpace: 'nowrap',
     }}>
       {s.label}
     </span>
@@ -104,16 +110,20 @@ export default function AdminDashboard() {
     { id: 'total_apps',        label: 'Total Applications',  value: allApps.length || 157, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
     { id: 'new_apps',          label: 'New Application',     value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs',      label: 'Active Certificates', value: activeCerts || 61,  iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
-    { id: 'renewal_apps',      label: 'Renewal Application', value: count(allApps, 'application_type', 'renewal') || 29, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
+    { id: 'renewal_apps',      label: 'Renewal <br> Application', value: count(allApps, 'application_type', 'renewal') || 29, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
-  /* ─── Needs Attention list (True total count vs Capped at 5) ─── */
-  const allNeedsAttention = allApps
-    .filter(a => a.status === 'submitted' || a.status === 'under_review')
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  /* ─── Application statistics derived metrics ─── */
+  const approvedAppsCount = count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued');
+  const pendingAppsCount  = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
+  const rejectedAppsCount = count(allApps, 'status', 'rejected');
+  const totalAppsCount    = allApps.length;
 
-  const needsAttentionTotal = allNeedsAttention.length;
-  const needsAttentionList  = allNeedsAttention.slice(0, 5);
+  const appApprovedPercent = totalAppsCount ? Math.round((approvedAppsCount / totalAppsCount) * 100) : 0;
+  const appPendingPercent  = totalAppsCount ? Math.round((pendingAppsCount / totalAppsCount) * 100) : 0;
+  const appRejectedPercent = totalAppsCount ? Math.round((rejectedAppsCount / totalAppsCount) * 100) : 0;
+
+  const pendingCertsCount  = allCerts.filter(c => c.status === 'pending').length;
 
   /* ─── Pipeline list (True total count vs Capped at 5) ─── */
   const allPipeline = [...allApps]
@@ -224,49 +234,49 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ── Middle Row: Application Pipeline (Left) & Needs Your Attention (Right) - Equal Size 1fr 1fr ── */}
+      {/* ── Middle Row: Recent Activities (Left) & Application Statistics (Right) - Matching Screenshot Exactly ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
 
-        {/* Application Pipeline (LEFT - 1fr, Styled exactly like Recent Activities) */}
+        {/* Card 1 (LEFT): Application Pipeline */}
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 18, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 17, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                 Application Pipeline
               </div>
-              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
                 {pipelineTotal} items
               </span>
               <span style={{
                 background: '#dbeafe', color: '#1d4ed8',
-                fontSize: 11.5, fontWeight: 500, padding: '2px 9px',
-                borderRadius: 10, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+                fontSize: 11, fontWeight: 500, padding: '2px 8px',
+                borderRadius: 10, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', flexShrink: 0
               }}>
                 Applications & Certificates
               </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', marginLeft: 'auto' }}
+              style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 'auto' }}
             >
-              View all <ChevronRight size={14} />
+              View all <ChevronRight size={13} />
             </Link>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div style={{ width: '100%', overflowX: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
-                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <th style={{ width: '38%', padding: '10px 14px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     COMPANY / APPLICANT
                   </th>
-                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <th style={{ width: '16%', padding: '10px 10px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     TYPE
                   </th>
-                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <th style={{ width: '28%', padding: '10px 10px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     STATUS
                   </th>
-                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>
+                  <th style={{ width: '18%', padding: '10px 14px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                     DATE
                   </th>
                 </tr>
@@ -280,33 +290,33 @@ export default function AdminDashboard() {
                   </tr>
                 ) : pipelineList.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 13.5, fontFamily: 'Inter, sans-serif' }}>
                       No applications yet
                     </td>
                   </tr>
-                ) : pipelineList.map(a => (
+                ) : pipelineList.map((a, idx) => (
                   <tr
-                    key={a._id}
+                    key={a._id || idx}
                     onClick={() => navigate(`/applications/${a._id}/processing`)}
                     style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                     onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
-                    <td style={{ padding: '14px 20px' }}>
-                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14.5, color: '#0f172a' }}>
+                    <td style={{ padding: '12px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
                       </div>
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, fontFamily: 'Inter, sans-serif', background: '#dbeafe', color: '#1d4ed8', padding: '3px 10px', borderRadius: 12, textTransform: 'capitalize' }}>
+                    <td style={{ padding: '12px 10px' }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 500, fontFamily: 'Inter, sans-serif', background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
                         {a.application_type || 'New'}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
+                    <td style={{ padding: '12px 10px' }}>
                       <StatusBadge status={a.status} />
                     </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <span style={{ fontSize: 13.5, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
+                    <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 13, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
                         {formatDate(a.created_at)}
                       </span>
                     </td>
@@ -317,113 +327,132 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Needs Your Attention (RIGHT - 1fr, Equal Size to Left Card) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 18, fontWeight: 700, color: '#0f172a', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                <AlertTriangle size={17} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                Needs Your Attention
+        {/* Card 2 (RIGHT): Application Statistics (Matching Reference Image) */}
+        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: 24 }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 16, marginBottom: 20 }}>
+            <div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 500, color: '#0f172a' }}>
+                Application Statistics
               </div>
-              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
-                {needsAttentionTotal} items
-              </span>
-              <span style={{
-                background: '#fef3c7', color: '#d97706',
-                fontSize: 11.5, fontWeight: 500, padding: '2px 9px',
-                borderRadius: 10, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
-              }}>
-                Action Required
-              </span>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748b', marginTop: 3, fontWeight: 400 }}>
+                Status distribution of applications
+              </div>
             </div>
-            <Link
-              to="/applications"
-              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', marginLeft: 'auto' }}
-            >
-              View all <ChevronRight size={14} />
-            </Link>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+              Total: {totalAppsCount}
+            </span>
           </div>
 
-          {/* Expired Certs Alert inside Needs Your Attention */}
-          {!loading && expiredCerts > 0 && (
-            <div
-              onClick={() => navigate('/certificates')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '12px 16px',
-                margin: '16px 20px 8px',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: 12,
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-            >
-              <XCircle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#991b1b' }}>
-                  {expiredCerts} Expired Certificate{expiredCerts > 1 ? 's' : ''}
-                </div>
-                <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>
-                  Lapsed or past expiry date — review for renewal
-                </div>
-              </div>
-              <ChevronRight size={14} style={{ color: '#ef4444' }} />
+          {/* Section 1: All Applications Progress Bar */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 500, color: '#0f172a' }}>
+                All Applications
+              </span>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+                Total: {totalAppsCount}
+              </span>
             </div>
-          )}
 
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <div className="spinner" style={{ margin: '0 auto' }} />
+            {/* Progress track */}
+            <div style={{ height: 10, borderRadius: 6, background: '#f1f5f9', overflow: 'hidden', display: 'flex', marginTop: 10 }}>
+              <div style={{ width: `${appApprovedPercent}%`, background: '#00c853', transition: 'width 0.3s' }} title={`Approved: ${approvedAppsCount}`} />
+              <div style={{ width: `${appPendingPercent}%`, background: '#f59e0b', transition: 'width 0.3s' }} title={`Pending: ${pendingAppsCount}`} />
+              <div style={{ width: `${appRejectedPercent}%`, background: '#ef4444', transition: 'width 0.3s' }} title={`Rejected: ${rejectedAppsCount}`} />
             </div>
-          ) : needsAttentionList.length === 0 && expiredCerts === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <CheckCircle size={22} style={{ color: '#008744' }} />
+
+            {/* Legend dots */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#334155' }}>
+              <div
+                onClick={() => navigate('/applications?status=approved')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                title="View Approved Applications"
+              >
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00c853', display: 'inline-block' }} />
+                <span>Approved: <span style={{ fontWeight: 500 }}>{approvedAppsCount}</span></span>
               </div>
-              <div style={{ fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#0f172a' }}>All clear!</div>
-              <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>No applications or certificates need immediate attention.</div>
+              <div
+                onClick={() => navigate('/applications?type=new')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                title="View Pending Applications"
+              >
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                <span>Pending: <span style={{ fontWeight: 500 }}>{pendingAppsCount}</span></span>
+              </div>
+              <div
+                onClick={() => navigate('/applications?status=rejected')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                title="View Rejected Applications"
+              >
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                <span>Rejected: <span style={{ fontWeight: 500 }}>{rejectedAppsCount}</span></span>
+              </div>
             </div>
-          ) : (
-            <div className="attention-list">
-              {needsAttentionList.map(a => {
-                const days = daysAgo(a.created_at);
-                const isUrgent = days > 3;
-                return (
-                  <div
-                    key={a._id}
-                    className="attention-item"
-                    onClick={() => navigate(`/applications/${a._id}/processing`)}
-                    style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                  >
-                    <div className="attention-urgency-dot" style={{ background: isUrgent ? '#ef4444' : '#f59e0b', width: 8, height: 8, borderRadius: '50%', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', fontSize: 14.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.establishment_name || a.site_name || a.application_number || 'Untitled Application'}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 3, fontFamily: 'Inter, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                        <span>#{a.application_number}</span>
-                        <span>·</span>
-                        <span>{a.application_type}</span>
-                        <span>·</span>
-                        <span style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
-                          {days === 0 ? 'Today' : `${days}d ago`}
-                        </span>
-                      </div>
-                    </div>
-                    <StatusBadge status={a.status} />
-                    <ArrowRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />
-                  </div>
-                );
-              })}
+          </div>
+
+          {/* Section 2: Certificates Metric Cards */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 500, color: '#0f172a' }}>
+                Certificates
+              </span>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+                Total: {certTotal}
+              </span>
             </div>
-          )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {/* Active Box */}
+              <div
+                onClick={() => navigate('/certificates?status=active')}
+                style={{ background: '#e6f4ea', borderRadius: 12, padding: '16px 12px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                title="View Active Certificates"
+              >
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 22, fontWeight: 500, color: '#008744' }}>
+                  {activeCerts}
+                </div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 500, color: '#008744', marginTop: 2 }}>
+                  Active
+                </div>
+              </div>
+
+              {/* Pending Box */}
+              <div
+                onClick={() => navigate('/certificates?status=pending')}
+                style={{ background: '#fef8e0', borderRadius: 12, padding: '16px 12px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                title="View Pending Certificates"
+              >
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 22, fontWeight: 500, color: '#b45309' }}>
+                  {pendingCertsCount}
+                </div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 500, color: '#b45309', marginTop: 2 }}>
+                  Pending
+                </div>
+              </div>
+
+              {/* Expired Box */}
+              <div
+                onClick={() => navigate('/certificates?status=expired')}
+                style={{ background: '#fef2f2', borderRadius: 12, padding: '16px 12px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                title="View Expired Certificates"
+              >
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 22, fontWeight: 500, color: '#b91c1c' }}>
+                  {expiredCerts}
+                </div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 500, color: '#b91c1c', marginTop: 2 }}>
+                  Expired
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 

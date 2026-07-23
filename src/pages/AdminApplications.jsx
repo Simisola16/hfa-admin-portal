@@ -117,6 +117,13 @@ export default function AdminApplications() {
   }, []);
 
   useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam) {
+      setFilterStatus(statusParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const appId = searchParams.get('appId');
     if (appId && apps.length > 0) {
       const targetApp = apps.find(a => a._id === appId || a.id === appId);

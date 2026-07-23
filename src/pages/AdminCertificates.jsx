@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText } from 'lucide-react';
@@ -21,9 +22,18 @@ export default function AdminCertificates() {
   const [showFulfillModal, setShowFulfillModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status') || searchParams.get('filter');
+    if (statusParam) {
+      setFilterStatus(statusParam);
+    }
+  }, [searchParams]);
   
   const [form, setForm] = useState({ 
     client_id: '', 
@@ -119,11 +129,24 @@ export default function AdminCertificates() {
     }
   };
 
-  const filteredCerts = certs.filter(c => 
-    !search || 
-    c.certificate_number?.toLowerCase().includes(search.toLowerCase()) || 
-    c.profiles?.company_name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCerts = certs.filter(c => {
+    const now = new Date();
+    if (filterStatus === 'expired') {
+      const isExpired = c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now);
+      if (!isExpired) return false;
+    } else if (filterStatus === 'active') {
+      const isActive = c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now);
+      if (!isActive) return false;
+    } else if (filterStatus === 'pending') {
+      if (c.status !== 'pending') return false;
+    }
+
+    return (
+      !search || 
+      c.certificate_number?.toLowerCase().includes(search.toLowerCase()) || 
+      c.profiles?.company_name?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const filteredSurv = survRequests.filter(r => 
     !search || 
@@ -160,6 +183,19 @@ export default function AdminCertificates() {
             onChange={e => setSearch(e.target.value)} 
           />
         </div>
+        {activeTab === 'certs' && (
+          <select
+            className="form-control"
+            style={{ width: 'auto', marginLeft: 8 }}
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="expired">Expired</option>
+          </select>
+        )}
         {activeTab === 'certs' && (
           <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginLeft: 'auto' }}>
             <Plus size={15} /> Issue Certificate

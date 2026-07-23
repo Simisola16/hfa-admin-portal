@@ -107,16 +107,20 @@ export default function AdminDashboard() {
     { id: 'renewal_apps',      label: 'Renewal Application', value: count(allApps, 'application_type', 'renewal') || 29, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
-  /* ─── Needs Attention list ─── */
-  const needsAttention = allApps
+  /* ─── Needs Attention list (True total count vs Capped at 5) ─── */
+  const allNeedsAttention = allApps
     .filter(a => a.status === 'submitted' || a.status === 'under_review')
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-    .slice(0, 7);
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  /* ─── Pipeline: last 8 apps ─── */
-  const pipeline = [...allApps]
-    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
-    .slice(0, 8);
+  const needsAttentionTotal = allNeedsAttention.length;
+  const needsAttentionList  = allNeedsAttention.slice(0, 5);
+
+  /* ─── Pipeline list (True total count vs Capped at 5) ─── */
+  const allPipeline = [...allApps]
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+
+  const pipelineTotal = allPipeline.length;
+  const pipelineList  = allPipeline.slice(0, 5);
 
   /* ─── Loading skeleton ─── */
   if (loading && allApps.length === 0) {
@@ -223,27 +227,27 @@ export default function AdminDashboard() {
       {/* ── Middle Row: Application Pipeline (Left) & Needs Your Attention (Right) - Equal Size 1fr 1fr ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
 
-        {/* Application Pipeline (LEFT - 1fr, Styled exactly like Recent Activities in Reference Image) */}
+        {/* Application Pipeline (LEFT - 1fr, Styled exactly like Recent Activities) */}
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 19, fontWeight: 700, color: '#0f172a' }}>
+          <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 18, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                 Application Pipeline
               </div>
-              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
-                {pipeline.length} items
+              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                {pipelineTotal} items
               </span>
               <span style={{
                 background: '#dbeafe', color: '#1d4ed8',
-                fontSize: 12, fontWeight: 500, padding: '3px 10px',
-                borderRadius: 12, fontFamily: 'Inter, sans-serif'
+                fontSize: 11.5, fontWeight: 500, padding: '2px 9px',
+                borderRadius: 10, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
               }}>
                 Applications & Certificates
               </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', marginLeft: 'auto' }}
             >
               View all <ChevronRight size={14} />
             </Link>
@@ -274,13 +278,13 @@ export default function AdminDashboard() {
                       <div className="spinner" style={{ margin: '0 auto' }} />
                     </td>
                   </tr>
-                ) : pipeline.length === 0 ? (
+                ) : pipelineList.length === 0 ? (
                   <tr>
                     <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
                       No applications yet
                     </td>
                   </tr>
-                ) : pipeline.map(a => (
+                ) : pipelineList.map(a => (
                   <tr
                     key={a._id}
                     onClick={() => navigate(`/applications/${a._id}/processing`)}
@@ -315,26 +319,26 @@ export default function AdminDashboard() {
 
         {/* Needs Your Attention (RIGHT - 1fr, Equal Size to Left Card) */}
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 19, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <AlertTriangle size={18} style={{ color: '#f59e0b' }} />
+          <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 18, fontWeight: 700, color: '#0f172a', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                <AlertTriangle size={17} style={{ color: '#f59e0b', flexShrink: 0 }} />
                 Needs Your Attention
               </div>
-              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
-                {needsAttention.length} items
+              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                {needsAttentionTotal} items
               </span>
               <span style={{
                 background: '#fef3c7', color: '#d97706',
-                fontSize: 12, fontWeight: 500, padding: '3px 10px',
-                borderRadius: 12, fontFamily: 'Inter, sans-serif'
+                fontSize: 11.5, fontWeight: 500, padding: '2px 9px',
+                borderRadius: 10, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
               }}>
                 Action Required
               </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', marginLeft: 'auto' }}
             >
               View all <ChevronRight size={14} />
             </Link>
@@ -376,7 +380,7 @@ export default function AdminDashboard() {
             <div style={{ padding: 40, textAlign: 'center' }}>
               <div className="spinner" style={{ margin: '0 auto' }} />
             </div>
-          ) : needsAttention.length === 0 && expiredCerts === 0 ? (
+          ) : needsAttentionList.length === 0 && expiredCerts === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <CheckCircle size={22} style={{ color: '#008744' }} />
@@ -386,7 +390,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="attention-list">
-              {needsAttention.map(a => {
+              {needsAttentionList.map(a => {
                 const days = daysAgo(a.created_at);
                 const isUrgent = days > 3;
                 return (

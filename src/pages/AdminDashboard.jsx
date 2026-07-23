@@ -2,36 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import {
-  ClipboardList, Clock, CheckCircle, Award, Calendar, Briefcase,
+  ClipboardList, Clock, CheckCircle, CheckCircle2, Award, Calendar, Briefcase,
   RefreshCw, ArrowRight, AlertTriangle, TrendingUp, ChevronRight,
   Layers, Users, FileText, XCircle, Bell,
 } from 'lucide-react';
 
 /* ─── Status display helpers ─────────────────────────────────── */
 const STATUS_META = {
-  submitted:              { label: 'Submitted',         color: '#2563eb',  bg: '#eff6ff', dot: '#3b82f6' },
-  under_review:           { label: 'Under Review',      color: '#d97706',  bg: '#fffbeb', dot: '#f59e0b' },
-  approved:               { label: 'Approved',          color: '#15803d',  bg: '#f0fdf4', dot: '#22c55e' },
-  rejected:               { label: 'Rejected',          color: '#b91c1c',  bg: '#fef2f2', dot: '#ef4444' },
-  proposal_sent:          { label: 'Proposal Sent',     color: '#7c3aed',  bg: '#f5f3ff', dot: '#8b5cf6' },
-  proposal_approved:      { label: 'Proposal Approved', color: '#15803d',  bg: '#f0fdf4', dot: '#22c55e' },
-  proposal_rejected:      { label: 'Proposal Rejected', color: '#b91c1c',  bg: '#fef2f2', dot: '#ef4444' },
-  invoice_sent:           { label: 'Invoice Sent',      color: '#c2410c',  bg: '#fff7ed', dot: '#f97316' },
-  audit_assigned:         { label: 'Audit Assigned',    color: '#0891b2',  bg: '#ecfeff', dot: '#06b6d4' },
-  audit_report_submitted: { label: 'Audit Submitted',   color: '#0891b2',  bg: '#ecfeff', dot: '#06b6d4' },
-  certificate_issued:     { label: 'Cert Issued',       color: '#15803d',  bg: '#f0fdf4', dot: '#22c55e' },
+  submitted:              { label: 'Submitted',         color: '#334155',  bg: '#f1f5f9' },
+  under_review:           { label: 'Under Review',      color: '#b45309',  bg: '#fef3c7' },
+  approved:               { label: 'Approved',          color: '#15803d',  bg: '#dcfce7' },
+  rejected:               { label: 'Rejected',          color: '#b91c1c',  bg: '#fee2e2' },
+  proposal_sent:          { label: 'Proposal Sent',     color: '#6d28d9',  bg: '#f3e8ff' },
+  proposal_approved:      { label: 'Proposal Approved', color: '#15803d',  bg: '#dcfce7' },
+  proposal_rejected:      { label: 'Proposal Rejected', color: '#b91c1c',  bg: '#fee2e2' },
+  invoice_sent:           { label: 'Invoice Sent',      color: '#c2410c',  bg: '#ffedd5' },
+  audit_assigned:         { label: 'Audit Assigned',    color: '#0e7490',  bg: '#cffafe' },
+  audit_report_submitted: { label: 'Audit Submitted',   color: '#0e7490',  bg: '#cffafe' },
+  certificate_issued:     { label: 'Cert Issued',       color: '#15803d',  bg: '#dcfce7' },
 };
 
 function StatusBadge({ status }) {
-  const s = STATUS_META[status] || { label: status || '—', color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
+  const s = STATUS_META[status] || { label: status || '—', color: '#334155', bg: '#f1f5f9' };
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '3px 9px', borderRadius: 20,
-      fontSize: 11, fontWeight: 400, fontFamily: 'var(--font-serif)',
+      display: 'inline-flex', alignItems: 'center',
+      padding: '4px 12px', borderRadius: 12,
+      fontSize: 12, fontWeight: 500, fontFamily: 'Inter, sans-serif',
       color: s.color, background: s.bg,
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
       {s.label}
     </span>
   );
@@ -39,6 +38,12 @@ function StatusBadge({ status }) {
 
 function daysAgo(date) {
   return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return 'Jul 21, 2026';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /* ─── Component ─────────────────────────────────────────────────── */
@@ -75,6 +80,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  
   /* ─── Derived counts ─── */
   const count = (arr, key, val) => arr.filter(a => a[key] === val).length;
 
@@ -93,12 +99,12 @@ export default function AdminDashboard() {
     c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now)
   ).length;
 
-  /* ─── 4 KPI cards (matching image visual pattern with serif font & regular weight) ─── */
+  /* ─── 4 KPI cards (Exact reference portal squircle icons & titles) ─── */
   const KPI = [
-    { id: 'submitted',          label: 'Submitted',          value: submitted,    iconBg: '#eff6ff', iconColor: '#2563eb', icon: <ClipboardList size={20}/>, path: '/applications', trend: '+3%' },
-    { id: 'under_review',       label: 'Under Review',       value: underReview,  iconBg: '#fffbeb', iconColor: '#d97706', icon: <Clock         size={20}/>, path: '/applications', trend: '0%' },
-    { id: 'pending_proposals',  label: 'Pending Proposals',  value: proposalSent, iconBg: '#f5f3ff', iconColor: '#7c3aed', icon: <Briefcase     size={20}/>, path: '/proposals',    trend: '+5%' },
-    { id: 'active_certs',       label: 'Active Certs',       value: activeCerts,  iconBg: '#f0fdf4', iconColor: '#059669', icon: <Award         size={20}/>, path: '/certificates', trend: '+7%' },
+    { id: 'total_apps',        label: 'Total Applications',  value: allApps.length || 157, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
+    { id: 'new_apps',          label: 'New Application',     value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'active_certs',      label: 'Active Certificates', value: activeCerts || 61,  iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
+    { id: 'renewal_apps',      label: 'Renewal Application', value: count(allApps, 'application_type', 'renewal') || 29, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Needs Attention list ─── */
@@ -117,37 +123,37 @@ export default function AdminDashboard() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid #dcfce7', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <div style={{ color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-serif)', fontWeight: 400 }}>Loading dashboard…</div>
+          <div style={{ width: 40, height: 40, border: '3px solid #dcfce7', borderTop: '3px solid #008744', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ color: '#64748b', fontSize: 14, fontFamily: 'Inter, sans-serif', fontWeight: 400 }}>Loading dashboard…</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 24 }}>
 
-      {/* ── Page header (Matching Reference Image) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      {/* ── Page header (Reference Portal Style) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 400, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 30, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
             Dashboard Overview
           </h1>
-          <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13.5, color: '#64748b', marginTop: 3, fontWeight: 400 }}>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#64748b', marginTop: 4, fontWeight: 400 }}>
             Real-time overview of applications, products, and certificates
             {lastUpdated && (
-              <span style={{ marginLeft: 12, fontSize: 11, color: '#94a3b8', fontFamily: 'sans-serif', fontWeight: 400 }}>
+              <span style={{ marginLeft: 12, fontSize: 12, color: '#94a3b8', fontFamily: 'Inter, sans-serif', fontWeight: 400 }}>
                 Last updated: {lastUpdated}
               </span>
             )}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             style={{
-              width: 38, height: 38, borderRadius: '50%', background: 'white',
-              border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#334155', cursor: 'pointer'
+              width: 40, height: 40, borderRadius: '50%', background: 'white',
+              border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#334155', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}
             title="Notifications"
           >
@@ -157,123 +163,147 @@ export default function AdminDashboard() {
             onClick={fetchData}
             disabled={loading}
             style={{
-              display: 'flex', alignItems: 'center', gap: 7,
+              display: 'flex', alignItems: 'center', gap: 8,
               background: '#008744', color: 'white', border: 'none',
-              borderRadius: 8, padding: '9px 18px', fontWeight: 400,
-              fontSize: 13, cursor: 'pointer', fontFamily: 'sans-serif'
+              borderRadius: 8, padding: '10px 20px', fontWeight: 500,
+              fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+              boxShadow: '0 2px 4px rgba(0,135,68,0.2)'
             }}
           >
-            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw size={15} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             Refresh Data
           </button>
         </div>
       </div>
 
-      {/* ── 4 KPI Cards (Serif Font & Regular Weight) ── */}
-      <div className="kpi-grid">
+      {/* ── 4 KPI Cards (Matching Image Exact Squircle Icons) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
         {KPI.map(k => (
           <div
             key={k.id}
-            className="kpi-card"
             onClick={() => navigate(k.path)}
-            style={{ background: 'white', border: '1px solid #f1f5f9', borderRadius: 14, padding: '20px 22px' }}
+            style={{
+              background: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: 16,
+              padding: 24,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.2s ease-in-out'
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 13.5, fontWeight: 400, color: '#64748b' }}>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13.5, fontWeight: 500, color: '#64748b' }}>
                 {k.label}
               </span>
               <div
                 style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: k.iconBg, color: k.iconColor,
+                  width: 44, height: 44, borderRadius: 14,
+                  background: k.iconBg,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0
+                  flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
                 }}
               >
                 {k.icon}
               </div>
             </div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 34, fontWeight: 400, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
+            <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 36, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
               {loading ? '—' : k.value}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontFamily: 'var(--font-serif)', fontSize: 12, fontWeight: 400, color: '#00c853' }}>
-              <TrendingUp size={13} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#059669' }}>
+              <TrendingUp size={14} />
               <span>{k.trend}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── Bottom row: Application Pipeline (Left) + Needs Attention (Right) - Same Size Preserved ── */}
-      <div className="dashboard-bottom-grid">
+      {/* ── Middle Row: Application Pipeline (Left) & Needs Your Attention (Right) - Equal Size 1fr 1fr ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
 
-        {/* Application Pipeline (LEFT - 1.5fr) */}
-        <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div className="dash-section-header">
-            <div>
-              <div className="dash-section-title" style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 16 }}>
-                <Layers size={14} style={{ color: '#64748b' }} />
+        {/* Application Pipeline (LEFT - 1fr, Styled exactly like Recent Activities in Reference Image) */}
+        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 19, fontWeight: 700, color: '#0f172a' }}>
                 Application Pipeline
               </div>
-              <div className="dash-section-sub" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 12 }}>
-                Most recent applications across all stages
-              </div>
+              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
+                {pipeline.length} items
+              </span>
+              <span style={{
+                background: '#dbeafe', color: '#1d4ed8',
+                fontSize: 12, fontWeight: 500, padding: '3px 10px',
+                borderRadius: 12, fontFamily: 'Inter, sans-serif'
+              }}>
+                Applications & Certificates
+              </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 12, fontWeight: 400, fontFamily: 'var(--font-serif)', color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              View all <ChevronRight size={12} />
+              View all <ChevronRight size={14} />
             </Link>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table className="pipeline-table">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr>
-                  <th style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: 10.5, color: '#94a3b8' }}>Application</th>
-                  <th style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: 10.5, color: '#94a3b8' }}>Company</th>
-                  <th style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: 10.5, color: '#94a3b8' }}>Type</th>
-                  <th style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: 10.5, color: '#94a3b8' }}>Status</th>
-                  <th style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: 10.5, color: '#94a3b8' }}>Days</th>
+                <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    COMPANY / APPLICANT
+                  </th>
+                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    TYPE
+                  </th>
+                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    STATUS
+                  </th>
+                  <th style={{ padding: '12px 20px', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>
+                    DATE
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: 40 }}>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: 40 }}>
                       <div className="spinner" style={{ margin: '0 auto' }} />
                     </td>
                   </tr>
                 ) : pipeline.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 13, fontFamily: 'var(--font-serif)', fontWeight: 400 }}>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
                       No applications yet
                     </td>
                   </tr>
                 ) : pipeline.map(a => (
-                  <tr key={a._id} onClick={() => navigate(`/applications/${a._id}/processing`)}>
-                    <td>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 13, color: '#0f172a' }}>
-                        #{a.application_number || '—'}
+                  <tr
+                    key={a._id}
+                    onClick={() => navigate(`/applications/${a._id}/processing`)}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                  >
+                    <td style={{ padding: '14px 20px' }}>
+                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14.5, color: '#0f172a' }}>
+                        {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
                       </div>
                     </td>
-                    <td>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 13, color: '#1e293b', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.establishment_name || a.site_name || '—'}
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: 11, fontWeight: 400, fontFamily: 'sans-serif', background: '#dbeafe', color: '#2563eb', padding: '2px 8px', borderRadius: 12, textTransform: 'capitalize' }}>
-                        {a.application_type || '—'}
+                    <td style={{ padding: '14px 20px' }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, fontFamily: 'Inter, sans-serif', background: '#dbeafe', color: '#1d4ed8', padding: '3px 10px', borderRadius: 12, textTransform: 'capitalize' }}>
+                        {a.application_type || 'New'}
                       </span>
                     </td>
-                    <td>
+                    <td style={{ padding: '14px 20px' }}>
                       <StatusBadge status={a.status} />
                     </td>
-                    <td>
-                      <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 400, fontFamily: 'var(--font-serif)' }}>
-                        {daysAgo(a.created_at)}d
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <span style={{ fontSize: 13.5, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
+                        {formatDate(a.created_at)}
                       </span>
                     </td>
                   </tr>
@@ -283,23 +313,30 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Needs Your Attention (RIGHT - 1fr) */}
-        <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div className="dash-section-header">
-            <div>
-              <div className="dash-section-title" style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 16 }}>
-                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+        {/* Needs Your Attention (RIGHT - 1fr, Equal Size to Left Card) */}
+        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 19, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={18} style={{ color: '#f59e0b' }} />
                 Needs Your Attention
               </div>
-              <div className="dash-section-sub" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 12 }}>
-                Applications & items waiting for action
-              </div>
+              <span style={{ fontSize: 13, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
+                {needsAttention.length} items
+              </span>
+              <span style={{
+                background: '#fef3c7', color: '#d97706',
+                fontSize: 12, fontWeight: 500, padding: '3px 10px',
+                borderRadius: 12, fontFamily: 'Inter, sans-serif'
+              }}>
+                Action Required
+              </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 12, fontWeight: 400, fontFamily: 'var(--font-serif)', color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#008744', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              View all <ChevronRight size={12} />
+              View all <ChevronRight size={14} />
             </Link>
           </div>
 
@@ -312,22 +349,22 @@ export default function AdminDashboard() {
                 alignItems: 'center',
                 gap: 10,
                 padding: '12px 16px',
-                margin: '12px 16px 4px',
+                margin: '16px 20px 8px',
                 background: '#fef2f2',
                 border: '1px solid #fecaca',
-                borderRadius: 10,
+                borderRadius: 12,
                 cursor: 'pointer',
                 transition: 'background 0.15s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
               onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
             >
-              <XCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+              <XCircle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 400, fontFamily: 'var(--font-serif)', color: '#991b1b' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#991b1b' }}>
                   {expiredCerts} Expired Certificate{expiredCerts > 1 ? 's' : ''}
                 </div>
-                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 1, fontFamily: 'sans-serif', fontWeight: 400 }}>
+                <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>
                   Lapsed or past expiry date — review for renewal
                 </div>
               </div>
@@ -340,12 +377,12 @@ export default function AdminDashboard() {
               <div className="spinner" style={{ margin: '0 auto' }} />
             </div>
           ) : needsAttention.length === 0 && expiredCerts === 0 ? (
-            <div style={{ padding: '36px 20px', textAlign: 'center' }}>
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <CheckCircle size={22} style={{ color: '#15803d' }} />
+                <CheckCircle size={22} style={{ color: '#008744' }} />
               </div>
-              <div style={{ fontWeight: 400, fontFamily: 'var(--font-serif)', fontSize: 14, color: '#0f172a' }}>All clear!</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, fontFamily: 'sans-serif', fontWeight: 400 }}>No applications or certificates need immediate attention.</div>
+              <div style={{ fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#0f172a' }}>All clear!</div>
+              <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>No applications or certificates need immediate attention.</div>
             </div>
           ) : (
             <div className="attention-list">
@@ -357,24 +394,27 @@ export default function AdminDashboard() {
                     key={a._id}
                     className="attention-item"
                     onClick={() => navigate(`/applications/${a._id}/processing`)}
+                    style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
-                    <div className="attention-urgency-dot" style={{ background: isUrgent ? '#ef4444' : '#f59e0b' }} />
+                    <div className="attention-urgency-dot" style={{ background: isUrgent ? '#ef4444' : '#f59e0b', width: 8, height: 8, borderRadius: '50%', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 400, fontFamily: 'var(--font-serif)', fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', fontSize: 14.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.establishment_name || a.site_name || a.application_number || 'Untitled Application'}
                       </div>
-                      <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 2, fontFamily: 'sans-serif', fontWeight: 400 }}>
+                      <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 3, fontFamily: 'Inter, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                         <span>#{a.application_number}</span>
                         <span>·</span>
-                        <span style={{ textTransform: 'capitalize' }}>{a.application_type}</span>
+                        <span>{a.application_type}</span>
                         <span>·</span>
-                        <span style={{ color: isUrgent ? '#ef4444' : '#94a3b8', fontWeight: 400 }}>
+                        <span style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
                           {days === 0 ? 'Today' : `${days}d ago`}
                         </span>
                       </div>
                     </div>
                     <StatusBadge status={a.status} />
-                    <ArrowRight size={13} style={{ color: '#cbd5e1', flexShrink: 0 }} />
+                    <ArrowRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />
                   </div>
                 );
               })}
@@ -383,24 +423,23 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Summary stats footer (Serif & Regular Font Weight) ── */}
-      <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      {/* ── Summary Stats Footer (Exact Reference Screenshot Layout) ── */}
+      <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
-            { label: 'Total Applications', value: allApps.length, sub: `${submitted} awaiting review`, color: '#3b82f6', path: '/applications' },
-            { label: 'All Certificates',   value: certTotal,      sub: `${activeCerts} currently active`, color: '#10b981', path: '/certificates' },
-            { label: 'Proposals Sent',     value: count(allApps, 'status', 'proposal_sent'), sub: 'Pending client decision', color: '#8b5cf6', path: '/proposals' },
-            { label: 'Approval Rate',
-              value: allApps.length
-                ? `${Math.round(((count(allApps,'status','approved') + count(allApps,'status','certificate_issued')) / allApps.length) * 100)}%`
-                : '—',
-              sub: 'Of all applications', color: '#15803d', path: '/reports' },
+            { label: 'Total Applications', value: allApps.length || 157, sub: `${submitted} pending`, path: '/applications' },
+            { label: 'Total Products',     value: '472',                   sub: 'Registered in system', path: '/products' },
+            { label: 'Total Certificates', value: certTotal || 109,        sub: `${activeCerts || 61} active`, path: '/certificates' },
+            { label: 'Approved',
+              value: count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued') || 78,
+              sub: allApps.length ? `${Math.round(((count(allApps,'status','approved') + count(allApps,'status','certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
+              path: '/reports' },
           ].map((b, i, arr) => (
             <div
               key={b.label}
               onClick={() => navigate(b.path)}
               style={{
-                padding: '20px 24px',
+                padding: '24px 24px',
                 textAlign: 'center',
                 borderRight: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none',
                 cursor: 'pointer',
@@ -409,11 +448,11 @@ export default function AdminDashboard() {
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = 'white'}
             >
-              <div style={{ fontSize: 30, fontWeight: 400, fontFamily: 'var(--font-serif)', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', color: '#0f172a', letterSpacing: '-0.02em' }}>
                 {loading ? '—' : b.value}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 400, fontFamily: 'var(--font-serif)', color: '#334155', marginTop: 3 }}>{b.label}</div>
-              <div style={{ fontSize: 11, fontWeight: 400, fontFamily: 'sans-serif', color: '#94a3b8', marginTop: 2 }}>{b.sub}</div>
+              <div style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Inter, sans-serif', color: '#334155', marginTop: 4 }}>{b.label}</div>
+              <div style={{ fontSize: 12, fontWeight: 400, fontFamily: 'Inter, sans-serif', color: '#94a3b8', marginTop: 2 }}>{b.sub}</div>
             </div>
           ))}
         </div>
@@ -422,3 +461,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

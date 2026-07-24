@@ -122,8 +122,42 @@ function sectionContainsPath(section, pathname, search) {
   });
 }
 
+function getUnreadNavCount(notifications, pathStr, children = []) {
+  if (!notifications || notifications.length === 0) return 0;
+  const unreadList = notifications.filter(n => !n.is_read && n.link);
+  if (unreadList.length === 0) return 0;
+
+  const matchSinglePath = (link, targetPath) => {
+    if (!link || !targetPath) return false;
+    const [linkPath, linkSearch = ''] = link.split('?');
+    const [targetPathname, targetSearch = ''] = targetPath.split('?');
+
+    if (linkPath !== targetPathname) return false;
+    if (targetSearch) {
+      return linkSearch.includes(targetSearch);
+    }
+    return true;
+  };
+
+  let count = 0;
+  unreadList.forEach(n => {
+    let matched = false;
+    if (pathStr && matchSinglePath(n.link, pathStr)) {
+      matched = true;
+    }
+    if (!matched && children && children.length > 0) {
+      if (children.some(c => matchSinglePath(n.link, c.path))) {
+        matched = true;
+      }
+    }
+    if (matched) count++;
+  });
+
+  return count;
+}
+
 /* ─── Component ─────────────────────────────────────────────────── */
-export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onClose }) {
+export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onClose, notifications = [] }) {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,6 +249,8 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
               const isParentActive = item.path === location.pathname ||
                 (item.children?.some(c => isChildActive(c.path, location)));
 
+              const parentUnread = getUnreadNavCount(notifications, item.path, item.children);
+
               if (item.children) {
                 return (
                   <div key={item.label}>
@@ -231,7 +267,32 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                     >
                       <Icon size={17} style={{ flexShrink: 0 }} />
                       <span className="nav-item-label">{item.label}</span>
-                      <span className="nav-chevron" style={{ marginLeft: 'auto' }}>
+                      {parentUnread > 0 && (!isExpanded || collapsed) && (
+                        <span
+                          className="nav-attention-badge"
+                          style={{
+                            marginLeft: 'auto',
+                            marginRight: 6,
+                            background: '#2563eb',
+                            color: '#ffffff',
+                            fontSize: 10,
+                            fontWeight: 500,
+                            minWidth: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0 5px',
+                            boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.2)',
+                            animation: 'navBadgePulse 2s ease-in-out infinite',
+                            fontFamily: "'Inter', sans-serif"
+                          }}
+                        >
+                          {parentUnread > 9 ? '9+' : parentUnread}
+                        </span>
+                      )}
+                      <span className="nav-chevron" style={{ marginLeft: parentUnread > 0 && (!isExpanded || collapsed) ? 0 : 'auto' }}>
                         {isExpanded
                           ? <ChevronDown size={13} />
                           : <ChevronRight size={13} />
@@ -243,6 +304,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                       <div className="nav-sub">
                         {item.children.map(child => {
                           const active = isChildActive(child.path, location);
+                          const childUnread = getUnreadNavCount(notifications, child.path);
                           return (
                             <NavLink
                               key={child.path}
@@ -250,6 +312,30 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                               className={({ isActive }) => `nav-sub-item${active ? ' active' : ''}`}
                             >
                               <span className="nav-item-label">{child.label}</span>
+                              {childUnread > 0 && (
+                                <span
+                                  className="nav-attention-badge"
+                                  style={{
+                                    marginLeft: 'auto',
+                                    background: '#2563eb',
+                                    color: '#ffffff',
+                                    fontSize: 10,
+                                    fontWeight: 500,
+                                    minWidth: 18,
+                                    height: 18,
+                                    borderRadius: 9,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0 5px',
+                                    boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.2)',
+                                    animation: 'navBadgePulse 2s ease-in-out infinite',
+                                    fontFamily: "'Inter', sans-serif"
+                                  }}
+                                >
+                                  {childUnread > 9 ? '9+' : childUnread}
+                                </span>
+                              )}
                             </NavLink>
                           );
                         })}
@@ -268,6 +354,30 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                 >
                   <Icon size={17} style={{ flexShrink: 0 }} />
                   <span className="nav-item-label">{item.label}</span>
+                  {parentUnread > 0 && (
+                    <span
+                      className="nav-attention-badge"
+                      style={{
+                        marginLeft: 'auto',
+                        background: '#2563eb',
+                        color: '#ffffff',
+                        fontSize: 10,
+                        fontWeight: 500,
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 5px',
+                        boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.2)',
+                        animation: 'navBadgePulse 2s ease-in-out infinite',
+                        fontFamily: "'Inter', sans-serif"
+                      }}
+                    >
+                      {parentUnread > 9 ? '9+' : parentUnread}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}

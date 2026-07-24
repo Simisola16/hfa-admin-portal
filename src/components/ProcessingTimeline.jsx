@@ -120,8 +120,8 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
           circleColor = '#15803d'; lineColor = '#86efac';
           labelColor = '#0f172a'; bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
         } else if (isCurrent) {
-          circleColor = '#15803d'; lineColor = '#cbd5e1';
-          labelColor = '#0f172a'; bgColor = '#f0fdf4'; borderColor = '#16a34a';
+          circleColor = '#2563eb'; lineColor = '#cbd5e1';
+          labelColor = '#0f172a'; bgColor = '#eff6ff'; borderColor = '#2563eb';
         } else {
           circleColor = '#cbd5e1'; lineColor = '#e2e8f0';
           labelColor = '#94a3b8'; bgColor = '#ffffff'; borderColor = '#e2e8f0';
@@ -141,7 +141,7 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
                 border: isCurrent ? `3px solid ${circleColor}` : `2px solid ${isComplete ? circleColor : '#e2e8f0'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: isCurrent ? `0 0 0 4px rgba(21,128,61,0.15)` : 'none',
+                boxShadow: isCurrent ? `0 0 0 4px rgba(37, 99, 235, 0.18)` : 'none',
                 position: 'relative',
                 zIndex: 1,
               }}>
@@ -190,8 +190,8 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
                 {isCurrent && (
                   <span style={{
                     fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: '0.06em', color: '#15803d',
-                    background: '#dcfce7', padding: '2px 8px', borderRadius: 20,
+                    letterSpacing: '0.06em', color: '#1d4ed8',
+                    background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 20,
                   }}>
                     Current
                   </span>

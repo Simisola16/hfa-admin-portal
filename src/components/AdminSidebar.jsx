@@ -75,9 +75,10 @@ const NAV_SECTIONS = [
       {
         icon: Package, label: 'Products', path: '/products',
         children: [
-          { label: 'Product List',    path: '/products' },
-          { label: 'Add-on Requests', path: '/addon-applications' },
-          { label: 'Manage Product',  path: '/products/manage' },
+          { label: 'Add-on Request', path: '/addon-applications?view=request' },
+          { label: 'InProgress',     path: '/addon-applications?view=inprogress' },
+          { label: 'Add-on List',    path: '/addon-applications?view=list' },
+          { label: 'Product List',   path: '/products' },
         ],
       },
     ],
@@ -106,6 +107,9 @@ const NAV_SECTIONS = [
 function isChildActive(childPath, location) {
   const [childPathname, childSearch = ''] = childPath.split('?');
   const childQuery = childSearch ? `?${childSearch}` : '';
+  if (childPathname === '/addon-applications' && childSearch === 'view=list' && location.pathname === '/addon-applications' && !location.search) {
+    return true;
+  }
   return location.pathname === childPathname && location.search === childQuery;
 }
 

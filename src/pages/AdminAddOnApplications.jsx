@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { PlusCircle, Search, UserCheck, Check, X, ShieldAlert, FileText, Clipboard, AlertCircle } from 'lucide-react';
+import { PlusCircle, Search, UserCheck, Check, X, ShieldAlert, FileText, Clipboard, AlertCircle, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminAddOnApplications() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get('view') || 'list';
+
   const [apps, setApps] = useState([]);
   const [foodTechUsers, setFoodTechUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,14 +117,60 @@ export default function AdminAddOnApplications() {
     }
   };
 
-  const filtered = apps.filter(a => {
+  // Filter by view param: request (submitted), inprogress (approved/assigned/inspected), list (all)
+  const filteredByView = apps.filter(app => {
+    if (view === 'request') {
+      return app.status === 'submitted';
+    }
+    if (view === 'inprogress') {
+      return ['approved', 'inspection_assigned', 'inspection_completed'].includes(app.status);
+    }
+    return true; // 'list' or all
+  });
+
+  const filtered = filteredByView.filter(a => {
     if (!search) return true;
     const s = search.toLowerCase();
     return a.client_id?.company_name?.toLowerCase().includes(s) ||
            a.client_id?.full_name?.toLowerCase().includes(s) ||
            a.certificate_id?.certificate_number?.toLowerCase().includes(s) ||
-           a.status?.toLowerCase().includes(s);
+           a.status?.toLowerCase().includes(s) ||
+           a.product_name?.toLowerCase().includes(s) ||
+           a.new_product_name?.toLowerCase().includes(s);
   });
+
+  const getViewMeta = () => {
+    if (view === 'request') {
+      return {
+        title: 'Add-on Request Queue',
+        subtitle: 'Applications awaiting food tech manager review and approval decisions',
+        badgeLabel: `${filtered.length} Pending Requests`,
+        emptyTitle: 'No pending requests',
+        emptySub: 'There are currently no add-on applications awaiting review.',
+        icon: <Clipboard size={20} />
+      };
+    }
+    if (view === 'inprogress') {
+      return {
+        title: 'In-Progress Add-on Applications',
+        subtitle: 'Applications undergoing inspection and active processing',
+        badgeLabel: `${filtered.length} In-Progress`,
+        emptyTitle: 'No in-progress applications',
+        emptySub: 'There are currently no add-on applications undergoing inspection or processing.',
+        icon: <Clock size={20} />
+      };
+    }
+    return {
+      title: 'All Add-on Applications',
+      subtitle: 'Complete history of all add-on product requests across all status stages',
+      badgeLabel: `${filtered.length} Applications`,
+      emptyTitle: 'No add-on applications found',
+      emptySub: 'No add-on product requests found matching your filters.',
+      icon: <PlusCircle size={20} />
+    };
+  };
+
+  const meta = getViewMeta();
 
   return (
     <div className="animate-in">
@@ -131,7 +181,7 @@ export default function AdminAddOnApplications() {
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
-            {filtered.length} Requests
+            {meta.badgeLabel}
           </span>
         </div>
       </div>
@@ -139,20 +189,21 @@ export default function AdminAddOnApplications() {
       <div className="card shadow-sm border-0">
         <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', background: '#fff' }}>
           <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: 10, borderRadius: 12, display: 'flex' }}>
-            <PlusCircle size={20} />
+            {meta.icon}
           </div>
           <div>
-            <div className="card-title" style={{ fontSize: 18, fontWeight: 700 }}>Add-on Product Applications</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Manage additions, removals, and renames on active client certificates</div>
+            <div className="card-title" style={{ fontSize: 18, fontWeight: 700 }}>{meta.title}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{meta.subtitle}</div>
           </div>
         </div>
 
         <div className="table-wrap">
           {loading ? <div className="loading-overlay"><div className="spinner" /></div> :
             filtered.length === 0 ? (
-              <div className="empty-state" style={{ padding: '60px 20px' }}>
+              <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
                 <PlusCircle size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
-                <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>No requests found</div>
+                <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>{meta.emptyTitle}</div>
+                <div className="empty-state-text" style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{meta.emptySub}</div>
               </div>
             ) : (
               <table>

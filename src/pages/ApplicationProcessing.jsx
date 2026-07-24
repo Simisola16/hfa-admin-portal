@@ -53,11 +53,15 @@ export default function ApplicationProcessing() {
   const [showClientModal, setShowClientModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showNcModal, setShowNcModal] = useState(false);
 
   // Inline forms/submission states
   const [approveCategory, setApproveCategory] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [holdReason, setHoldReason] = useState('');
+  const [ncText, setNcText] = useState('');
+  const [ncFile, setNcFile] = useState(null);
+  const [flaggingNc, setFlaggingNc] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
 
@@ -219,17 +223,54 @@ export default function ApplicationProcessing() {
   const handlePostAuditDecision = async (newStatus) => {
     setActionSubmitting(true);
     try {
+      const auditObj = audits?.[0] || audits?.data?.[0];
+      const auditId = auditObj?._id || auditObj?.id;
+      if (newStatus === 'audit_report_submitted' && auditId) {
+        await api.post('/api/audits/complete-clean', { audit_id: auditId }).catch(() => {});
+      }
       const res = await api.put(`/api/applications/${appId}/status`, { 
         status: newStatus, 
-        note: newStatus === 'audit_successful' ? 'Audit marked successful by admin' : 'Application put on hold post-audit' 
+        note: newStatus === 'audit_report_submitted' ? 'Audit complete with no NCs. Status moved to NC Closed.' : 'Application put on hold post-audit' 
       });
-      setApp(res.data);
-      toast.success(newStatus === 'audit_successful' ? 'Application marked as successful.' : 'Application put on hold.');
+      setApp(res.data?.data || res.data || { ...app, status: newStatus });
+      toast.success(newStatus === 'audit_report_submitted' ? 'Audit complete. Status moved to NC Closed.' : 'Application put on hold.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Failed to update status.');
     } finally {
       setActionSubmitting(false);
+    }
+  };
+
+  const handleFlagNc = async () => {
+    if (!ncText.trim()) {
+      toast.error('Please enter Non-Conformity details.');
+      return;
+    }
+    const auditObj = audits?.[0] || audits?.data?.[0];
+    const auditId = auditObj?._id || auditObj?.id;
+    if (!auditId) {
+      toast.error('No active audit found for this application.');
+      return;
+    }
+    setFlaggingNc(true);
+    try {
+      const formData = new FormData();
+      formData.append('audit_id', auditId);
+      formData.append('text', ncText.trim());
+      if (ncFile) {
+        formData.append('nc_document', ncFile);
+      }
+      await api.post('/api/audits/flag-nc', formData);
+      toast.success('NC Report flagged successfully. Client notified.');
+      setShowNcModal(false);
+      setNcText('');
+      setNcFile(null);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to flag NC report.');
+    } finally {
+      setFlaggingNc(false);
     }
   };
 
@@ -267,12 +308,12 @@ export default function ApplicationProcessing() {
   
   const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status) || (invoice && (invoice.status === 'paid' || invoice.status === 'client_paid') && status === 'invoice_sent');
   
-  const showPostAuditDecision = status === 'audit_report_submitted' || status === 'on_hold';
+  const showPostAuditDecision = status === 'audit_successful' || status === 'on_hold';
   
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
 
-  const showCreateLogsheetAction = ['audit_successful', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed'].includes(status);
+  const showCreateLogsheetAction = ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed'].includes(status);
   
   const showSendAgreementAction = ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
   
@@ -402,13 +443,21 @@ export default function ApplicationProcessing() {
 
             {showPostAuditDecision && (
               <>
-                {status !== 'on_hold' && (
-                  <button className="btn btn-ghost" style={{ gap: 8, border: '1px solid #e2e8f0' }} onClick={() => handlePostAuditDecision('on_hold')} disabled={actionSubmitting}>
-                    <XCircle size={16} color="#64748b" /> Put On Hold
-                  </button>
-                )}
-                <button className="btn btn-primary" style={{ gap: 8, background: '#16a34a' }} onClick={() => handlePostAuditDecision('audit_successful')} disabled={actionSubmitting}>
-                  <CheckCircle size={16} /> Mark Successful
+                <button
+                  className="btn btn-danger"
+                  style={{ gap: 8 }}
+                  onClick={() => setShowNcModal(true)}
+                  disabled={actionSubmitting}
+                >
+                  <AlertTriangle size={16} /> Flag NC Report
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                  onClick={() => handlePostAuditDecision('audit_report_submitted')}
+                  disabled={actionSubmitting}
+                >
+                  <CheckCircle size={16} /> No NC — Close
                 </button>
               </>
             )}
@@ -503,7 +552,7 @@ export default function ApplicationProcessing() {
               <div className="card-title">Processing Timeline</div>
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
-              <ProcessingTimeline status={status} statusHistory={app.status_history} />
+              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} />
             </div>
           </div>
 
@@ -559,17 +608,25 @@ export default function ApplicationProcessing() {
       {/* Approve Modal */}
       {showApproveModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowApproveModal(false)}>
-          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Approve Application</div>
+          <div className="modal" style={{ maxWidth: 560, width: '92%', padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
+                  <CheckCircle size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Approve Application</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification scope &amp; category before proceeding</div>
+                </div>
+              </div>
               <button className="modal-close" onClick={() => setShowApproveModal(false)}><X size={18} /></button>
             </div>
-            <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-                You are about to approve this application. Please confirm the final category before approving.
-              </p>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Final Category</label>
+
+            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                  Selected Certification Category
+                </label>
                 <select 
                   className="form-control" 
                   value={approveCategory || app?.category} 
@@ -582,10 +639,11 @@ export default function ApplicationProcessing() {
                 </select>
               </div>
             </div>
-            <div className="modal-footer">
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowApproveModal(false)} disabled={actionSubmitting}>Cancel</button>
               <button className="btn btn-primary" onClick={handleApprove} disabled={actionSubmitting}>
-                {actionSubmitting ? 'Approving...' : 'Confirm Approve'}
+                {actionSubmitting ? 'Approving...' : 'Confirm Approval'}
               </button>
             </div>
           </div>
@@ -595,147 +653,104 @@ export default function ApplicationProcessing() {
       {/* Reject Modal */}
       {showRejectModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowRejectModal(false)}>
-          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title" style={{ color: '#dc2626' }}>Reject Application</div>
+          <div className="modal" style={{ maxWidth: 560, width: '92%', padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+                  <XCircle size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#dc2626' }}>Reject Application</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Specify formal rejection reasons for client review</div>
+                </div>
+              </div>
               <button className="modal-close" onClick={() => setShowRejectModal(false)}><X size={18} /></button>
             </div>
-            <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                Please provide a brief reason for rejection. The client will see this note in their portal.
-              </p>
-              <textarea
-                className="form-control"
-                rows={3}
-                placeholder="Reason for rejection..."
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                disabled={actionSubmitting}
-              />
+
+            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                  Reason for Rejection *
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  placeholder="Provide clear reasons for rejection..."
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  disabled={actionSubmitting}
+                />
+              </div>
             </div>
-            <div className="modal-footer">
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowRejectModal(false)} disabled={actionSubmitting}>Cancel</button>
               <button className="btn btn-danger" onClick={handleReject} disabled={actionSubmitting || !rejectReason.trim()}>
-                {actionSubmitting ? 'Rejecting...' : 'Confirm Reject'}
+                {actionSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Extracted Modals */}
-      <ProposalModal
-        isOpen={showProposalModal}
-        onClose={() => setShowProposalModal(false)}
-        app={app}
-        proposal={proposal}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <InvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        app={app}
-        invoice={invoice}
-        invoiceType={invoiceModalType}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <AuditManageModal
-        isOpen={showAuditModal}
-        onClose={() => setShowAuditModal(false)}
-        app={app}
-        existingAudits={audits}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <AgreementModal
-        isOpen={showAgreementModal}
-        onClose={() => setShowAgreementModal(false)}
-        app={app}
-        agreement={agreement}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <CertificateModal
-        isOpen={showCertificateModal}
-        onClose={() => setShowCertificateModal(false)}
-        app={app}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      {/* Client Details Modal */}
-      {showClientModal && (
-        <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowClientModal(false)}>
-          <div className="modal" style={{ maxWidth: 540, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+      {/* Flag NC Report Modal */}
+      {showNcModal && (
+        <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowNcModal(false)}>
+          <div className="modal" style={{ maxWidth: 620, width: '92%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#15803d' }}>
-                  <Building2 size={20} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+                  <AlertTriangle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                    {app.profiles?.company_name || app.establishment_name || 'Client Profile'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Client & Company Overview</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Flag Non-Conformity (NC) Report</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Provide NC report details and attachment for client corrective action</div>
                 </div>
               </div>
-              <button className="modal-close" onClick={() => setShowClientModal(false)}><X size={18}/></button>
+              <button className="modal-close" onClick={() => setShowNcModal(false)}><X size={18} /></button>
             </div>
 
-            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
-              {/* Profile Header Card */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Contact Name</div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{app.profiles?.full_name || app.contact_name || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Email Address</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#2563eb', marginTop: 2 }}>{app.profiles?.email || app.contact_email || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Telephone</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{app.contact_phone || app.profiles?.phone || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Account Status</div>
-                  <div style={{ marginTop: 3 }}>
-                    <span style={{ background: '#f0fdf4', color: '#15803d', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <CheckCircle size={10} /> Active Client
-                    </span>
-                  </div>
-                </div>
+            <div style={{ padding: '24px', display: 'grid', gap: 18, flex: 1, overflowY: 'auto' }}>
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                  Non-Conformity Description &amp; Required Action *
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  placeholder="Specify audit findings, clause non-compliance, and instructions for client correction..."
+                  value={ncText}
+                  onChange={e => setNcText(e.target.value)}
+                  disabled={flaggingNc}
+                />
               </div>
 
-              {/* Site & Application Scope info */}
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>
-                  Registered Establishment & Scope
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                  Upload Official NC Report Document (Optional)
+                </label>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
+                  Attach official audit observation sheet or NC report PDF.
                 </div>
-                <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{app.establishment_name || app.site_name || 'Main Facility'}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.establishment_address || 'Address not specified'}</div>
-                  {app.scope && (
-                    <div style={{ fontSize: 12, color: '#475569', marginTop: 8, background: '#f1f5f9', padding: '8px 10px', borderRadius: 6 }}>
-                      <strong>Scope:</strong> {app.scope}
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg"
+                  onChange={e => setNcFile(e.target.files[0] || null)}
+                  disabled={flaggingNc}
+                  style={{ fontSize: 13 }}
+                />
+                {ncFile && (
+                  <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, marginTop: 6 }}>
+                    Selected file: {ncFile.name}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                className="btn btn-primary"
-                style={{ gap: 7, fontSize: 13 }}
-                onClick={() => {
-                  setShowClientModal(false);
-                  const searchStr = app.profiles?.company_name || app.profiles?.email || app.establishment_name;
-                  navigate(`/clients?search=${encodeURIComponent(searchStr)}`);
-                }}
-              >
-                <ExternalLink size={14} /> Open in Companies Directory
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setShowNcModal(false)} disabled={flaggingNc}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc || !ncText.trim()}>
+                {flaggingNc ? 'Flagging Report...' : 'Flag NC Report'}
               </button>
             </div>
           </div>
@@ -745,22 +760,28 @@ export default function ApplicationProcessing() {
       {/* Put On Hold Modal */}
       {showHoldModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowHoldModal(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Put Application On Hold</div>
+          <div className="modal" style={{ maxWidth: 560, width: '92%', padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                  <Clock size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Put Application On Hold</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Pause application processing pending client clarifications</div>
+                </div>
+              </div>
               <button className="modal-close" onClick={() => setShowHoldModal(false)}><X size={18} /></button>
             </div>
-            <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-                Placing this application on hold updates its status to <strong>Under Review</strong>. Approve and Reject options will remain available.
-              </p>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>
-                  Reason / Admin Note (Optional)
+
+            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
+              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                  Hold Reason / Admin Note (Optional)
                 </label>
                 <textarea
                   className="form-control"
-                  rows={3}
+                  rows={4}
                   placeholder="e.g. Awaiting client documentation clarification on ingredient list..."
                   value={holdReason}
                   onChange={e => setHoldReason(e.target.value)}
@@ -768,7 +789,8 @@ export default function ApplicationProcessing() {
                 />
               </div>
             </div>
-            <div className="modal-footer">
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowHoldModal(false)} disabled={actionSubmitting}>Cancel</button>
               <button className="btn btn-primary" style={{ background: '#d97706', borderColor: '#d97706' }} onClick={handleHoldConfirm} disabled={actionSubmitting}>
                 {actionSubmitting ? 'Updating...' : 'Confirm Hold'}

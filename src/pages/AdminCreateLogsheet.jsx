@@ -162,6 +162,19 @@ export default function AdminCreateLogsheet() {
     }
   };
 
+  const handleNcReportUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      toast.loading('Uploading NC report document...', { id: 'nc-upload' });
+      const url = await api.uploadPdf(file, 'logsheets');
+      setForm(prev => ({ ...prev, nc_report_url: url }));
+      toast.success('NC report document uploaded!', { id: 'nc-upload' });
+    } catch (err) {
+      toast.error('Upload failed', { id: 'nc-upload' });
+    }
+  };
+
   const handleSignLogsheet = async (e) => {
     e.preventDefault();
     if (sigRoles.length === 0) {
@@ -500,6 +513,29 @@ export default function AdminCreateLogsheet() {
                   <div className="form-group">
                     <label className="form-label">NCS Close (if any)</label>
                     <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">NC Report Document (Optional)</label>
+                    {form.nc_report_url ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px' }}>
+                        <FileText size={18} style={{ color: '#16a34a' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>NC Report Document Attached</div>
+                          <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>
+                            View NC Report
+                          </a>
+                        </div>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, nc_report_url: '' })}>
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="file-upload-box" style={{ display: 'flex', flexDirection: 'column', padding: 18, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#f8fafc' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Upload Resolved NC Report PDF / Attachment</div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>PDF, PNG, or JPG (Max 5MB)</div>
+                        <input type="file" style={{ display: 'none' }} onChange={handleNcReportUpload} />
+                      </label>
+                    )}
                   </div>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label className="form-label">Audit Documentation reviewed and found satisfactory</label>

@@ -52,7 +52,7 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
       stepsToShow.push('proposal_approved');
     }
 
-    // Rest of the flow (Phases 6–9)
+    // Rest of the flow
     const restFlow = [
       'invoice_sent',
       'payment_received',
@@ -60,6 +60,7 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
       'dates_accepted',
       'date_finalized',
       'audit_assigned',
+      'audit_successful',
       'audit_report_submitted',
     ];
     stepsToShow.push(...restFlow);
@@ -73,7 +74,6 @@ export default function ProcessingTimeline({ status, statusHistory = [] }) {
     // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
     if (status !== 'on_hold') {
       stepsToShow.push(
-        'audit_successful',
         'logsheet_created',
         'logsheet_signed',
         'agreement_sent',

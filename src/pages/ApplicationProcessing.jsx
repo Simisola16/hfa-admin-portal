@@ -693,6 +693,47 @@ export default function ApplicationProcessing() {
         </div>
       )}
 
+      {/* Extracted Modals */}
+      <ProposalModal
+        isOpen={showProposalModal}
+        onClose={() => setShowProposalModal(false)}
+        app={app}
+        proposal={proposal}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <InvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        app={app}
+        invoice={invoice}
+        invoiceType={invoiceModalType}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <AuditManageModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        app={app}
+        existingAudits={audits}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <AgreementModal
+        isOpen={showAgreementModal}
+        onClose={() => setShowAgreementModal(false)}
+        app={app}
+        agreement={agreement}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <CertificateModal
+        isOpen={showCertificateModal}
+        onClose={() => setShowCertificateModal(false)}
+        app={app}
+        onSuccess={() => fetchApp(true)}
+      />
+
       {/* Flag NC Report Modal */}
       {showNcModal && (
         <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowNcModal(false)}>

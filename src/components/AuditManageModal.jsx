@@ -20,6 +20,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
   const [auditForm, setAuditForm] = useState({
     dates: ['', '', ''],
     auditors: [],
+    stage2Auditors: [], // optional pre-assignment of Stage 2 auditors alongside Stage 1
     nc_text: '',
     nc_file: null,
     finalized_date: ''
@@ -116,13 +117,34 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       toast.error('Please fill in Name and Email for all auditors.');
       return;
     }
+    // Validate Stage 2 auditors if any were entered (partial entries are not allowed)
+    const stage2Filled = auditForm.stage2Auditors.filter(a => a.name || a.email);
+    if (stage2Filled.length > 0 && stage2Filled.some(a => !a.name || !a.email)) {
+      toast.error('Please fill in Name and Email for all Stage 2 auditors, or leave them all blank to assign later.');
+      return;
+    }
     setAuditSubmitting(true);
     try {
-      const res = await api.post('/api/audits/assign-auditors', {
+      await api.post('/api/audits/assign-auditors', {
         audit_id: existingAudit._id || existingAudit.id,
         auditors: auditForm.auditors
       });
-      toast.success('Auditors assigned successfully!');
+      // If Stage 2 auditors were pre-filled, find or create the Stage 2 audit and assign them
+      if (isDualStage && stage2Filled.length > 0) {
+        const stage2Audit = existingAudits.find(a => a.stage === 2);
+        if (stage2Audit && (stage2Audit.status === 'date_finalized' || stage2Audit.status === 'dates_accepted')) {
+          await api.post('/api/audits/assign-auditors', {
+            audit_id: stage2Audit._id || stage2Audit.id,
+            auditors: auditForm.stage2Auditors
+          }).catch(() => {}); // Don't block Stage 1 assignment if Stage 2 doesn't exist yet
+        }
+        // Store stage2 pre-assignment in session — will be applied when Stage 2 date is finalized
+        // We stash them in sessionStorage so they survive the modal re-open if needed
+        try {
+          sessionStorage.setItem(`stage2_auditors_${app._id || app.id}`, JSON.stringify(auditForm.stage2Auditors));
+        } catch (_) {}
+      }
+      toast.success('Auditors assigned successfully!' + (isDualStage && stage2Filled.length > 0 ? ' Stage 2 auditors will be applied when Stage 2 date is finalized.' : ''));
       onSuccess();
     } catch (err) {
       toast.error(err.message || 'Failed to assign auditors');
@@ -304,7 +326,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                 <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>{new Date(existingAudit.finalized_date).toDateString()}</p>
               </div>
 
-              <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 16, fontWeight: 700 }}>Assign Auditor(s)</h4>
+              {/* Stage 1 Auditors */}
+              <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 4, fontWeight: 700 }}>
+                {isDualStage ? 'Stage 1 Auditor(s)' : 'Assign Auditor(s)'}
+              </h4>
+              {isDualStage && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>These auditors will conduct the Stage 1 (initial) audit visit.</p>}
               
               <div style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
                 {auditForm.auditors.map((auditor, i) => (
@@ -354,7 +380,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                         <input className="form-control" value={auditor.purpose} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, purpose: e.target.value };
-                          setAuditForm({ ...auditForm, auditors: newAuditors });
                         }} placeholder="e.g. Site Audit" />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
@@ -391,6 +416,106 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                 </div>
               </div>
 
+              {/* Stage 2 optional pre-assignment (GSO/UAE dual-stage only, shown on Stage 1 assignment screen) */}
+              {isDualStage && activeStage === 1 && (() => {
+                const stage2AlreadyAssigned = existingAudits.find(a => a.stage === 2)?.auditors?.length > 0;
+                if (stage2AlreadyAssigned) return null;
+                return (
+                  <div style={{ marginBottom: 24, border: '1.5px dashed #c7d2fe', borderRadius: 10, padding: 18, background: '#f5f3ff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <h4 style={{ fontSize: 14, color: '#4f46e5', fontWeight: 700, margin: 0 }}>
+                        Stage 2 Auditors <span style={{ fontSize: 11, fontWeight: 500, color: '#6366f1' }}>(optional — can also be assigned later)</span>
+                      </h4>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#6366f1', marginBottom: 16, lineHeight: 1.5 }}>
+                      You may pre-assign Stage 2 auditors now or leave these blank and assign them once Stage 2 scheduling begins. Either approach works.
+                    </p>
+                    <div style={{ display: 'grid', gap: 12, marginBottom: 12 }}>
+                      {(auditForm.stage2Auditors.length === 0 ? [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }] : auditForm.stage2Auditors).map((auditor, i) => (
+                        <div key={i} style={{ padding: '14px', border: '1px solid #c7d2fe', borderRadius: '8px', position: 'relative', background: '#ede9fe' }}>
+                          {auditForm.stage2Auditors.length > 1 && (
+                            <button
+                              type="button"
+                              style={{ position: 'absolute', top: 10, right: 10, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                              onClick={() => {
+                                const updated = auditForm.stage2Auditors.filter((_, idx) => idx !== i);
+                                setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                              }}
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', marginBottom: 10 }}>Stage 2 Auditor {i + 1}</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Name</label>
+                              <input className="form-control" value={auditor.name} onChange={e => {
+                                const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                                updated[i] = { ...updated[i], name: e.target.value };
+                                setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                              }} placeholder="e.g. Dr. Yusuf" />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Email</label>
+                              <input type="email" className="form-control" value={auditor.email} onChange={e => {
+                                const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                                updated[i] = { ...updated[i], email: e.target.value };
+                                setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                              }} placeholder="e.g. yusuf@hfa.org" />
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Contact</label>
+                              <input className="form-control" value={auditor.contact_number} onChange={e => {
+                                const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                                updated[i] = { ...updated[i], contact_number: e.target.value };
+                                setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                              }} placeholder="+44..." />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Purpose</label>
+                              <input className="form-control" value={auditor.purpose} onChange={e => {
+                                const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                                updated[i] = { ...updated[i], purpose: e.target.value };
+                                setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                              }} placeholder="e.g. Sharia Audit" />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Role</label>
+                              <select
+                                className="form-control"
+                                value={auditor.role || 'lead_auditor'}
+                                onChange={e => {
+                                  const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                                  updated[i] = { ...updated[i], role: e.target.value };
+                                  setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+                                }}
+                              >
+                                <option value="lead_auditor">Lead Auditor</option>
+                                <option value="sharia_board">Sharia Board</option>
+                                <option value="audit_trainee">Audit Trainee</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: '#4f46e5' }}
+                      onClick={() => {
+                        const base = auditForm.stage2Auditors.length > 0 ? auditForm.stage2Auditors : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+                        setAuditForm(f => ({ ...f, stage2Auditors: [...base, { name: '', email: '', contact_number: '', purpose: '', role: 'audit_trainee' }] }));
+                      }}
+                    >
+                      + Add Stage 2 Auditor
+                    </button>
+                  </div>
+                );
+              })()}
+
               <div style={{ textAlign: 'right' }}>
                 <button
                   className="btn btn-primary"
@@ -406,6 +531,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
           {/* Tabbed view for Assigned / Completed Audits */}
           {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
             <div>
+              {/*
+                NC & Completion tab is hidden for Stage 1 of dual-stage (GSO/UAE) audits.
+                NC flagging only applies to Stage 2 (or single-stage) — per the audit flow spec.
+                Stage 1 completion moves straight to Stage 2 readiness with no NC gate.
+              */}
               {/* Tab Header */}
               <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: 20 }}>
                 <button
@@ -415,13 +545,16 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                 >
                   <Users size={14} style={{ marginRight: 6, display: 'inline' }} /> Schedule &amp; Team
                 </button>
-                <button
-                  type="button"
-                  style={{ padding: '10px 20px', border: 'none', background: 'none', borderBottom: auditModalTab === 'nc' ? '2.5px solid var(--primary)' : 'none', color: auditModalTab === 'nc' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer' }}
-                  onClick={() => setAuditModalTab('nc')}
-                >
-                  <AlertCircle size={14} style={{ marginRight: 6, display: 'inline' }} /> NC &amp; Completion
-                </button>
+                {/* NC tab: hidden for Stage 1 of dual-stage audits — NC flagging is Stage 2 only */}
+                {(!isDualStage || activeStage === 2) && (
+                  <button
+                    type="button"
+                    style={{ padding: '10px 20px', border: 'none', background: 'none', borderBottom: auditModalTab === 'nc' ? '2.5px solid var(--primary)' : 'none', color: auditModalTab === 'nc' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer' }}
+                    onClick={() => setAuditModalTab('nc')}
+                  >
+                    <AlertCircle size={14} style={{ marginRight: 6, display: 'inline' }} /> NC &amp; Completion
+                  </button>
+                )}
               </div>
 
               {auditModalTab === 'schedule' && (
@@ -432,6 +565,16 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                       {new Date(existingAudit.finalized_date).toDateString()}
                     </p>
                   </div>
+
+                  {/* Stage 1 completion guidance for dual-stage: no NC gate here, go straight to Stage 2 */}
+                  {isDualStage && activeStage === 1 && existingAudit.status === 'auditors_assigned' && (
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>Stage 1 — No NC Flagging Here</div>
+                      <div style={{ fontSize: 12, color: '#3b82f6', lineHeight: 1.6 }}>
+                        For GSO/UAE two-stage audits, NC flagging only occurs after Stage 2. Once Stage 1 is complete, this application proceeds directly to Stage 2 scheduling with no NC decision at this point.
+                      </div>
+                    </div>
+                  )}
 
                   <h4 style={{ fontSize: 14, color: '#334155', fontWeight: 700, marginBottom: 12 }}>Assigned Auditor Team</h4>
                   <div style={{ display: 'grid', gap: 10 }}>

@@ -7,6 +7,15 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getSocket } from '../lib/socket';
 
+// Shared Admin Modals
+import ProposalModal from './ProposalModal';
+import InvoiceModal from './InvoiceModal';
+import AgreementModal from './AgreementModal';
+import FinalAgreementModal from './FinalAgreementModal';
+import CertificateModal from './CertificateModal';
+import AuditManageModal from './AuditManageModal';
+import ConfirmPaymentModal from './ConfirmPaymentModal';
+
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
   '/dashboard':                   { title: 'Dashboard',           sub: 'System overview',                section: null },
@@ -82,6 +91,7 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [quickModal, setQuickModal] = useState(null); // { type, appId }
   const panelRef = useRef();
 
   const [animateBell, setAnimateBell] = useState(false);
@@ -109,35 +119,73 @@ export default function AdminLayout() {
       info: '#bfdbfe'
     };
 
+    const titleLower = (notif.title || '').toLowerCase();
+    let modalType = null;
+    if (titleLower.includes('payment')) modalType = 'confirm_payment';
+    else if (titleLower.includes('proposal')) modalType = 'send_proposal';
+    else if (titleLower.includes('invoice')) modalType = 'send_initial_invoice';
+    else if (titleLower.includes('agreement') && titleLower.includes('signed')) modalType = 'send_final_agreement';
+    else if (titleLower.includes('agreement')) modalType = 'send_agreement';
+    else if (titleLower.includes('ready')) modalType = 'issue_certificate';
+
+    const extractAppId = (link) => {
+      if (!link) return null;
+      const m1 = link.match(/\/applications\/([a-fA-F0-9]{24})/);
+      if (m1) return m1[1];
+      const m2 = link.match(/appId=([a-fA-F0-9]{24})/);
+      if (m2) return m2[1];
+      return null;
+    };
+    const targetAppId = extractAppId(notif.link);
+
     toast.custom((t) => (
       <div
-        onClick={() => {
-          toast.dismiss(t.id);
-          if (notif.link) navigate(notif.link);
-        }}
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '14px 20px',
+          flexDirection: 'column',
+          gap: '8px',
+          padding: '14px 18px',
           background: bgMap[notif.type] || 'white',
           border: `1.5px solid ${borderMap[notif.type] || '#e2e8f0'}`,
           borderRadius: '12px',
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-          cursor: 'pointer',
-          maxWidth: '380px',
+          maxWidth: '400px',
           width: '100%',
           animation: t.visible ? 'slideIn 0.3s ease' : 'fadeOut 0.3s ease',
           fontFamily: 'Inter, sans-serif'
         }}
       >
-        <div style={{ flexShrink: 0 }}>
-          {iconMap[notif.type] || iconMap.info}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ flexShrink: 0, marginTop: 2 }}>
+            {iconMap[notif.type] || iconMap.info}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{notif.title}</div>
+            <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', lineHeight: 1.4 }}>{notif.message}</div>
+          </div>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+          >
+            <X size={14} />
+          </button>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{notif.title}</div>
-          <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', lineHeight: 1.4 }}>{notif.message}</div>
-        </div>
+
+        {modalType && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ padding: '4px 12px', fontSize: 11, fontWeight: 700, gap: 4 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.dismiss(t.id);
+                setQuickModal({ type: modalType, appId: targetAppId });
+              }}
+            >
+              View &amp; Respond
+            </button>
+          </div>
+        )}
       </div>
     ), { id: notif._id || notif.id, duration: 60000 });
   };
@@ -456,6 +504,62 @@ export default function AdminLayout() {
           }
         `}} />
       </div>
+
+      {/* Shared Admin Quick Action Modals */}
+      {quickModal?.type === 'confirm_payment' && (
+        <ConfirmPaymentModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'send_proposal' && (
+        <ProposalModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'send_initial_invoice' && (
+        <InvoiceModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          invoiceType="initial"
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'send_agreement' && (
+        <AgreementModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'send_final_agreement' && (
+        <FinalAgreementModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'issue_certificate' && (
+        <CertificateModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
     </div>
   );
 }

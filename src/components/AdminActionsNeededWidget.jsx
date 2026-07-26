@@ -1,0 +1,346 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertCircle, FileText, Receipt, Calendar, PenTool, CheckCircle, ArrowRight, ShieldAlert, Award, ClipboardList } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import toast from 'react-hot-toast';
+
+// Shared Admin Modals
+import ProposalModal from './ProposalModal';
+import InvoiceModal from './InvoiceModal';
+import AgreementModal from './AgreementModal';
+import FinalAgreementModal from './FinalAgreementModal';
+import CertificateModal from './CertificateModal';
+import AuditManageModal from './AuditManageModal';
+import ConfirmPaymentModal from './ConfirmPaymentModal';
+
+export default function AdminActionsNeededWidget({ onActionCompleted }) {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Active modal target
+  const [activeModal, setActiveModal] = useState(null); // { type, app, invoice }
+
+  const fetchAdminActions = useCallback(async () => {
+    try {
+      const [appRes, invRes] = await Promise.all([
+        api.get('/api/applications'),
+        api.get('/api/invoices').catch(() => ({ data: [] }))
+      ]);
+
+      const allApps = appRes.data?.data || appRes.data || [];
+      const allInvoices = invRes.data?.data || invRes.data || [];
+
+      const actionList = [];
+
+      // Check client_paid invoices
+      const clientPaidInvoices = allInvoices.filter(inv => inv.status === 'client_paid');
+      for (const inv of clientPaidInvoices) {
+        const linkedApp = allApps.find(a => String(a._id || a.id) === String(inv.application_id?._id || inv.application_id));
+        actionList.push({
+          id: `inv-${inv._id || inv.id}`,
+          app: linkedApp || { application_number: 'N/A', establishment_name: 'Client' },
+          invoice: inv,
+          type: 'confirm_payment',
+          title: 'Client Payment Proof Submitted',
+          desc: `Confirm receipt for Invoice #${inv.invoice_number} (£${inv.amount})`,
+          buttonText: 'Confirm Payment',
+          buttonBg: '#16a34a',
+          isFullPage: false
+        });
+      }
+
+      // Check application status actions
+      for (const app of allApps) {
+        switch (app.status) {
+          case 'submitted':
+          case 'under_review':
+            actionList.push({
+              id: `app-sub-${app._id}`,
+              app,
+              type: 'review_app',
+              title: 'New Application Submitted',
+              desc: `Review submission details for ${app.establishment_name}`,
+              buttonText: 'Review App',
+              buttonBg: '#2563eb',
+              isFullPage: true,
+              link: `/applications/${app._id}/processing`
+            });
+            break;
+          case 'approved':
+            actionList.push({
+              id: `app-prop-${app._id}`,
+              app,
+              type: 'send_proposal',
+              title: 'Application Approved: Send Proposal',
+              desc: `Send certification proposal to ${app.establishment_name}`,
+              buttonText: 'Send Proposal',
+              buttonBg: '#6b21a8',
+              isFullPage: false
+            });
+            break;
+          case 'proposal_approved':
+            actionList.push({
+              id: `app-inv-${app._id}`,
+              app,
+              type: 'send_initial_invoice',
+              title: 'Proposal Approved: Send Invoice',
+              desc: `Issue initial certification fee invoice to ${app.establishment_name}`,
+              buttonText: 'Send Invoice',
+              buttonBg: '#854d0e',
+              isFullPage: false
+            });
+            break;
+          case 'dates_accepted':
+            actionList.push({
+              id: `app-audit-${app._id}`,
+              app,
+              type: 'finalize_audit_date',
+              title: 'Client Selected Preferred Audit Dates',
+              desc: `Lock in final confirmed audit date for ${app.establishment_name}`,
+              buttonText: 'Finalize Date',
+              buttonBg: '#ea580c',
+              isFullPage: false
+            });
+            break;
+          case 'audit_report_submitted':
+            actionList.push({
+              id: `app-logsheet-${app._id}`,
+              app,
+              type: 'create_logsheet',
+              title: 'Audit Complete: Create LogSheet',
+              desc: `Create & sign logsheet for ${app.establishment_name}`,
+              buttonText: 'Create LogSheet',
+              buttonBg: '#0e7490',
+              isFullPage: true,
+              link: `/applications/${app._id}/logsheet`
+            });
+            break;
+          case 'logsheet_signed':
+          case 'application_successful':
+            actionList.push({
+              id: `app-ag-${app._id}`,
+              app,
+              type: 'send_agreement',
+              title: 'Logsheet Signed: Send Agreement',
+              desc: `Send certification agreement to ${app.establishment_name}`,
+              buttonText: 'Send Agreement',
+              buttonBg: '#2563eb',
+              isFullPage: false
+            });
+            break;
+          case 'agreement_signed':
+            actionList.push({
+              id: `app-agfinal-${app._id}`,
+              app,
+              type: 'send_final_agreement',
+              title: 'Agreement Signed: Send Countersigned Copy',
+              desc: `Upload final countersigned agreement PDF for ${app.establishment_name}`,
+              buttonText: 'Send Final Copy',
+              buttonBg: '#0284c7',
+              isFullPage: false
+            });
+            break;
+          case 'final_invoice_paid':
+            actionList.push({
+              id: `app-readycert-${app._id}`,
+              app,
+              type: 'mark_ready_certificate',
+              title: 'Final Payment Confirmed',
+              desc: `Mark ${app.establishment_name} ready for certificate issuance`,
+              buttonText: 'Mark Ready',
+              buttonBg: '#9333ea',
+              isFullPage: false
+            });
+            break;
+          case 'ready_for_certificate':
+            actionList.push({
+              id: `app-cert-${app._id}`,
+              app,
+              type: 'issue_certificate',
+              title: 'Application Ready: Issue Certificate',
+              desc: `Generate & issue Halal Certificate to ${app.establishment_name}`,
+              buttonText: 'Issue Certificate',
+              buttonBg: '#16a34a',
+              isFullPage: false
+            });
+            break;
+          default:
+            break;
+        }
+      }
+
+      setItems(actionList);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAdminActions();
+  }, [fetchAdminActions]);
+
+  const handleRefresh = () => {
+    fetchAdminActions();
+    if (onActionCompleted) onActionCompleted();
+  };
+
+  const handleMarkReady = async (app) => {
+    try {
+      await api.put(`/api/applications/${app._id || app.id}/ready-for-certificate`);
+      toast.success('Application marked Ready for Certificate!');
+      handleRefresh();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update status.');
+    }
+  };
+
+  if (loading) return null;
+  if (items.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #fff, #f8fafc)',
+        border: '1.5px solid #e2e8f0',
+        borderRadius: 16,
+        padding: '20px 24px',
+        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldAlert size={18} style={{ color: '#4338ca' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Admin Action Required ({items.length})</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Process pending items directly from this widget</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          {items.map(item => (
+            <div
+              key={item.id}
+              style={{
+                background: 'white',
+                border: '1px solid #e2e8f0',
+                borderRadius: 12,
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'space-between',
+                gap: 16,
+                flexWrap: 'wrap'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>
+                  {item.title} &middot; <span style={{ color: '#64748b', fontWeight: 600 }}>#{item.app.application_number}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
+                  {item.desc}
+                </div>
+              </div>
+
+              {item.isFullPage ? (
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ gap: 6, fontWeight: 700, borderColor: '#cbd5e1' }}
+                  onClick={() => navigate(item.link || `/applications/${item.app._id}/processing`)}
+                >
+                  {item.buttonText} <ArrowRight size={14} />
+                </button>
+              ) : item.type === 'mark_ready_certificate' ? (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
+                  onClick={() => handleMarkReady(item.app)}
+                >
+                  {item.buttonText}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
+                  onClick={() => setActiveModal({ type: item.type, app: item.app, invoice: item.invoice })}
+                >
+                  {item.buttonText}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Admin Shared Modals */}
+      {activeModal?.type === 'confirm_payment' && (
+        <ConfirmPaymentModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          invoice={activeModal.invoice}
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'send_proposal' && (
+        <ProposalModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'send_initial_invoice' && (
+        <InvoiceModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          invoiceType="initial"
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'finalize_audit_date' && (
+        <AuditManageModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'send_agreement' && (
+        <AgreementModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'send_final_agreement' && (
+        <FinalAgreementModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          onSuccess={handleRefresh}
+        />
+      )}
+
+      {activeModal?.type === 'issue_certificate' && (
+        <CertificateModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          app={activeModal.app}
+          onSuccess={handleRefresh}
+        />
+      )}
+    </div>
+  );
+}

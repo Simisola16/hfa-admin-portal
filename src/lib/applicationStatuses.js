@@ -24,10 +24,13 @@ export const STATUS_ORDER = [
   'audit_successful',
   'logsheet_created',
   'logsheet_signed',
+  'application_successful',
   'agreement_sent',
   'agreement_signed',
+  'agreement_finalised',
   'final_invoice_sent',
   'final_invoice_paid',
+  'ready_for_certificate',
   'certificate_issued',
 ];
 
@@ -35,7 +38,7 @@ export const STATUS_LABELS = {
   submitted:               'Application Submitted',
   under_review:            'Under Review',
   rejected:                'Application Rejected',
-  approved:                'Application Approved',
+  approved:                'Application Received',
   proposal_sent:           'Proposal Sent',
   proposal_rejected:       'Proposal Rejected',
   proposal_approved:       'Proposal Approved',
@@ -45,16 +48,19 @@ export const STATUS_LABELS = {
   dates_accepted:          'Audit Dates Accepted',
   date_finalized:          'Audit Date Finalized',
   audit_assigned:          'Auditor Assigned',
-  // NOTE: enum value kept as audit_report_submitted for backward compatibility with Phase 8 LogSheet trigger; displayed as 'NC Closed'
-  audit_report_submitted:  'NC Closed',
+  // NOTE: displayed as 'Audit Report Submitted' in admin; covers both clean-audit and post-NC resolution
+  audit_report_submitted:  'Audit Report Submitted',
   on_hold:                 'On Hold',
   audit_successful:        'Audit Complete',
   logsheet_created:        'Logsheet Created',
   logsheet_signed:         'Logsheet Signed',
+  application_successful:  'Application Successful',
   agreement_sent:          'Agreement Sent',
   agreement_signed:        'Agreement Signed',
+  agreement_finalised:     'Final Agreement Sent',
   final_invoice_sent:      'Final Invoice Sent',
   final_invoice_paid:      'Final Invoice Paid',
+  ready_for_certificate:   'Ready for Certificate',
   certificate_issued:      'Certificate Issued',
 };
 
@@ -77,10 +83,13 @@ export const STATUS_BADGE = {
   audit_successful:        'badge-green',
   logsheet_created:        'badge-yellow',
   logsheet_signed:         'badge-green',
+  application_successful:  'badge-green',
   agreement_sent:          'badge-purple',
   agreement_signed:        'badge-green',
+  agreement_finalised:     'badge-green',
   final_invoice_sent:      'badge-purple',
   final_invoice_paid:      'badge-green',
+  ready_for_certificate:   'badge-purple',
   certificate_issued:      'badge-green',
 };
 
@@ -88,4 +97,4 @@ export const STATUS_BADGE = {
  * Stages that are considered "terminal" — the application is done.
  * After any of these, the client can submit a new application.
  */
-export const TERMINAL_STATUSES = ['approved', 'rejected', 'certificate_issued'];
+export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];

@@ -12,7 +12,7 @@ const getPdfUrl = (url) => {
 
 export default function InvoiceCard({ invoice, status, onConfirmPayment, confirmingPayment }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
-  const isAvailable = ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'certificate_issued'].includes(normStatus) || invoice;
+  const isAvailable = ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
 
   if (!isAvailable) {
     return (

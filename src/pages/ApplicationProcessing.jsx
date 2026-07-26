@@ -18,6 +18,7 @@ import InvoiceModal from '../components/InvoiceModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
+import FinalAgreementModal from '../components/FinalAgreementModal';
 
 // Extracted Detail Cards
 import ProposalCard from '../components/ProposalCard';
@@ -50,6 +51,7 @@ export default function ApplicationProcessing() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showFinalAgreementModal, setShowFinalAgreementModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
@@ -313,13 +315,30 @@ export default function ApplicationProcessing() {
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
 
-  const showCreateLogsheetAction = ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed'].includes(status);
+  const showCreateLogsheetAction = ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful'].includes(status);
   
-  const showSendAgreementAction = ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
+  const showSendAgreementAction = ['application_successful', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
   
-  const showFinalInvoiceAction = ['agreement_signed', 'final_invoice_sent', 'final_invoice_paid'].includes(status);
+  const showSendFinalAgreementAction = ['agreement_signed', 'agreement_finalised'].includes(status) || agreement?.client_signed;
+
+  const showFinalInvoiceAction = ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
   
-  const showCertificateAction = ['agreement_signed', 'final_invoice_sent', 'final_invoice_paid'].includes(status);
+  const showMarkReadyCertificateAction = status === 'final_invoice_paid';
+
+  const showCertificateAction = ['ready_for_certificate', 'certificate_issued'].includes(status);
+
+  const handleMarkReadyForCertificate = async () => {
+    setActionSubmitting(true);
+    try {
+      await api.put(`/api/applications/${appId}/ready-for-certificate`);
+      toast.success('Application marked Ready for Certificate Issuance!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update status.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
 
   return (
     <div className="page-content">
@@ -483,6 +502,16 @@ export default function ApplicationProcessing() {
               </button>
             )}
 
+            {showSendFinalAgreementAction && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#0284c7' }}
+                onClick={() => setShowFinalAgreementModal(true)}
+              >
+                <FileText size={16} /> {agreement?.final_agreement_url ? 'Resend Final Signed Copy' : 'Send Final Signed Copy'}
+              </button>
+            )}
+
             {showFinalInvoiceAction && (
               <button
                 className="btn btn-primary"
@@ -493,23 +522,25 @@ export default function ApplicationProcessing() {
               </button>
             )}
 
+            {showMarkReadyCertificateAction && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+                onClick={handleMarkReadyForCertificate}
+                disabled={actionSubmitting}
+              >
+                <Award size={16} /> Mark Ready for Certificate
+              </button>
+            )}
+
             {showCertificateAction && (
               <button
                 className="btn btn-primary"
                 style={{
                   gap: 8,
                   background: '#16a34a',
-                  opacity: isFinalInvoicePaid ? 1 : 0.5,
-                  cursor: isFinalInvoicePaid ? 'pointer' : 'not-allowed'
                 }}
-                onClick={() => {
-                  if (isFinalInvoicePaid) {
-                    setShowCertificateModal(true);
-                  } else {
-                    toast.error('Final invoice must be paid before certificate issuance');
-                  }
-                }}
-                title={isFinalInvoicePaid ? 'Issue Certificate' : 'Locked: Final invoice must be paid before certificate issuance'}
+                onClick={() => setShowCertificateModal(true)}
               >
                 <Award size={16} /> Issue Certificate
               </button>
@@ -552,7 +583,7 @@ export default function ApplicationProcessing() {
               <div className="card-title">Processing Timeline</div>
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
-              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} />
+              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} category={app.category || ''} />
             </div>
           </div>
 
@@ -722,6 +753,14 @@ export default function ApplicationProcessing() {
       <AgreementModal
         isOpen={showAgreementModal}
         onClose={() => setShowAgreementModal(false)}
+        app={app}
+        agreement={agreement}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <FinalAgreementModal
+        isOpen={showFinalAgreementModal}
+        onClose={() => setShowFinalAgreementModal(false)}
         app={app}
         agreement={agreement}
         onSuccess={() => fetchApp(true)}

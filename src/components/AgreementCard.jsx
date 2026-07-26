@@ -11,7 +11,7 @@ const getPdfUrl = (url) => {
 };
 
 export default function AgreementCard({ agreement, status }) {
-  const isAvailable = ['logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(status) || agreement;
+  const isAvailable = ['application_successful', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'ready_for_certificate', 'certificate_issued'].includes(status) || agreement;
 
   if (!isAvailable) {
     return (
@@ -42,10 +42,14 @@ export default function AgreementCard({ agreement, status }) {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Certification Agreement</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{agreement.client_signed ? 'Signed' : 'Awaiting Signature'}</span></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>
+                {agreement.final_agreement_url ? 'Finalized (Countersigned)' : (agreement.client_signed ? 'Signed' : 'Awaiting Signature')}
+              </span>
+            </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {agreement.agreement_url && (
             <a href={getPdfUrl(agreement.agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
               <Download size={13} /> View Original PDF
@@ -54,6 +58,11 @@ export default function AgreementCard({ agreement, status }) {
           {agreement.signed_agreement_url && (
             <a href={getPdfUrl(agreement.signed_agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#15803d', borderColor: '#bbf7d0' }}>
               <Download size={13} /> View Signed Copy
+            </a>
+          )}
+          {agreement.final_agreement_url && (
+            <a href={getPdfUrl(agreement.final_agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}>
+              <Download size={13} /> View Final Countersigned PDF
             </a>
           )}
         </div>

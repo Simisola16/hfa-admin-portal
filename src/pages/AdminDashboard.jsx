@@ -191,7 +191,7 @@ export default function AdminDashboard() {
         </div>
 
       {/* Persistent Admin Actions Needed Widget */}
-      <AdminActionsNeededWidget onActionCompleted={fetchDashboardData} />
+      <AdminActionsNeededWidget onActionCompleted={fetchData} />
       </div>
 
       {/* ── 4 KPI Cards (Matching Image Exact Squircle Icons) ── */}

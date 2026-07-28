@@ -105,6 +105,30 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
               isFullPage: false
             });
             break;
+          case 'audit_assigned':
+            actionList.push({
+              id: `app-auditassign-${app._id}`,
+              app,
+              type: 'manage_audit',
+              title: 'Auditors Assigned: Complete Audit',
+              desc: `Mark audit session completed for ${app.establishment_name}`,
+              buttonText: 'Complete Audit',
+              buttonBg: '#16a34a',
+              isFullPage: false
+            });
+            break;
+          case 'audit_completed':
+            actionList.push({
+              id: `app-auditcomplete-${app._id}`,
+              app,
+              type: 'manage_audit',
+              title: 'Audit Completed: Submit Audit Report',
+              desc: `Submit official audit report for ${app.establishment_name}`,
+              buttonText: 'Submit Report',
+              buttonBg: '#059669',
+              isFullPage: false
+            });
+            break;
           case 'audit_report_submitted':
             actionList.push({
               id: `app-logsheet-${app._id}`,
@@ -393,7 +417,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
         />
       )}
 
-      {activeModal?.type === 'finalize_audit_date' && (
+      {(activeModal?.type === 'finalize_audit_date' || activeModal?.type === 'manage_audit') && (
         <AuditManageModal
           isOpen={true}
           onClose={() => setActiveModal(null)}

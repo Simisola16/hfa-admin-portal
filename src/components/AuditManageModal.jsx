@@ -184,25 +184,46 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   };
 
-  const handleCompleteClean = async () => {
-    if (window.confirm('Are you sure there are no Non-Conformity (NC) reports for this audit session? This will complete the audit and advance the status to Audit Report Submitted.')) {
+  const handleMarkStageComplete = async (targetAudit) => {
+    const auditObj = targetAudit || existingAudit;
+    if (!auditObj) return;
+    const stageLabel = isDualStage ? `Stage ${auditObj.stage || activeStage}` : 'Audit';
+    if (window.confirm(`Are you sure you want to mark ${stageLabel} complete?`)) {
       setAuditSubmitting(true);
       try {
-        const res = await api.post('/api/audits/complete-clean', {
-          audit_id: existingAudit._id || existingAudit.id
+        await api.post('/api/audits/complete-clean', {
+          audit_id: auditObj._id || auditObj.id
         });
-        toast.success('Audit completed successfully.');
-        onSuccess();
-        if (!isDualStage || activeStage === 2) {
-          onClose();
-        }
+        toast.success(`${stageLabel} marked complete successfully!`);
+        if (onSuccess) onSuccess();
       } catch (err) {
-        toast.error(err.message || 'Failed to complete audit');
+        toast.error(err.message || 'Failed to complete audit stage');
       } finally {
         setAuditSubmitting(false);
       }
     }
   };
+
+  const handleSubmitAuditReport = async () => {
+    if (window.confirm('Submit the official audit report for this application? This will advance the status to Audit Report Submitted.')) {
+      setAuditSubmitting(true);
+      try {
+        await api.post('/api/audits/submit-report', {
+          application_id: app._id || app.id,
+          audit_id: existingAudit?._id || existingAudit?.id
+        });
+        toast.success('Audit Report submitted successfully!');
+        if (onSuccess) onSuccess();
+        onClose();
+      } catch (err) {
+        toast.error(err.message || 'Failed to submit audit report');
+      } finally {
+        setAuditSubmitting(false);
+      }
+    }
+  };
+
+  const handleCompleteClean = handleMarkStageComplete;
 
   const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
   const roleColors = {
@@ -587,6 +608,52 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                       );
                     })}
                   </div>
+                  {/* Action Buttons for Stage Completion & Audit Report Submission */}
+                  {existingAudit.status === 'auditors_assigned' && (
+                    <div style={{ marginTop: 20, padding: 16, background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#166534', marginBottom: 4 }}>
+                        {isDualStage ? `Stage ${activeStage} Audit in Progress` : 'Audit Session in Progress'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#15803d', marginBottom: 14, lineHeight: 1.5 }}>
+                        {isDualStage
+                          ? `Click below once Stage ${activeStage} audit visits are completed to mark Stage ${activeStage} as complete.`
+                          : 'Click below once audit visits are completed to mark the audit session as complete.'}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', fontWeight: 700, padding: '10px 18px', width: '100%', justifyContent: 'center' }}
+                        disabled={auditSubmitting}
+                        onClick={() => handleMarkStageComplete(existingAudit)}
+                      >
+                        {auditSubmitting ? 'Updating...' : (isDualStage ? `✓ Mark Stage ${activeStage} Audit Complete` : '✓ Mark Audit Complete')}
+                      </button>
+                    </div>
+                  )}
+
+                  {(existingAudit.status === 'audit_completed' || app?.status === 'audit_completed') && (
+                    <div style={{ marginTop: 20, padding: 18, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #86efac', borderRadius: 12 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 4 }}>
+                        ✓ {isDualStage ? `Stage ${activeStage} Audit Completed` : 'Audit Session Completed'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#15803d', marginBottom: 14, lineHeight: 1.5 }}>
+                        {app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)
+                          ? 'All required audit sessions are complete. Click below to submit the official Audit Report to advance to LogSheet creation.'
+                          : 'Stage 1 complete. You can now switch to Stage 2 tab to schedule and complete Stage 2.'}
+                      </div>
+                      {(app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)) && (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ background: 'linear-gradient(135deg, #059669, #047857)', border: 'none', fontWeight: 700, padding: '10px 18px', width: '100%', justifyContent: 'center', fontSize: 14 }}
+                          disabled={auditSubmitting}
+                          onClick={handleSubmitAuditReport}
+                        >
+                          {auditSubmitting ? 'Submitting Report...' : '📄 Submit Audit Report'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

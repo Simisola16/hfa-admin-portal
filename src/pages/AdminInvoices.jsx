@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, FileBarChart } from 'lucide-react';
+import { Plus, X, FileBarChart, Eye, Download } from 'lucide-react';
+
+const getPdfUrl = (url) => {
+  if (!url) return '#';
+  if (url.startsWith('/api/files/')) {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.onrender.com';
+    return `${API_URL}${url}`;
+  }
+  return url;
+};
 
 export default function AdminInvoices() {
   const [invoices, setInvoices] = useState([]);
@@ -41,17 +50,49 @@ export default function AdminInvoices() {
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
             invoices.length===0?<div className="empty-state"><div className="empty-state-icon"><FileBarChart/></div><div className="empty-state-title">No Invoices</div></div>:(
               <table>
-                <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {invoices.map(inv=>(
-                    <tr key={inv.id}>
+                    <tr key={inv.id || inv._id}>
                       <td style={{fontWeight:700}}>{inv.invoice_number}</td>
                       <td>{inv.profiles?.company_name||'—'}</td>
-                      <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description}</td>
+                      <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description || inv.title}</td>
                       <td style={{fontWeight:700}}>£{parseFloat(inv.amount||0).toFixed(2)}</td>
-                      <td style={{fontSize:12}}>{inv.due_date?new Date(inv.due_date).toLocaleDateString('en-GB'):'—'}</td>
-                      <td><span className={`badge ${inv.status==='paid'?'badge-green':inv.status==='overdue'?'badge-red':'badge-yellow'}`}>{inv.status}</span></td>
-                      <td>{inv.status==='pending'&&<button className="btn btn-ghost btn-sm" style={{color:'var(--primary)'}} onClick={()=>markPaid(inv.id)}>Mark Paid</button>}</td>
+                      <td><span className={`badge ${inv.status==='paid'?'badge-green':inv.status==='client_paid'?'badge-orange':inv.status==='overdue'?'badge-red':'badge-yellow'}`}>{inv.status}</span></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {inv.invoice_url ? (
+                            <>
+                              <a
+                                href={getPdfUrl(inv.invoice_url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-ghost btn-sm"
+                                style={{ color: '#16a34a', padding: '4px 8px', gap: 4 }}
+                                title="View Invoice"
+                              >
+                                <Eye size={14} /> View
+                              </a>
+                              <a
+                                href={getPdfUrl(inv.invoice_url)}
+                                download
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '4px 8px', gap: 4 }}
+                                title="Download Invoice"
+                              >
+                                <Download size={14} /> Download
+                              </a>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: 11, color: '#94a3b8' }}>No PDF</span>
+                          )}
+                          {(inv.status === 'pending' || inv.status === 'issued' || inv.status === 'unpaid') && (
+                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--primary)' }} onClick={() => markPaid(inv.id || inv._id)}>Mark Paid</button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -75,10 +116,7 @@ export default function AdminInvoices() {
                   </select>
                 </div>
                 <div className="form-group"><label className="form-label">Description <span>*</span></label><input className="form-control" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} required/></div>
-                <div className="form-grid">
-                  <div className="form-group"><label className="form-label">Amount (£) <span>*</span></label><input type="number" step="0.01" className="form-control" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} required/></div>
-                  <div className="form-group"><label className="form-label">Due Date</label><input type="date" className="form-control" value={form.due_date} onChange={e=>setForm(f=>({...f,due_date:e.target.value}))}/></div>
-                </div>
+                <div className="form-group"><label className="form-label">Amount (£) <span>*</span></label><input type="number" step="0.01" className="form-control" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} required/></div>
                 <div className="form-group"><label className="form-label">Line Items</label><textarea className="form-control" value={form.items} onChange={e=>setForm(f=>({...f,items:e.target.value}))} placeholder="e.g. Application Fee: £500, Inspection Fee: £300"/></div>
               </div>
               <div className="modal-footer">

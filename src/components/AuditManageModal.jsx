@@ -384,7 +384,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                         }} placeholder="e.g. ahmad@hfa.org" />
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Contact</label>
                         <input className="form-control" value={auditor.contact_number} onChange={e => {
@@ -398,23 +398,8 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                         <input className="form-control" value={auditor.purpose} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, purpose: e.target.value };
+                          setAuditForm({ ...auditForm, auditors: newAuditors });
                         }} placeholder="e.g. Site Audit" />
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Role</label>
-                        <select
-                          className="form-control"
-                          value={auditor.role || 'lead_auditor'}
-                          onChange={e => {
-                            const newAuditors = [...auditForm.auditors];
-                            newAuditors[i] = { ...auditor, role: e.target.value };
-                            setAuditForm({ ...auditForm, auditors: newAuditors });
-                          }}
-                        >
-                          <option value="lead_auditor">Lead Auditor</option>
-                          <option value="sharia_board">Sharia Board</option>
-                          <option value="audit_trainee">Audit Trainee</option>
-                        </select>
                       </div>
                     </div>
                   </div>
@@ -482,7 +467,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                               }} placeholder="e.g. yusuf@hfa.org" />
                             </div>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                               <label className="form-label">Contact</label>
                               <input className="form-control" value={auditor.contact_number} onChange={e => {
@@ -498,22 +483,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                                 updated[i] = { ...updated[i], purpose: e.target.value };
                                 setAuditForm(f => ({ ...f, stage2Auditors: updated }));
                               }} placeholder="e.g. Sharia Audit" />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                              <label className="form-label">Role</label>
-                              <select
-                                className="form-control"
-                                value={auditor.role || 'lead_auditor'}
-                                onChange={e => {
-                                  const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
-                                  updated[i] = { ...updated[i], role: e.target.value };
-                                  setAuditForm(f => ({ ...f, stage2Auditors: updated }));
-                                }}
-                              >
-                                <option value="lead_auditor">Lead Auditor</option>
-                                <option value="sharia_board">Sharia Board</option>
-                                <option value="audit_trainee">Audit Trainee</option>
-                              </select>
                             </div>
                           </div>
                         </div>

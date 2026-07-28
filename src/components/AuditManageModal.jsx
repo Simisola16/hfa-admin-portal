@@ -184,22 +184,37 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   };
 
-  const handleMarkStageComplete = async (targetAudit) => {
+  const [showNcDialog, setShowNcDialog] = useState(false);
+
+  const executeCleanCompletion = async (targetAudit) => {
     const auditObj = targetAudit || existingAudit;
     if (!auditObj) return;
     const stageLabel = isDualStage ? `Stage ${auditObj.stage || activeStage}` : 'Audit';
-    if (window.confirm(`Are you sure you want to mark ${stageLabel} complete?`)) {
-      setAuditSubmitting(true);
-      try {
-        await api.post('/api/audits/complete-clean', {
-          audit_id: auditObj._id || auditObj.id
-        });
-        toast.success(`${stageLabel} marked complete successfully!`);
-        if (onSuccess) onSuccess();
-      } catch (err) {
-        toast.error(err.message || 'Failed to complete audit stage');
-      } finally {
-        setAuditSubmitting(false);
+    setAuditSubmitting(true);
+    try {
+      await api.post('/api/audits/complete-clean', {
+        audit_id: auditObj._id || auditObj.id
+      });
+      setShowNcDialog(false);
+      toast.success(`${stageLabel} marked complete successfully!`);
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      toast.error(err.message || 'Failed to complete audit stage');
+    } finally {
+      setAuditSubmitting(false);
+    }
+  };
+
+  const handleMarkStageComplete = async (targetAudit) => {
+    const auditObj = targetAudit || existingAudit;
+    if (!auditObj) return;
+    const isFinalStage = !isDualStage || (auditObj.stage || activeStage) === 2;
+
+    if (isFinalStage) {
+      setShowNcDialog(true);
+    } else {
+      if (window.confirm('Are you sure you want to mark Stage 1 complete and proceed to Stage 2?')) {
+        await executeCleanCompletion(auditObj);
       }
     }
   };
@@ -223,7 +238,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   };
 
-  const handleCompleteClean = handleMarkStageComplete;
+  const handleCompleteClean = executeCleanCompletion;
 
   const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
   const roleColors = {
@@ -608,8 +623,43 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                       );
                     })}
                   </div>
+                  {/* NC Check Dialog prompt when completing Stage 2 / Final Audit */}
+                  {showNcDialog && (
+                    <div style={{ marginTop: 20, padding: 18, background: '#fff1f2', border: '2px solid #fecaca', borderRadius: 12 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: '#9f1239', marginBottom: 4 }}>
+                        ⚠️ {isDualStage ? 'Stage 2 Audit Completion' : 'Audit Completion'}: Flag Non-Conformity (NC)?
+                      </div>
+                      <div style={{ fontSize: 12, color: '#be123c', marginBottom: 14, lineHeight: 1.5 }}>
+                        Were any Non-Conformity (NC) issues identified during this audit session that require client correction?
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ background: '#dc2626', borderColor: '#dc2626', fontWeight: 700, flex: 1, padding: '10px 14px' }}
+                          onClick={() => {
+                            setShowNcDialog(false);
+                            setAuditModalTab('nc');
+                            toast('Please describe the NC report below and click "Flag NC".', { icon: '⚠️' });
+                          }}
+                        >
+                          Yes, Flag NC Report
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 700, flex: 1, padding: '10px 14px' }}
+                          disabled={auditSubmitting}
+                          onClick={() => executeCleanCompletion(existingAudit)}
+                        >
+                          {auditSubmitting ? 'Completing...' : 'No, Complete Clean Audit'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action Buttons for Stage Completion & Audit Report Submission */}
-                  {existingAudit.status === 'auditors_assigned' && (
+                  {existingAudit.status === 'auditors_assigned' && !showNcDialog && (
                     <div style={{ marginTop: 20, padding: 16, background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#166534', marginBottom: 4 }}>
                         {isDualStage ? `Stage ${activeStage} Audit in Progress` : 'Audit Session in Progress'}

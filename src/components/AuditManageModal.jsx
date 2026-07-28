@@ -17,6 +17,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
   const [activeStage, setActiveStage] = useState(1);
   const [auditModalTab, setAuditModalTab] = useState('schedule'); // 'schedule' or 'nc'
   const [auditSubmitting, setAuditSubmitting] = useState(false);
+  const [showNcDialog, setShowNcDialog] = useState(false);
   const [auditForm, setAuditForm] = useState({
     dates: ['', '', ''],
     auditors: [],
@@ -28,8 +29,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
   const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
-  // Sync prop existingAudits with local state
+  // Sync prop existingAudits with local state & reset dialog state
   useEffect(() => {
+    if (isOpen) {
+      setShowNcDialog(false);
+    }
     setExistingAudits(propExistingAudits || []);
     if (propExistingAudits && propExistingAudits.length > 0) {
       const currentAudit = propExistingAudits.find(a => a.stage === activeStage);
@@ -183,8 +187,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       setAuditSubmitting(false);
     }
   };
-
-  const [showNcDialog, setShowNcDialog] = useState(false);
 
   const executeCleanCompletion = async (targetAudit) => {
     const auditObj = targetAudit || existingAudit;

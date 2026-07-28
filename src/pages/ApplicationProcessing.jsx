@@ -1080,7 +1080,6 @@ export default function ApplicationProcessing() {
                     { key: 'halal_policy', label: 'Halal Policy Document' },
                     { key: 'ingredient_list', label: 'Raw Material / Ingredient List' },
                     { key: 'floor_plan', label: 'Plant / Facility Floor Plan' },
-                    { key: 'company_registration', label: 'Company Registration / CAC' },
                     { key: 'haccp_plan', label: 'HACCP Plan & Process Flow' },
                   ].map(doc => {
                     const url = app.documents?.[doc.key];

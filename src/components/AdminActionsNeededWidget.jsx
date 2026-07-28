@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertCircle, FileText, Receipt, Calendar, PenTool, CheckCircle, ArrowRight, ShieldAlert, Award, ClipboardList } from 'lucide-react';
+import { AlertCircle, FileText, Receipt, Calendar, PenTool, CheckCircle, ArrowRight, ShieldAlert, Award, ClipboardList, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -17,6 +17,8 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasInitializedAutoOpen, setHasInitializedAutoOpen] = useState(false);
 
   // Active modal target
   const [activeModal, setActiveModal] = useState(null); // { type, app, invoice }
@@ -171,12 +173,19 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       }
 
       setItems(actionList);
+
+      // Auto-open modal once on load if items exist and not dismissed in sessionStorage
+      const isDismissed = sessionStorage.getItem('admin_actions_dismissed') === 'true';
+      if (actionList.length > 0 && !isDismissed && !hasInitializedAutoOpen) {
+        setIsOpen(true);
+      }
+      setHasInitializedAutoOpen(true);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasInitializedAutoOpen]);
 
   useEffect(() => {
     fetchAdminActions();
@@ -185,6 +194,15 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const handleRefresh = () => {
     fetchAdminActions();
     if (onActionCompleted) onActionCompleted();
+  };
+
+  const handleDismiss = () => {
+    setIsOpen(false);
+    sessionStorage.setItem('admin_actions_dismissed', 'true');
+  };
+
+  const handleManualOpen = () => {
+    setIsOpen(true);
   };
 
   const handleMarkReady = async (app) => {
@@ -202,79 +220,148 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{
-        background: 'linear-gradient(135deg, #fff, #f8fafc)',
-        border: '1.5px solid #e2e8f0',
-        borderRadius: 16,
-        padding: '20px 24px',
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ShieldAlert size={18} style={{ color: '#4338ca' }} />
+      {/* Persistent Banner Trigger */}
+      <div
+        onClick={handleManualOpen}
+        style={{
+          background: 'linear-gradient(135deg, #eff6ff, #f8fafc)',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: 16,
+          padding: '16px 22px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          boxShadow: '0 2px 6px rgba(37,99,235,0.06)',
+          transition: 'all 0.2s ease-in-out'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}>
+            <ShieldAlert size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: 8 }}>
+              Admin Action Required
+              <span style={{ background: '#2563eb', color: 'white', borderRadius: 12, padding: '2px 9px', fontSize: 12, fontWeight: 800 }}>
+                {items.length}
+              </span>
             </div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Admin Action Required ({items.length})</div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Process pending items directly from this widget</div>
+            <div style={{ fontSize: 13, color: '#3b82f6', marginTop: 2, fontWeight: 500 }}>
+              {items.length === 1 ? '1 pending task requiring immediate attention' : `${items.length} pending tasks requiring immediate attention`} &middot; Click to open popup
             </div>
           </div>
         </div>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ gap: 8, fontWeight: 700, background: '#2563eb', borderColor: '#2563eb', padding: '8px 16px', borderRadius: 8 }}
+          onClick={(e) => { e.stopPropagation(); handleManualOpen(); }}
+        >
+          View Action Items <ArrowRight size={14} />
+        </button>
+      </div>
 
-        <div style={{ display: 'grid', gap: 12 }}>
-          {items.map(item => (
-            <div
-              key={item.id}
-              style={{
-                background: 'white',
-                border: '1px solid #e2e8f0',
-                borderRadius: 12,
-                padding: '14px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                justify: 'space-between',
-                gap: 16,
-                flexWrap: 'wrap'
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>
-                  {item.title} &middot; <span style={{ color: '#64748b', fontWeight: 600 }}>#{item.app.application_number}</span>
+      {/* Pop-Up Modal */}
+      {isOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={handleDismiss}>
+          <div
+            className="modal"
+            style={{ maxWidth: 700, width: '92%', borderRadius: 16, padding: 0, overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="modal-header" style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShieldAlert size={20} style={{ color: '#4338ca' }} />
                 </div>
-                <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
-                  {item.desc}
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Admin Action Required
+                    <span style={{ background: '#2563eb', color: 'white', borderRadius: 12, padding: '2px 8px', fontSize: 12, fontWeight: 800 }}>
+                      {items.length}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+                    Process pending application &amp; invoice items directly from this popup
+                  </div>
                 </div>
               </div>
-
-              {item.isFullPage ? (
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ gap: 6, fontWeight: 700, borderColor: '#cbd5e1' }}
-                  onClick={() => navigate(item.link || `/applications/${item.app._id}/processing`)}
-                >
-                  {item.buttonText} <ArrowRight size={14} />
-                </button>
-              ) : item.type === 'mark_ready_certificate' ? (
-                <button
-                  className="btn btn-primary btn-sm"
-                  style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
-                  onClick={() => handleMarkReady(item.app)}
-                >
-                  {item.buttonText}
-                </button>
-              ) : (
-                <button
-                  className="btn btn-primary btn-sm"
-                  style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
-                  onClick={() => setActiveModal({ type: item.type, app: item.app, invoice: item.invoice })}
-                >
-                  {item.buttonText}
-                </button>
-              )}
+              <button className="modal-close" onClick={handleDismiss} title="Close / Dismiss">
+                <X size={20} />
+              </button>
             </div>
-          ))}
+
+            {/* Modal Body */}
+            <div className="modal-body" style={{ padding: '20px 24px', maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {items.map(item => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 12,
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                      flexWrap: 'wrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1e293b' }}>
+                        {item.title} &middot; <span style={{ color: '#64748b', fontWeight: 600 }}>#{item.app.application_number}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                        {item.desc}
+                      </div>
+                    </div>
+
+                    {item.isFullPage ? (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ gap: 6, fontWeight: 700, borderColor: '#cbd5e1' }}
+                        onClick={() => { handleDismiss(); navigate(item.link || `/applications/${item.app._id}/processing`); }}
+                      >
+                        {item.buttonText} <ArrowRight size={14} />
+                      </button>
+                    ) : item.type === 'mark_ready_certificate' ? (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
+                        onClick={() => handleMarkReady(item.app)}
+                      >
+                        {item.buttonText}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ background: item.buttonBg, borderColor: item.buttonBg, gap: 6, fontWeight: 700 }}
+                        onClick={() => setActiveModal({ type: item.type, app: item.app, invoice: item.invoice })}
+                      >
+                        {item.buttonText}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="modal-footer" style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>
+                {items.length} {items.length === 1 ? 'pending action' : 'pending actions'}
+              </div>
+              <button className="btn btn-ghost" onClick={handleDismiss} style={{ fontWeight: 600 }}>
+                Dismiss for this Session
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Admin Shared Modals */}
       {activeModal?.type === 'confirm_payment' && (

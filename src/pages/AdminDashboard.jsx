@@ -189,10 +189,10 @@ export default function AdminDashboard() {
             Refresh Data
           </button>
         </div>
-
-      {/* Persistent Admin Actions Needed Widget */}
-      <AdminActionsNeededWidget onActionCompleted={fetchData} />
       </div>
+
+      {/* Persistent Admin Actions Needed Widget & Pop-Up */}
+      <AdminActionsNeededWidget onActionCompleted={fetchData} />
 
       {/* ── 4 KPI Cards (Matching Image Exact Squircle Icons) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>

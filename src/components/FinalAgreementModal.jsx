@@ -3,11 +3,40 @@ import { X, FileCheck, Upload } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-export default function FinalAgreementModal({ isOpen, onClose, app, agreement, onSuccess }) {
+export default function FinalAgreementModal({ isOpen, onClose, app: propApp, appId: propAppId, agreement: propAgreement, onSuccess }) {
+  const [app, setApp] = useState(propApp || null);
+  const [agreement, setAgreement] = useState(propAgreement || null);
+  const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const targetAppId = propAppId || propApp?._id || propApp?.id;
+
+  React.useEffect(() => {
+    if (isOpen && !propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, agRes]) => {
+        setApp(appRes.data || null);
+        setAgreement(agRes.data || null);
+      }).finally(() => setLoading(false));
+    } else if (isOpen) {
+      setApp(propApp || null);
+      setAgreement(propAgreement || null);
+    }
+  }, [isOpen, propApp, propAgreement, targetAppId]);
+
   if (!isOpen) return null;
+  if (loading) return (
+    <div className="modal-overlay" style={{ zIndex: 1200 }}>
+      <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto 16px' }} />
+        <div style={{ color: '#64748b', fontSize: 14 }}>Loading application...</div>
+      </div>
+    </div>
+  );
 
   const handleSubmit = async () => {
     if (!file) {

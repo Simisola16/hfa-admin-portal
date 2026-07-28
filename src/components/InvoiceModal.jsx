@@ -3,7 +3,10 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-export default function InvoiceModal({ isOpen, onClose, app, invoice, invoiceType, onSuccess }) {
+export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: propAppId, invoice: propInvoice, invoiceType, onSuccess }) {
+  const [app, setApp] = useState(propApp || null);
+  const [invoice, setInvoice] = useState(propInvoice || null);
+  const [loading, setLoading] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({
     title: '',
     amount: '',
@@ -12,21 +15,57 @@ export default function InvoiceModal({ isOpen, onClose, app, invoice, invoiceTyp
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const targetAppId = propAppId || propApp?._id || propApp?.id;
+
   useEffect(() => {
     if (isOpen) {
       const isFinal = invoiceType === 'final';
-      setInvoiceForm({
-        title: invoice
-          ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${app.application_number}`
-          : `${isFinal ? 'Final ' : ''}Invoice for ${app.application_number}`,
-        amount: invoice?.amount || '',
-        notes: invoice?.notes || '',
-        file: null
-      });
+      if (!propApp && targetAppId) {
+        setLoading(true);
+        Promise.all([
+          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+          api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
+        ]).then(([appRes, invRes]) => {
+          const loadedApp = appRes.data || null;
+          const loadedInvoice = invRes.data || null;
+          setApp(loadedApp);
+          setInvoice(loadedInvoice);
+          if (loadedApp) {
+            setInvoiceForm(f => ({
+              ...f,
+              title: loadedInvoice
+                ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`
+                : `${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`,
+              amount: loadedInvoice?.amount || '',
+              notes: loadedInvoice?.notes || '',
+            }));
+          }
+        }).finally(() => setLoading(false));
+      } else {
+        setApp(propApp || null);
+        setInvoice(propInvoice || null);
+        setInvoiceForm({
+          title: propInvoice
+            ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`
+            : `${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`,
+          amount: propInvoice?.amount || '',
+          notes: propInvoice?.notes || '',
+          file: null
+        });
+      }
     }
-  }, [isOpen, app, invoice, invoiceType]);
+  }, [isOpen, propApp, propInvoice, invoiceType, targetAppId]);
 
   if (!isOpen) return null;
+  if (loading) return (
+    <div className="modal-overlay" style={{ zIndex: 1200 }}>
+      <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto 16px' }} />
+        <div style={{ color: '#64748b', fontSize: 14 }}>Loading application...</div>
+      </div>
+    </div>
+  );
+  if (!app) return null;
 
   const handleSubmit = async () => {
     if (!invoiceForm.title.trim()) {

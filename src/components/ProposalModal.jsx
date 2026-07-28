@@ -3,7 +3,10 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-export default function ProposalModal({ isOpen, onClose, app, proposal, onSuccess }) {
+export default function ProposalModal({ isOpen, onClose, app: propApp, appId: propAppId, proposal: propProposal, onSuccess }) {
+  const [app, setApp] = useState(propApp || null);
+  const [proposal, setProposal] = useState(propProposal || null);
+  const [loading, setLoading] = useState(false);
   const [proposalForm, setProposalForm] = useState({
     type: 'upload',
     title: '',
@@ -14,20 +17,55 @@ export default function ProposalModal({ isOpen, onClose, app, proposal, onSucces
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const targetAppId = propAppId || propApp?._id || propApp?.id;
+
   useEffect(() => {
     if (isOpen) {
-      setProposalForm({
-        type: 'upload',
-        title: proposal ? `Revised Proposal for ${app.application_number}` : `Proposal for ${app.application_number}`,
-        estimated_cost: proposal?.estimated_cost || '',
-        details: proposal?.details || '',
-        admin_comment: proposal?.admin_comment || '',
-        file: null
-      });
+      if (!propApp && targetAppId) {
+        setLoading(true);
+        Promise.all([
+          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+          api.get(`/api/proposals/application/${targetAppId}`).catch(() => ({ data: null }))
+        ]).then(([appRes, pRes]) => {
+          const loadedApp = appRes.data || null;
+          const loadedProposal = pRes.data || null;
+          setApp(loadedApp);
+          setProposal(loadedProposal);
+          if (loadedApp) {
+            setProposalForm(f => ({
+              ...f,
+              title: loadedProposal ? `Revised Proposal for ${loadedApp.application_number}` : `Proposal for ${loadedApp.application_number}`,
+              estimated_cost: loadedProposal?.estimated_cost || '',
+              details: loadedProposal?.details || '',
+              admin_comment: loadedProposal?.admin_comment || '',
+            }));
+          }
+        }).finally(() => setLoading(false));
+      } else {
+        setApp(propApp || null);
+        setProposal(propProposal || null);
+        setProposalForm({
+          type: 'upload',
+          title: propProposal ? `Revised Proposal for ${propApp?.application_number}` : `Proposal for ${propApp?.application_number}`,
+          estimated_cost: propProposal?.estimated_cost || '',
+          details: propProposal?.details || '',
+          admin_comment: propProposal?.admin_comment || '',
+          file: null
+        });
+      }
     }
-  }, [isOpen, app, proposal]);
+  }, [isOpen, propApp, propProposal, targetAppId]);
 
   if (!isOpen) return null;
+  if (loading) return (
+    <div className="modal-overlay" style={{ zIndex: 1200 }}>
+      <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto 16px' }} />
+        <div style={{ color: '#64748b', fontSize: 14 }}>Loading application...</div>
+      </div>
+    </div>
+  );
+  if (!app) return null;
 
   const handleSubmit = async () => {
     if (!proposalForm.title.trim()) {

@@ -3,7 +3,9 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-export default function CertificateModal({ isOpen, onClose, app, onSuccess }) {
+export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, onSuccess }) {
+  const [app, setApp] = useState(propApp || null);
+  const [loading, setLoading] = useState(false);
   const [certificateForm, setCertificateForm] = useState({
     certificate_number: '',
     certificate_type: 'Halal Certification',
@@ -14,24 +16,53 @@ export default function CertificateModal({ isOpen, onClose, app, onSuccess }) {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const targetAppId = propAppId || propApp?._id || propApp?.id;
+
+  const initForm = (loadedApp) => {
+    if (!loadedApp) return;
+    const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+    const yearsToAdd = isThreeYear ? 3 : 1;
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
+    setCertificateForm({
+      certificate_number: `HFA-CERT-${Date.now().toString().slice(-8)}`,
+      certificate_type: isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification',
+      issue_date: new Date().toISOString().split('T')[0],
+      expiry_date: expiryDate.toISOString().split('T')[0],
+      products_covered: '',
+      file: null
+    });
+  };
+
   useEffect(() => {
-    if (isOpen && app) {
-      const isThreeYear = app.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-      const yearsToAdd = isThreeYear ? 3 : 1;
-      const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
-      setCertificateForm({
-        certificate_number: `HFA-CERT-${Date.now().toString().slice(-8)}`,
-        certificate_type: isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification',
-        issue_date: new Date().toISOString().split('T')[0],
-        expiry_date: expiryDate.toISOString().split('T')[0],
-        products_covered: '',
-        file: null
-      });
+    if (isOpen) {
+      if (!propApp && targetAppId) {
+        setLoading(true);
+        api.get(`/api/applications/${targetAppId}`)
+          .then(res => {
+            const loadedApp = res.data || null;
+            setApp(loadedApp);
+            initForm(loadedApp);
+          })
+          .catch(() => setApp(null))
+          .finally(() => setLoading(false));
+      } else if (propApp) {
+        setApp(propApp);
+        initForm(propApp);
+      }
     }
-  }, [isOpen, app]);
+  }, [isOpen, propApp, targetAppId]);
 
   if (!isOpen) return null;
+  if (loading) return (
+    <div className="modal-overlay" style={{ zIndex: 1200 }}>
+      <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto 16px' }} />
+        <div style={{ color: '#64748b', fontSize: 14 }}>Loading application...</div>
+      </div>
+    </div>
+  );
+  if (!app) return null;
 
   const handleSubmit = async () => {
     if (!certificateForm.certificate_number.trim()) {

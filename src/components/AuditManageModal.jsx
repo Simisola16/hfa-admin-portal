@@ -71,8 +71,16 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
   if (!isOpen) return null;
 
   const handleProposeDates = async () => {
+    // Stage 2 dates are optional for GSO/UAE dual-stage — allow skipping
+    if (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d)) {
+      toast('Stage 2 dates skipped — you can propose them later from this modal.', { icon: '💡' });
+      onClose();
+      return;
+    }
     if (auditForm.dates.some(d => !d)) {
-      toast.error('Please enter all 3 proposed dates.');
+      toast.error(activeStage === 2
+        ? 'Please enter all 3 proposed dates for Stage 2, or leave all blank to skip and schedule later.'
+        : 'Please enter all 3 proposed dates.');
       return;
     }
     setAuditSubmitting(true);
@@ -223,16 +231,10 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
               </button>
               <button
                 type="button"
-                style={{ flex: 1, padding: '8px 12px', border: 'none', background: activeStage === 2 ? '#fff' : 'transparent', color: activeStage === 2 ? '#1d4ed8' : '#64748b', fontWeight: 700, borderRadius: 6, boxShadow: activeStage === 2 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: existingAudits.find(a => a.stage === 1)?.status === 'audit_completed' ? 'pointer' : 'not-allowed', opacity: existingAudits.find(a => a.stage === 1)?.status === 'audit_completed' ? 1 : 0.6, transition: 'all 0.2s' }}
-                onClick={() => {
-                  if (existingAudits.find(a => a.stage === 1)?.status === 'audit_completed') {
-                    setActiveStage(2);
-                  } else {
-                    toast.error('Stage 2 is locked until Stage 1 is completed.');
-                  }
-                }}
+                style={{ flex: 1, padding: '8px 12px', border: 'none', background: activeStage === 2 ? '#fff' : 'transparent', color: activeStage === 2 ? '#1d4ed8' : '#64748b', fontWeight: 700, borderRadius: 6, boxShadow: activeStage === 2 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => setActiveStage(2)}
               >
-                Stage 2 Audit {existingAudits.find(a => a.stage === 1)?.status !== 'audit_completed' && '🔒'}
+                Stage 2 Audit
               </button>
             </div>
           )}
@@ -250,6 +252,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
               )}
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
                 Propose 3 possible audit dates to the client. They will select 2 dates from their portal.
+                {activeStage === 2 && <span style={{ display: 'block', marginTop: 6, color: '#6366f1', fontWeight: 600 }}>💡 Stage 2 dates are optional — you can propose them now or after Stage 1 completes.</span>}
               </p>
               <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
                 {Array(3).fill(null).map((_, i) => (
@@ -268,13 +271,28 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                   </div>
                 ))}
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                {isDualStage && activeStage === 2 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      toast('Stage 2 scheduling skipped — propose dates later when ready.', { icon: '💡' });
+                      onClose();
+                    }}
+                    disabled={auditSubmitting}
+                    style={{ color: '#64748b' }}
+                  >
+                    Skip for Now
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
                 <button
                   className="btn btn-primary"
-                  disabled={auditSubmitting || auditForm.dates.some(d => !d)}
+                  disabled={auditSubmitting || (isDualStage && activeStage === 2 ? false : auditForm.dates.some(d => !d))}
                   onClick={handleProposeDates}
                 >
-                  {auditSubmitting ? 'Submitting...' : 'Propose Dates'}
+                  {auditSubmitting ? 'Submitting...' : (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d) ? 'Skip & Close' : 'Propose Dates')}
                 </button>
               </div>
             </div>

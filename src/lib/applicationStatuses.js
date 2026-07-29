@@ -38,7 +38,7 @@ export const STATUS_LABELS = {
   submitted:               'Application Submitted',
   under_review:            'Under Review',
   rejected:                'Application Rejected',
-  approved:                'Application Received',
+  approved:                'Application Approved',
   proposal_sent:           'Proposal Sent',
   proposal_rejected:       'Proposal Rejected',
   proposal_approved:       'Proposal Approved',

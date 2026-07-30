@@ -328,20 +328,11 @@ export default function AdminLogsheetManage() {
                             >
                               <Link 
                                 to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', color: '#2563eb', textDecoration: 'none', borderRadius: '6px', background: 'transparent', fontWeight: 600 }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', color: '#16a34a', textDecoration: 'none', borderRadius: '6px', background: 'transparent', fontWeight: 600 }}
                                 className="dropdown-item"
                               >
-                                <Eye size={14} /> Details
+                                <PenTool size={14} /> Review & Sign Logsheet
                               </Link>
-                              {l.status === 'Waiting for Signature' && (
-                                <button 
-                                  onClick={(e) => handleMarkAsDone(l._id, l.status, e)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#16a34a', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
-                                  className="dropdown-item"
-                                >
-                                  <CheckSquare size={14} /> Mark as Signed
-                                </button>
-                              )}
                               <button 
                                 onClick={(e) => handleDelete(l._id, e)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#dc2626', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
@@ -447,28 +438,25 @@ export default function AdminLogsheetManage() {
                         <Eye size={14} /> Details
                       </Link>
 
-                      {l.status === 'Waiting for Signature' && (
-                        <button 
-                          onClick={(e) => handleMarkAsDone(l._id, l.status, e)}
-                          style={{ 
-                            flex: 1.2, 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            gap: '6px', 
-                            padding: '10px', 
-                            borderRadius: '10px', 
-                            background: '#ecfdf5', 
-                            color: '#047857', 
-                            border: 'none',
-                            fontSize: '13px', 
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <CheckSquare size={14} /> Sign Off
-                        </button>
-                      )}
+                      <Link 
+                        to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                        style={{ 
+                          flex: 1.2, 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '6px', 
+                          padding: '10px', 
+                          borderRadius: '10px', 
+                          background: '#ecfdf5', 
+                          color: '#047857', 
+                          textDecoration: 'none',
+                          fontSize: '13px', 
+                          fontWeight: 700
+                        }}
+                      >
+                        <PenTool size={14} /> Review & Sign
+                      </Link>
 
                       <button 
                         onClick={(e) => handleDelete(l._id, e)}

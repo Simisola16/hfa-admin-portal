@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, Clock, CheckCircle2, CheckSquare, PenTool, Check } from 'lucide-react';
+import { 
+  UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, 
+  Clock, CheckCircle2, CheckSquare, PenTool, Check, ShieldCheck, 
+  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download
+} from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,6 +14,7 @@ export default function AdminCreateLogsheet() {
   const { appId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(1);
@@ -22,6 +27,10 @@ export default function AdminCreateLogsheet() {
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+
+  // Signing Modal State
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [modalConfirmed, setModalConfirmed] = useState(false);
 
   const userSignature = signatures.find(s => 
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
@@ -86,7 +95,6 @@ export default function AdminCreateLogsheet() {
             product_category: appData.product_category || ''
           };
 
-          // Map application type to Audit Type
           if (appData.application_type) {
             const lowerType = appData.application_type.toLowerCase();
             if (lowerType.includes('initial')) {
@@ -99,7 +107,6 @@ export default function AdminCreateLogsheet() {
           }
         }
 
-        // Populate from Audit if found
         if (auditData) {
           if (auditData.finalized_date) {
             logsheetData.audit_date = auditData.finalized_date;
@@ -175,15 +182,32 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const handleSignLogsheet = async (e) => {
-    e.preventDefault();
+  const openSigningModal = (roleToPreselect = null) => {
+    if (!userSignature) {
+      toast.error('Your authenticated user account does not have an uploaded digital signature. Please upload one under Signatures first.');
+      return;
+    }
+    if (roleToPreselect) {
+      setSigRoles([roleToPreselect]);
+    } else if (sigRoles.length === 0) {
+      setSigRoles(['Mufti']);
+    }
+    setModalConfirmed(false);
+    setShowSignModal(true);
+  };
+
+  const handleConfirmApplySignature = async () => {
     if (sigRoles.length === 0) {
       toast.error('Please select at least one role to sign');
       return;
     }
+    if (!modalConfirmed) {
+      toast.error('Please check the confirmation box before applying signature');
+      return;
+    }
     
     if (!userSignature) {
-      toast.error(`Your authenticated user account does not have an uploaded digital signature in the system yet.`);
+      toast.error('No authenticated digital signature available.');
       return;
     }
 
@@ -195,7 +219,9 @@ export default function AdminCreateLogsheet() {
         signature_name: userSignature.name,
         comment: sigComment
       });
-      toast.success(`Logsheet successfully signed as ${sigRoles.join(', ')}!`);
+      toast.success(`Logsheet signed successfully as ${sigRoles.join(', ')}!`);
+      setShowSignModal(false);
+      setModalConfirmed(false);
       fetchData();
       setSigRoles([]);
       setSigComment('');
@@ -214,7 +240,7 @@ export default function AdminCreateLogsheet() {
         sendWithoutSignature: true,
         comment: sigComment
       });
-      toast.success('Logsheet sent to review without signature successfully');
+      toast.success('Logsheet sent to review without signature');
       navigate('/logsheet/waiting-signature');
     } catch (err) {
       toast.error(err.message || 'Failed to submit review');
@@ -234,7 +260,7 @@ export default function AdminCreateLogsheet() {
         finalizeSignOff: true
       });
       toast.success("Logsheet sign-off finalized successfully!");
-      navigate('/logsheet/waiting-signature');
+      fetchData();
     } catch (err) {
       toast.error(err.message || 'Failed to finalize sign-off');
     } finally {
@@ -252,7 +278,7 @@ export default function AdminCreateLogsheet() {
     try {
       await api.post('/api/application-logsheets', {
         ...form,
-        application_id: application.id,
+        application_id: application.id || application._id,
         client_id: application.client_id,
         site_id: application.site_id
       });
@@ -267,68 +293,160 @@ export default function AdminCreateLogsheet() {
 
   const isReadOnly = !!currentLogsheet;
 
-  const renderField = (label, value, isDate = false, customStyle = {}) => {
-    const formatted = isDate ? (value ? new Date(value).toLocaleDateString('en-GB') : '—') : (value || '—');
-    return (
-      <div className="form-group" style={customStyle}>
-        <label className="form-label">{label}</label>
-        <div style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#334155', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
-          {formatted}
-        </div>
-      </div>
-    );
-  };
+  // Signatory calculations
+  const signatories = [
+    { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
+    { roleKey: 'Ceo', label: 'CEO / Executive Signatory', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
+    { roleKey: 'Manager', label: 'Manager / Technical Signatory', signature: currentLogsheet?.manager_signature, name: currentLogsheet?.manager_sign_name, date: currentLogsheet?.manager_sign_date },
+    { roleKey: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', signature: currentLogsheet?.mufti2_signature, name: currentLogsheet?.mufti2_sign_name, date: currentLogsheet?.mufti2_sign_date },
+  ];
+
+  const totalSignedCount = signatories.filter(s => !!s.signature).length;
+  const isFullySigned = totalSignedCount === 4 || currentLogsheet?.status === 'Signed' || currentLogsheet?.status === 'Completed';
 
   if (loading) return <div className="loading-overlay"><div className="spinner" /></div>;
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 60 }}>
-      <button className="btn btn-ghost" onClick={() => navigate('/applications')} style={{ marginBottom: 20 }}>
-        <ChevronLeft size={16} /> Back to Applications
-      </button>
+    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
+      {/* Navigation Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+          <ChevronLeft size={16} /> Back
+        </button>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01)' }}>
-        {/* Read-Only Status Banner */}
-        {isReadOnly && (
-          <div style={{ background: currentLogsheet?.status === 'Waiting for Signature' ? '#fff7ed' : '#f0fdf4', borderBottom: `1px solid ${currentLogsheet?.status === 'Waiting for Signature' ? '#ffedd5' : '#dcfce7'}`, padding: '16px 30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: currentLogsheet?.status === 'Waiting for Signature' ? '#ffedd5' : '#dcfce7', color: currentLogsheet?.status === 'Waiting for Signature' ? '#ea580c' : '#16a34a', padding: '8px', borderRadius: '50%', display: 'flex' }}>
-              {currentLogsheet?.status === 'Waiting for Signature' ? <Clock size={20} /> : <CheckCircle2 size={20} />}
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          Application Ref: <strong style={{ color: '#0f172a' }}>#{application?.application_number || 'N/A'}</strong>
+        </div>
+      </div>
+
+      {/* OVERALL SIGNING PROGRESS HEADER BANNER */}
+      {isReadOnly && (
+        <div style={{
+          background: isFullySigned ? 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)' : 'linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%)',
+          border: `1px solid ${isFullySigned ? '#bbf7d0' : '#fed7aa'}`,
+          borderRadius: 12,
+          padding: '20px 24px',
+          marginBottom: 24,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 42,
+                height: 42,
+                borderRadius: '50%',
+                background: isFullySigned ? '#dcfce7' : '#ffedd5',
+                color: isFullySigned ? '#16a34a' : '#ea580c',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {isFullySigned ? <ShieldCheck size={24} /> : <Clock size={24} />}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: isFullySigned ? '#14532d' : '#9a3412' }}>
+                  {isFullySigned ? 'Fully Executed Halal Certification Logsheet' : 'Logsheet Sign-Off Review in Progress'}
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: isFullySigned ? '#166534' : '#c2410c' }}>
+                  {isFullySigned 
+                    ? 'All committee signatures have been verified and sealed on this decision record.' 
+                    : `${totalSignedCount} of 4 committee signatories have signed this document.`}
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: currentLogsheet?.status === 'Waiting for Signature' ? '#c2410c' : '#166534' }}>
-                {currentLogsheet?.status === 'Waiting for Signature' ? 'Logsheet Sign-Off Review Mode (Locked)' : `Logsheet Completed & Signed (${currentLogsheet?.status})`}
-              </h4>
-              <p style={{ margin: '2px 0 0', fontSize: '13px', color: currentLogsheet?.status === 'Waiting for Signature' ? '#9a3412' : '#15803d', fontWeight: 500 }}>
-                {currentLogsheet?.status === 'Waiting for Signature' 
-                  ? 'This record is finalized and locked for editing. Only executive electronic signatures can be applied below.'
-                  : 'This logsheet decision record is fully signed, locked, and finalized.'}
-              </p>
+
+            {/* Header Signing Action if pending */}
+            {!isFullySigned && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button 
+                  onClick={() => openSigningModal()}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, padding: '8px 16px', boxShadow: '0 2px 4px rgba(21,128,61,0.2)' }}
+                >
+                  <PenTool size={14} />
+                  Apply Signature
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar & Role Badges */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ height: 8, background: isFullySigned ? '#dcfce7' : '#fed7aa', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{
+                width: `${(totalSignedCount / 4) * 100}%`,
+                height: '100%',
+                background: isFullySigned ? '#16a34a' : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                borderRadius: 10,
+                transition: 'width 0.4s ease'
+              }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 4 }}>
+              {signatories.map((s, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  background: s.signature ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                  borderRadius: 8,
+                  border: `1px solid ${s.signature ? (isFullySigned ? '#86efac' : '#fed7aa') : '#e2e8f0'}`,
+                  fontSize: 12
+                }}>
+                  {s.signature ? (
+                    <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  ) : (
+                    <Clock size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  )}
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 600, color: s.signature ? '#0f172a' : '#64748b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {s.label.split('/')[0].trim()}
+                    </div>
+                    <div style={{ fontSize: 11, color: s.signature ? '#15803d' : '#94a3b8' }}>
+                      {s.signature ? (s.name || 'Signed') : 'Awaiting'}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Beautiful Header */}
-        <div style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', padding: '30px', borderBottom: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* DOCUMENT-STYLE PRESENTATION CARD */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
+        
+        {/* Official Document Header */}
+        <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', padding: '28px 32px', borderBottom: '1px solid #334155' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#dbeafe', color: '#1e40af', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, letterSpacing: 0.5, marginBottom: 12 }}>
-                <CheckSquare size={14} /> DECISION RECORD
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', color: '#38bdf8', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                <CheckSquare size={12} /> OFFICIAL CERTIFICATION DECISION RECORD
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                Review & Certification Committee
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                Halal Certification Audit Logsheet
               </h2>
+              <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>
+                Halal Food Authority — Technical & Shariah Committee Decision File
+              </p>
             </div>
+
             <div style={{ textAlign: 'right' }}>
-              <p style={{ color: '#64748b', fontSize: 12, textTransform: 'uppercase', fontWeight: 700, margin: '0 0 4px 0' }}>Application Ref</p>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', background: '#fff', padding: '6px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                {application?.application_number || 'N/A'}
+              <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Application Reference</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#38bdf8', marginTop: 2 }}>
+                #{application?.application_number || 'N/A'}
+              </div>
+              <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>
+                Audit Type: <strong>{form.audit_type || 'Initial'}</strong>
               </div>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', minHeight: 500 }}>
-          {/* Custom Tabs */}
+        {/* Tab Navigation if creating or editing */}
+        {!isReadOnly && (
           <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             {[
               { id: 1, label: 'Company Details', icon: Building },
@@ -349,640 +467,656 @@ export default function AdminCreateLogsheet() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 8,
-                    padding: '16px 20px',
+                    padding: '14px 16px',
                     fontWeight: isActive ? 600 : 500,
-                    color: isActive ? '#0284c7' : '#64748b',
+                    color: isActive ? 'var(--primary)' : '#64748b',
                     background: isActive ? '#fff' : 'transparent',
                     border: 'none',
-                    borderBottom: isActive ? '2px solid #0284c7' : '2px solid transparent',
-                    borderRight: idx < 3 ? '1px solid #e2e8f0' : 'none',
+                    borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: 14
+                    fontSize: 13
                   }}
                 >
-                  <Icon size={16} /> {tab.label}
+                  <Icon size={15} /> {tab.label}
                 </button>
               );
             })}
           </div>
+        )}
 
-          {/* Form Content Wrapper */}
-          <div style={{ padding: 30, flex: 1, background: '#fff' }}>
-            {/* Tab 1 */}
-            {activeTab === 1 && (
-              isReadOnly ? (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  {renderField('Company Name', form.company_name)}
-                  {renderField('Contact Person', form.contact_person)}
-                  {renderField('Company Address', form.company_address, false, { gridColumn: '1 / -1' })}
-                  {renderField('Manufacturing Address', form.manufacturing_address, false, { gridColumn: '1 / -1' })}
-                  {renderField('Contact E-mail', form.contact_email)}
-                  {renderField('Nature of the business', form.nature_of_business)}
-                  {renderField('Product Category', form.product_category)}
-                  
-                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-
-                  {renderField('Issue date of certificate', form.issue_date, true)}
-                  {renderField('Expiry date of certificate', form.expiry_date, true)}
-                  {renderField('Current Cycle Start Date', form.current_cycle_start, true)}
-                  {renderField('Original Cycle Start Date', form.original_cycle_start, true)}
-
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Supporting Document</label>
-                    {form.document_url ? (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                        <CheckCircle2 size={18} color="#16a34a" />
-                        <a href={form.document_url} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>View Uploaded Document</a>
-                      </div>
-                    ) : (
-                      <div style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', color: '#64748b', fontStyle: 'italic' }}>
-                        No supporting document uploaded
-                      </div>
-                    )}
-                  </div>
+        {/* UNIFIED READ-ONLY DOCUMENT VIEW */}
+        {isReadOnly ? (
+          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+            
+            {/* Section A: Applicant Profile */}
+            <div>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Building size={16} style={{ color: 'var(--primary)' }} />
+                1. Company & Site Details
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPANY NAME</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.company_name || '—'}</div>
                 </div>
-              ) : (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  <div className="form-group">
-                    <label className="form-label">Company Name</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Contact Person</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Company Address</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Manufacturing Address</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Contact E-mail</label>
-                    <input type="email" className="form-control" style={{ background: '#f8fafc' }} value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Nature of the business</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Product Category</label>
-                    <input type="text" className="form-control" style={{ background: '#f8fafc' }} value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} />
-                  </div>
-                  
-                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-
-                  <div className="form-group">
-                    <label className="form-label">Issue date of certificate</label>
-                    <input type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Expiry date of certificate</label>
-                    <input type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Current Cycle Start Date</label>
-                    <input type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Original Cycle Start Date</label>
-                    <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
-                  </div>
-
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Supporting Document (Optional)</label>
-                    {form.document_url ? (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                        <CheckCircle2 size={18} color="#16a34a" />
-                        <a href={form.document_url} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>Document Uploaded Successfully</a>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '' })}>Remove</button>
-                      </div>
-                    ) : (
-                      <label className="file-upload-box" style={{ display: 'flex', flexDirection: 'column', padding: 30, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 12, cursor: 'pointer', background: '#f8fafc', transition: 'all 0.2s' }}>
-                        <div style={{ background: '#e2e8f0', padding: 12, borderRadius: '50%', marginBottom: 12 }}>
-                          <UploadCloud size={24} color="#475569" />
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>Click to Upload File</div>
-                        <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>PDF, PNG, or JPG (Max 5MB)</div>
-                        <input type="file" style={{ display: 'none' }} onChange={handleFileChange} />
-                      </label>
-                    )}
-                  </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CONTACT PERSON</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.contact_person || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{form.contact_email}</div>
                 </div>
-              )
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPANY ADDRESS</div>
+                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.company_address || '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>MANUFACTURING SITE ADDRESS</div>
+                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.manufacturing_address || '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>NATURE OF BUSINESS</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.nature_of_business || '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PRODUCT CATEGORY</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.product_category || '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section B: Certification Dates */}
+            <div>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar size={16} style={{ color: 'var(--primary)' }} />
+                2. Certification Validity & Cycle Dates
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>ISSUE DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.issue_date ? new Date(form.issue_date).toLocaleDateString('en-GB') : '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>EXPIRY DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.expiry_date ? new Date(form.expiry_date).toLocaleDateString('en-GB') : '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CURRENT CYCLE START</div>
+                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.current_cycle_start ? new Date(form.current_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>ORIGINAL CYCLE START</div>
+                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section C: Audit & Technical Review */}
+            <div>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileText size={16} style={{ color: 'var(--primary)' }} />
+                3. Audit & Technical Compliance Review
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT TYPE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#4f46e5', marginTop: 2 }}>{form.audit_type || 'Initial'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.audit_date ? new Date(form.audit_date).toLocaleDateString('en-GB') : '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDITORS</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.auditors || '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>NON-CONFORMANCES (NCS CLOSE)</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.ncs_close || 'No NCs flagged'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>DOCUMENTATION REVIEW STATUS</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.docs_satisfactory || '—'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PORK FREE POLICY STATEMENT</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.pork_free_statement || '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section D: Scope & Committee Decisions */}
+            <div>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Award size={16} style={{ color: 'var(--primary)' }} />
+                4. Scope & Certificate Scope Checks
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                {[
+                  { label: 'Annual Certificate', val: form.annual_certificate },
+                  { label: 'Batch Certificate', val: form.batch_certificate },
+                  { label: 'Addition of New Products', val: form.new_products_only },
+                  { label: 'Addition of New Site/Line', val: form.new_site_line },
+                  { label: 'New Client', val: form.new_client },
+                  { label: 'Agreement Signed', val: form.agreement_signed },
+                ].map((item, idx) => (
+                  <div key={idx} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 500 }}>{item.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: item.val === 'Yes' ? '#dcfce7' : '#f1f5f9', color: item.val === 'Yes' ? '#15803d' : '#64748b' }}>
+                      {item.val || 'No'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section E: Committee Comments */}
+            {form.comment && (
+              <div>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
+                  5. Committee Comments & Recommendation Notes
+                </h4>
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                  {form.comment}
+                </div>
+              </div>
             )}
 
-            {/* Tab 2 */}
-            {activeTab === 2 && (
-              isReadOnly ? (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  {renderField('Audit Type', form.audit_type)}
-                  {renderField('Audit Date', form.audit_date, true)}
-                  {renderField('Auditors', form.auditors)}
-                  {renderField('NCS Close (if any)', form.ncs_close)}
-                  {renderField('Audit Documentation reviewed and found satisfactory', form.docs_satisfactory, false, { gridColumn: '1 / -1' })}
-                  {renderField('Pork free statement / signed pork policy submitted', form.pork_free_statement, false, { gridColumn: '1 / -1' })}
-                  
-                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-
-                  {renderField('Reviewed By', form.reviewed_by)}
-                  {renderField('Reviewer Name', form.reviewer_name)}
-                  {renderField('Date of Review', form.review_date, true, { gridColumn: '1 / -1' })}
+            {/* Supporting Attachments */}
+            {(form.document_url || form.nc_report_url) && (
+              <div>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={16} style={{ color: 'var(--primary)' }} />
+                  Attached Supporting Documents
+                </h4>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {form.document_url && (
+                    <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Download size={14} /> Logsheet Attachment PDF
+                    </a>
+                  )}
+                  {form.nc_report_url && (
+                    <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Download size={14} /> NC Report Attachment PDF
+                    </a>
+                  )}
                 </div>
-              ) : (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  <div className="form-group">
-                    <label className="form-label">Audit Type</label>
-                    <select className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
-                      <option value="Initial">Initial</option>
-                      <option value="Surveillance">Surveillance</option>
-                      <option value="Re-audit">Re-audit</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Audit Date</label>
-                    <input type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Auditors</label>
-                    <input type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">NCS Close (if any)</label>
-                    <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">NC Report Document (Optional)</label>
-                    {form.nc_report_url ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px' }}>
-                        <FileText size={18} style={{ color: '#16a34a' }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>NC Report Document Attached</div>
-                          <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>
-                            View NC Report
-                          </a>
-                        </div>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, nc_report_url: '' })}>
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="file-upload-box" style={{ display: 'flex', flexDirection: 'column', padding: 18, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#f8fafc' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Upload Resolved NC Report PDF / Attachment</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>PDF, PNG, or JPG (Max 5MB)</div>
-                        <input type="file" style={{ display: 'none' }} onChange={handleNcReportUpload} />
-                      </label>
-                    )}
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Audit Documentation reviewed and found satisfactory</label>
-                    <input type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Pork free statement / signed pork policy submitted</label>
-                    <input type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} />
-                  </div>
-                  
-                  <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-
-                  <div className="form-group">
-                    <label className="form-label">Reviewed By</label>
-                    <input type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Reviewer Name</label>
-                    <input type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Date of Review</label>
-                    <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
-                  </div>
-                </div>
-              )
+              </div>
             )}
 
-            {/* Tab 3 */}
-            {activeTab === 3 && (
-              isReadOnly ? (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  {renderField('Annual certificate', form.annual_certificate)}
-                  {renderField('Batch certificate', form.batch_certificate)}
-                  {renderField('Only addition of new products', form.new_products_only)}
-                  {renderField('Addition of new site (or line)', form.new_site_line)}
-                  {renderField('New Client', form.new_client)}
-                  {renderField('Agreement Signed', form.agreement_signed)}
-                  {renderField('Status Date', form.status_date, true, { gridColumn: '1 / -1' })}
+            {/* SECTION F: FORMAL SIGNATURE MATRIX BLOCK */}
+            <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <PenTool size={18} style={{ color: 'var(--primary)' }} />
+                    Committee Executed Signatures Matrix
+                  </h4>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                    Official digital signatures applied by authorized Shariah & Management signatories.
+                  </p>
                 </div>
-              ) : (
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24, animation: 'fadeIn 0.3s ease-in-out' }}>
-                  <div className="form-group">
-                    <label className="form-label">Annual certificate</label>
-                    <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Batch certificate</label>
-                    <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Only addition of new products</label>
-                    <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Addition of new site (or line)</label>
-                    <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">New Client</label>
-                    <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Agreement Signed</label>
-                    <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
-                      <option value="Yes">Yes</option><option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Status Date</label>
-                    <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
-                  </div>
-                </div>
-              )
-            )}
 
-            {/* Tab 4 */}
-            {activeTab === 4 && (
-              isReadOnly ? (
-                <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-                  <div className="form-group">
-                    <label className="form-label">Comment / Reason</label>
-                    <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#334155', minHeight: '150px', whiteSpace: 'pre-wrap' }}>
-                      {form.comment || '—'}
+                {!isFullySigned && (
+                  <button 
+                    type="button"
+                    onClick={() => openSigningModal()}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+                  >
+                    <PenTool size={14} /> Apply Signature
+                  </button>
+                )}
+              </div>
+
+              {/* 4 Signatory Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                {signatories.map((s, idx) => (
+                  <div 
+                    key={idx} 
+                    style={{ 
+                      border: `1.5px solid ${s.signature ? '#bbf7d0' : '#e2e8f0'}`, 
+                      borderRadius: 10, 
+                      padding: 16, 
+                      background: s.signature ? '#f0fdf4' : '#fafafa', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      minHeight: 140, 
+                      textAlign: 'center',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 700, color: s.signature ? '#15803d' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {s.label}
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-                  <div className="form-group">
-                    <label className="form-label">Comment / Reason</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={8}
-                      style={{ background: '#f8fafc', fontSize: 15, padding: 16 }}
-                      placeholder="Enter final review comments, notes, or specific reasons for certification..."
-                      value={form.comment} 
-                      onChange={e => setForm({ ...form, comment: e.target.value })} 
-                    />
-                  </div>
-                </div>
-              )
-            )}
-          </div>
 
-          {/* Fixed Footer */}
-          {!isReadOnly && (
-            <div style={{ background: '#f8fafc', padding: '20px 30px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <label style={{ 
-                display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', 
-                background: form.confirmed ? '#f0fdf4' : '#fff', 
-                border: `1px solid ${form.confirmed ? '#86efac' : '#cbd5e1'}`, 
-                padding: '12px 16px', borderRadius: 8, transition: 'all 0.2s'
-              }}>
+                    {s.signature ? (
+                      <div style={{ margin: '8px 0', width: '100%' }}>
+                        <img 
+                          src={getPdfUrl(s.signature)} 
+                          alt={`${s.label} Signature`} 
+                          style={{ maxHeight: 48, maxWidth: 160, objectFit: 'contain', margin: '0 auto', display: 'block' }} 
+                        />
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d', marginTop: 4 }}>
+                          {s.name || 'Signatory'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#166534', opacity: 0.8 }}>
+                          {s.date ? new Date(s.date).toLocaleDateString('en-GB') : 'Signed'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ margin: '16px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontStyle: 'italic', color: '#94a3b8' }}>Awaiting Signature</span>
+                        {!isFullySigned && (
+                          <button 
+                            type="button" 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', border: '1px solid #cbd5e1', padding: '3px 10px', background: '#fff' }}
+                            onClick={() => openSigningModal(s.roleKey)}
+                          >
+                            Sign as {s.roleKey}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Finalize Button Action if signatures present and pending */}
+              {!isFullySigned && totalSignedCount > 0 && (
+                <div style={{ marginTop: 24, padding: 16, background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d' }}>Ready to finalize sign-off?</div>
+                    <div style={{ fontSize: 12, color: '#166534' }}>Finalizing will lock the logsheet and advance application status to successful.</div>
+                  </div>
+
+                  <button 
+                    onClick={handleFinalizeSignOff}
+                    disabled={isFinalizing}
+                    className="btn btn-primary"
+                    style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 600, padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Check size={16} /> Finalize Sign-Off & Lock Document
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* FORM VIEW FOR CREATING NEW LOGSHEET */
+          <form onSubmit={handleSubmit} style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {activeTab === 1 && (
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div className="form-group">
+                  <label className="form-label">Company Name</label>
+                  <input type="text" className="form-control" value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact Person</label>
+                  <input type="text" className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Company Address</label>
+                  <input type="text" className="form-control" value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Manufacturing Address</label>
+                  <input type="text" className="form-control" value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact E-mail</label>
+                  <input type="email" className="form-control" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nature of the business</label>
+                  <input type="text" className="form-control" value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Product Category</label>
+                  <input type="text" className="form-control" value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Issue date of certificate</label>
+                  <input type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Expiry date of certificate</label>
+                  <input type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Current Cycle Start Date</label>
+                  <input type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Original Cycle Start Date</label>
+                  <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Supporting Document (Optional)</label>
+                  {form.document_url ? (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                      <CheckCircle2 size={18} color="#16a34a" />
+                      <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>Document Uploaded Successfully</a>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '' })}>Remove</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', padding: 24, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#f8fafc' }}>
+                      <UploadCloud size={24} color="#475569" style={{ marginBottom: 8 }} />
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>Click to Upload File</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>PDF, PNG, or JPG (Max 5MB)</div>
+                      <input type="file" style={{ display: 'none' }} onChange={handleFileChange} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 2 && (
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div className="form-group">
+                  <label className="form-label">Audit Type</label>
+                  <select className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
+                    <option value="Initial">Initial</option>
+                    <option value="Surveillance">Surveillance</option>
+                    <option value="Re-audit">Re-audit</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Audit Date</label>
+                  <input type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Auditors</label>
+                  <input type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">NCS Close (if any)</label>
+                  <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Audit Documentation reviewed and found satisfactory</label>
+                  <input type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Pork free statement / signed pork policy submitted</label>
+                  <input type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Reviewed By</label>
+                  <input type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Reviewer Name</label>
+                  <input type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Date of Review</label>
+                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 3 && (
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div className="form-group">
+                  <label className="form-label">Annual certificate</label>
+                  <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Batch certificate</label>
+                  <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Only addition of new products</label>
+                  <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Addition of new site (or line)</label>
+                  <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">New Client</label>
+                  <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Agreement Signed</label>
+                  <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
+                    <option value="Yes">Yes</option><option value="No">No</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Status Date</label>
+                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 4 && (
+              <div className="form-group">
+                <label className="form-label">Comment / Reason for Decision</label>
+                <textarea 
+                  className="form-control" 
+                  rows={8}
+                  style={{ fontSize: 14, padding: 14 }}
+                  placeholder="Enter final review comments, conditions, or recommendations..."
+                  value={form.comment} 
+                  onChange={e => setForm({ ...form, comment: e.target.value })} 
+                />
+              </div>
+            )}
+
+            {/* Bottom Footer Submit */}
+            <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input 
                   type="checkbox" 
                   checked={form.confirmed}
                   onChange={e => setForm({ ...form, confirmed: e.target.checked })}
-                  style={{ width: 20, height: 20, cursor: 'pointer' }}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
                 />
-                <span style={{ fontWeight: 600, color: form.confirmed ? '#166534' : '#334155' }}>
-                  I have confirmed that the product on the client dashboard is correct with the matrix.
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#334155' }}>
+                  I confirm that all product matrix and audit compliance details above have been verified.
                 </span>
               </label>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: '#64748b' }}>
-                  {form.confirmed ? 'Ready to submit logsheet.' : 'Please confirm the checklist above to submit.'}
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button 
                   type="submit" 
                   className="btn btn-primary" 
                   disabled={submitting || !form.confirmed} 
-                  style={{ 
-                    padding: '12px 32px', 
-                    fontSize: 15, 
-                    fontWeight: 600,
-                    opacity: (!form.confirmed || submitting) ? 0.6 : 1,
-                    boxShadow: '0 4px 14px 0 rgba(2,132,199,0.39)'
-                  }}
+                  style={{ padding: '10px 24px', fontSize: 14, fontWeight: 600 }}
                 >
-                  {submitting ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 16, height: 16, borderTopColor: '#fff' }} /> Saving...</span>
-                  ) : 'Submit Logsheet & Advance Status'}
+                  {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
                 </button>
               </div>
             </div>
-          )}
-        </form>
+          </form>
+        )}
       </div>
 
-      {/* SIGNATURE PANEL CARD */}
-      {currentLogsheet && (
-        <div className="card" style={{ marginTop: '30px', padding: '30px', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-in-out' }}>
-          {/* Section Header */}
-          <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '20px', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <PenTool size={22} style={{ color: 'var(--primary)' }} />
-              Logsheet Sign-Off Matrix
-            </h3>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-              Authorized reviewers can electronically sign this application logsheet decision.
-            </p>
-          </div>
-
-          {/* Render Applied Signatures Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-            {/* Mufti Signature Display */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.mufti_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Mufti</span>
-              {currentLogsheet.mufti_signature ? (
-                <>
-                  <img src={getPdfUrl(currentLogsheet.mufti_signature)} alt="Mufti Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.mufti_sign_name}</span>
-                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.mufti_sign_date).toLocaleDateString('en-GB')}</span>
-                </>
-              ) : (
-                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
-              )}
+      {/* INTERACTIVE SIGNATURE MODAL WITH DOUBLE-CONFIRMATION STEP */}
+      {showSignModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: 16,
+            width: '100%',
+            maxWidth: 520,
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            animation: 'slideDown 0.2s ease-out'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <PenTool size={20} style={{ color: '#38bdf8' }} />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Apply Committee Electronic Signature</h3>
+              </div>
+              <button 
+                onClick={() => setShowSignModal(false)} 
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            {/* CEO Signature Display */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.ceo_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>CEO</span>
-              {currentLogsheet.ceo_signature ? (
-                <>
-                  <img src={getPdfUrl(currentLogsheet.ceo_signature)} alt="CEO Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.ceo_sign_name}</span>
-                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.ceo_sign_date).toLocaleDateString('en-GB')}</span>
-                </>
-              ) : (
-                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
-              )}
-            </div>
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              
+              {/* Step 1: Select Role */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
+                  1. Select Signatory Role(s) to Execute
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { key: 'Mufti', label: 'Mufti' },
+                    { key: 'Ceo', label: 'CEO' },
+                    { key: 'Manager', label: 'Manager' },
+                    { key: 'Mufti2', label: 'Mufti 2' },
+                  ].map(r => {
+                    const isSelected = sigRoles.includes(r.key);
+                    return (
+                      <button
+                        key={r.key}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSigRoles(sigRoles.filter(role => role !== r.key));
+                          } else {
+                            setSigRoles([...sigRoles, r.key]);
+                          }
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 8,
+                          border: `1.5px solid ${isSelected ? 'var(--primary)' : '#e2e8f0'}`,
+                          background: isSelected ? '#f0fdf4' : '#f8fafc',
+                          color: isSelected ? 'var(--primary-dark)' : '#334155',
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span>{r.label}</span>
+                        {isSelected && <Check size={14} style={{ color: 'var(--primary)' }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            {/* Manager Signature Display */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.manager_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Manager</span>
-              {currentLogsheet.manager_signature ? (
-                <>
-                  <img src={getPdfUrl(currentLogsheet.manager_signature)} alt="Manager Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.manager_sign_name}</span>
-                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.manager_sign_date).toLocaleDateString('en-GB')}</span>
-                </>
-              ) : (
-                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
-              )}
-            </div>
+              {/* Step 2: Signature Preview */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
+                  2. Authenticated Digital Signature Preview
+                </label>
+                {userSignature ? (
+                  <div style={{ padding: '14px 18px', border: '1px solid #bbf7d0', background: '#f0fdf4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>AUTHENTICATED USER</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{userSignature.name}</div>
+                    </div>
+                    <img 
+                      src={getPdfUrl(userSignature.signature_url)} 
+                      alt="Digital Signature" 
+                      style={{ maxHeight: 42, maxWidth: 140, objectFit: 'contain', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }} 
+                    />
+                  </div>
+                ) : (
+                  <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#991b1b', fontSize: 12 }}>
+                    No digital signature image found for your account. Please upload one in the Signatures management page.
+                  </div>
+                )}
+              </div>
 
-            {/* Mufti2 Signature Display */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: currentLogsheet.mufti2_signature ? '#f0fdf4' : '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '130px', textAlign: 'center', transition: 'all 0.2s' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Mufti 2</span>
-              {currentLogsheet.mufti2_signature ? (
-                <>
-                  <img src={getPdfUrl(currentLogsheet.mufti2_signature)} alt="Mufti 2 Signature" style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain', margin: '6px 0' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>{currentLogsheet.mufti2_sign_name}</span>
-                  <span style={{ fontSize: '11px', color: '#15803d', opacity: 0.8 }}>{new Date(currentLogsheet.mufti2_sign_date).toLocaleDateString('en-GB')}</span>
-                </>
-              ) : (
-                <span style={{ fontSize: '13px', fontStyle: 'italic', color: '#94a3b8' }}>Pending Signature</span>
-              )}
-            </div>
-          </div>
-
-          {/* Only render signing decision panel if status is 'Waiting for Signature' */}
-          {currentLogsheet.status === 'Waiting for Signature' && (
-            <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '28px' }}>
-              {/* Note / Comment Text Area */}
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Signature Comments / Review Notes</label>
+              {/* Step 3: Optional Comment */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'block' }}>
+                  3. Signature Comment / Note (Optional)
+                </label>
                 <textarea 
                   className="form-control"
-                  rows={4}
-                  placeholder="Enter comments, conditions, or reasons for signing..."
+                  rows={2}
+                  placeholder="Enter comments or conditions regarding this signature..."
                   value={sigComment}
                   onChange={e => setSigComment(e.target.value)}
-                  style={{ background: '#fff', fontSize: '14px', padding: '14px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
+                  style={{ fontSize: 13, padding: 10 }}
                 />
               </div>
 
-              {/* Signature Role Selector Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Select Signature Roles to Apply ({sigRoles.length} selected)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (sigRoles.length === 4) {
-                      setSigRoles([]);
-                    } else {
-                      setSigRoles(['Mufti', 'Ceo', 'Manager', 'Mufti2']);
-                    }
-                  }}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '12px', fontWeight: 800, padding: '4px 12px', border: '1px solid #cbd5e1', borderRadius: '20px', background: '#fff', color: '#4f46e5', cursor: 'pointer' }}
-                >
-                  {sigRoles.length === 4 ? 'Deselect All' : 'Select All Roles (Sign Everything)'}
-                </button>
-              </div>
-
-              {/* Signature Role Selector Grid */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '28px' }}>
-                {['Mufti', 'Ceo', 'Manager', 'Mufti2'].map(role => {
-                  const isSelected = sigRoles.includes(role);
-                  return (
-                    <label 
-                      key={role} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px', 
-                        cursor: 'pointer', 
-                        fontSize: '14px', 
-                        fontWeight: 700, 
-                        color: isSelected ? '#4f46e5' : '#475569',
-                        padding: '10px 20px',
-                        borderRadius: '24px',
-                        background: isSelected ? '#f5f3ff' : '#f8fafc',
-                        border: `2px solid ${isSelected ? '#4f46e5' : '#e2e8f0'}`,
-                        transition: 'all 0.2s',
-                        boxShadow: isSelected ? '0 4px 6px -1px rgba(79, 70, 229, 0.1)' : 'none'
-                      }}
-                    >
-                      <input 
-                        type="checkbox" 
-                        name="signatureRole" 
-                        value={role} 
-                        checked={isSelected} 
-                        onChange={() => {
-                          if (isSelected) {
-                            setSigRoles(sigRoles.filter(r => r !== role));
-                          } else {
-                            setSigRoles([...sigRoles, role]);
-                          }
-                        }}
-                        style={{ display: 'none' }}
-                      />
-                      <span 
-                        style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          borderRadius: '4px', 
-                          border: `2px solid ${isSelected ? '#4f46e5' : '#cbd5e1'}`, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          background: isSelected ? '#4f46e5' : 'transparent',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        {isSelected && <Check size={11} style={{ color: '#fff', strokeWidth: 4 }} />}
-                      </span>
-                      <span>
-                        {role === 'Ceo' ? 'CEO' : role === 'Mufti2' ? 'Mufti 2' : role}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              {/* Show selected signature preview */}
-              <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
-                {userSignature ? (
-                  <div style={{ padding: '14px 24px', border: '1px dashed #86efac', borderRadius: '10px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 6px -1px rgba(22, 101, 52, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Check size={18} style={{ color: '#16a34a' }} />
-                      <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '10px', color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Authenticated Signature Active</div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{userSignature.name}</div>
-                      </div>
-                    </div>
-                    <div style={{ borderLeft: '1px solid #dcfce7', height: '30px' }} />
-                    <img src={getPdfUrl(userSignature.signature_url)} alt="Signature Preview" style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                  </div>
-                ) : (
-                  <div style={{ padding: '14px 24px', border: '1px dashed #fca5a5', borderRadius: '10px', background: '#fef2f2', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b', fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(153, 27, 27, 0.05)', animation: 'fadeIn 0.2s ease-in-out' }}>
-                    <span>⚠️ Your authenticated user account (<strong>{user?.full_name || 'Admin'}</strong>) does not have an uploaded digital signature in the system yet.</span>
-                    <button 
-                      type="button" 
-                      className="btn btn-ghost btn-sm" 
-                      onClick={() => navigate('/signatures')}
-                      style={{ color: '#b91c1c', textDecoration: 'underline', padding: '0 4px', fontWeight: 800 }}
-                    >
-                      Upload Signature
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                <button 
-                  onClick={handleSignLogsheet}
-                  disabled={isSigning || sigRoles.length === 0 || !userSignature}
-                  className="btn btn-primary"
-                  style={{ 
-                    padding: '12px 36px', 
-                    fontSize: '14px', 
-                    fontWeight: 700, 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '8px',
-                    background: '#6366f1',
-                    borderColor: '#6366f1',
-                    boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.4)',
-                    cursor: 'pointer',
-                    opacity: (isSigning || sigRoles.length === 0 || !userSignature) ? 0.6 : 1,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {isSigning ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }} /> APPLYING SIGNATURE...</span>
-                  ) : (
-                    <>
-                      <PenTool size={16} />
-                      SIGN ROLE
-                    </>
-                  )}
-                </button>
-
-                {currentLogsheet && (currentLogsheet.mufti_signature || currentLogsheet.ceo_signature || currentLogsheet.manager_signature || currentLogsheet.mufti2_signature) && (
-                  <button 
-                    onClick={handleFinalizeSignOff}
-                    disabled={isFinalizing}
-                    className="btn"
-                    style={{ 
-                      padding: '12px 36px', 
-                      fontSize: '14px', 
-                      fontWeight: 700, 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      background: '#10b981',
-                      borderColor: '#10b981',
-                      color: 'white',
-                      boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.4)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      opacity: isFinalizing ? 0.6 : 1
-                    }}
-                  >
-                    {isFinalizing ? (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }} /> FINALIZING...</span>
-                    ) : (
-                      <>
-                        <Check size={16} />
-                        FINALIZE SIGN-OFF & LOCK
-                      </>
-                    )}
-                  </button>
-                )}
-
-                <button 
-                  onClick={handleSendToReview}
-                  disabled={isSendingWithoutSig}
-                  className="btn btn-ghost"
-                  style={{ 
-                    padding: '12px 24px', 
-                    fontSize: '14px', 
-                    fontWeight: 700,
-                    color: '#6366f1',
-                    border: '1px solid #cbd5e1',
-                    background: 'white',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {isSendingWithoutSig ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner" style={{ width: '16px', height: '16px' }} /> SENDING...</span>
-                  ) : (
-                    'SEND TO REVIEW WITHOUT SIGNATURE'
-                  )}
-                </button>
+              {/* Step 4: EXPLICIT DOUBLE CONFIRMATION CHECKBOX */}
+              <div style={{ padding: '12px 14px', background: modalConfirmed ? '#f0fdf4' : '#fffbeb', border: `1px solid ${modalConfirmed ? '#86efac' : '#fed7aa'}`, borderRadius: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: 0 }}>
+                  <input 
+                    type="checkbox"
+                    checked={modalConfirmed}
+                    onChange={e => setModalConfirmed(e.target.checked)}
+                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: modalConfirmed ? '#14532d' : '#9a3412' }}>
+                    I explicitly confirm that I am applying my authorized electronic signature to this logsheet decision record.
+                  </span>
+                </label>
               </div>
             </div>
-          )}
+
+            {/* Modal Footer Actions */}
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button 
+                type="button" 
+                className="btn btn-ghost" 
+                onClick={() => setShowSignModal(false)}
+                style={{ fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              
+              <button 
+                type="button"
+                onClick={handleConfirmApplySignature}
+                disabled={isSigning || sigRoles.length === 0 || !modalConfirmed || !userSignature}
+                className="btn btn-primary"
+                style={{
+                  padding: '9px 24px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  opacity: (!modalConfirmed || isSigning || sigRoles.length === 0 || !userSignature) ? 0.6 : 1
+                }}
+              >
+                {isSigning ? 'Applying Signature...' : 'Confirm & Apply Signature'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

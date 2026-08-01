@@ -726,10 +726,35 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                             <span style={{ fontSize: 10, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
                           </div>
                           <p style={{ fontSize: 13, color: '#334155', margin: '0 0 10px 0', lineHeight: 1.4 }}>{nc.text}</p>
-                          {nc.document_url && (
-                            <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}>
+                          {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' ? (
+                            <a
+                              href={getPdfUrl(nc.document_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline btn-sm"
+                              style={{ fontSize: 11, padding: '4px 8px' }}
+                              onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const fullUrl = getPdfUrl(nc.document_url);
+                                if (fullUrl && fullUrl !== '#') {
+                                  window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
+                            >
                               <FileText size={12} style={{ marginRight: 4 }}/> View Document
                             </a>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: 11, padding: '4px 8px', borderRadius: '4px',
+                                background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1',
+                                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'not-allowed', fontWeight: 600
+                              }}
+                              title="No document file was uploaded for this NC report"
+                            >
+                              <FileText size={12} /> Document Unavailable
+                            </span>
                           )}
                         </div>
                       ))}

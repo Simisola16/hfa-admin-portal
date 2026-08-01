@@ -630,12 +630,40 @@ export default function AdminCreateLogsheet() {
                 </h4>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   {form.document_url && (
-                    <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <a
+                      href={getPdfUrl(form.document_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fullUrl = getPdfUrl(form.document_url);
+                        if (fullUrl && fullUrl !== '#') {
+                          window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                    >
                       <Download size={14} /> Logsheet Attachment PDF
                     </a>
                   )}
                   {form.nc_report_url && (
-                    <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <a
+                      href={getPdfUrl(form.nc_report_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fullUrl = getPdfUrl(form.nc_report_url);
+                        if (fullUrl && fullUrl !== '#') {
+                          window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                    >
                       <Download size={14} /> NC Report Attachment PDF
                     </a>
                   )}

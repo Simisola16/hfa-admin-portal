@@ -1149,10 +1149,35 @@ export default function AdminApplications() {
                                   </div>
                                   <p style={{ fontSize: 13, margin: '0 0 12px 0', color: '#334155', lineHeight: 1.5 }}>{nc.text}</p>
                                   
-                                  {nc.document_url && (
-                                    <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '6px 12px', width: 'fit-content' }}>
+                                  {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' ? (
+                                    <a
+                                      href={getPdfUrl(nc.document_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="btn btn-outline btn-sm"
+                                      style={{ fontSize: 11, padding: '6px 12px', width: 'fit-content' }}
+                                      onClick={e => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const fullUrl = getPdfUrl(nc.document_url);
+                                        if (fullUrl && fullUrl !== '#') {
+                                          window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                        }
+                                      }}
+                                    >
                                       View Attached Document
                                     </a>
+                                  ) : (
+                                    <span
+                                      style={{
+                                        fontSize: 11, padding: '6px 12px', borderRadius: '6px',
+                                        background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1',
+                                        display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'not-allowed', fontWeight: 600, width: 'fit-content'
+                                      }}
+                                      title="No document file was uploaded for this NC report"
+                                    >
+                                      Document Unavailable
+                                    </span>
                                   )}
                                 </div>
                               ))}

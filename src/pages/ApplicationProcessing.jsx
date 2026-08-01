@@ -174,10 +174,10 @@ export default function ApplicationProcessing() {
       const res = await api.put(`/api/applications/${appId}/approve`, { category: approveCategory || app.category });
       setApp(res.data);
       setShowApproveModal(false);
-      toast.success('Application approved successfully!');
+      toast.success('Application accepted successfully!');
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Approval failed.');
+      toast.error(err.message || 'Acceptance failed.');
     } finally {
       setActionSubmitting(false);
     }
@@ -425,7 +425,7 @@ export default function ApplicationProcessing() {
                   <Clock size={16} style={{ color: '#d97706' }} /> Put On Hold
                 </button>
                 <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => setShowApproveModal(true)}>
-                  <CheckCircle size={16} /> Approve Application
+                  <CheckCircle size={16} /> Accept Application
                 </button>
               </>
             )}
@@ -646,7 +646,7 @@ export default function ApplicationProcessing() {
                   <CheckCircle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Approve Application</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Accept Application</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification scope &amp; category before proceeding</div>
                 </div>
               </div>
@@ -674,7 +674,7 @@ export default function ApplicationProcessing() {
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowApproveModal(false)} disabled={actionSubmitting}>Cancel</button>
               <button className="btn btn-primary" onClick={handleApprove} disabled={actionSubmitting}>
-                {actionSubmitting ? 'Approving...' : 'Confirm Approval'}
+                {actionSubmitting ? 'Accepting...' : 'Confirm Acceptance'}
               </button>
             </div>
           </div>

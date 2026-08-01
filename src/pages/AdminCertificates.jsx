@@ -252,7 +252,7 @@ export default function AdminCertificates() {
                             </button>
                           )}
                           {c.certificate_url && (
-                            <a href={getPdfUrl(c.certificate_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                            <a href={getPdfUrl(c.certificate_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" onClick={e => e.stopPropagation()}>
                               <Download size={13} />
                             </a>
                           )}

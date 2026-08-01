@@ -180,7 +180,8 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       const res = await api.post('/api/audits/flag-nc', formData, true);
       setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
       toast.success('NC Report flagged successfully!');
-      onSuccess();
+      if (onSuccess) onSuccess();
+      if (onClose) onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to flag NC');
     } finally {
@@ -200,6 +201,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       setShowNcDialog(false);
       toast.success(`${stageLabel} marked complete successfully!`);
       if (onSuccess) onSuccess();
+      if (onClose) onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to complete audit stage');
     } finally {

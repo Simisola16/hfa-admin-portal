@@ -74,7 +74,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
               id: `app-prop-${app._id}`,
               app,
               type: 'send_proposal',
-              title: 'Application Approved: Send Proposal',
+              title: 'Application Accepted: Send Proposal',
               desc: `Send certification proposal to ${app.establishment_name}`,
               buttonText: 'Send Proposal',
               buttonBg: '#6b21a8',

@@ -649,7 +649,7 @@ export default function AdminCreateLogsheet() {
                 <div>
                   <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <PenTool size={18} style={{ color: 'var(--primary)' }} />
-                    Committee Executed Signatures Matrix
+                    Committee Signatures
                   </h4>
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
                     Official digital signatures applied by authorized Shariah & Management signatories.

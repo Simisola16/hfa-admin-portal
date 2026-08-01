@@ -23,6 +23,7 @@ import AdminLogsheets from './pages/AdminLogsheets';
 import AdminCreateLogsheet from './pages/AdminCreateLogsheet';
 import AdminLogsheetManage from './pages/AdminLogsheetManage';
 import AdminLogsheetWaitingSignature from './pages/AdminLogsheetWaitingSignature';
+import AdminLogsheetWaitingCertificate from './pages/AdminLogsheetWaitingCertificate';
 import AdminTickets from './pages/AdminTickets';
 import AdminSignatures from './pages/AdminSignatures';
 import ApplicationProcessing from './pages/ApplicationProcessing';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
             <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />
             <Route path="/logsheet/waiting-signature" element={<AdminLogsheetWaitingSignature />} />
+            <Route path="/logsheet/waiting-certificate" element={<AdminLogsheetWaitingCertificate />} />
             <Route path="/tickets" element={<AdminTickets />} />
             <Route path="/signatures" element={<AdminSignatures />} />
             <Route path="/users" element={<AdminClients />} />

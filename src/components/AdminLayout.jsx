@@ -28,6 +28,7 @@ const pageMeta = {
   '/logsheet/products':           { title: 'Logsheets',           sub: 'Product review queue',           section: 'Certification' },
   '/logsheet/manage':             { title: 'Logsheets',           sub: 'Manage logsheet records',        section: 'Certification' },
   '/logsheet/waiting-signature':  { title: 'Logsheets',           sub: 'Waiting for signature',          section: 'Certification' },
+  '/logsheet/waiting-certificate': { title: 'Logsheets',          sub: 'Waiting for certificate',        section: 'Certification' },
   '/certificates':                { title: 'Certificates',        sub: 'Manage issued certificates',     section: 'Certification' },
   '/exports':                     { title: 'Export Certificates', sub: 'Manage export certificate requests', section: 'Certification' },
   '/inspectors':                  { title: 'Inspectors',          sub: 'Manage inspector profiles',      section: 'People & Sites' },

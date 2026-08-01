@@ -251,7 +251,11 @@ export default function AdminCreateLogsheet() {
 
   const handleFinalizeSignOff = async (e) => {
     e.preventDefault();
-    if (!window.confirm("Are you sure you want to finalize the sign-off? This will lock the logsheet and advance its status to Signed.")) {
+    if (totalSignedCount < 3) {
+      toast.error(`Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`);
+      return;
+    }
+    if (!window.confirm("Are you sure you want to mark this logsheet as done? This will transition the logsheet to 'Waiting For Certificate' and advance the application status.")) {
       return;
     }
     setIsFinalizing(true);
@@ -259,10 +263,10 @@ export default function AdminCreateLogsheet() {
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         finalizeSignOff: true
       });
-      toast.success("Logsheet sign-off finalized successfully!");
+      toast.success("Logsheet marked as done successfully!");
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Failed to finalize sign-off');
+      toast.error(err.message || 'Failed to mark logsheet as done');
     } finally {
       setIsFinalizing(false);
     }
@@ -752,21 +756,50 @@ export default function AdminCreateLogsheet() {
                 ))}
               </div>
 
-              {/* Finalize Button Action if signatures present and pending */}
-              {!isFullySigned && totalSignedCount > 0 && (
-                <div style={{ marginTop: 24, padding: 16, background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              {/* Mark as Done Action Block */}
+              {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && (
+                <div 
+                  style={{ 
+                    marginTop: 24, 
+                    padding: 16, 
+                    background: totalSignedCount >= 3 ? '#f0fdf4' : '#fffbeb', 
+                    borderRadius: 10, 
+                    border: `1.5px solid ${totalSignedCount >= 3 ? '#bbf7d0' : '#fde68a'}`, 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap', 
+                    gap: 12 
+                  }}
+                >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d' }}>Ready to finalize sign-off?</div>
-                    <div style={{ fontSize: 12, color: '#166534' }}>Finalizing will lock the logsheet and advance application status to successful.</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: totalSignedCount >= 3 ? '#14532d' : '#92400e' }}>
+                      {totalSignedCount >= 3 ? 'Ready to mark logsheet as done?' : 'Signature Threshold Pending'}
+                    </div>
+                    <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
+                      {totalSignedCount >= 3 
+                        ? '3 of 4 committee signatures collected. Marking done will transition logsheet to Waiting For Certificate and advance application status.' 
+                        : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
+                    </div>
                   </div>
 
                   <button 
                     onClick={handleFinalizeSignOff}
-                    disabled={isFinalizing}
+                    disabled={isFinalizing || totalSignedCount < 3}
                     className="btn btn-primary"
-                    style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 600, padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    style={{ 
+                      background: totalSignedCount >= 3 ? '#16a34a' : '#cbd5e1', 
+                      borderColor: totalSignedCount >= 3 ? '#16a34a' : '#cbd5e1', 
+                      color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                      fontWeight: 700, 
+                      padding: '9px 20px', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: 6,
+                      cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                    }}
                   >
-                    <Check size={16} /> Finalize Sign-Off & Lock Document
+                    <Check size={16} /> Mark as Done (Waiting for Certificate)
                   </button>
                 </div>
               )}

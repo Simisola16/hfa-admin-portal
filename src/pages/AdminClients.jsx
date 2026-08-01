@@ -119,9 +119,10 @@ export default function AdminClients() {
       if (!code) throw new Error('Failed to retrieve impersonation code.');
 
       // 2. Open client portal in new tab with the opaque code
-      const clientOrigin = window.location.origin.includes('localhost') 
-        ? 'http://localhost:5173'
-        : window.location.origin.replace('admin.', 'portal.').replace('-admin', '');
+      const clientOrigin = import.meta.env.VITE_CLIENT_URL
+        || (window.location.origin.includes('localhost')
+          ? 'http://localhost:5173'
+          : window.location.origin.replace('admin.', 'portal.').replace('-admin', ''));
       
       const impersonateUrl = `${clientOrigin}/login?impersonate_code=${code}`;
       

@@ -75,7 +75,7 @@ export default function AdminAddOnApplications() {
   const [formFile, setFormFile] = useState(null);
   const formFileRef = useRef(null);
 
-  const isManagerOrAdmin = ['admin', 'food_tech_manager'].includes(user?.role);
+  const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
 
   const fetchApps = async () => {
     setLoading(true);
@@ -369,6 +369,54 @@ export default function AdminAddOnApplications() {
                   {/* Expanded Detail */}
                   {isExpanded && (
                     <div style={{ padding: '0 24px 20px', background: '#fafbfc', borderTop: '1px solid #f1f5f9' }}>
+                      {/* Track Processing Workflow Bar */}
+                      <div style={{ paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                          Track Processing & Workflow State: <span style={{ color: '#0f172a' }}>{statusLabel}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, overflowX: 'auto' }}>
+                          {[
+                            { id: 'submitted', label: 'Submit Add-On' },
+                            { id: 'accepted', label: 'Accepted' },
+                            { id: 'ft_assigned', label: 'Assign FT' },
+                            { id: 'product_approval_form_enabled', label: 'Form Enabled' },
+                            { id: 'all_forms_received', label: 'Form Received' },
+                            { id: 'logsheet_created', label: 'Create Logsheet' },
+                            { id: 'waiting_sharia_signature', label: 'Shari\'a Signature' },
+                            { id: 'product_form_approved', label: 'Form Approved' },
+                            { id: 'ready_for_certificate', label: 'Ready for Cert' },
+                            { id: 'completed', label: 'Certificate' }
+                          ].map((step, idx) => {
+                            const currentIdx = FLOW_STEPS.indexOf(app.status);
+                            const stepIdx = FLOW_STEPS.indexOf(step.id);
+                            const isDone = currentIdx > stepIdx || app.status === 'completed';
+                            const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
+
+                            return (
+                              <div key={step.id} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 65, textAlign: 'center', flexDirection: 'column' }}>
+                                <div style={{
+                                  width: 22, height: 22, borderRadius: '50%',
+                                  background: isDone ? '#16a34a' : isCurrent ? '#2563eb' : '#cbd5e1',
+                                  color: isDone || isCurrent ? 'white' : '#64748b',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: 10, fontWeight: 700, margin: '0 auto 4px',
+                                  boxShadow: isCurrent ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
+                                }}>
+                                  {isDone ? '✓' : idx + 1}
+                                </div>
+                                <span style={{
+                                  fontSize: 9.5, fontWeight: isCurrent ? 700 : 500,
+                                  color: isDone ? '#16a34a' : isCurrent ? '#2563eb' : '#64748b',
+                                  lineHeight: 1.1
+                                }}>
+                                  {step.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, paddingTop: 16 }}>
 
                         {/* Products table */}

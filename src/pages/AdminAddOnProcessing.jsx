@@ -68,8 +68,15 @@ export default function AdminAddOnProcessing() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedFt, setSelectedFt] = useState('');
+  const [selectedFtIds, setSelectedFtIds] = useState([]);
   const [formText, setFormText] = useState('');
   const [formFile, setFormFile] = useState(null);
+
+  const toggleFt = (ftId) => {
+    setSelectedFtIds(prev =>
+      prev.includes(ftId) ? prev.filter(id => id !== ftId) : [...prev, ftId]
+    );
+  };
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
 
@@ -110,12 +117,13 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleAssignFt = async () => {
-    if (!selectedFt) return toast.error('Please select a Food Technologies staff member.');
+    if (selectedFtIds.length === 0) return toast.error('Please select at least one Food Technologies staff member.');
     setSubmitting(true);
     try {
-      await api.put(`/api/add-on-applications/${app._id}/assign-ft`, { assigned_food_tech: selectedFt });
-      toast.success('Food Technologies staff member assigned successfully!');
+      await api.put(`/api/add-on-applications/${app._id}/assign-ft`, { assigned_food_techs: selectedFtIds });
+      toast.success(`${selectedFtIds.length} FT staff member${selectedFtIds.length > 1 ? 's' : ''} assigned successfully!`);
       setActionType(null);
+      setSelectedFtIds([]);
       fetchApp();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
@@ -225,9 +233,13 @@ export default function AdminAddOnProcessing() {
             </button>
           )}
 
-          {isManagerOrAdmin && app.status === 'accepted' && (
-            <button className="btn btn-primary" style={{ background: '#0284c7', borderColor: '#0284c7' }} onClick={() => setActionType('assign_ft')}>
-              Assign FT Food Technologies
+          {isManagerOrAdmin && ['accepted', 'ft_assigned'].includes(app.status) && (
+            <button className="btn btn-primary" style={{ background: '#2563eb', borderColor: '#2563eb' }} onClick={() => {
+              setActionType('assign_ft');
+              const preSelected = (app.assigned_food_techs || []).map(ft => (ft._id || ft).toString());
+              setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
+            }}>
+              {app.status === 'ft_assigned' ? 'Re-assign FT Staff' : 'Assign FT Food Technologies'}
             </button>
           )}
 
@@ -278,7 +290,7 @@ export default function AdminAddOnProcessing() {
       {/* ─── 10-Step Visual Flow Progress Card ───────────────────────────── */}
       <div className="card shadow-sm" style={{ padding: 20, marginBottom: 24, background: 'white', borderRadius: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
-          <span>Canonical Processing Workflow Progress</span>
+          <span>Track Progress</span>
           <span style={{ color: '#0f172a', fontWeight: 600, fontSize: 12 }}>Current Stage: {statusLabel}</span>
         </div>
 
@@ -580,7 +592,7 @@ export default function AdminAddOnProcessing() {
         </div>
       )}
 
-      {/* 2. Assign FT Modal */}
+      {/* 2. Assign FT Modal — Multi-Select */}
       {actionType === 'assign_ft' && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 500 }}>
@@ -590,24 +602,61 @@ export default function AdminAddOnProcessing() {
             </div>
             <div className="modal-body" style={{ padding: 24 }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Select Food Technologies Member <span>*</span></label>
-                <select className="form-control" value={selectedFt} onChange={e => setSelectedFt(e.target.value)} required>
-                  <option value="">-- Select Staff Member --</option>
-                  {ftUsers.map(u => (
-                    <option key={u._id} value={u._id}>{u.full_name} ({u.email})</option>
-                  ))}
-                </select>
+                <label className="form-label">
+                  Select FT Staff Members <span>*</span>
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
+                    {selectedFtIds.length > 0 ? `${selectedFtIds.length} selected` : '— select one or more'}
+                  </span>
+                </label>
+
+                {ftUsers.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#ef4444', padding: 12, background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>
+                    No Food Technologies staff found. Create a user with role "food_tech" first.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                    {ftUsers.map(ft => {
+                      const isSelected = selectedFtIds.includes(ft._id);
+                      return (
+                        <label key={ft._id} style={{
+                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                          borderRadius: 10, border: `2px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                          background: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', transition: 'all 0.15s'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleFt(ft._id)}
+                            style={{ width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }}
+                          />
+                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: isSelected ? '#2563eb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: isSelected ? 'white' : '#64748b' }}>
+                              {(ft.full_name || ft.email || '?').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#1d4ed8' : '#0f172a' }}>{ft.full_name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{ft.email}</div>
+                          </div>
+                          {isSelected && <Check size={14} style={{ color: '#2563eb' }} />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setActionType(null)} disabled={submitting}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAssignFt} disabled={submitting || !selectedFt}>
-                {submitting ? 'Assigning...' : 'Assign Staff'}
+              <button className="btn btn-primary" onClick={handleAssignFt} disabled={submitting || selectedFtIds.length === 0}
+                style={{ background: '#2563eb', borderColor: '#2563eb' }}>
+                {submitting ? 'Assigning...' : `Assign ${selectedFtIds.length > 0 ? selectedFtIds.length : ''} FT Staff`}
               </button>
             </div>
           </div>
         </div>
       )}
+
 
       {/* 3. Enable Product Approval Form Modal */}
       {actionType === 'enable_form' && (

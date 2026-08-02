@@ -4,24 +4,24 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import {
-  PlusCircle, Search, X, Check, FileText, Upload, AlertCircle,
-  Clock, Package, RefreshCw, ChevronRight, User, CheckCircle
+  PlusCircle, Search, X, Check, FileText, AlertCircle,
+  Clock, Package, RefreshCw, ChevronDown, ChevronUp, User,
+  CheckCircle, Users, ArrowRight, Building2, Calendar
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-// ─── Canonical status definitions ────────────────────────────────────────────
 const STATUS_LABELS = {
-  submitted: 'Submit Add-On',
-  accepted: 'Application Accepted',
-  rejected: 'Application Rejected',
-  ft_assigned: 'Assign FT Food Technologies',
-  product_approval_form_enabled: 'Product Approval Form Enabled',
-  all_forms_received: 'All Product Approval Form Received',
-  logsheet_created: 'Create Logsheet',
-  waiting_sharia_signature: 'Waiting For Shari\'a Board Signature',
-  product_form_approved: 'Product Form Approved',
-  ready_for_certificate: 'Ready For Certificate',
-  completed: 'Certificate'
+  submitted: 'Submitted',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  ft_assigned: 'FT Assigned',
+  product_approval_form_enabled: 'Form Enabled',
+  all_forms_received: 'Forms Received',
+  logsheet_created: 'Logsheet Created',
+  waiting_sharia_signature: "Shari'a Signature",
+  product_form_approved: 'Form Approved',
+  ready_for_certificate: 'Ready for Cert',
+  completed: 'Completed'
 };
 
 const STATUS_BADGE = {
@@ -38,7 +38,20 @@ const STATUS_BADGE = {
   completed: 'badge-green'
 };
 
-// Flow steps for the progress indicator
+const STATUS_COLOR = {
+  submitted: '#f59e0b',
+  accepted: '#16a34a',
+  rejected: '#ef4444',
+  ft_assigned: '#2563eb',
+  product_approval_form_enabled: '#7c3aed',
+  all_forms_received: '#0d9488',
+  logsheet_created: '#2563eb',
+  waiting_sharia_signature: '#ea580c',
+  product_form_approved: '#16a34a',
+  ready_for_certificate: '#0d9488',
+  completed: '#16a34a'
+};
+
 const FLOW_STEPS = [
   'submitted', 'accepted', 'ft_assigned', 'product_approval_form_enabled',
   'all_forms_received', 'logsheet_created', 'waiting_sharia_signature',
@@ -57,23 +70,16 @@ export default function AdminAddOnApplications() {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  // Modal state
   const [activeApp, setActiveApp] = useState(null);
   const [actionType, setActionType] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Review
   const [decision, setDecision] = useState('accepted');
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Assign FT
-  const [selectedFt, setSelectedFt] = useState('');
-
-  // Enable Form
-  const [formText, setFormText] = useState('');
-  const [formFile, setFormFile] = useState(null);
-  const formFileRef = useRef(null);
+  // Multi-FT selection
+  const [selectedFtIds, setSelectedFtIds] = useState([]);
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
 
@@ -82,11 +88,9 @@ export default function AdminAddOnApplications() {
     try {
       const res = await api.get('/api/add-on-applications');
       setApps(res.data?.data || res.data || []);
-
       if (isManagerOrAdmin) {
         const usersRes = await api.get('/api/users');
-        const ft = (usersRes.data || []).filter(u => u.role === 'food_tech');
-        setFtUsers(ft);
+        setFtUsers((usersRes.data || []).filter(u => u.role === 'food_tech'));
       }
     } catch {
       toast.error('Failed to load add-on applications.');
@@ -103,14 +107,16 @@ export default function AdminAddOnApplications() {
     setDecision('accepted');
     setRejectionReason('');
     setNotes('');
-    setSelectedFt('');
-    setFormText('');
-    setFormFile(null);
+    // Pre-select already-assigned FT staff
+    const preSelected = (app.assigned_food_techs || []).map(ft => (ft._id || ft).toString());
+    setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
   };
 
   const closeModal = () => { setActiveApp(null); setActionType(null); };
 
-  // ─── Action handlers ────────────────────────────────────────────────────
+  const toggleFt = (id) => {
+    setSelectedFtIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const handleReview = async () => {
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
@@ -125,37 +131,18 @@ export default function AdminAddOnApplications() {
   };
 
   const handleAssignFt = async () => {
-    if (!selectedFt) return toast.error('Please select a Food Technologies staff member.');
+    if (selectedFtIds.length === 0) return toast.error('Please select at least one Food Technologies staff member.');
     setSubmitting(true);
     try {
-      await api.put(`/api/add-on-applications/${activeApp._id}/assign-ft`, { assigned_food_tech: selectedFt });
-      toast.success('FT assigned successfully!');
+      await api.put(`/api/add-on-applications/${activeApp._id}/assign-ft`, { assigned_food_techs: selectedFtIds });
+      toast.success(`${selectedFtIds.length} FT staff member(s) assigned successfully!`);
       closeModal(); fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally { setSubmitting(false); }
   };
 
-  const handleEnableForm = async () => {
-    if (!formText.trim() && !formFile) {
-      return toast.error('Please upload a form document or write form content.');
-    }
-    setSubmitting(true);
-    try {
-      const fd = new FormData();
-      if (formFile) fd.append('form_file', formFile);
-      if (formText.trim()) fd.append('form_text', formText);
-      await api.put(`/api/add-on-applications/${activeApp._id}/enable-form`, fd, true);
-      toast.success('Product Approval Form enabled and sent to client!');
-      closeModal(); fetchApps();
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message);
-    } finally { setSubmitting(false); }
-  };
-
-  const handleCreateLogsheet = async (app) => {
-    // Navigate to the logsheet creation page for this add-on application
-    // We store the addon app id in sessionStorage so AdminCreateLogsheet can read it
+  const handleCreateLogsheet = (app) => {
     sessionStorage.setItem('addon_app_id', app._id);
     navigate(`/addon-applications/${app._id}/logsheet`);
   };
@@ -164,7 +151,7 @@ export default function AdminAddOnApplications() {
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${activeApp._id}/approve-form`);
-      toast.success('Product Form approved! Application is Ready for Certificate.');
+      toast.success('Product Form approved!');
       closeModal(); fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
@@ -182,7 +169,6 @@ export default function AdminAddOnApplications() {
     } finally { setSubmitting(false); }
   };
 
-  // ─── View filtering ─────────────────────────────────────────────────────
   const filteredByView = apps.filter(app => {
     if (view === 'request') return app.status === 'submitted';
     if (view === 'inprogress') return !['submitted', 'rejected', 'completed'].includes(app.status);
@@ -203,312 +189,309 @@ export default function AdminAddOnApplications() {
   });
 
   const getViewMeta = () => {
-    if (view === 'request') return { title: 'Add-on Request Queue', subtitle: 'Applications awaiting Accept Or Reject decision', badgeLabel: `${filtered.length} Pending` };
-    if (view === 'inprogress') return { title: 'In-Progress Add-on Applications', subtitle: 'Applications undergoing processing through the canonical flow', badgeLabel: `${filtered.length} In-Progress` };
-    return { title: 'All Add-on Applications', subtitle: 'Complete history of all add-on product requests', badgeLabel: `${filtered.length} Applications` };
+    if (view === 'request') return { title: 'Add-on Request Queue', subtitle: 'Applications awaiting accept or reject decision', count: filtered.length, color: '#f59e0b' };
+    if (view === 'inprogress') return { title: 'In-Progress Applications', subtitle: 'Applications undergoing the processing workflow', count: filtered.length, color: '#2563eb' };
+    return { title: 'All Add-on Applications', subtitle: 'Complete history of all add-on product requests', count: filtered.length, color: '#475569' };
   };
 
   const meta = getViewMeta();
 
+  const getAssignedFtNames = (app) => {
+    const arr = app.assigned_food_techs || [];
+    if (arr.length > 0) return arr.map(ft => ft.full_name || ft).join(', ');
+    if (app.assigned_food_tech?.full_name) return app.assigned_food_tech.full_name;
+    return null;
+  };
+
   return (
     <div className="animate-in">
-      <div className="toolbar">
+      {/* ─── Toolbar ──────────────────────────────────────────────────────── */}
+      <div className="toolbar" style={{ marginBottom: 20 }}>
         <div className="search-box">
           <Search size={15} className="search-icon" />
           <input placeholder="Search by client, certificate, contact, or product..." value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}><X size={14} /></button>}
         </div>
         <button className="btn btn-ghost btn-sm" onClick={fetchApps}><RefreshCw size={14} /></button>
-        <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>{meta.badgeLabel}</span>
+        <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>{meta.count} {view === 'request' ? 'Pending' : view === 'inprogress' ? 'In Progress' : 'Total'}</span>
       </div>
 
-      <div className="card shadow-sm border-0">
-        <div className="card-header">
-          <div>
-            <div className="card-title" style={{ fontSize: 18, fontWeight: 700 }}>{meta.title}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{meta.subtitle}</div>
-          </div>
-        </div>
+      {/* ─── Page Header ─────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>{meta.title}</h2>
+        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{meta.subtitle}</p>
+      </div>
 
+      {/* ─── Main Card ───────────────────────────────────────────────────── */}
+      <div className="card shadow-sm border-0" style={{ borderRadius: 16, overflow: 'hidden' }}>
         {loading ? (
           <div className="loading-overlay"><div className="spinner" /></div>
         ) : filtered.length === 0 ? (
-          <div className="empty-state" style={{ padding: '60px 20px' }}>
-            <PlusCircle size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
-            <div className="empty-state-title">No applications found</div>
-            <div className="empty-state-text">No add-on product requests matching your current filter.</div>
+          <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Package size={28} style={{ color: '#94a3b8' }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#334155', marginBottom: 6 }}>No applications found</div>
+            <div style={{ fontSize: 13, color: '#94a3b8' }}>No add-on product requests matching your current filter.</div>
           </div>
         ) : (
           <div>
-            {filtered.map(app => {
+            {filtered.map((app, appIdx) => {
               const clientName = app.client_id?.company_name || app.client_id?.full_name || '—';
               const certNo = app.certificate_id?.certificate_number || '—';
               const statusLabel = STATUS_LABELS[app.status] || app.status;
               const badgeClass = STATUS_BADGE[app.status] || 'badge-gray';
+              const statusColor = STATUS_COLOR[app.status] || '#475569';
               const isExpanded = expandedId === app._id;
               const stepIdx = FLOW_STEPS.indexOf(app.status);
+              const ftNames = getAssignedFtNames(app);
 
               return (
-                <div key={app._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {/* Row */}
-                  <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                    {/* Client + Cert */}
-                    <div style={{ flex: '0 0 200px' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', fontSize: 14 }}>{clientName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cert: {certNo}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{new Date(app.createdAt).toLocaleDateString('en-GB')}</div>
-                    </div>
+                <div key={app._id} style={{ borderBottom: appIdx < filtered.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                  {/* ─── Row ──────────────────────────────────────────── */}
+                  <div style={{ padding: '18px 24px', display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 160px 200px', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
 
-                    {/* Products summary */}
-                    <div style={{ flex: 1, minWidth: 180 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 4 }}>Products ({(app.products || []).length})</div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {(app.products || []).slice(0, 3).map((p, i) => (
-                          <span key={i} style={{ fontSize: 10, padding: '2px 6px', background: '#f1f5f9', borderRadius: 4, color: '#475569', border: '1px solid #e2e8f0' }}>
-                            {p.sn || i + 1}. {p.name}
-                          </span>
-                        ))}
-                        {(app.products || []).length > 3 && (
-                          <span style={{ fontSize: 10, color: '#94a3b8' }}>+{app.products.length - 3} more</span>
+                      {/* Client + Cert */}
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 2 }}>{clientName}</div>
+                        <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <FileText size={10} /> {certNo}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Calendar size={10} /> {new Date(app.createdAt).toLocaleDateString('en-GB')}
+                        </div>
+                      </div>
+
+                      {/* Products */}
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
+                          Products ({(app.products || []).length})
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {(app.products || []).slice(0, 3).map((p, i) => (
+                            <span key={i} style={{
+                              fontSize: 10, padding: '2px 7px', borderRadius: 5,
+                              background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
+                              color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1',
+                              border: `1px solid ${p.type === 'Add product' ? '#bbf7d0' : p.type === 'Remove product' ? '#fecaca' : '#bae6fd'}`,
+                              fontWeight: 600
+                            }}>
+                              {p.sn || i + 1}. {p.name}
+                            </span>
+                          ))}
+                          {(app.products || []).length > 3 && (
+                            <span style={{ fontSize: 10, color: '#94a3b8', padding: '2px 6px' }}>+{app.products.length - 3} more</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div>
+                        <span className={`badge ${badgeClass}`} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4, display: 'inline-block' }}>
+                          {statusLabel}
+                        </span>
+                        {ftNames && (
+                          <div style={{ fontSize: 10, color: '#2563eb', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Users size={9} /> {ftNames}
+                          </div>
                         )}
                       </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 11 }}
+                        >
+                          Track <ArrowRight size={11} />
+                        </button>
+
+                        {isManagerOrAdmin && app.status === 'submitted' && (
+                          <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }} onClick={() => openAction(app, 'review')}>
+                            Review
+                          </button>
+                        )}
+
+                        {isManagerOrAdmin && ['accepted', 'ft_assigned'].includes(app.status) && (
+                          <button className="btn btn-sm" style={{ background: '#2563eb', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'assign_ft')}>
+                            {app.status === 'ft_assigned' ? 'Re-assign FT' : 'Assign FT'}
+                          </button>
+                        )}
+
+                        {isManagerOrAdmin && app.status === 'ft_assigned' && (
+                          <button className="btn btn-sm" style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: 11 }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
+                            Enable Form
+                          </button>
+                        )}
+
+                        {app.status === 'product_approval_form_enabled' && (
+                          <span style={{ fontSize: 10, color: '#7c3aed', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Clock size={10} /> Awaiting client
+                          </span>
+                        )}
+
+                        {isManagerOrAdmin && app.status === 'all_forms_received' && (
+                          <button className="btn btn-sm" style={{ background: '#0d9488', color: 'white', border: 'none', fontSize: 11 }} onClick={() => handleCreateLogsheet(app)}>
+                            Logsheet
+                          </button>
+                        )}
+
+                        {isManagerOrAdmin && ['logsheet_created', 'waiting_sharia_signature', 'all_forms_received'].includes(app.status) && (
+                          <button className="btn btn-sm" style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'approve_form')}>
+                            Approve Form
+                          </button>
+                        )}
+
+                        {isManagerOrAdmin && app.status === 'ready_for_certificate' && (
+                          <button className="btn btn-sm" style={{ background: '#0e7490', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'complete')}>
+                            Issue Cert
+                          </button>
+                        )}
+
+                        {app.status === 'completed' && (
+                          <span style={{ fontSize: 11, color: '#166534', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle size={12} /> Done
+                          </span>
+                        )}
+
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setExpandedId(isExpanded ? null : app._id)}
+                          style={{ padding: '4px 6px' }}
+                        >
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      </div>
                     </div>
+                  </div>
 
-                    {/* Contact */}
-                    <div style={{ flex: '0 0 170px' }}>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>{app.contact_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.contact_email}</div>
-                    </div>
-
-                    {/* Status */}
-                    <div style={{ flex: '0 0 180px' }}>
-                      <span className={`badge ${badgeClass}`} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{statusLabel}</span>
-                      {app.assigned_food_tech && (
-                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
-                          <User size={10} style={{ display: 'inline', marginRight: 2 }} />
-                          FT: {app.assigned_food_tech.full_name}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
-                      >
-                        Track Processing
-                      </button>
-
-                      {/* Accept Or Reject */}
-                      {isManagerOrAdmin && app.status === 'submitted' && (
-                        <button className="btn btn-primary btn-sm" onClick={() => openAction(app, 'review')}>
-                          Accept Or Reject
-                        </button>
-                      )}
-
-                      {/* Assign FT */}
-                      {isManagerOrAdmin && app.status === 'accepted' && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#0284c7', borderColor: '#0284c7' }} onClick={() => openAction(app, 'assign_ft')}>
-                          Assign FT
-                        </button>
-                      )}
-
-                      {/* Enable Product Approval Form */}
-                      {isManagerOrAdmin && app.status === 'ft_assigned' && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
-                          Enable Product Approval Form
-                        </button>
-                      )}
-
-                      {/* Waiting for client form — no action, show note */}
-                      {app.status === 'product_approval_form_enabled' && (
-                        <span style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Clock size={12} /> Awaiting client form response
-                        </span>
-                      )}
-
-                      {/* Create Logsheet */}
-                      {isManagerOrAdmin && app.status === 'all_forms_received' && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={() => handleCreateLogsheet(app)}>
-                          Create Logsheet
-                        </button>
-                      )}
-
-                      {/* Waiting for Shari'a Board Signature — show logsheet link */}
-                      {isManagerOrAdmin && app.status === 'logsheet_created' && app.logsheet_id && (
-                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/logsheets/${app.logsheet_id._id || app.logsheet_id}`)}>
-                          View Logsheet
-                        </button>
-                      )}
-
-                      {/* Approve Product Form */}
-                      {isManagerOrAdmin && ['logsheet_created', 'waiting_sharia_signature', 'all_forms_received'].includes(app.status) && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => openAction(app, 'approve_form')}>
-                          Approve Product Form
-                        </button>
-                      )}
-
-                      {/* Issue Certificate (Complete) */}
-                      {isManagerOrAdmin && app.status === 'ready_for_certificate' && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#0e7490', borderColor: '#0e7490' }} onClick={() => openAction(app, 'complete')}>
-                          Issue Certificate
-                        </button>
-                      )}
-
-                      {/* Completed */}
-                      {app.status === 'completed' && (
-                        <span style={{ fontSize: 12, color: '#166534', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <CheckCircle size={13} /> Complete
-                        </span>
-                      )}
-
-                      {/* Expand/Collapse */}
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setExpandedId(isExpanded ? null : app._id)}
-                        style={{ padding: '4px 8px' }}
-                      >
-                        <ChevronRight size={14} style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', transition: '0.15s' }} />
-                      </button>
-                    </div>
+                  {/* Progress bar below row */}
+                  <div style={{ height: 3, background: '#f1f5f9', borderRadius: 0 }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${app.status === 'completed' ? 100 : Math.round(((stepIdx + 1) / FLOW_STEPS.length) * 100)}%`,
+                      background: statusColor,
+                      borderRadius: 0,
+                      transition: 'width 0.5s ease'
+                    }} />
                   </div>
 
                   {/* Expanded Detail */}
                   {isExpanded && (
-                    <div style={{ padding: '0 24px 20px', background: '#fafbfc', borderTop: '1px solid #f1f5f9' }}>
-                      {/* Track Processing Workflow Bar */}
-                      <div style={{ paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                          Track Processing & Workflow State: <span style={{ color: '#0f172a' }}>{statusLabel}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, overflowX: 'auto' }}>
-                          {[
-                            { id: 'submitted', label: 'Submit Add-On' },
-                            { id: 'accepted', label: 'Accepted' },
-                            { id: 'ft_assigned', label: 'Assign FT' },
-                            { id: 'product_approval_form_enabled', label: 'Form Enabled' },
-                            { id: 'all_forms_received', label: 'Form Received' },
-                            { id: 'logsheet_created', label: 'Create Logsheet' },
-                            { id: 'waiting_sharia_signature', label: 'Shari\'a Signature' },
-                            { id: 'product_form_approved', label: 'Form Approved' },
-                            { id: 'ready_for_certificate', label: 'Ready for Cert' },
-                            { id: 'completed', label: 'Certificate' }
-                          ].map((step, idx) => {
-                            const currentIdx = FLOW_STEPS.indexOf(app.status);
-                            const stepIdx = FLOW_STEPS.indexOf(step.id);
-                            const isDone = currentIdx > stepIdx || app.status === 'completed';
-                            const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
+                    <div style={{ background: '#fafbfc', borderTop: '1px solid #f1f5f9', padding: '20px 24px 24px' }}>
 
+                      {/* 10-Step Flow */}
+                      <div style={{ marginBottom: 20, background: 'white', padding: '14px 18px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+                          Workflow Progress — <span style={{ color: statusColor }}>{STATUS_LABELS[app.status]}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                          {FLOW_STEPS.map((stepId, idx) => {
+                            const currentIdx = FLOW_STEPS.indexOf(app.status);
+                            const isDone = currentIdx > idx || app.status === 'completed';
+                            const isCurrent = currentIdx === idx && app.status !== 'completed';
                             return (
-                              <div key={step.id} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 65, textAlign: 'center', flexDirection: 'column' }}>
-                                <div style={{
-                                  width: 22, height: 22, borderRadius: '50%',
-                                  background: isDone ? '#16a34a' : isCurrent ? '#2563eb' : '#cbd5e1',
-                                  color: isDone || isCurrent ? 'white' : '#64748b',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontSize: 10, fontWeight: 700, margin: '0 auto 4px',
-                                  boxShadow: isCurrent ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
-                                }}>
-                                  {isDone ? '✓' : idx + 1}
+                              <React.Fragment key={stepId}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 56 }}>
+                                  <div style={{
+                                    width: 24, height: 24, borderRadius: '50%',
+                                    background: isDone ? '#16a34a' : isCurrent ? statusColor : '#e2e8f0',
+                                    color: isDone || isCurrent ? 'white' : '#94a3b8',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, fontWeight: 700, marginBottom: 4,
+                                    boxShadow: isCurrent ? `0 0 0 3px ${statusColor}30` : 'none',
+                                    transition: 'all 0.2s'
+                                  }}>
+                                    {isDone ? '✓' : idx + 1}
+                                  </div>
+                                  <span style={{
+                                    fontSize: 9, fontWeight: isCurrent ? 700 : 500, textAlign: 'center', lineHeight: 1.2,
+                                    color: isDone ? '#16a34a' : isCurrent ? statusColor : '#94a3b8'
+                                  }}>
+                                    {STATUS_LABELS[stepId]}
+                                  </span>
                                 </div>
-                                <span style={{
-                                  fontSize: 9.5, fontWeight: isCurrent ? 700 : 500,
-                                  color: isDone ? '#16a34a' : isCurrent ? '#2563eb' : '#64748b',
-                                  lineHeight: 1.1
-                                }}>
-                                  {step.label}
-                                </span>
-                              </div>
+                                {idx < FLOW_STEPS.length - 1 && (
+                                  <div style={{ flex: '0 0 12px', height: 2, background: isDone ? '#16a34a' : '#e2e8f0', marginBottom: 14 }} />
+                                )}
+                              </React.Fragment>
                             );
                           })}
                         </div>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, paddingTop: 16 }}>
-
-                        {/* Products table */}
+                      {/* Details Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        {/* Products */}
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8 }}>Products</div>
-                          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ background: '#f1f5f9' }}>
-                                <th style={{ padding: '6px 8px', textAlign: 'center', width: 32, color: '#64748b' }}>S/N</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', color: '#64748b' }}>Product Name</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', color: '#64748b' }}>Code</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', color: '#64748b' }}>Type</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(app.products || []).map((p, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                  <td style={{ padding: '6px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>{p.sn || i + 1}</td>
-                                  <td style={{ padding: '6px 8px', fontWeight: 600 }}>{p.name}</td>
-                                  <td style={{ padding: '6px 8px', color: '#64748b' }}>{p.code || '—'}</td>
-                                  <td style={{ padding: '6px 8px' }}>
-                                    <span style={{
-                                      fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-                                      background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
-                                      color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1'
-                                    }}>{p.type}</span>
-                                  </td>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Products</div>
+                          <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ background: '#f8fafc' }}>
+                                  <th style={{ padding: '8px 10px', textAlign: 'center', width: 32, color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>S/N</th>
+                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Product Name</th>
+                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Code</th>
+                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Type</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {(app.products || []).map((p, i) => (
+                                  <tr key={i} style={{ borderBottom: i < (app.products.length - 1) ? '1px solid #f8fafc' : 'none' }}>
+                                    <td style={{ padding: '7px 10px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>{p.sn || i + 1}</td>
+                                    <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>{p.name}</td>
+                                    <td style={{ padding: '7px 10px', color: '#64748b' }}>{p.code || '—'}</td>
+                                    <td style={{ padding: '7px 10px' }}>
+                                      <span style={{
+                                        fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
+                                        background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
+                                        color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1'
+                                      }}>{p.type}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
 
-                        {/* Application details + form */}
+                        {/* App Details */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {app.message && (
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 4 }}>Client Message</div>
-                              <div style={{ fontSize: 12, color: '#334155', background: '#fff', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>{app.message}</div>
+                          {/* Contact */}
+                          <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Contact</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{app.contact_name}</div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>{app.contact_email}</div>
+                            {app.contact_phone && <div style={{ fontSize: 12, color: '#64748b' }}>{app.contact_phone}</div>}
+                          </div>
+
+                          {/* Assigned FT */}
+                          {ftNames && (
+                            <div style={{ background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd', padding: 14 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Users size={11} /> Assigned FT Staff
+                              </div>
+                              {(app.assigned_food_techs || [app.assigned_food_tech]).filter(Boolean).map((ft, i) => (
+                                <div key={i} style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>
+                                  {ft.full_name || ft} {ft.email ? <span style={{ fontWeight: 400, color: '#7dd3fc' }}>({ft.email})</span> : ''}
+                                </div>
+                              ))}
                             </div>
                           )}
 
                           {app.rejection_reason && (
-                            <div style={{ background: '#fef2f2', padding: 10, borderRadius: 8, border: '1px solid #fecaca', fontSize: 12, color: '#991b1b' }}>
+                            <div style={{ background: '#fef2f2', padding: 12, borderRadius: 10, border: '1px solid #fecaca', fontSize: 12, color: '#991b1b' }}>
                               <AlertCircle size={12} style={{ display: 'inline', marginRight: 4 }} />
                               <strong>Rejection Reason:</strong> {app.rejection_reason}
                             </div>
                           )}
 
-                          {/* Product Approval Form — client response */}
-                          {app.product_approval_form?.submitted_at && (
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 6 }}>Client's Form Response</div>
-                              <div style={{ background: '#f0fdf4', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                                <div style={{ fontSize: 11, color: '#166534', marginBottom: 6 }}>
-                                  <Check size={12} style={{ display: 'inline', marginRight: 4 }} />
-                                  Submitted: {new Date(app.product_approval_form.submitted_at).toLocaleDateString('en-GB')}
-                                </div>
-                                {app.product_approval_form.client_response_text && (
-                                  <div style={{ fontSize: 12, color: '#334155', whiteSpace: 'pre-wrap', marginBottom: 8 }}>{app.product_approval_form.client_response_text}</div>
-                                )}
-                                {app.product_approval_form.client_response_url && (
-                                  <a href={getPdfUrl(app.product_approval_form.client_response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                    <FileText size={12} /> Download Client Response
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Admin form content */}
-                          {app.product_approval_form?.sent_at && (
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 4 }}>Admin's Form Content</div>
-                              <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
-                                {app.product_approval_form.form_file_url && (
-                                  <a href={getPdfUrl(app.product_approval_form.form_file_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                    <FileText size={12} /> View Uploaded Form
-                                  </a>
-                                )}
-                                {app.product_approval_form.form_text && (
-                                  <div style={{ color: '#334155', whiteSpace: 'pre-wrap', fontSize: 12 }}>{app.product_approval_form.form_text}</div>
-                                )}
-                              </div>
+                          {app.message && (
+                            <div style={{ background: 'white', padding: 12, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Client Note</div>
+                              <div style={{ fontSize: 12, color: '#334155' }}>{app.message}</div>
                             </div>
                           )}
                         </div>
@@ -522,19 +505,19 @@ export default function AdminAddOnApplications() {
         )}
       </div>
 
-      {/* ═══ Modals ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 
       {/* Accept Or Reject */}
       {activeApp && actionType === 'review' && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">
-              <span className="modal-title">Accept Or Reject — Add-on Application</span>
+              <span className="modal-title">Review Add-on Application</span>
               <button className="modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ padding: 24 }}>
-              <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{activeApp.client_id?.company_name || activeApp.client_id?.full_name}</div>
+              <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{activeApp.client_id?.company_name || activeApp.client_id?.full_name}</div>
                 <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>Certificate: {activeApp.certificate_id?.certificate_number}</div>
                 <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>Products: {(activeApp.products || []).length}</div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
@@ -548,12 +531,24 @@ export default function AdminAddOnApplications() {
 
               <div className="form-group">
                 <label className="form-label">Decision</label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button type="button" className={`btn ${decision === 'accepted' ? 'btn-primary' : 'btn-ghost'}`} style={{ flex: 1 }} onClick={() => setDecision('accepted')}>
-                    ✅ Accept (Application Accepted)
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <button type="button"
+                    onClick={() => setDecision('accepted')}
+                    style={{
+                      padding: '12px', borderRadius: 10, border: `2px solid ${decision === 'accepted' ? '#16a34a' : '#e2e8f0'}`,
+                      background: decision === 'accepted' ? '#f0fdf4' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                      color: decision === 'accepted' ? '#16a34a' : '#64748b', transition: 'all 0.15s'
+                    }}>
+                    ✅ Accept
                   </button>
-                  <button type="button" className={`btn ${decision === 'rejected' ? 'btn-primary' : 'btn-ghost'}`} style={{ flex: 1, background: decision === 'rejected' ? '#ef4444' : '', borderColor: decision === 'rejected' ? '#ef4444' : '', color: decision === 'rejected' ? 'white' : '' }} onClick={() => setDecision('rejected')}>
-                    ❌ Reject (Application Rejected)
+                  <button type="button"
+                    onClick={() => setDecision('rejected')}
+                    style={{
+                      padding: '12px', borderRadius: 10, border: `2px solid ${decision === 'rejected' ? '#ef4444' : '#e2e8f0'}`,
+                      background: decision === 'rejected' ? '#fef2f2' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                      color: decision === 'rejected' ? '#ef4444' : '#64748b', transition: 'all 0.15s'
+                    }}>
+                    ❌ Reject
                   </button>
                 </div>
               </div>
@@ -580,87 +575,70 @@ export default function AdminAddOnApplications() {
         </div>
       )}
 
-      {/* Assign FT */}
+      {/* Assign FT — Multi-Select */}
       {activeApp && actionType === 'assign_ft' && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 460 }}>
+          <div className="modal" style={{ maxWidth: 500 }}>
             <div className="modal-header">
-              <span className="modal-title">Assign FT — Food Technologies</span>
+              <span className="modal-title">Assign Food Technologies Staff</span>
               <button className="modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ padding: 24 }}>
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 12, fontSize: 13, color: '#0369a1', marginBottom: 20 }}>
+                <strong>{activeApp.client_id?.company_name || activeApp.client_id?.full_name}</strong><br />
+                <span style={{ fontSize: 12 }}>Cert: {activeApp.certificate_id?.certificate_number} · {(activeApp.products || []).length} product(s)</span>
+              </div>
+
               <div className="form-group">
-                <label className="form-label">Select Food Technologies Staff <span>*</span></label>
-                <select className="form-control" value={selectedFt} onChange={e => setSelectedFt(e.target.value)} required>
-                  <option value="">-- Choose FT Staff Member --</option>
-                  {ftUsers.map(u => <option key={u._id} value={u._id}>{u.full_name} ({u.email})</option>)}
-                </select>
-                {ftUsers.length === 0 && (
-                  <p style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>No Food Technologies staff found. Create a user with role "food_tech" first.</p>
+                <label className="form-label">
+                  Select FT Staff Members <span>*</span>
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
+                    {selectedFtIds.length > 0 ? `${selectedFtIds.length} selected` : '— select one or more'}
+                  </span>
+                </label>
+
+                {ftUsers.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#ef4444', padding: 12, background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>
+                    No Food Technologies staff found. Create a user with role "food_tech" first.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+                    {ftUsers.map(ft => {
+                      const isSelected = selectedFtIds.includes(ft._id);
+                      return (
+                        <label key={ft._id} style={{
+                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                          borderRadius: 10, border: `2px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                          background: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', transition: 'all 0.15s'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleFt(ft._id)}
+                            style={{ width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }}
+                          />
+                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: isSelected ? '#2563eb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: isSelected ? 'white' : '#64748b' }}>
+                              {(ft.full_name || ft.email || '?').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#1d4ed8' : '#0f172a' }}>{ft.full_name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{ft.email}</div>
+                          </div>
+                          {isSelected && <Check size={14} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
+                        </label>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAssignFt} disabled={submitting || !selectedFt}>
-                {submitting ? 'Assigning...' : 'Assign FT'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Enable Product Approval Form */}
-      {activeApp && actionType === 'enable_form' && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 580 }}>
-            <div className="modal-header">
-              <span className="modal-title">Enable Product Approval Form</span>
-              <button className="modal-close" onClick={closeModal}><X size={18} /></button>
-            </div>
-            <div className="modal-body" style={{ padding: 24 }}>
-              <div style={{ fontSize: 13, color: '#475569', marginBottom: 16, background: '#f0f9ff', padding: 12, borderRadius: 8, border: '1px solid #bae6fd', lineHeight: 1.5 }}>
-                Create the Product Approval Form content to send to the client. You can upload a PDF document, write the form text directly, or both. The client will see this content and submit their completed response.
-              </div>
-
-              {/* Upload option */}
-              <div className="form-group">
-                <label className="form-label">Upload Form Document (PDF / Image)</label>
-                <input
-                  type="file"
-                  accept=".pdf,image/*"
-                  ref={formFileRef}
-                  style={{ display: 'none' }}
-                  onChange={e => setFormFile(e.target.files[0] || null)}
-                />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => formFileRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Upload size={13} /> {formFile ? formFile.name : 'Choose File'}
-                  </button>
-                  {formFile && (
-                    <button type="button" onClick={() => setFormFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Text content option */}
-              <div className="form-group">
-                <label className="form-label">Form Text Content</label>
-                <textarea
-                  className="form-control"
-                  rows={6}
-                  value={formText}
-                  onChange={e => setFormText(e.target.value)}
-                  placeholder="Write the form content, instructions, or questions the client must respond to..."
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleEnableForm} disabled={submitting || (!formText.trim() && !formFile)}>
-                {submitting ? 'Sending...' : 'Enable Product Approval Form'}
+              <button className="btn btn-primary" onClick={handleAssignFt} disabled={submitting || selectedFtIds.length === 0}
+                style={{ background: '#2563eb', borderColor: '#2563eb' }}>
+                {submitting ? 'Assigning...' : `Assign ${selectedFtIds.length > 0 ? selectedFtIds.length : ''} FT Staff`}
               </button>
             </div>
           </div>
@@ -678,7 +656,7 @@ export default function AdminAddOnApplications() {
             <div className="modal-body" style={{ padding: 24 }}>
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14, color: '#166534', fontSize: 13, lineHeight: 1.6 }}>
                 <Check size={16} style={{ display: 'inline', marginRight: 6 }} />
-                Approving the Product Form will advance this application to <strong>Product Form Approved</strong> and then immediately to <strong>Ready For Certificate</strong>, after which you can issue the final certificate update.
+                Approving the Product Form will advance this application to <strong>Product Form Approved</strong> then to <strong>Ready For Certificate</strong>.
               </div>
               <div style={{ marginTop: 16, fontSize: 13, color: '#475569' }}>
                 <strong>Client:</strong> {activeApp.client_id?.company_name || activeApp.client_id?.full_name}<br />

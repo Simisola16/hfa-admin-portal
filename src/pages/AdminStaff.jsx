@@ -61,11 +61,8 @@ export default function AdminStaff() {
   const handleCreateStaff = async (e) => {
     e.preventDefault();
     if (!isSuperAdmin) return toast.error('Only Superadmin can create staff accounts.');
-    if (!staffForm.email.trim() || !staffForm.password.trim() || !staffForm.full_name.trim()) {
-      return toast.error('Please fill in all required fields.');
-    }
-    if (['admin', 'superadmin'].includes(staffForm.role) && !staffForm.username.trim()) {
-      return toast.error('Username is required for Administrator roles.');
+    if (!staffForm.email.trim() || !staffForm.password.trim() || !staffForm.full_name.trim() || !staffForm.username.trim()) {
+      return toast.error('Please fill in all required fields, including username.');
     }
 
     setStaffSubmitting(true);
@@ -312,19 +309,17 @@ export default function AdminStaff() {
                   </select>
                 </div>
 
-                {['admin', 'superadmin'].includes(staffForm.role) && (
-                  <div className="form-group animate-in" style={{ margin: 0 }}>
-                    <label className="form-label">Username <span>*</span></label>
-                    <input
-                      className="form-control"
-                      value={staffForm.username}
-                      onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))}
-                      placeholder="e.g. alex_admin"
-                      required={['admin', 'superadmin'].includes(staffForm.role)}
-                    />
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Administrators log in using their username.</p>
-                  </div>
-                )}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Username <span>*</span></label>
+                  <input
+                    className="form-control"
+                    value={staffForm.username}
+                    onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))}
+                    placeholder="e.g. alex_johnson"
+                    required
+                  />
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Staff members will use their username and password to log in.</p>
+                </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Email Address <span>*</span></label>

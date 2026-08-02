@@ -229,7 +229,12 @@ export default function AdminCertificates() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCerts.map(c => (
+                    {filteredCerts.map(c => {
+                      const effectiveStatus =
+                        c.status === 'active' && c.expiry_date && new Date(c.expiry_date) < new Date()
+                          ? 'expired'
+                          : c.status;
+                      return (
                       <tr key={c.id || c._id}>
                         <td style={{ fontWeight: 700 }}>{c.certificate_number}</td>
                         <td>{c.profiles?.company_name || c.profiles?.full_name || '—'}</td>
@@ -237,12 +242,12 @@ export default function AdminCertificates() {
                         <td style={{ fontSize: 12 }}>{c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td style={{ fontSize: 12 }}>{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td>
-                          <span className={`badge ${c.status === 'active' ? 'badge-green' : c.status === 'revoked' ? 'badge-red' : 'badge-gray'}`}>
-                            {c.status}
+                          <span className={`badge ${effectiveStatus === 'active' ? 'badge-green' : effectiveStatus === 'revoked' ? 'badge-red' : 'badge-gray'}`}>
+                            {effectiveStatus}
                           </span>
                         </td>
                         <td style={{ display: 'flex', gap: 6 }}>
-                          {c.status === 'active' && (
+                          {effectiveStatus === 'active' && (
                             <button 
                               className="btn btn-ghost btn-sm" 
                               style={{ color: 'var(--danger)', fontSize: 12 }} 
@@ -258,7 +263,8 @@ export default function AdminCertificates() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )

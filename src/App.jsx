@@ -44,6 +44,7 @@ export default function App() {
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
+            <Route path="/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />

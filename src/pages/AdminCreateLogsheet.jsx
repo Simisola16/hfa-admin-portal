@@ -11,7 +11,10 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminCreateLogsheet() {
-  const { appId } = useParams();
+  const { appId, addonId } = useParams();
+  // isAddon = true when this component is rendering for an add-on application
+  const isAddon = !!addonId;
+  const entityId = isAddon ? addonId : appId;
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -56,15 +59,37 @@ export default function AdminCreateLogsheet() {
 
   useEffect(() => {
     fetchData();
-  }, [appId]);
+  }, [entityId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch application details
-      const appRes = await api.get(`/api/applications/${appId}`);
-      const appData = appRes.data;
-      setApplication(appData);
+      if (isAddon) {
+        // Fetch add-on application to prefill form defaults
+        const addonRes = await api.get(`/api/add-on-applications/${addonId}`);
+        const addonData = addonRes.data?.data || addonRes.data;
+        setApplication(addonData);
+
+        // Prefill logsheet form from add-on data
+        setForm(f => ({
+          ...f,
+          company_name: addonData.client_id?.company_name || addonData.client_id?.full_name || '',
+          contact_person: addonData.contact_name || '',
+          contact_email: addonData.contact_email || '',
+          audit_type: 'Add-on Product Review'
+        }));
+
+        // Check if logsheet already exists
+        try {
+          const logRes = await api.get(`/api/add-on-applications/${addonId}/logsheet`);
+          setCurrentLogsheet(logRes.data?.data || logRes.data);
+        } catch (e) { /* No logsheet yet */ }
+      } else {
+        // ── Main application flow ─────────────────────────────────────────
+        // 1. Fetch application details
+        const appRes = await api.get(`/api/applications/${appId}`);
+        const appData = appRes.data;
+        setApplication(appData);
 
       // 2. Fetch audit details (if any)
       let auditData = null;
@@ -140,8 +165,9 @@ export default function AdminCreateLogsheet() {
 
       setCurrentLogsheet(logsheetObj);
       setForm(f => ({ ...f, ...logsheetData, confirmed: false }));
+      } // end else (main application)
 
-      // 4. Fetch signatures for signing panel
+      // Fetch signatures for signing panel (shared for both modes)
       try {
         const sigsRes = await api.get('/api/signatures');
         setSignatures(Array.isArray(sigsRes) ? sigsRes : []);
@@ -280,14 +306,24 @@ export default function AdminCreateLogsheet() {
     }
     setSubmitting(true);
     try {
-      await api.post('/api/application-logsheets', {
-        ...form,
-        application_id: application.id || application._id,
-        client_id: application.client_id,
-        site_id: application.site_id
-      });
-      toast.success('Logsheet saved and status updated successfully');
-      navigate('/applications');
+      if (isAddon) {
+        // For add-on applications — use the dedicated add-on logsheet route
+        await api.post(`/api/add-on-applications/${addonId}/create-logsheet`, {
+          ...form,
+          client_id: application?.client_id?._id || application?.client_id,
+        });
+        toast.success('Logsheet created for add-on application!');
+        navigate('/addon-applications');
+      } else {
+        await api.post('/api/application-logsheets', {
+          ...form,
+          application_id: application.id || application._id,
+          client_id: application.client_id,
+          site_id: application.site_id
+        });
+        toast.success('Logsheet saved and status updated successfully');
+        navigate('/applications');
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to save logsheet');
     } finally {

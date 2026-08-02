@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
-  UserCheck, Calendar, BarChart3, FileBarChart, Briefcase,
+  UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
 } from 'lucide-react';
 

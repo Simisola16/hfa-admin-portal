@@ -10,19 +10,19 @@ import AdminActionsNeededWidget from '../components/AdminActionsNeededWidget';
 
 /* ─── Status display helpers ─────────────────────────────────── */
 const STATUS_META = {
-  submitted:              { label: 'Submitted',         color: '#334155',  bg: '#f1f5f9' },
-  under_review:           { label: 'Under Review',      color: '#b45309',  bg: '#fef3c7' },
-  approved:               { label: 'Approved',          color: '#15803d',  bg: '#dcfce7' },
-  rejected:               { label: 'Rejected',          color: '#b91c1c',  bg: '#fee2e2' },
-  proposal_sent:          { label: 'Proposal Sent',     color: '#6d28d9',  bg: '#f3e8ff' },
-  proposal_approved:      { label: 'Proposal Approved', color: '#15803d',  bg: '#dcfce7' },
-  proposal_rejected:      { label: 'Proposal Rejected', color: '#b91c1c',  bg: '#fee2e2' },
-  invoice_sent:           { label: 'Invoice Sent',      color: '#c2410c',  bg: '#ffedd5' },
-  audit_assigned:         { label: 'Audit Assigned',    color: '#0e7490',  bg: '#cffafe' },
-  audit_report_submitted: { label: 'Audit Submitted',   color: '#0e7490',  bg: '#cffafe' },
-  certificate_issued:     { label: 'Cert Issued',       color: '#15803d',  bg: '#dcfce7' },
-  final_invoice_paid:     { label: 'Invoice Paid',      color: '#15803d',  bg: '#dcfce7' },
-  agreement_signed:       { label: 'Agreement Signed',  color: '#0e7490',  bg: '#cffafe' },
+  submitted: { label: 'Submitted', color: '#334155', bg: '#f1f5f9' },
+  under_review: { label: 'Under Review', color: '#b45309', bg: '#fef3c7' },
+  approved: { label: 'Approved', color: '#15803d', bg: '#dcfce7' },
+  rejected: { label: 'Rejected', color: '#b91c1c', bg: '#fee2e2' },
+  proposal_sent: { label: 'Proposal Sent', color: '#6d28d9', bg: '#f3e8ff' },
+  proposal_approved: { label: 'Proposal Approved', color: '#15803d', bg: '#dcfce7' },
+  proposal_rejected: { label: 'Proposal Rejected', color: '#b91c1c', bg: '#fee2e2' },
+  invoice_sent: { label: 'Invoice Sent', color: '#c2410c', bg: '#ffedd5' },
+  audit_assigned: { label: 'Audit Assigned', color: '#0e7490', bg: '#cffafe' },
+  audit_report_submitted: { label: 'Audit Submitted', color: '#0e7490', bg: '#cffafe' },
+  certificate_issued: { label: 'Cert Issued', color: '#15803d', bg: '#dcfce7' },
+  final_invoice_paid: { label: 'Invoice Paid', color: '#15803d', bg: '#dcfce7' },
+  agreement_signed: { label: 'Agreement Signed', color: '#0e7490', bg: '#cffafe' },
 };
 
 function StatusBadge({ status }) {
@@ -57,11 +57,11 @@ function formatDate(dateStr) {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [stats,       setStats]      = useState(null);
-  const [allApps,     setAllApps]    = useState([]);
-  const [allCerts,    setAllCerts]   = useState([]);
-  const [proposals,   setProposals]  = useState([]);
-  const [loading,     setLoading]    = useState(true);
+  const [stats, setStats] = useState(null);
+  const [allApps, setAllApps] = useState([]);
+  const [allCerts, setAllCerts] = useState([]);
+  const [proposals, setProposals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
   const fetchData = useCallback(async () => {
@@ -87,51 +87,51 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  
+
   /* ─── Derived counts ─── */
   const count = (arr, key, val) => arr.filter(a => a[key] === val).length;
 
-  const submitted    = count(allApps, 'status', 'submitted');
-  const underReview  = count(allApps, 'status', 'under_review');
+  const submitted = count(allApps, 'status', 'submitted');
+  const underReview = count(allApps, 'status', 'under_review');
   const proposalSent = count(allApps, 'status', 'proposal_sent');
-  const now          = new Date();
-  
+  const now = new Date();
+
   // Active Certs queried directly from Certificate model data: status === 'active' AND not expired
-  const activeCerts  = allCerts.filter(c =>
+  const activeCerts = allCerts.filter(c =>
     c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now)
   ).length;
 
-  const certTotal    = allCerts.length;
+  const certTotal = allCerts.length;
   const expiredCerts = allCerts.filter(c =>
     c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now)
   ).length;
 
   /* ─── 4 KPI cards ─── */
   const KPI = [
-    { id: 'total_apps',        label: 'Total Applications',  value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
-    { id: 'new_apps',          label: 'New Application',     value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
-    { id: 'active_certs',      label: 'Active Certificates', value: activeCerts,  iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
-    { id: 'renewal_apps',      label: 'Renewal <br> Application', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
+    { id: 'total_apps', label: 'Total Applications', value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
+    { id: 'new_apps', label: 'New Application', value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
+    { id: 'renewal_apps', label: 'Renewal  Application', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Application statistics derived metrics ─── */
   const approvedAppsCount = count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued');
-  const pendingAppsCount  = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
+  const pendingAppsCount = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
   const rejectedAppsCount = count(allApps, 'status', 'rejected');
-  const totalAppsCount    = allApps.length;
+  const totalAppsCount = allApps.length;
 
   const appApprovedPercent = totalAppsCount ? Math.round((approvedAppsCount / totalAppsCount) * 100) : 0;
-  const appPendingPercent  = totalAppsCount ? Math.round((pendingAppsCount / totalAppsCount) * 100) : 0;
+  const appPendingPercent = totalAppsCount ? Math.round((pendingAppsCount / totalAppsCount) * 100) : 0;
   const appRejectedPercent = totalAppsCount ? Math.round((rejectedAppsCount / totalAppsCount) * 100) : 0;
 
-  const pendingCertsCount  = allCerts.filter(c => c.status === 'pending').length;
+  const pendingCertsCount = allCerts.filter(c => c.status === 'pending').length;
 
   /* ─── Pipeline list (True total count vs Capped at 5) ─── */
   const allPipeline = [...allApps]
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
   const pipelineTotal = allPipeline.length;
-  const pipelineList  = allPipeline.slice(0, 5);
+  const pipelineList = allPipeline.slice(0, 5);
 
   /* ─── Loading skeleton ─── */
   if (loading && allApps.length === 0) {
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
       {/* ── Page header (Reference Portal Style) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: "'Inter', sans-serif", fontSize: 30, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 30, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
             Dashboard Overview
           </h1>
           <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#64748b', marginTop: 4, fontWeight: 400 }}>
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                 {k.icon}
               </div>
             </div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 36, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
+            <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 36, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
               {loading ? '—' : k.value}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#059669' }}>
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 17, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                 Application Pipeline
               </div>
               <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
                     onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
                     <td style={{ padding: '12px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
                       </div>
                     </td>
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 13, color: '#475569', fontWeight: 400, fontFamily: "'Inter', sans-serif" }}>
+                      <span style={{ fontSize: 13, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
                         {formatDate(a.created_at)}
                       </span>
                     </td>
@@ -465,12 +465,14 @@ export default function AdminDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
             { label: 'Total Applications', value: allApps.length || 157, sub: `${submitted} pending`, path: '/applications' },
-            { label: 'Total Products',     value: '472',                   sub: 'Registered in system', path: '/products' },
-            { label: 'Total Certificates', value: certTotal || 109,        sub: `${activeCerts || 61} active`, path: '/certificates' },
-            { label: 'Approved',
+            { label: 'Total Products', value: '472', sub: 'Registered in system', path: '/products' },
+            { label: 'Total Certificates', value: certTotal || 109, sub: `${activeCerts || 61} active`, path: '/certificates' },
+            {
+              label: 'Approved',
               value: count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued') || 78,
-              sub: allApps.length ? `${Math.round(((count(allApps,'status','approved') + count(allApps,'status','certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
-              path: '/reports' },
+              sub: allApps.length ? `${Math.round(((count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
+              path: '/reports'
+            },
           ].map((b, i, arr) => (
             <div
               key={b.label}
@@ -485,7 +487,7 @@ export default function AdminDashboard() {
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = 'white'}
             >
-              <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Inter', sans-serif", color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', color: '#0f172a', letterSpacing: '-0.02em' }}>
                 {loading ? '—' : b.value}
               </div>
               <div style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Inter, sans-serif', color: '#334155', marginTop: 4 }}>{b.label}</div>

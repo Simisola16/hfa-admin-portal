@@ -29,6 +29,7 @@ import AdminSignatures from './pages/AdminSignatures';
 import ApplicationProcessing from './pages/ApplicationProcessing';
 
 import AdminAddOnApplications from './pages/AdminAddOnApplications';
+import AdminAddOnProcessing from './pages/AdminAddOnProcessing';
 import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
 
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
+            <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />

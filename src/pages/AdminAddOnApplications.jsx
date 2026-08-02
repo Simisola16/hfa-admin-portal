@@ -292,6 +292,14 @@ export default function AdminAddOnApplications() {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+                      >
+                        Track Processing
+                      </button>
+
                       {/* Accept Or Reject */}
                       {isManagerOrAdmin && app.status === 'submitted' && (
                         <button className="btn btn-primary btn-sm" onClick={() => openAction(app, 'review')}>

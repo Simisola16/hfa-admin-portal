@@ -11,13 +11,13 @@ import { useAuth } from '../context/AuthContext';
 
 // ─── Canonical status definitions ────────────────────────────────────────────
 const STATUS_LABELS = {
-  submitted: 'Submitted',
+  submitted: 'Submit Add-On',
   accepted: 'Application Accepted',
   rejected: 'Application Rejected',
-  ft_assigned: 'FT Assigned',
+  ft_assigned: 'Assign FT Food Technologies',
   product_approval_form_enabled: 'Product Approval Form Enabled',
   all_forms_received: 'All Product Approval Form Received',
-  logsheet_created: 'Logsheet Created',
+  logsheet_created: 'Create Logsheet',
   waiting_sharia_signature: 'Waiting For Shari\'a Board Signature',
   product_form_approved: 'Product Form Approved',
   ready_for_certificate: 'Ready For Certificate',

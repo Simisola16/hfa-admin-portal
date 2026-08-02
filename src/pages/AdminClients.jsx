@@ -199,10 +199,7 @@ export default function AdminClients() {
         <button className={`btn btn-sm ${category === 'review' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'review' })}>New Signups</button>
         <button className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'bin' })}>Suspended</button>
         {isAdmin && (
-          <>
-            <button className={`btn btn-sm ${category === 'staff' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'staff' })}>HFA Staff</button>
-            <button className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'impersonations' })}>Impersonation Logs</button>
-          </>
+          <button className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'impersonations' })}>Impersonation Logs</button>
         )}
       </div>
 
@@ -212,13 +209,8 @@ export default function AdminClients() {
           <input placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
-          {category === 'staff' && isAdmin && (
-            <button className="btn btn-primary" onClick={() => setShowStaffModal(true)}>
-              <PlusCircle size={15} style={{ marginRight: 6 }} /> Add Staff Account
-            </button>
-          )}
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
-            {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} ${category === 'staff' ? 'Staff Members' : 'Companies'}`}
+            {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} Companies`}
           </span>
         </div>
       </div>
@@ -298,53 +290,6 @@ export default function AdminClients() {
                 <div className="empty-state-icon" style={{ background: '#f8fafc', color: '#cbd5e1', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><Users size={32} /></div>
                 <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>No users found</div>
               </div>
-            ) : category === 'staff' ? (
-              // HFA Staff Table
-              <table>
-                <thead>
-                  <tr>
-                    <th>Staff Name / Email</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(c => (
-                    <tr key={c._id} className="hover-row">
-                      <td>
-                        <div style={{ fontWeight: 700, color: '#111827', fontSize: 14 }}>{c.full_name || '—'}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.email}</div>
-                      </td>
-                      <td style={{ fontSize: 13, fontWeight: 500 }}>{c.username || '—'}</td>
-                      <td>
-                        {isAdmin ? (
-                          <select 
-                            className="form-control" 
-                            style={{ width: 180, padding: '4px 8px', height: 'auto', fontSize: 12 }} 
-                            value={c.role} 
-                            onChange={e => handleRoleChange(c._id, e.target.value)}
-                          >
-                            <option value="admin">Administrator</option>
-                            <option value="food_tech_manager">Food Tech Manager</option>
-                            <option value="food_tech">Food Tech Inspector</option>
-                            <option value="inspector">Auditor (Inspector)</option>
-                          </select>
-                        ) : (
-                          <span style={{ fontSize: 12, fontWeight: 600 }}>{c.role?.replace(/_/g, ' ').toUpperCase()}</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="badge badge-green">Active</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Managed by Admin</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             ) : (
               // Clients Table
               <table>

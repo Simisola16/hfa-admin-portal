@@ -88,6 +88,7 @@ const NAV_SECTIONS = [
     key: 'people',
     label: 'PEOPLE & SITES',
     items: [
+      { icon: Shield,    label: 'HFA Staff',  path: '/staff' },
       { icon: UserCheck, label: 'Inspectors', path: '/inspectors' },
       { icon: MapPin,    label: 'Sites',      path: '/sites' },
     ],

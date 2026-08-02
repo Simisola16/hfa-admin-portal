@@ -30,6 +30,7 @@ import ApplicationProcessing from './pages/ApplicationProcessing';
 
 import AdminAddOnApplications from './pages/AdminAddOnApplications';
 import AdminManageProducts from './pages/AdminManageProducts';
+import AdminStaff from './pages/AdminStaff';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/clients" element={<AdminClients />} />
+            <Route path="/staff" element={<AdminStaff />} />
             <Route path="/inspectors" element={<AdminInspectors />} />
             <Route path="/audits" element={<AdminAudits />} />
             <Route path="/invoices" element={<AdminInvoices />} />

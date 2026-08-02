@@ -2,7 +2,7 @@
 
 :root {
   --font-serif: 'Playfair Display', Georgia, serif;
-  --font-sans: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', sans-serif;
   --primary: #15803d;
   --primary-dark: #166534;
   --primary-light: #dcfce7;
@@ -37,11 +37,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 button, input, select, textarea {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Inter', sans-serif;
 }
 
 body {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Inter', sans-serif;
   background: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.5;
@@ -50,6 +50,14 @@ body {
 
 /* ===== LAYOUT ===== */
 .app-layout { display: flex; min-height: 100vh; }
+
+.sidebar, .sidebar * {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.dashboard-container, .dashboard-container * {
+  font-family: 'Playfair Display', Georgia, serif;
+}
 
 .sidebar {
   width: var(--sidebar-w);

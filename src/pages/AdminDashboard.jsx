@@ -146,7 +146,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 24 }}>
+    <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 24 }}>
 
       {/* ── Page header (Reference Portal Style) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>

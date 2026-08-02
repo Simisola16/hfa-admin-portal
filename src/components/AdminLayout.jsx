@@ -129,15 +129,31 @@ export default function AdminLayout() {
     else if (titleLower.includes('agreement')) modalType = 'send_agreement';
     else if (titleLower.includes('ready')) modalType = 'issue_certificate';
 
-    const extractAppId = (link) => {
-      if (!link) return null;
+    const getCleanId = (val) => {
+      if (!val) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object') return String(val._id || val.id || '');
+      return String(val);
+    };
+
+    const extractAppId = (notifObj) => {
+      if (!notifObj) return null;
+      const raw = notifObj.application_id || notifObj.appId || notifObj.app_id || 
+                  notifObj.data?.application_id || notifObj.data?.app_id || notifObj.data?.appId;
+      if (raw) {
+        const clean = getCleanId(raw);
+        if (clean && clean !== '[object Object]') return clean;
+      }
+      const link = notifObj.link || '';
       const m1 = link.match(/\/applications\/([a-fA-F0-9]{24})/);
       if (m1) return m1[1];
       const m2 = link.match(/appId=([a-fA-F0-9]{24})/);
       if (m2) return m2[1];
+      const match = link.match(/([a-fA-F0-9]{24})/) || (notifObj.message || '').match(/([a-fA-F0-9]{24})/);
+      if (match) return match[1];
       return null;
     };
-    const targetAppId = extractAppId(notif.link);
+    const targetAppId = extractAppId(notif);
 
     toast.custom((t) => (
       <div

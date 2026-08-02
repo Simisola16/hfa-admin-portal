@@ -13,6 +13,13 @@ import CertificateModal from './CertificateModal';
 import AuditManageModal from './AuditManageModal';
 import ConfirmPaymentModal from './ConfirmPaymentModal';
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);

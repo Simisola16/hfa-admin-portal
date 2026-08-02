@@ -12,6 +12,13 @@ const getPdfUrl = (url) => {
   return url;
 };
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function AuditManageModal({ isOpen, onClose, app, existingAudits: propExistingAudits, onSuccess }) {
   const [existingAudits, setExistingAudits] = useState([]);
   const [activeStage, setActiveStage] = useState(1);
@@ -45,8 +52,9 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
   // Load audit from backend if not provided as prop
   useEffect(() => {
-    if (isOpen && app && (!propExistingAudits || propExistingAudits.length === 0)) {
-      api.get(`/api/audits/application/${app._id || app.id}`)
+    const targetAppId = getCleanId(app?._id || app?.id || app);
+    if (isOpen && targetAppId && (!propExistingAudits || propExistingAudits.length === 0)) {
+      api.get(`/api/audits/application/${targetAppId}`)
         .then(res => {
           setExistingAudits(res.data?.data || res.data || []);
         })
@@ -685,17 +693,23 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                     </div>
                   )}
 
-                  {(existingAudit.status === 'audit_completed' || app?.status === 'audit_completed') && (
+                  {(existingAudit.status === 'audit_completed' || ['audit_completed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status)) && (
                     <div style={{ marginTop: 20, padding: 18, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #86efac', borderRadius: 12 }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 4 }}>
                         ✓ {isDualStage ? `Stage ${activeStage} Audit Completed` : 'Audit Session Completed'}
                       </div>
                       <div style={{ fontSize: 12, color: '#15803d', marginBottom: 14, lineHeight: 1.5 }}>
-                        {app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)
-                          ? 'All required audit sessions are complete. Click below to submit the official Audit Report to advance to LogSheet creation.'
-                          : 'Stage 1 complete. You can now switch to Stage 2 tab to schedule and complete Stage 2.'}
+                        {['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status)
+                          ? 'The official Audit Report has been submitted.'
+                          : (app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)
+                            ? 'All required audit sessions are complete. Click below to submit the official Audit Report to advance to LogSheet creation.'
+                            : 'Stage 1 complete. You can now switch to Stage 2 tab to schedule and complete Stage 2.')}
                       </div>
-                      {(app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)) && (
+                      {['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status) ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 18px', background: '#dcfce7', color: '#166534', borderRadius: 8, fontWeight: 700, fontSize: 13, border: '1px solid #bbf7d0' }}>
+                          <CheckCircle size={16} /> ✓ Official Audit Report Submitted
+                        </div>
+                      ) : (app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)) && (
                         <button
                           type="button"
                           className="btn btn-primary"
@@ -716,23 +730,25 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                   <h4 style={{ fontSize: 14, color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>Non-Conformity (NC) Reports</h4>
 
                   {existingAudit.nc_reports?.length > 0 && (
-                    <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+                    <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
                       {existingAudit.nc_reports.map((nc, idx) => (
                         <div key={idx} style={{ padding: '14px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
                               {nc.status === 'corrected' ? '✓ Corrected' : '⚠️ Pending Correction'}
                             </span>
-                            <span style={{ fontSize: 10, color: '#64748b' }}>{new Date(nc.flagged_at).toLocaleDateString()}</span>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>{nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString() : ''}</span>
                           </div>
-                          <p style={{ fontSize: 13, color: '#334155', margin: '0 0 10px 0', lineHeight: 1.4 }}>{nc.text}</p>
+                          <p style={{ fontSize: 13, color: '#334155', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                            <strong>Auditor Finding:</strong> {nc.text}
+                          </p>
                           {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' ? (
                             <a
                               href={getPdfUrl(nc.document_url)}
                               target="_blank"
                               rel="noreferrer"
                               className="btn btn-outline btn-sm"
-                              style={{ fontSize: 11, padding: '4px 8px' }}
+                              style={{ fontSize: 11, padding: '4px 8px', marginBottom: 8 }}
                               onClick={e => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -742,19 +758,55 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                                 }
                               }}
                             >
-                              <FileText size={12} style={{ marginRight: 4 }}/> View Document
+                              <FileText size={12} style={{ marginRight: 4 }}/> View Auditor Report Document
                             </a>
                           ) : (
                             <span
                               style={{
                                 fontSize: 11, padding: '4px 8px', borderRadius: '4px',
                                 background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1',
-                                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'not-allowed', fontWeight: 600
+                                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'not-allowed', fontWeight: 600,
+                                marginBottom: 8
                               }}
                               title="No document file was uploaded for this NC report"
                             >
                               <FileText size={12} /> Document Unavailable
                             </span>
+                          )}
+
+                          {/* Client Written Corrective Action & Document Download Link */}
+                          {(nc.status === 'corrected' || nc.client_response || nc.correction_document_url) && (
+                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #bbf7d0', background: '#ffffff', padding: '12px', borderRadius: 8 }}>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
+                                Client Corrective Action Text:
+                              </div>
+                              <div style={{ fontSize: 13, color: '#1e293b', marginBottom: 8, lineHeight: 1.5 }}>
+                                {nc.client_response || 'No text provided by client.'}
+                              </div>
+                              {nc.correction_document_url && nc.correction_document_url !== '#' && nc.correction_document_url !== 'undefined' ? (
+                                <a
+                                  href={getPdfUrl(nc.correction_document_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-primary btn-sm"
+                                  style={{ fontSize: 11, padding: '5px 12px', background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  onClick={e => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const fullUrl = getPdfUrl(nc.correction_document_url);
+                                    if (fullUrl && fullUrl !== '#') {
+                                      window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                >
+                                  <FileText size={12} /> Download Client Correction Document
+                                </a>
+                              ) : (
+                                <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+                                  No correction document uploaded by client.
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}

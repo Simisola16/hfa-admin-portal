@@ -3,6 +3,13 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function AgreementModal({ isOpen, onClose, app: propApp, appId: propAppId, agreement: propAgreement, onSuccess }) {
   const [app, setApp] = useState(propApp || null);
   const [agreement, setAgreement] = useState(propAgreement || null);
@@ -16,7 +23,7 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const targetAppId = propAppId || propApp?._id || propApp?.id;
+  const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propAgreement?.application_id);
 
   useEffect(() => {
     if (isOpen) {
@@ -26,8 +33,8 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
           api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
           api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
         ]).then(([appRes, agRes]) => {
-          const loadedApp = appRes.data || null;
-          const loadedAgreement = agRes.data || null;
+          const loadedApp = appRes.data?.data || appRes.data || null;
+          const loadedAgreement = agRes.data?.data || agRes.data || null;
           setApp(loadedApp);
           setAgreement(loadedAgreement);
           if (loadedApp) {
@@ -89,11 +96,11 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
         formData.append('details', agreementForm.details);
       }
 
-      const clientId = app.client_id || app.profiles?._id || app.profiles?.id;
+      const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
       if (!clientId) {
         throw new Error('Could not identify client ID for this application.');
       }
-      const appId = app._id || app.id;
+      const appId = getCleanId(app._id || app.id || app);
       formData.append('application_id', appId);
       formData.append('client_id', clientId);
 

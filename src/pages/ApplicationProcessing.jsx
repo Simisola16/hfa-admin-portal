@@ -513,13 +513,19 @@ export default function ApplicationProcessing() {
             )}
 
             {showFinalInvoiceAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#854d0e' }}
-                onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
-              >
-                <Receipt size={16} /> {finalInvoice ? 'Resend Final Invoice' : 'Send Final Invoice'}
-              </button>
+              isFinalInvoicePaid ? (
+                <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <CheckCircle size={15} /> ✓ Final Invoice Paid
+                </span>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#854d0e' }}
+                  onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
+                >
+                  <Receipt size={16} /> {finalInvoice ? 'Resend Final Invoice' : 'Send Final Invoice'}
+                </button>
+              )
             )}
 
             {showMarkReadyCertificateAction && (
@@ -534,16 +540,22 @@ export default function ApplicationProcessing() {
             )}
 
             {showCertificateAction && (
-              <button
-                className="btn btn-primary"
-                style={{
-                  gap: 8,
-                  background: '#16a34a',
-                }}
-                onClick={() => setShowCertificateModal(true)}
-              >
-                <Award size={16} /> Issue Certificate
-              </button>
+              status === 'certificate_issued' ? (
+                <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                  <CheckCircle size={15} /> ✓ Certificate Issued
+                </span>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    gap: 8,
+                    background: '#16a34a',
+                  }}
+                  onClick={() => setShowCertificateModal(true)}
+                >
+                  <Award size={16} /> Issue Certificate
+                </button>
+              )
             )}
           </div>
         </div>

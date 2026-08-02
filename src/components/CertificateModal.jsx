@@ -3,6 +3,13 @@ import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, onSuccess }) {
   const [app, setApp] = useState(propApp || null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +23,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const targetAppId = propAppId || propApp?._id || propApp?.id;
+  const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
   const initForm = (loadedApp) => {
     if (!loadedApp) return;
@@ -40,7 +47,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         setLoading(true);
         api.get(`/api/applications/${targetAppId}`)
           .then(res => {
-            const loadedApp = res.data || null;
+            const loadedApp = res.data?.data || res.data || null;
             setApp(loadedApp);
             initForm(loadedApp);
           })
@@ -94,11 +101,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       }
       formData.append('certificate_file', certificateForm.file);
 
-      const clientId = app.client_id || app.profiles?._id || app.profiles?.id;
+      const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
       if (!clientId) {
         throw new Error('Could not identify client ID for this application.');
       }
-      const appId = app._id || app.id;
+      const appId = getCleanId(app._id || app.id || app);
       formData.append('application_id', appId);
       formData.append('client_id', clientId);
       if (app.site_id) {

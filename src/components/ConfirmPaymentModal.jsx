@@ -12,12 +12,19 @@ const getPdfUrl = (url) => {
   return url;
 };
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvoice, app: propApp, appId: propAppId, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [invoice, setInvoice] = useState(propInvoice || null);
   const [app, setApp] = useState(propApp || null);
 
-  const targetAppId = propAppId || propApp?._id || propApp?.id || propInvoice?.application_id;
+  const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propInvoice?.application_id);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -26,8 +33,10 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
           api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null })),
           !propApp ? api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: propApp })
         ]).then(([invRes, appRes]) => {
-          setInvoice(invRes.data || null);
-          if (appRes.data) setApp(appRes.data);
+          const invObj = invRes.data?.data || invRes.data || null;
+          const appObj = appRes.data?.data || appRes.data || null;
+          setInvoice(invObj);
+          if (appObj) setApp(appObj);
         });
       } else {
         setInvoice(propInvoice || null);
@@ -39,7 +48,7 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    const invId = invoice?._id || invoice?.id;
+    const invId = getCleanId(invoice?._id || invoice?.id || invoice);
     if (!invId) return;
 
     setSubmitting(true);

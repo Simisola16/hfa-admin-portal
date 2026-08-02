@@ -1,5 +1,14 @@
 import React from 'react';
-import { Calendar, Users, Lock } from 'lucide-react';
+import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+
+const getPdfUrl = (url) => {
+  if (!url) return '#';
+  if (url.startsWith('/api/files/') || url.startsWith('/uploads/')) {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.onrender.com';
+    return `${API_URL}${url}`;
+  }
+  return url;
+};
 
 export default function AuditCard({ audits, status, app, onManage }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
@@ -9,8 +18,6 @@ export default function AuditCard({ audits, status, app, onManage }) {
   const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
   const stage2 = audits?.find(a => a.stage === 2);
-  // Show the most relevant audit for details
-  const audit = (isDualStage ? (stage2 || stage1) : stage1) || null;
 
   const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
   const roleColors = {
@@ -52,6 +59,79 @@ export default function AuditCard({ audits, status, app, onManage }) {
     return { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b' };
   };
 
+  const renderAuditorList = (auditorList) => {
+    if (!auditorList || auditorList.length === 0) {
+      return (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>
+          No auditors assigned to this session yet.
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: 'grid', gap: 10 }}>
+        {auditorList.map((a, i) => {
+          const name = a.name || a.full_name || a.user_id?.full_name || 'Auditor';
+          const email = a.email || a.user_id?.email || '';
+          const phone = a.contact_number || a.phone || a.user_id?.phone || '';
+          const role = a.role || 'lead_auditor';
+          const rc = roleColors[role] || roleColors.audit_trainee;
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{name}</div>
+                {(email || phone) && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{email} {phone ? `• ${phone}` : ''}</div>}
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {role && (
+                  <span style={{ fontSize: 11, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 10px', borderRadius: 12 }}>
+                    {roleLabels[role] || role}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSingleStageBlock = (auditObj, stageLabel = null) => {
+    if (!auditObj) return null;
+    return (
+      <div style={{ marginBottom: isDualStage ? 16 : 0, padding: isDualStage ? '14px' : '0', background: isDualStage ? '#fafafa' : 'transparent', borderRadius: 12, border: isDualStage ? '1px solid #e2e8f0' : 'none' }}>
+        {stageLabel && (
+          <div style={{ fontWeight: 800, fontSize: 12, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>{stageLabel}</span>
+            <span style={{ fontSize: 11, textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{(auditObj.status || 'pending').replace(/_/g, ' ')}</span>
+          </div>
+        )}
+        {auditObj.finalized_date ? (
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Calendar size={15} style={{ color: '#15803d' }} />
+            <span style={{ fontSize: 13, color: '#15803d', fontWeight: 700 }}>Confirmed Audit Date: {new Date(auditObj.finalized_date).toDateString()}</span>
+          </div>
+        ) : auditObj.status === 'dates_proposed' ? (
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fefce8', borderRadius: 10, border: '1px solid #fde68a' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Awaiting Date Choice from Client</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+              {auditObj.proposed_dates?.map((d, idx) => (
+                <span key={idx} style={{ fontSize: 11, background: '#fff', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: 6, color: '#854d0e', fontWeight: 600 }}>{new Date(d).toLocaleDateString()}</span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 12, color: '#64748b' }}>
+            Awaiting date finalization or scheduling setup.
+          </div>
+        )}
+        {renderAuditorList(auditObj.auditors)}
+      </div>
+    );
+  };
+
+  // Collect all NC reports across audits
+  const allNcReports = audits.flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
+
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -61,7 +141,9 @@ export default function AuditCard({ audits, status, app, onManage }) {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Assigned Audit Team</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{(audit?.status || 'pending').replace(/_/g, ' ')}</span></div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Category: <span style={{ fontWeight: 700 }}>{isDualStage ? 'UAE/GSO Exporter (Dual Stage)' : 'Standard Audit'}</span>
+            </div>
           </div>
         </div>
         {onManage && (
@@ -92,53 +174,76 @@ export default function AuditCard({ audits, status, app, onManage }) {
           </div>
         )}
 
-        {audit?.finalized_date ? (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Calendar size={15} style={{ color: '#15803d' }} />
-            <span style={{ fontSize: 14, color: '#15803d', fontWeight: 700 }}>Confirmed Audit Date: {new Date(audit.finalized_date).toDateString()}</span>
-          </div>
-        ) : audit?.status === 'dates_proposed' ? (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fefce8', borderRadius: 10, border: '1px solid #fde68a' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Awaiting Date Choice from Client</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {audit.proposed_dates?.map((d, idx) => (
-                <span key={idx} style={{ fontSize: 11, background: '#fff', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: 6, color: '#854d0e', fontWeight: 600 }}>{new Date(d).toLocaleDateString()}</span>
-              ))}
-            </div>
+        {/* Audit Details Section: Render Stage 1 and Stage 2 separately if dual-stage */}
+        {isDualStage ? (
+          <div>
+            {renderSingleStageBlock(stage1, 'Stage 1 (Initial Visit)')}
+            {renderSingleStageBlock(stage2, 'Stage 2 (Final Visit)')}
           </div>
         ) : (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 12, color: '#64748b' }}>
-            Awaiting date finalization or scheduling setup.
-          </div>
+          renderSingleStageBlock(stage1)
         )}
 
-        {audit?.auditors && audit.auditors.length > 0 ? (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {audit.auditors.map((a, i) => {
-              const rc = roleColors[a.role] || roleColors.audit_trainee;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{a.name}</div>
-                    {a.email && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {a.role && (
-                      <span style={{ fontSize: 11, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 10px', borderRadius: 12 }}>
-                        {roleLabels[a.role] || a.role}
-                      </span>
+        {/* NC Reports Section on Admin Audit Card */}
+        {allNcReports.length > 0 && (
+          <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 16, marginTop: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b91c1c', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertCircle size={14} style={{ color: '#dc2626' }} />
+              Non-Conformity (NC) Reports ({allNcReports.length})
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {allNcReports.map((nc, idx) => {
+                const isCorrected = nc.status === 'corrected';
+                return (
+                  <div key={idx} style={{ padding: '12px 14px', borderRadius: 10, background: isCorrected ? '#f0fdf4' : '#fef2f2', border: `1.5px solid ${isCorrected ? '#bbf7d0' : '#fecaca'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {isCorrected ? <CheckCircle size={14} style={{ color: '#16a34a' }} /> : <AlertCircle size={14} style={{ color: '#dc2626' }} />}
+                        <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: isCorrected ? '#166534' : '#b91c1c' }}>
+                          {isCorrected ? '✓ Corrected' : '⚠️ Pending Correction'}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>{nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString('en-GB') : ''}</span>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginBottom: 6 }}>
+                      Auditor Finding: <span style={{ fontWeight: 400 }}>{nc.text}</span>
+                    </div>
+
+                    {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' && (
+                      <div style={{ marginBottom: 6 }}>
+                        <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <FileText size={11} /> Auditor Report Document
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Client Written Corrective Action & Document Download Link */}
+                    {isCorrected && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #bbf7d0', background: '#ffffff', padding: '10px', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
+                          Client Corrective Action:
+                        </div>
+                        <div style={{ fontSize: 12, color: '#1e293b', marginBottom: 6 }}>
+                          {nc.client_response || 'No text provided by client.'}
+                        </div>
+                        {nc.correction_document_url && nc.correction_document_url !== '#' && nc.correction_document_url !== 'undefined' ? (
+                          <a href={getPdfUrl(nc.correction_document_url)} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: '4px 10px', background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <FileText size={11} /> Download Client Correction Document
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#64748b', italic: 'true' }}>No correction document uploaded.</span>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
-            No auditors assigned to this session yet.
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+

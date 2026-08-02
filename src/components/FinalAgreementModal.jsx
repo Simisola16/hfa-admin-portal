@@ -3,6 +3,13 @@ import { X, FileCheck, Upload } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
+const getCleanId = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return String(val._id || val.id || '');
+  return String(val);
+};
+
 export default function FinalAgreementModal({ isOpen, onClose, app: propApp, appId: propAppId, agreement: propAgreement, onSuccess }) {
   const [app, setApp] = useState(propApp || null);
   const [agreement, setAgreement] = useState(propAgreement || null);
@@ -10,7 +17,7 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const targetAppId = propAppId || propApp?._id || propApp?.id;
+  const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propAgreement?.application_id);
 
   React.useEffect(() => {
     if (isOpen && !propApp && targetAppId) {
@@ -19,8 +26,8 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
         api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
         api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
       ]).then(([appRes, agRes]) => {
-        setApp(appRes.data || null);
-        setAgreement(agRes.data || null);
+        setApp(appRes.data?.data || appRes.data || null);
+        setAgreement(agRes.data?.data || agRes.data || null);
       }).finally(() => setLoading(false));
     } else if (isOpen) {
       setApp(propApp || null);
@@ -49,7 +56,7 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
       const formData = new FormData();
       formData.append('final_agreement_file', file);
 
-      const agId = agreement?._id || agreement?.id;
+      const agId = getCleanId(agreement?._id || agreement?.id || agreement);
       if (!agId) {
         throw new Error('Agreement record not found.');
       }

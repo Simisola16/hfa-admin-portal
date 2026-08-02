@@ -111,7 +111,7 @@ export default function AdminDashboard() {
     { id: 'total_apps', label: 'Total Applications', value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
     { id: 'new_apps', label: 'New Application', value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
-    { id: 'renewal_apps', label: 'Renewal  Application', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
+    { id: 'renewal_apps', label: 'Renewal Applications', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Application statistics derived metrics ─── */
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
       {/* ── Page header (Reference Portal Style) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 30, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+          <h1 style={{ fontFamily: 'Inter, sans-serif', fontSize: 26, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
             Dashboard Overview
           </h1>
           <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#64748b', marginTop: 4, fontWeight: 400 }}>
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                 {k.icon}
               </div>
             </div>
-            <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 36, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 32, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
               {loading ? '—' : k.value}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#059669' }}>
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 17, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 16, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                 Application Pipeline
               </div>
               <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, sans-serif', fontWeight: 400, whiteSpace: 'nowrap' }}>
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
                     onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
                     <td style={{ padding: '12px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 13.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
                       </div>
                     </td>
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 13, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
+                      <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 400, fontFamily: 'Inter, sans-serif' }}>
                         {formatDate(a.created_at)}
                       </span>
                     </td>
@@ -487,7 +487,7 @@ export default function AdminDashboard() {
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = 'white'}
             >
-              <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'Inter, sans-serif', color: '#0f172a', letterSpacing: '-0.02em' }}>
                 {loading ? '—' : b.value}
               </div>
               <div style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Inter, sans-serif', color: '#334155', marginTop: 4 }}>{b.label}</div>

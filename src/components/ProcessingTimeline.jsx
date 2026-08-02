@@ -12,8 +12,9 @@ import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
  * Phases 5–9 automatically get new stages by extending STATUS_ORDER in applicationStatuses.js.
  * No changes to this component needed.
  */
-export default function ProcessingTimeline({ status, statusHistory = [], category = '' }) {
+export default function ProcessingTimeline({ status, statusHistory = [], category = '', applicationType = '' }) {
   const isRejected = status === 'rejected';
+  const isRenewal = applicationType === 'renewal';
   const isGSO = category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
   // Build a lookup from statusHistory entries for quick timestamp/note access
@@ -74,18 +75,19 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
 
     // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
     if (status !== 'on_hold') {
-      stepsToShow.push(
+      const downstreamSteps = [
         'logsheet_created',
         'logsheet_signed',
         'application_successful',
         'agreement_sent',
         'agreement_signed',
         'agreement_finalised',
-        'final_invoice_sent',
-        'final_invoice_paid',
-        'ready_for_certificate',
-        'certificate_issued'
-      );
+      ];
+      if (!isRenewal) {
+        downstreamSteps.push('final_invoice_sent', 'final_invoice_paid');
+      }
+      downstreamSteps.push('ready_for_certificate', 'certificate_issued');
+      stepsToShow.push(...downstreamSteps);
     }
   }
 

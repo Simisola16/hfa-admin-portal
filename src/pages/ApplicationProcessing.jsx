@@ -303,6 +303,7 @@ export default function ApplicationProcessing() {
   const canActOnApplication = status === 'submitted' || status === 'under_review';
 
   // Helper flags for action stepper
+  const isRenewal = app.application_type === 'renewal';
   const showSendProposalAction = status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected';
   
   // For initial invoice
@@ -321,9 +322,11 @@ export default function ApplicationProcessing() {
   
   const showSendFinalAgreementAction = ['agreement_signed', 'agreement_finalised'].includes(status) || agreement?.client_signed;
 
-  const showFinalInvoiceAction = ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
+  const showFinalInvoiceAction = !isRenewal && ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
   
-  const showMarkReadyCertificateAction = status === 'final_invoice_paid';
+  const showMarkReadyCertificateAction = isRenewal
+    ? (['agreement_signed', 'agreement_finalised', 'logsheet_signed', 'application_successful'].includes(status) && status !== 'ready_for_certificate' && status !== 'certificate_issued')
+    : status === 'final_invoice_paid';
 
   const showCertificateAction = ['ready_for_certificate', 'certificate_issued'].includes(status);
 
@@ -595,7 +598,7 @@ export default function ApplicationProcessing() {
               <div className="card-title">Processing Timeline</div>
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
-              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} category={app.category || ''} />
+              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} category={app.category || ''} applicationType={app.application_type || ''} />
             </div>
           </div>
 

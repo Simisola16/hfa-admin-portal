@@ -316,7 +316,7 @@ export default function AdminAddOnApplications() {
 
                       {/* Enable Product Approval Form */}
                       {isManagerOrAdmin && app.status === 'ft_assigned' && (
-                        <button className="btn btn-primary btn-sm" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => openAction(app, 'enable_form')}>
+                        <button className="btn btn-primary btn-sm" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
                           Enable Product Approval Form
                         </button>
                       )}

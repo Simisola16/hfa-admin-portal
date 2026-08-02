@@ -232,7 +232,7 @@ export default function AdminAddOnProcessing() {
           )}
 
           {isManagerOrAdmin && app.status === 'ft_assigned' && (
-            <button className="btn btn-primary" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => setActionType('enable_form')}>
+            <button className="btn btn-primary" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
               Enable Product Approval Form
             </button>
           )}
@@ -419,46 +419,93 @@ export default function AdminAddOnProcessing() {
       {/* ─── TAB 3: Form ────────────────────────────────────────────── */}
       {activeTab === 'form' && (
         <div className="card shadow-sm" style={{ padding: 24 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>Product Approval Form Management</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Product Approval Form Management</span>
+            {app.status === 'ft_assigned' && (
+              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
+                Enable / Edit Form Page
+              </button>
+            )}
+          </div>
 
           {/* Admin Sent Form */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Admin Form Document / Template</div>
-            {app.product_approval_form?.form_file_url ? (
-              <a href={getPdfUrl(app.product_approval_form.form_file_url)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <FileText size={15} /> Download Admin Form PDF
+          <div style={{ marginBottom: 24, background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Admin Form Document / Instructions</div>
+            {app.product_approval_form?.form_file_url && (
+              <a href={getPdfUrl(app.product_approval_form.form_file_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <FileText size={14} /> Download Admin Form PDF
               </a>
-            ) : app.product_approval_form?.form_text ? (
-              <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap' }}>
+            )}
+            {app.product_approval_form?.form_text ? (
+              <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap' }}>
                 {app.product_approval_form.form_text}
               </div>
-            ) : (
+            ) : !app.product_approval_form?.form_file_url && (
               <div style={{ fontSize: 13, color: '#94a3b8' }}>Product Approval Form has not been enabled yet.</div>
             )}
           </div>
 
-          {/* Client Submitted Response */}
+          {/* Client Submitted Responses per Product */}
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Client's Submitted Response</div>
-            {app.product_approval_form?.submitted_at ? (
-              <div style={{ background: '#f0fdf4', padding: 16, borderRadius: 10, border: '1px solid #bbf7d0' }}>
-                <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 8 }}>
-                  <Check size={14} style={{ display: 'inline', marginRight: 4 }} /> Submitted on {new Date(app.product_approval_form.submitted_at).toLocaleDateString('en-GB')}
-                </div>
-                {app.product_approval_form.client_response_text && (
-                  <div style={{ fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap', marginBottom: 12 }}>
-                    {app.product_approval_form.client_response_text}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Client Responses Per Product</div>
+              {(() => {
+                const prods = app.products || [];
+                const resps = app.product_approval_form?.product_responses || [];
+                const saved = prods.filter((_, idx) => resps.some(r => r.product_index === idx && r.is_saved)).length;
+                return (
+                  <span className={`badge ${saved === prods.length && prods.length > 0 ? 'badge-green' : 'badge-purple'}`} style={{ fontSize: 11, fontWeight: 700 }}>
+                    {saved} of {prods.length} PRODUCTS RESPONDED
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {(app.products || []).map((p, idx) => {
+                const resp = (app.product_approval_form?.product_responses || []).find(r => r.product_index === idx);
+                const isSaved = resp?.is_saved;
+
+                return (
+                  <div key={idx} style={{ padding: 16, borderRadius: 10, background: isSaved ? '#f0fdf4' : '#fafbfc', border: isSaved ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Product #{idx + 1}: {p.name} {p.code ? `(${p.code})` : ''}
+                      </div>
+                      {isSaved ? (
+                        <span className="badge badge-green" style={{ fontSize: 10, fontWeight: 700 }}>
+                          <Check size={11} style={{ marginRight: 2 }} /> RESPONDED
+                        </span>
+                      ) : (
+                        <span className="badge badge-gray" style={{ fontSize: 10, fontWeight: 700 }}>
+                          AWAITING RESPONSE
+                        </span>
+                      )}
+                    </div>
+
+                    {isSaved ? (
+                      <div style={{ fontSize: 13, color: '#334155' }}>
+                        {resp.response_text && (
+                          <div style={{ background: 'white', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0', marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                            {resp.response_text}
+                          </div>
+                        )}
+                        {resp.response_url && (
+                          <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white' }}>
+                            <Download size={13} /> View Attached Response File
+                          </a>
+                        )}
+                        {!resp.response_text && !resp.response_url && (
+                          <div style={{ color: '#166534', italic: 'true', fontSize: 12 }}>Acknowledged.</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>Client has not saved a response for this product yet.</div>
+                    )}
                   </div>
-                )}
-                {app.product_approval_form.client_response_url && (
-                  <a href={getPdfUrl(app.product_approval_form.client_response_url)} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Download size={13} /> View / Download Client Response File
-                  </a>
-                )}
-              </div>
-            ) : (
-              <div style={{ fontSize: 13, color: '#94a3b8' }}>Awaiting client form response.</div>
-            )}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

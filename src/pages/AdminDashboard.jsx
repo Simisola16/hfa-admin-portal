@@ -12,10 +12,12 @@ import AdminActionsNeededWidget from '../components/AdminActionsNeededWidget';
 const STATUS_META = {
   submitted: { label: 'Submitted', color: '#334155', bg: '#f1f5f9' },
   under_review: { label: 'Under Review', color: '#b45309', bg: '#fef3c7' },
-  approved: { label: 'Approved', color: '#15803d', bg: '#dcfce7' },
+  approved: { label: 'Accepted', color: '#15803d', bg: '#dcfce7' },
+  accepted: { label: 'Accepted', color: '#15803d', bg: '#dcfce7' },
   rejected: { label: 'Rejected', color: '#b91c1c', bg: '#fee2e2' },
   proposal_sent: { label: 'Proposal Sent', color: '#6d28d9', bg: '#f3e8ff' },
-  proposal_approved: { label: 'Proposal Approved', color: '#15803d', bg: '#dcfce7' },
+  proposal_approved: { label: 'Proposal Accepted', color: '#15803d', bg: '#dcfce7' },
+  proposal_accepted: { label: 'Proposal Accepted', color: '#15803d', bg: '#dcfce7' },
   proposal_rejected: { label: 'Proposal Rejected', color: '#b91c1c', bg: '#fee2e2' },
   invoice_sent: { label: 'Invoice Sent', color: '#c2410c', bg: '#ffedd5' },
   audit_assigned: { label: 'Audit Assigned', color: '#0e7490', bg: '#cffafe' },
@@ -27,7 +29,7 @@ const STATUS_META = {
 
 function StatusBadge({ status }) {
   const s = STATUS_META[status] || {
-    label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Approved/gi, 'Accepted'),
     color: '#334155',
     bg: '#f1f5f9'
   };
@@ -35,7 +37,7 @@ function StatusBadge({ status }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       padding: '3px 8px', borderRadius: 10,
-      fontSize: 11, fontWeight: 500, fontFamily: "'Playfair Display', Georgia, serif",
+      fontSize: 11, fontWeight: 600, fontFamily: "'Inter', \"Segoe UI\", sans-serif",
       color: s.color, background: s.bg, whiteSpace: 'nowrap',
     }}>
       {s.label}
@@ -48,7 +50,7 @@ function daysAgo(date) {
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return 'Jul 21, 2026';
+  if (!dateStr) return '—';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -87,7 +89,6 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-
   /* ─── Derived counts ─── */
   const count = (arr, key, val) => arr.filter(a => a[key] === val).length;
 
@@ -109,13 +110,13 @@ export default function AdminDashboard() {
   /* ─── 4 KPI cards ─── */
   const KPI = [
     { id: 'total_apps', label: 'Total Applications', value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
-    { id: 'new_apps', label: 'New Application', value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'new_apps', label: 'New Applications', value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
     { id: 'renewal_apps', label: 'Renewal Applications', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Application statistics derived metrics ─── */
-  const approvedAppsCount = count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued');
+  const approvedAppsCount = count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued');
   const pendingAppsCount = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
   const rejectedAppsCount = count(allApps, 'status', 'rejected');
   const totalAppsCount = allApps.length;
@@ -136,28 +137,28 @@ export default function AdminDashboard() {
   /* ─── Loading skeleton ─── */
   if (loading && allApps.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, fontFamily: 'Inter, "Segoe UI", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 40, height: 40, border: '3px solid #dcfce7', borderTop: '3px solid #008744', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <div style={{ color: '#64748b', fontSize: 14, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400 }}>Loading dashboard…</div>
+          <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500 }}>Loading dashboard…</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 24 }}>
+    <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 24, fontFamily: 'Inter, "Segoe UI", sans-serif' }}>
 
-      {/* ── Page header (Reference Portal Style) ── */}
+      {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 30, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
             Dashboard Overview
           </h1>
-          <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, color: '#64748b', marginTop: 4, fontWeight: 400 }}>
+          <p style={{ fontSize: 13.5, color: '#64748b', marginTop: 4, fontWeight: 500 }}>
             Real-time overview of applications, products, and certificates
             {lastUpdated && (
-              <span style={{ marginLeft: 12, fontSize: 12, color: '#94a3b8', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400 }}>
+              <span style={{ marginLeft: 12, fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>
                 Last updated: {lastUpdated}
               </span>
             )}
@@ -165,23 +166,13 @@ export default function AdminDashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
-            style={{
-              width: 40, height: 40, borderRadius: '50%', background: 'white',
-              border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#334155', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-            }}
-            title="Notifications"
-          >
-            <Bell size={18} />
-          </button>
-          <button
             onClick={fetchData}
             disabled={loading}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               background: '#008744', color: 'white', border: 'none',
-              borderRadius: 8, padding: '10px 20px', fontWeight: 500,
-              fontSize: 14, cursor: 'pointer', fontFamily: "'Playfair Display', Georgia, serif",
+              borderRadius: 8, padding: '10px 18px', fontWeight: 600,
+              fontSize: 13.5, cursor: 'pointer',
               boxShadow: '0 2px 4px rgba(0,135,68,0.2)'
             }}
           >
@@ -194,8 +185,8 @@ export default function AdminDashboard() {
       {/* Persistent Admin Actions Needed Widget & Pop-Up */}
       <AdminActionsNeededWidget onActionCompleted={fetchData} />
 
-      {/* ── 4 KPI Cards (Matching Image Exact Squircle Icons) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+      {/* ── 4 KPI Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
         {KPI.map(k => (
           <div
             key={k.id}
@@ -204,7 +195,7 @@ export default function AdminDashboard() {
               background: 'white',
               border: '1px solid #e5e7eb',
               borderRadius: 16,
-              padding: 24,
+              padding: 22,
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
               transition: 'all 0.2s ease-in-out'
@@ -213,12 +204,12 @@ export default function AdminDashboard() {
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13.5, fontWeight: 500, color: '#64748b' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b' }}>
                 {k.label}
               </span>
               <div
                 style={{
-                  width: 44, height: 44, borderRadius: 14,
+                  width: 42, height: 42, borderRadius: 12,
                   background: k.iconBg,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
@@ -227,10 +218,10 @@ export default function AdminDashboard() {
                 {k.icon}
               </div>
             </div>
-            <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 36, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>
               {loading ? '—' : k.value}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, fontWeight: 600, color: '#059669' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontSize: 12, fontWeight: 600, color: '#059669' }}>
               <TrendingUp size={14} />
               <span>{k.trend}</span>
             </div>
@@ -238,30 +229,30 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ── Middle Row: Recent Activities (Left) & Application Statistics (Right) - Matching Screenshot Exactly ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+      {/* ── Middle Row: Application Pipeline (Left) & Application Statistics (Right) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* Card 1 (LEFT): Application Pipeline */}
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 6 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: 17, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                 Application Pipeline
               </div>
-              <span style={{ fontSize: 12, color: '#64748b', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' }}>
                 {pipelineTotal} items
               </span>
               <span style={{
                 background: '#dbeafe', color: '#1d4ed8',
-                fontSize: 11, fontWeight: 500, padding: '2px 8px',
-                borderRadius: 10, fontFamily: "'Playfair Display', Georgia, serif", whiteSpace: 'nowrap', flexShrink: 0
+                fontSize: 11, fontWeight: 600, padding: '2px 8px',
+                borderRadius: 10, whiteSpace: 'nowrap', flexShrink: 0
               }}>
-                Applications & Certificates
+                Applications &amp; Certificates
               </span>
             </div>
             <Link
               to="/applications"
-              style={{ fontSize: 12.5, fontWeight: 600, fontFamily: "'Playfair Display', Georgia, serif", color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 'auto' }}
+              style={{ fontSize: 12.5, fontWeight: 700, color: '#008744', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 'auto' }}
             >
               View all <ChevronRight size={13} />
             </Link>
@@ -271,16 +262,16 @@ export default function AdminDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
-                  <th style={{ width: '38%', padding: '10px 14px', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '38%', padding: '10px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     COMPANY / APPLICANT
                   </th>
-                  <th style={{ width: '16%', padding: '10px 10px', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '18%', padding: '10px 10px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     TYPE
                   </th>
-                  <th style={{ width: '28%', padding: '10px 10px', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '26%', padding: '10px 10px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     STATUS
                   </th>
-                  <th style={{ width: '18%', padding: '10px 14px', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 600, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                  <th style={{ width: '18%', padding: '10px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                     DATE
                   </th>
                 </tr>
@@ -294,7 +285,7 @@ export default function AdminDashboard() {
                   </tr>
                 ) : pipelineList.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 13.5, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8', fontSize: 13.5 }}>
                       No applications yet
                     </td>
                   </tr>
@@ -307,12 +298,12 @@ export default function AdminDashboard() {
                     onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
                     <td style={{ padding: '12px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontFamily: 'Playfair Display, Georgia, serif', fontWeight: 700, fontSize: 14, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
                       </div>
                     </td>
                     <td style={{ padding: '12px 10px' }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 500, fontFamily: "'Playfair Display', Georgia, serif", background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
                         {a.application_type || 'New'}
                       </span>
                     </td>
@@ -320,7 +311,7 @@ export default function AdminDashboard() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 13, color: '#475569', fontWeight: 400, fontFamily: 'Playfair Display, Georgia, serif' }}>
+                      <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>
                         {formatDate(a.created_at)}
                       </span>
                     </td>
@@ -331,19 +322,19 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 2 (RIGHT): Application Statistics (Matching Reference Image) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: 24 }}>
+        {/* Card 2 (RIGHT): Application Statistics */}
+        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: 22 }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 16, marginBottom: 20 }}>
             <div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 500, color: '#0f172a' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
                 Application Statistics
               </div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, color: '#64748b', marginTop: 3, fontWeight: 400 }}>
+              <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 3, fontWeight: 500 }}>
                 Status distribution of applications
               </div>
             </div>
-            <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+            <span style={{ fontSize: 12.5, color: '#64748b', fontWeight: 600 }}>
               Total: {totalAppsCount}
             </span>
           </div>
@@ -351,30 +342,30 @@ export default function AdminDashboard() {
           {/* Section 1: All Applications Progress Bar */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 500, color: '#0f172a' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
                 All Applications
               </span>
-              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+              <span style={{ fontSize: 12.5, color: '#64748b', fontWeight: 600 }}>
                 Total: {totalAppsCount}
               </span>
             </div>
 
             {/* Progress track */}
             <div style={{ height: 10, borderRadius: 6, background: '#f1f5f9', overflow: 'hidden', display: 'flex', marginTop: 10 }}>
-              <div style={{ width: `${appApprovedPercent}%`, background: '#00c853', transition: 'width 0.3s' }} title={`Approved: ${approvedAppsCount}`} />
+              <div style={{ width: `${appApprovedPercent}%`, background: '#00c853', transition: 'width 0.3s' }} title={`Accepted: ${approvedAppsCount}`} />
               <div style={{ width: `${appPendingPercent}%`, background: '#f59e0b', transition: 'width 0.3s' }} title={`Pending: ${pendingAppsCount}`} />
               <div style={{ width: `${appRejectedPercent}%`, background: '#ef4444', transition: 'width 0.3s' }} title={`Rejected: ${rejectedAppsCount}`} />
             </div>
 
             {/* Legend dots */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, color: '#334155' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, fontSize: 12, color: '#334155' }}>
               <div
                 onClick={() => navigate('/applications?status=approved')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-                title="View Approved Applications"
+                title="View Accepted Applications"
               >
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00c853', display: 'inline-block' }} />
-                <span>Approved: <span style={{ fontWeight: 500 }}>{approvedAppsCount}</span></span>
+                <span>Accepted: <span style={{ fontWeight: 700 }}>{approvedAppsCount}</span></span>
               </div>
               <div
                 onClick={() => navigate('/applications?type=new')}
@@ -382,7 +373,7 @@ export default function AdminDashboard() {
                 title="View Pending Applications"
               >
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
-                <span>Pending: <span style={{ fontWeight: 500 }}>{pendingAppsCount}</span></span>
+                <span>Pending: <span style={{ fontWeight: 700 }}>{pendingAppsCount}</span></span>
               </div>
               <div
                 onClick={() => navigate('/applications?status=rejected')}
@@ -390,18 +381,18 @@ export default function AdminDashboard() {
                 title="View Rejected Applications"
               >
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                <span>Rejected: <span style={{ fontWeight: 500 }}>{rejectedAppsCount}</span></span>
+                <span>Rejected: <span style={{ fontWeight: 700 }}>{rejectedAppsCount}</span></span>
               </div>
             </div>
           </div>
 
           {/* Section 2: Certificates Metric Cards */}
-          <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 26 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 500, color: '#0f172a' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
                 Certificates
               </span>
-              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, color: '#64748b', fontWeight: 400 }}>
+              <span style={{ fontSize: 12.5, color: '#64748b', fontWeight: 600 }}>
                 Total: {certTotal}
               </span>
             </div>
@@ -415,10 +406,10 @@ export default function AdminDashboard() {
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                 title="View Active Certificates"
               >
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 500, color: '#008744' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#008744' }}>
                   {activeCerts}
                 </div>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, fontWeight: 500, color: '#008744', marginTop: 2 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#008744', marginTop: 2 }}>
                   Active
                 </div>
               </div>
@@ -431,10 +422,10 @@ export default function AdminDashboard() {
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                 title="View Pending Certificates"
               >
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 500, color: '#b45309' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309' }}>
                   {pendingCertsCount}
                 </div>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, fontWeight: 500, color: '#b45309', marginTop: 2 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', marginTop: 2 }}>
                   Pending
                 </div>
               </div>
@@ -447,10 +438,10 @@ export default function AdminDashboard() {
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                 title="View Expired Certificates"
               >
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 500, color: '#b91c1c' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#b91c1c' }}>
                   {expiredCerts}
                 </div>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, fontWeight: 500, color: '#b91c1c', marginTop: 2 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c', marginTop: 2 }}>
                   Expired
                 </div>
               </div>
@@ -460,7 +451,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Summary Stats Footer (Exact Reference Screenshot Layout) ── */}
+      {/* ── Summary Stats Footer ── */}
       <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
@@ -468,9 +459,9 @@ export default function AdminDashboard() {
             { label: 'Total Products', value: '472', sub: 'Registered in system', path: '/products' },
             { label: 'Total Certificates', value: certTotal || 109, sub: `${activeCerts || 61} active`, path: '/certificates' },
             {
-              label: 'Approved',
-              value: count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued') || 78,
-              sub: allApps.length ? `${Math.round(((count(allApps, 'status', 'approved') + count(allApps, 'status', 'certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
+              label: 'Accepted',
+              value: count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued') || 78,
+              sub: allApps.length ? `${Math.round(((count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
               path: '/reports'
             },
           ].map((b, i, arr) => (
@@ -487,11 +478,11 @@ export default function AdminDashboard() {
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = 'white'}
             >
-              <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'Playfair Display, Georgia, serif', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
                 {loading ? '—' : b.value}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 500, fontFamily: "'Playfair Display', Georgia, serif", color: '#334155', marginTop: 4 }}>{b.label}</div>
-              <div style={{ fontSize: 12, fontWeight: 400, fontFamily: "'Playfair Display', Georgia, serif", color: '#94a3b8', marginTop: 2 }}>{b.sub}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 4 }}>{b.label}</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8', marginTop: 2 }}>{b.sub}</div>
             </div>
           ))}
         </div>
@@ -500,4 +491,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

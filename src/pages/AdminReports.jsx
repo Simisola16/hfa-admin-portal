@@ -28,7 +28,7 @@ export default function AdminReports() {
   ];
 
   const statusDistribution = [
-    { name: 'Approved', value: 400 },
+    { name: 'Accepted', value: 400 },
     { name: 'Under Review', value: 120 },
     { name: 'Pending', value: 80 },
     { name: 'Rejected', value: 40 },

@@ -68,7 +68,7 @@ export default function AdminExports() {
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
+          <option value="approved">Accepted</option>
           <option value="rejected">Rejected</option>
           <option value="shipped">Shipped</option>
         </select>
@@ -124,7 +124,7 @@ export default function AdminExports() {
                         e.status === 'shipped' ? 'badge-blue' : 
                         'badge-yellow'
                       }`}>
-                        {e.status || 'pending'}
+                        {e.status === 'approved' ? 'Accepted' : (e.status || 'pending')}
                       </span>
                     </td>
                     <td style={{ fontSize: 12 }}>
@@ -140,6 +140,7 @@ export default function AdminExports() {
                             className="btn btn-ghost btn-sm" 
                             style={{ color: 'var(--primary)' }}
                             onClick={() => handleStatusUpdate(e.id, 'approved')}
+                            title="Accept"
                           >
                             <CheckCircle size={14} />
                           </button>
@@ -147,6 +148,7 @@ export default function AdminExports() {
                             className="btn btn-ghost btn-sm" 
                             style={{ color: 'var(--danger)' }}
                             onClick={() => handleStatusUpdate(e.id, 'rejected')}
+                            title="Reject"
                           >
                             <XCircle size={14} />
                           </button>
@@ -222,7 +224,7 @@ export default function AdminExports() {
               {selected.status === 'pending' && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleStatusUpdate(selected.id, 'rejected')}>Reject</button>
-                  <button className="btn btn-primary" onClick={() => handleStatusUpdate(selected.id, 'approved')}>Approve & Issue Certificate</button>
+                  <button className="btn btn-primary" onClick={() => handleStatusUpdate(selected.id, 'approved')}>Accept &amp; Issue Certificate</button>
                 </div>
               )}
             </div>

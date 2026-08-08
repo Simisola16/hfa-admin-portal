@@ -250,8 +250,8 @@ export default function AdminApplications() {
   };
 
   const markAsDone = async (app) => {
-    if (!window.confirm(`Mark ${app.application_number} as Approved / Processing Done?`)) return;
-    await handleUpdateStatus(app._id, { status: 'approved', notes: 'Application review completed. Status updated to Approved.' });
+    if (!window.confirm(`Mark ${app.application_number} as Accepted / Processing Done?`)) return;
+    await handleUpdateStatus(app._id, { status: 'approved', notes: 'Application review completed. Status updated to Accepted.' });
   };
 
   return (

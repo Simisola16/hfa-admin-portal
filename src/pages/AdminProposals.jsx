@@ -210,7 +210,7 @@ export default function AdminProposals() {
                   <CheckCircle size={20} style={{ color: '#16a34a' }} />
                   <div>
                     <div style={{ fontWeight: 700, color: '#166534', fontSize: 14 }}>Proposal Accepted</div>
-                    <div style={{ fontSize: 12, color: '#15803d' }}>The client has approved this proposal. You can proceed with invoicing.</div>
+                    <div style={{ fontSize: 12, color: '#15803d' }}>The client has accepted this proposal. You can proceed with invoicing.</div>
                   </div>
                 </div>
               )}

@@ -41,7 +41,7 @@ export const STATUS_LABELS = {
   approved:                'Application Accepted',
   proposal_sent:           'Proposal Sent',
   proposal_rejected:       'Proposal Rejected',
-  proposal_approved:       'Proposal Approved',
+  proposal_approved:       'Proposal Accepted',
   invoice_sent:            'Invoice Sent',
   payment_received:        'Payment Received',
   dates_proposed:          'Audit Dates Proposed',

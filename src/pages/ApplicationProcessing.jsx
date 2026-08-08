@@ -41,6 +41,7 @@ export default function ApplicationProcessing() {
   const [allInvoices, setAllInvoices] = useState([]);
   const [agreement, setAgreement] = useState(null);
   const [audits, setAudits] = useState([]);
+  const [logsheet, setLogsheet] = useState(null);
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -71,13 +72,14 @@ export default function ApplicationProcessing() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes] = await Promise.all([
+      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/proposals/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}/all`).catch(() => ({ data: { data: [] } })),
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
-        api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null }))
+        api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null })),
+        api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null }))
       ]);
 
       setApp(appRes.data);
@@ -86,6 +88,7 @@ export default function ApplicationProcessing() {
       setAllInvoices(allInvRes.data?.data || allInvRes.data || []);
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
       setAudits(auditRes.data?.data || auditRes.data || []);
+      setLogsheet(logsheetRes.data?.data || logsheetRes.data || null);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {
@@ -301,34 +304,9 @@ export default function ApplicationProcessing() {
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
-
-  // Helper flags for action stepper
   const isRenewal = app.application_type === 'renewal';
-  const showSendProposalAction = status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected';
-  
-  // For initial invoice
-  const showInvoiceAction = status === 'proposal_approved' || status === 'invoice_sent';
-  
-  const showAuditAction = ['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status) || (invoice && (invoice.status === 'paid' || invoice.status === 'client_paid') && status === 'invoice_sent');
-  
-  const showPostAuditDecision = status === 'audit_successful' || status === 'on_hold';
-  
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
-
-  const showCreateLogsheetAction = ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful'].includes(status);
-  
-  const showSendAgreementAction = ['application_successful', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'agreement_sent'].includes(status);
-  
-  const showSendFinalAgreementAction = ['agreement_signed', 'agreement_finalised'].includes(status) || agreement?.client_signed;
-
-  const showFinalInvoiceAction = !isRenewal && ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
-  
-  const showMarkReadyCertificateAction = isRenewal
-    ? (['agreement_signed', 'agreement_finalised', 'logsheet_signed', 'application_successful'].includes(status) && status !== 'ready_for_certificate' && status !== 'certificate_issued')
-    : status === 'final_invoice_paid';
-
-  const showCertificateAction = ['ready_for_certificate', 'certificate_issued'].includes(status);
 
   const handleMarkReadyForCertificate = async () => {
     setActionSubmitting(true);
@@ -341,6 +319,197 @@ export default function ApplicationProcessing() {
     } finally {
       setActionSubmitting(false);
     }
+  };
+
+  const renderPrimaryAction = () => {
+    // 1. Initial Application Review (Accept / Put On Hold / Reject)
+    if (status === 'submitted' || status === 'under_review') {
+      return (
+        <>
+          <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
+            <XCircle size={16} /> Reject Application
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontWeight: 700 }}
+            onClick={() => setShowHoldModal(true)}
+          >
+            <Clock size={16} style={{ color: '#d97706' }} /> Put On Hold
+          </button>
+          <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => setShowApproveModal(true)}>
+            <CheckCircle size={16} /> Accept Application
+          </button>
+        </>
+      );
+    }
+
+    // 2. Proposal Stage
+    if (status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#6b21a8' }}
+          onClick={() => setShowProposalModal(true)}
+        >
+          <FileText size={16} /> {proposal ? 'Resend Proposal' : 'Send Proposal'}
+        </button>
+      );
+    }
+
+    // 3. Initial Invoice Stage
+    if (status === 'proposal_approved' || status === 'invoice_sent') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#854d0e' }}
+          onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
+        >
+          <Receipt size={16} /> {invoice ? 'Resend Initial Invoice' : 'Send Initial Invoice'}
+        </button>
+      );
+    }
+
+    // 4. Audit Scheduling & Execution Stage
+    if (['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#ea580c' }}
+          onClick={() => setShowAuditModal(true)}
+        >
+          <Calendar size={16} /> Manage Audit
+        </button>
+      );
+    }
+
+    // 5. Post-Audit Decision (NC vs Clean Close)
+    if (status === 'audit_successful' || status === 'on_hold') {
+      return (
+        <>
+          <button
+            className="btn btn-danger"
+            style={{ gap: 8 }}
+            onClick={() => setShowNcModal(true)}
+            disabled={actionSubmitting}
+          >
+            <AlertTriangle size={16} /> Flag NC Report
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={() => handlePostAuditDecision('audit_report_submitted')}
+            disabled={actionSubmitting}
+          >
+            <CheckCircle size={16} /> No NC — Close
+          </button>
+        </>
+      );
+    }
+
+    // 6. LogSheet Stage (Create / Sign LogSheet)
+    // If audit report submitted, logsheet created, or logsheet sign requested,
+    // OR if status is application_successful but logsheet is not yet completed/signed:
+    const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
+
+    if (['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned)) {
+      const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#0e7490' }}
+          onClick={() => navigate(`/applications/${appId}/logsheet`)}
+          title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        >
+          <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        </button>
+      );
+    }
+
+    // 7. Send Agreement Stage (Logsheet signed / application_successful -> Send Agreement)
+    if (status === 'logsheet_signed' || status === 'application_successful' || status === 'agreement_sent') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#2563eb' }}
+          onClick={() => setShowAgreementModal(true)}
+        >
+          <FileText size={16} /> {agreement ? 'Resend Agreement' : 'Send Agreement'}
+        </button>
+      );
+    }
+
+    // 8. Final Countersigned Agreement Copy (Client signed agreement -> Admin countersigns and uploads final copy)
+    if (status === 'agreement_signed') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#0284c7' }}
+          onClick={() => setShowFinalAgreementModal(true)}
+        >
+          <FileText size={16} /> {agreement?.final_agreement_url ? 'Resend Final Signed Copy' : 'Send Final Signed Copy'}
+        </button>
+      );
+    }
+
+    // 9. Final Invoice Stage (For non-renewal apps when agreement is finalized)
+    if (!isRenewal && (status === 'agreement_finalised' || status === 'final_invoice_sent')) {
+      if (isFinalInvoicePaid) {
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <CheckCircle size={15} /> ✓ Final Invoice Paid
+          </span>
+        );
+      }
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#854d0e' }}
+          onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
+        >
+          <Receipt size={16} /> {finalInvoice ? 'Resend Final Invoice' : 'Send Final Invoice'}
+        </button>
+      );
+    }
+
+    // 10. Mark Ready for Certificate Stage
+    // For non-renewal: once final invoice is paid (status === 'final_invoice_paid')
+    // For renewal: once agreement is finalized (status === 'agreement_finalised')
+    if ((!isRenewal && status === 'final_invoice_paid') || (isRenewal && status === 'agreement_finalised')) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+          onClick={handleMarkReadyForCertificate}
+          disabled={actionSubmitting}
+        >
+          <Award size={16} /> Mark Ready for Certificate
+        </button>
+      );
+    }
+
+    // 11. Issue Certificate Stage
+    if (status === 'ready_for_certificate') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a' }}
+          onClick={() => setShowCertificateModal(true)}
+        >
+          <Award size={16} /> Issue Certificate
+        </button>
+      );
+    }
+
+    // 12. Certificate Issued
+    if (status === 'certificate_issued') {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Certificate Issued
+        </span>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -415,151 +584,7 @@ export default function ApplicationProcessing() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            {canActOnApplication && (
-              <>
-                <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
-                  <XCircle size={16} /> Reject Application
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontWeight: 700 }}
-                  onClick={() => setShowHoldModal(true)}
-                >
-                  <Clock size={16} style={{ color: '#d97706' }} /> Put On Hold
-                </button>
-                <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => setShowApproveModal(true)}>
-                  <CheckCircle size={16} /> Accept Application
-                </button>
-              </>
-            )}
-
-            {showSendProposalAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#6b21a8' }}
-                onClick={() => setShowProposalModal(true)}
-              >
-                <FileText size={16} /> {proposal ? 'Resend Proposal' : 'Send Proposal'}
-              </button>
-            )}
-
-            {showInvoiceAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#854d0e' }}
-                onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
-              >
-                <Receipt size={16} /> {invoice ? 'Resend Initial Invoice' : 'Send Initial Invoice'}
-              </button>
-            )}
-
-            {showAuditAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#ea580c' }}
-                onClick={() => setShowAuditModal(true)}
-              >
-                <Calendar size={16} /> Manage Audit
-              </button>
-            )}
-
-            {showPostAuditDecision && (
-              <>
-                <button
-                  className="btn btn-danger"
-                  style={{ gap: 8 }}
-                  onClick={() => setShowNcModal(true)}
-                  disabled={actionSubmitting}
-                >
-                  <AlertTriangle size={16} /> Flag NC Report
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                  onClick={() => handlePostAuditDecision('audit_report_submitted')}
-                  disabled={actionSubmitting}
-                >
-                  <CheckCircle size={16} /> No NC — Close
-                </button>
-              </>
-            )}
-
-            {showCreateLogsheetAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#0e7490' }}
-                onClick={() => navigate(`/applications/${appId}/logsheet`)}
-                title={['logsheet_created', 'logsheet_signed'].includes(status) ? 'Manage LogSheet' : 'Create LogSheet'}
-              >
-                <ClipboardList size={16} /> {['logsheet_created', 'logsheet_signed'].includes(status) ? 'Manage LogSheet' : 'Create LogSheet'}
-              </button>
-            )}
-
-            {showSendAgreementAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#2563eb' }}
-                onClick={() => setShowAgreementModal(true)}
-              >
-                <FileText size={16} /> {agreement ? 'Resend Agreement' : 'Send Agreement'}
-              </button>
-            )}
-
-            {showSendFinalAgreementAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#0284c7' }}
-                onClick={() => setShowFinalAgreementModal(true)}
-              >
-                <FileText size={16} /> {agreement?.final_agreement_url ? 'Resend Final Signed Copy' : 'Send Final Signed Copy'}
-              </button>
-            )}
-
-            {showFinalInvoiceAction && (
-              isFinalInvoicePaid ? (
-                <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle size={15} /> ✓ Final Invoice Paid
-                </span>
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  style={{ gap: 8, background: '#854d0e' }}
-                  onClick={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
-                >
-                  <Receipt size={16} /> {finalInvoice ? 'Resend Final Invoice' : 'Send Final Invoice'}
-                </button>
-              )
-            )}
-
-            {showMarkReadyCertificateAction && (
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
-                onClick={handleMarkReadyForCertificate}
-                disabled={actionSubmitting}
-              >
-                <Award size={16} /> Mark Ready for Certificate
-              </button>
-            )}
-
-            {showCertificateAction && (
-              status === 'certificate_issued' ? (
-                <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
-                  <CheckCircle size={15} /> ✓ Certificate Issued
-                </span>
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  style={{
-                    gap: 8,
-                    background: '#16a34a',
-                  }}
-                  onClick={() => setShowCertificateModal(true)}
-                >
-                  <Award size={16} /> Issue Certificate
-                </button>
-              )
-            )}
+            {renderPrimaryAction()}
           </div>
         </div>
       )}
@@ -584,7 +609,7 @@ export default function ApplicationProcessing() {
           <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
 
           {/* Logsheet Card (Admin Only) */}
-          <LogsheetCard app={app} />
+          <LogsheetCard logsheet={logsheet} status={status} appId={appId} />
 
           {/* Agreement Card */}
           <AgreementCard app={app} agreement={agreement} />

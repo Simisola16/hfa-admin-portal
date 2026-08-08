@@ -62,6 +62,58 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   }, [isOpen, app, propExistingAudits]);
 
+  const [inspectorsList, setInspectorsList] = useState([]);
+
+  // Fetch registered inspectors from backend
+  useEffect(() => {
+    if (isOpen) {
+      api.get('/api/inspectors')
+        .then(res => setInspectorsList(res.data || []))
+        .catch(() => setInspectorsList([]));
+    }
+  }, [isOpen]);
+
+  const handleSelectAuditor = (index, inspectorId, isStage2 = false) => {
+    if (!inspectorId || inspectorId === 'custom') {
+      if (isStage2) {
+        const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+        updated[index] = { ...updated[index], inspector_id: '' };
+        setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+      } else {
+        const updated = [...auditForm.auditors];
+        updated[index] = { ...updated[index], inspector_id: '' };
+        setAuditForm(f => ({ ...f, auditors: updated }));
+      }
+      return;
+    }
+    const found = inspectorsList.find(x => String(x._id || x.id) === String(inspectorId));
+    if (!found) return;
+
+    if (isStage2) {
+      const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
+      updated[index] = {
+        ...updated[index],
+        inspector_id: found._id || found.id,
+        name: found.full_name || found.name || '',
+        email: found.email || '',
+        contact_number: found.phone_number || found.phone || '',
+        purpose: found.specialization || updated[index]?.purpose || 'Halal Facility & Systems Audit'
+      };
+      setAuditForm(f => ({ ...f, stage2Auditors: updated }));
+    } else {
+      const updated = [...auditForm.auditors];
+      updated[index] = {
+        ...updated[index],
+        inspector_id: found._id || found.id,
+        name: found.full_name || found.name || '',
+        email: found.email || '',
+        contact_number: found.phone_number || found.phone || '',
+        purpose: found.specialization || updated[index]?.purpose || 'Halal Facility & Systems Audit'
+      };
+      setAuditForm(f => ({ ...f, auditors: updated }));
+    }
+  };
+
   const existingAudit = existingAudits.find(a => a.stage === activeStage);
 
   // Setup initial auditors list depending on dual exporter or single
@@ -74,6 +126,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         email: '',
         contact_number: '',
         purpose: '',
+        inspector_id: '',
         role: i === 0 ? 'lead_auditor' : (isDual && i === 1 ? 'sharia_board' : 'audit_trainee')
       }));
       setAuditForm(f => ({ ...f, auditors: initialAuditors }));
@@ -400,11 +453,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
               
               <div style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
                 {auditForm.auditors.map((auditor, i) => (
-                  <div key={i} style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', position: 'relative', background: '#f8fafc' }}>
+                  <div key={i} style={{ padding: '18px', border: '1.5px solid #e2e8f0', borderRadius: '12px', position: 'relative', background: '#f8fafc' }}>
                     {auditForm.auditors.length > 1 && (
                       <button
                         type="button"
-                        style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                        style={{ position: 'absolute', top: 14, right: 14, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                         onClick={() => {
                           const newAuditors = auditForm.auditors.filter((_, idx) => idx !== i);
                           setAuditForm({ ...auditForm, auditors: newAuditors });
@@ -413,18 +466,51 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                         Remove
                       </button>
                     )}
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Auditor {i + 1}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>Auditor {i + 1}</span>
+                      {auditor.inspector_id && (
+                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                          ✓ Registered Auditor Selected
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Choose Registered Auditor Dropdown */}
+                    <div className="form-group" style={{ marginBottom: 14 }}>
+                      <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>
+                        Select Auditor <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <select
+                        className="form-control"
+                        value={auditor.inspector_id || ''}
+                        onChange={e => handleSelectAuditor(i, e.target.value, false)}
+                        style={{
+                          borderColor: auditor.inspector_id ? '#16a34a' : '#cbd5e1',
+                          background: auditor.inspector_id ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 600
+                        }}
+                      >
+                        <option value="">-- Choose Registered Auditor / Inspector --</option>
+                        {inspectorsList.map(insp => (
+                          <option key={insp._id || insp.id} value={insp._id || insp.id}>
+                            👤 {insp.full_name || insp.name} — {insp.email} ({insp.specialization || insp.role || 'Auditor'})
+                          </option>
+                        ))}
+                        <option value="custom">✏️ Enter Custom / External Auditor Details</option>
+                      </select>
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Name</label>
+                        <label className="form-label">Auditor Name</label>
                         <input className="form-control" value={auditor.name} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, name: e.target.value };
                           setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="e.g. Dr. Ahmad" />
+                        }} placeholder="e.g. Dr. Ahmad Khan" />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Email</label>
+                        <label className="form-label">Auditor Email</label>
                         <input type="email" className="form-control" value={auditor.email} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, email: e.target.value };
@@ -434,7 +520,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Contact</label>
+                        <label className="form-label">Contact Number</label>
                         <input className="form-control" value={auditor.contact_number} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, contact_number: e.target.value };
@@ -442,12 +528,12 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                         }} placeholder="+44..." />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Purpose</label>
+                        <label className="form-label">Audit Purpose / Role</label>
                         <input className="form-control" value={auditor.purpose} onChange={e => {
                           const newAuditors = [...auditForm.auditors];
                           newAuditors[i] = { ...auditor, purpose: e.target.value };
                           setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="e.g. Site Audit" />
+                        }} placeholder="e.g. Halal Facility & Systems Audit" />
                       </div>
                     </div>
                   </div>
@@ -458,11 +544,11 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
-                      const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', role: 'audit_trainee' }];
+                      const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '', role: 'audit_trainee' }];
                       setAuditForm({ ...auditForm, auditors: newAuditors });
                     }}
                   >
-                    + Add Auditor
+                    + Add Another Auditor
                   </button>
                 </div>
               </div>
@@ -472,22 +558,22 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                 const stage2AlreadyAssigned = existingAudits.find(a => a.stage === 2)?.auditors?.length > 0;
                 if (stage2AlreadyAssigned) return null;
                 return (
-                  <div style={{ marginBottom: 24, border: '1.5px dashed #c7d2fe', borderRadius: 10, padding: 18, background: '#f5f3ff' }}>
+                  <div style={{ marginBottom: 24, border: '1.5px dashed #c7d2fe', borderRadius: 12, padding: 20, background: '#f5f3ff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                       <h4 style={{ fontSize: 14, color: '#4f46e5', fontWeight: 700, margin: 0 }}>
                         Stage 2 Auditors <span style={{ fontSize: 11, fontWeight: 500, color: '#6366f1' }}>(optional — can also be assigned later)</span>
                       </h4>
                     </div>
                     <p style={{ fontSize: 12, color: '#6366f1', marginBottom: 16, lineHeight: 1.5 }}>
-                      You may pre-assign Stage 2 auditors now or leave these blank and assign them once Stage 2 scheduling begins. Either approach works.
+                      You may select Stage 2 auditors now or leave these blank and assign them once Stage 2 scheduling begins.
                     </p>
-                    <div style={{ display: 'grid', gap: 12, marginBottom: 12 }}>
-                      {(auditForm.stage2Auditors.length === 0 ? [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }] : auditForm.stage2Auditors).map((auditor, i) => (
-                        <div key={i} style={{ padding: '14px', border: '1px solid #c7d2fe', borderRadius: '8px', position: 'relative', background: '#ede9fe' }}>
+                    <div style={{ display: 'grid', gap: 14, marginBottom: 14 }}>
+                      {(auditForm.stage2Auditors.length === 0 ? [{ name: '', email: '', contact_number: '', purpose: '', inspector_id: '', role: 'lead_auditor' }] : auditForm.stage2Auditors).map((auditor, i) => (
+                        <div key={i} style={{ padding: '16px', border: '1px solid #c7d2fe', borderRadius: '10px', position: 'relative', background: '#ede9fe' }}>
                           {auditForm.stage2Auditors.length > 1 && (
                             <button
                               type="button"
-                              style={{ position: 'absolute', top: 10, right: 10, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                              style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                               onClick={() => {
                                 const updated = auditForm.stage2Auditors.filter((_, idx) => idx !== i);
                                 setAuditForm(f => ({ ...f, stage2Auditors: updated }));
@@ -496,7 +582,40 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                               Remove
                             </button>
                           )}
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', marginBottom: 10 }}>Stage 2 Auditor {i + 1}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>Stage 2 Auditor {i + 1}</span>
+                            {auditor.inspector_id && (
+                              <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                                ✓ Registered
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Stage 2 Dropdown */}
+                          <div className="form-group" style={{ marginBottom: 12 }}>
+                            <label className="form-label" style={{ fontWeight: 700, color: '#312e81' }}>
+                              Select Stage 2 Auditor
+                            </label>
+                            <select
+                              className="form-control"
+                              value={auditor.inspector_id || ''}
+                              onChange={e => handleSelectAuditor(i, e.target.value, true)}
+                              style={{
+                                borderColor: auditor.inspector_id ? '#16a34a' : '#c7d2fe',
+                                background: auditor.inspector_id ? '#f0fdf4' : '#ffffff',
+                                fontWeight: 600
+                              }}
+                            >
+                              <option value="">-- Choose Registered Auditor / Inspector --</option>
+                              {inspectorsList.map(insp => (
+                                <option key={insp._id || insp.id} value={insp._id || insp.id}>
+                                  👤 {insp.full_name || insp.name} — {insp.email} ({insp.specialization || insp.role || 'Auditor'})
+                                </option>
+                              ))}
+                              <option value="custom">✏️ Enter Custom / External Auditor Details</option>
+                            </select>
+                          </div>
+
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                               <label className="form-label">Name</label>
@@ -530,7 +649,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                                 const updated = auditForm.stage2Auditors.length > 0 ? [...auditForm.stage2Auditors] : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
                                 updated[i] = { ...updated[i], purpose: e.target.value };
                                 setAuditForm(f => ({ ...f, stage2Auditors: updated }));
-                              }} placeholder="e.g. Sharia Audit" />
+                              }} placeholder="e.g. Sharia / Technical Audit" />
                             </div>
                           </div>
                         </div>
@@ -541,8 +660,8 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                       className="btn btn-ghost btn-sm"
                       style={{ color: '#4f46e5' }}
                       onClick={() => {
-                        const base = auditForm.stage2Auditors.length > 0 ? auditForm.stage2Auditors : [{ name: '', email: '', contact_number: '', purpose: '', role: 'lead_auditor' }];
-                        setAuditForm(f => ({ ...f, stage2Auditors: [...base, { name: '', email: '', contact_number: '', purpose: '', role: 'audit_trainee' }] }));
+                        const base = auditForm.stage2Auditors.length > 0 ? auditForm.stage2Auditors : [{ name: '', email: '', contact_number: '', purpose: '', inspector_id: '', role: 'lead_auditor' }];
+                        setAuditForm(f => ({ ...f, stage2Auditors: [...base, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '', role: 'audit_trainee' }] }));
                       }}
                     >
                       + Add Stage 2 Auditor

@@ -156,13 +156,22 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
           <div className="form-group">
             <label className="form-label">Certificate Type <span>*</span></label>
-            <input
-              type="text"
+            <select
               className="form-control"
               value={certificateForm.certificate_type}
               onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}
-              placeholder="e.g. Halal Certification"
-            />
+              required
+            >
+              <option value="Annual Halal Certificate">Annual Halal Certificate</option>
+              <option value="UAE/GSO Halal Certification">UAE/GSO Halal Certification</option>
+              <option value="Meat & Poultry (Abattoir) Halal Certificate">Meat & Poultry (Abattoir) Halal Certificate</option>
+              <option value="Processed Foods & Ingredients Halal Certificate">Processed Foods & Ingredients Halal Certificate</option>
+              <option value="Restaurant & Catering Halal Certificate">Restaurant & Catering Halal Certificate</option>
+              <option value="Retail & Distribution Halal Certificate">Retail & Distribution Halal Certificate</option>
+              <option value="Export Halal Certificate">Export Halal Certificate</option>
+              <option value="Product Halal Certificate">Product Halal Certificate</option>
+              <option value="Consignment / Batch Halal Certificate">Consignment / Batch Halal Certificate</option>
+            </select>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

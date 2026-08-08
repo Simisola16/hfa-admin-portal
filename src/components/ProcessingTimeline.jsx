@@ -63,14 +63,18 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
       'date_finalized',
       'audit_assigned',
       'audit_successful',
-      'audit_report_submitted',
     ];
     stepsToShow.push(...restFlow);
 
-    // Handle On Hold branch
-    const appOnHoldInHistory = status === 'on_hold' || statusHistory.some(h => h.status === 'on_hold');
-    if (appOnHoldInHistory) {
-      stepsToShow.push('on_hold');
+    // After Audit Complete: Flag NC (if active/in history) and NC Closed
+    const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
+    if (isNcFlagged) {
+      stepsToShow.push('nc_flagged');
+    }
+
+    const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
+    if (isNcClosedOrBeyond || isNcFlagged) {
+      stepsToShow.push('nc_closed');
     }
 
     // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.

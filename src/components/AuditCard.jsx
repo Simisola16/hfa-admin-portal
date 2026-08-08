@@ -174,7 +174,6 @@ export default function AuditCard({ audits, status, app, onManage }) {
           </div>
         )}
 
-        {/* Audit Details Section: Render Stage 1 and Stage 2 stacked vertically for GSO */}
         {isDualStage ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px', background: '#fafafa' }}>
@@ -186,65 +185,6 @@ export default function AuditCard({ audits, status, app, onManage }) {
           </div>
         ) : (
           renderSingleStageBlock(stage1)
-        )}
-
-        {/* NC Reports Section on Admin Audit Card */}
-        {allNcReports.length > 0 && (
-          <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: 16, marginTop: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b91c1c', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertCircle size={14} style={{ color: '#dc2626' }} />
-              Non-Conformity (NC) Reports ({allNcReports.length})
-            </div>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {allNcReports.map((nc, idx) => {
-                const isCorrected = nc.status === 'corrected';
-                return (
-                  <div key={idx} style={{ padding: '12px 14px', borderRadius: 10, background: isCorrected ? '#f0fdf4' : '#fef2f2', border: `1.5px solid ${isCorrected ? '#bbf7d0' : '#fecaca'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isCorrected ? <CheckCircle size={14} style={{ color: '#16a34a' }} /> : <AlertCircle size={14} style={{ color: '#dc2626' }} />}
-                        <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: isCorrected ? '#166534' : '#b91c1c' }}>
-                          {isCorrected ? '✓ Corrected' : '⚠️ Pending Correction'}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 10, color: '#64748b' }}>{nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString('en-GB') : ''}</span>
-                    </div>
-
-                    <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginBottom: 6 }}>
-                      Auditor Finding: <span style={{ fontWeight: 400 }}>{nc.text}</span>
-                    </div>
-
-                    {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' && (
-                      <div style={{ marginBottom: 6 }}>
-                        <a href={getPdfUrl(nc.document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <FileText size={11} /> Auditor Report Document
-                        </a>
-                      </div>
-                    )}
-
-                    {/* Client Written Corrective Action & Document Download Link */}
-                    {isCorrected && (
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #bbf7d0', background: '#ffffff', padding: '10px', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-                          Client Corrective Action:
-                        </div>
-                        <div style={{ fontSize: 12, color: '#1e293b', marginBottom: 6 }}>
-                          {nc.client_response || 'No text provided by client.'}
-                        </div>
-                        {nc.correction_document_url && nc.correction_document_url !== '#' && nc.correction_document_url !== 'undefined' ? (
-                          <a href={getPdfUrl(nc.correction_document_url)} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: '4px 10px', background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <FileText size={11} /> Download Client Correction Document
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 11, color: '#64748b', italic: 'true' }}>No correction document uploaded.</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         )}
       </div>
     </div>

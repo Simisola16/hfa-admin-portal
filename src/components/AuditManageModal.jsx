@@ -22,32 +22,19 @@ const getCleanId = (val) => {
 export default function AuditManageModal({ isOpen, onClose, app, existingAudits: propExistingAudits, onSuccess }) {
   const [existingAudits, setExistingAudits] = useState([]);
   const [activeStage, setActiveStage] = useState(1);
-  const [auditModalTab, setAuditModalTab] = useState('schedule'); // 'schedule' or 'nc'
   const [auditSubmitting, setAuditSubmitting] = useState(false);
-  const [showNcDialog, setShowNcDialog] = useState(false);
   const [auditForm, setAuditForm] = useState({
     dates: ['', '', ''],
     auditors: [],
     stage2Auditors: [], // optional pre-assignment of Stage 2 auditors alongside Stage 1
-    nc_text: '',
-    nc_file: null,
     finalized_date: ''
   });
 
   const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
-  // Sync prop existingAudits with local state & reset dialog state
+  // Sync prop existingAudits with local state
   useEffect(() => {
-    if (isOpen) {
-      setShowNcDialog(false);
-    }
     setExistingAudits(propExistingAudits || []);
-    if (propExistingAudits && propExistingAudits.length > 0) {
-      const currentAudit = propExistingAudits.find(a => a.stage === activeStage);
-      if (currentAudit && (currentAudit.status === 'auditors_assigned' || currentAudit.status === 'audit_completed')) {
-        setAuditModalTab('schedule');
-      }
-    }
   }, [propExistingAudits, isOpen, activeStage]);
 
   // Load audit from backend if not provided as prop
@@ -225,77 +212,6 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       setAuditSubmitting(false);
     }
   };
-
-  const handleFlagNC = async () => {
-    if (!auditForm.nc_text.trim()) {
-      toast.error('Please enter non-conformity description text.');
-      return;
-    }
-    setAuditSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append('audit_id', existingAudit._id || existingAudit.id);
-      formData.append('text', auditForm.nc_text);
-      if (auditForm.nc_file) formData.append('nc_document', auditForm.nc_file);
-
-      const res = await api.post('/api/audits/flag-nc', formData, true);
-      setAuditForm(f => ({ ...f, nc_text: '', nc_file: null }));
-      toast.success('NC Report flagged successfully!');
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
-    } catch (err) {
-      toast.error(err.message || 'Failed to flag NC');
-    } finally {
-      setAuditSubmitting(false);
-    }
-  };
-
-  const executeCleanCompletion = async (targetAudit) => {
-    const auditObj = targetAudit || existingAudit;
-    if (!auditObj) return;
-    const stageLabel = isDualStage ? `Stage ${auditObj.stage || activeStage}` : 'Audit';
-    setAuditSubmitting(true);
-    try {
-      await api.post('/api/audits/complete-clean', {
-        audit_id: auditObj._id || auditObj.id
-      });
-      setShowNcDialog(false);
-      toast.success(`${stageLabel} marked complete successfully!`);
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
-    } catch (err) {
-      toast.error(err.message || 'Failed to complete audit stage');
-    } finally {
-      setAuditSubmitting(false);
-    }
-  };
-
-  const handleMarkStageComplete = async (targetAudit) => {
-    const auditObj = targetAudit || existingAudit;
-    if (!auditObj) return;
-    await executeCleanCompletion(auditObj);
-  };
-
-  const handleSubmitAuditReport = async () => {
-    if (window.confirm('Submit the official audit report for this application? This will advance the status to Audit Report Submitted.')) {
-      setAuditSubmitting(true);
-      try {
-        await api.post('/api/audits/submit-report', {
-          application_id: app._id || app.id,
-          audit_id: existingAudit?._id || existingAudit?.id
-        });
-        toast.success('Audit Report submitted successfully!');
-        if (onSuccess) onSuccess();
-        onClose();
-      } catch (err) {
-        toast.error(err.message || 'Failed to submit audit report');
-      } finally {
-        setAuditSubmitting(false);
-      }
-    }
-  };
-
-  const handleCompleteClean = executeCleanCompletion;
 
   const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
   const roleColors = {
@@ -674,288 +590,45 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
             </div>
           )}
 
-          {/* Tabbed view for Assigned / Completed Audits */}
+          {/* View for Assigned / Completed Audits */}
           {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
             <div>
-              {/*
-                NC & Completion tab is hidden for Stage 1 of dual-stage (GSO/UAE) audits.
-                NC flagging only applies to Stage 2 (or single-stage) — per the audit flow spec.
-                Stage 1 completion moves straight to Stage 2 readiness with no NC gate.
-              */}
-              {/* Tab Header */}
-              <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: 20 }}>
-                <button
-                  type="button"
-                  style={{ padding: '10px 20px', border: 'none', background: 'none', borderBottom: auditModalTab === 'schedule' ? '2.5px solid var(--primary)' : 'none', color: auditModalTab === 'schedule' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer' }}
-                  onClick={() => setAuditModalTab('schedule')}
-                >
-                  <Users size={14} style={{ marginRight: 6, display: 'inline' }} /> Schedule &amp; Team
-                </button>
-                {/* NC tab: hidden for Stage 1 of dual-stage audits — NC flagging is Stage 2 only */}
-                {(!isDualStage || activeStage === 2) && (
-                  <button
-                    type="button"
-                    style={{ padding: '10px 20px', border: 'none', background: 'none', borderBottom: auditModalTab === 'nc' ? '2.5px solid var(--primary)' : 'none', color: auditModalTab === 'nc' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer' }}
-                    onClick={() => setAuditModalTab('nc')}
-                  >
-                    <AlertCircle size={14} style={{ marginRight: 6, display: 'inline' }} /> NC &amp; Completion
-                  </button>
-                )}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
+                <div style={{ fontSize: 12, color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                  ✓ Confirmed Audit Date
+                </div>
+                <div style={{ fontSize: 15, color: '#15803d', fontWeight: 800 }}>
+                  {new Date(existingAudit.finalized_date).toDateString()}
+                </div>
               </div>
 
-              {auditModalTab === 'schedule' && (
-                <div>
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
-                    <h4 style={{ fontSize: 13, color: '#166534', fontWeight: 700, marginBottom: 4 }}>Audit Date</h4>
-                    <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>
-                      {new Date(existingAudit.finalized_date).toDateString()}
-                    </p>
-                  </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>
+                Assigned Auditor Team ({existingAudit.auditors?.length || 0})
+              </div>
 
-                  {/* Stage 1 completion guidance for dual-stage: no NC gate here, go straight to Stage 2 */}
-                  {isDualStage && activeStage === 1 && existingAudit.status === 'auditors_assigned' && (
-                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>Stage 1 — No NC Flagging Here</div>
-                      <div style={{ fontSize: 12, color: '#3b82f6', lineHeight: 1.6 }}>
-                        For GSO/UAE two-stage audits, NC flagging only occurs after Stage 2. Once Stage 1 is complete, this application proceeds directly to Stage 2 scheduling with no NC decision at this point.
+              <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+                {existingAudit.auditors?.map((a, idx) => {
+                  const rc = roleColors[a.role] || roleColors.audit_trainee;
+                  return (
+                    <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{a.name}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 10px', borderRadius: '12px' }}>
+                          {roleLabels[a.role] || a.role}
+                        </span>
+                        {a.purpose && (
+                          <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px' }}>
+                            {a.purpose}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  )}
-
-                  <h4 style={{ fontSize: 14, color: '#334155', fontWeight: 700, marginBottom: 12 }}>Assigned Auditor Team</h4>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {existingAudit.auditors?.map((a, idx) => {
-                      const rc = roleColors[a.role] || roleColors.audit_trainee;
-                      return (
-                        <div key={idx} style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>{a.name}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
-                          </div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 8px', borderRadius: '12px' }}>
-                              {roleLabels[a.role] || a.role}
-                            </span>
-                            {a.purpose && (
-                              <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 6px', borderRadius: '4px' }}>
-                                {a.purpose}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* NC Check Dialog prompt when completing Stage 2 / Final Audit */}
-                  {showNcDialog && (
-                    <div style={{ marginTop: 20, padding: 18, background: '#fff1f2', border: '2px solid #fecaca', borderRadius: 12 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: '#9f1239', marginBottom: 4 }}>
-                        ⚠️ {isDualStage ? 'Stage 2 Audit Completion' : 'Audit Completion'}: Flag Non-Conformity (NC)?
-                      </div>
-                      <div style={{ fontSize: 12, color: '#be123c', marginBottom: 14, lineHeight: 1.5 }}>
-                        Were any Non-Conformity (NC) issues identified during this audit session that require client correction?
-                      </div>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ background: '#dc2626', borderColor: '#dc2626', fontWeight: 700, flex: 1, padding: '10px 14px' }}
-                          onClick={() => {
-                            setShowNcDialog(false);
-                            setAuditModalTab('nc');
-                            toast('Please describe the NC report below and click "Flag NC".', { icon: '⚠️' });
-                          }}
-                        >
-                          Yes, Flag NC Report
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 700, flex: 1, padding: '10px 14px' }}
-                          disabled={auditSubmitting}
-                          onClick={() => executeCleanCompletion(existingAudit)}
-                        >
-                          {auditSubmitting ? 'Completing...' : 'No, Complete Clean Audit'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Buttons for Stage Completion & Audit Report Submission */}
-                  {existingAudit.status === 'auditors_assigned' && !showNcDialog && (
-                    <div style={{ marginTop: 20, padding: 16, background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#166534', marginBottom: 4 }}>
-                        {isDualStage ? `Stage ${activeStage} Audit in Progress` : 'Audit Session in Progress'}
-                      </div>
-                      <div style={{ fontSize: 12, color: '#15803d', marginBottom: 14, lineHeight: 1.5 }}>
-                        {isDualStage
-                          ? `Click below once Stage ${activeStage} audit visits are completed to mark Stage ${activeStage} as complete.`
-                          : 'Click below once audit visits are completed to mark the audit session as complete.'}
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', fontWeight: 700, padding: '10px 18px', width: '100%', justifyContent: 'center' }}
-                        disabled={auditSubmitting}
-                        onClick={() => handleMarkStageComplete(existingAudit)}
-                      >
-                        {auditSubmitting ? 'Updating...' : (isDualStage ? `✓ Mark Stage ${activeStage} Audit Complete` : '✓ Mark Audit Complete')}
-                      </button>
-                    </div>
-                  )}
-
-                  {(existingAudit.status === 'audit_completed' || ['audit_completed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status)) && (
-                    <div style={{ marginTop: 20, padding: 18, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '2px solid #86efac', borderRadius: 12 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: '#166534', marginBottom: 4 }}>
-                        ✓ {isDualStage ? `Stage ${activeStage} Audit Completed` : 'Audit Session Completed'}
-                      </div>
-                      <div style={{ fontSize: 12, color: '#15803d', marginBottom: 14, lineHeight: 1.5 }}>
-                        {['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status)
-                          ? 'The official Audit Report has been submitted.'
-                          : (app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)
-                            ? 'All required audit sessions are complete. Click below to submit the official Audit Report to advance to LogSheet creation.'
-                            : 'Stage 1 complete. You can now switch to Stage 2 tab to schedule and complete Stage 2.')}
-                      </div>
-                      {['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(app?.status) ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 18px', background: '#dcfce7', color: '#166534', borderRadius: 8, fontWeight: 700, fontSize: 13, border: '1px solid #bbf7d0' }}>
-                          <CheckCircle size={16} /> ✓ Official Audit Report Submitted
-                        </div>
-                      ) : (app?.status === 'audit_completed' || (!isDualStage || activeStage === 2)) && (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ background: 'linear-gradient(135deg, #059669, #047857)', border: 'none', fontWeight: 700, padding: '10px 18px', width: '100%', justifyContent: 'center', fontSize: 14 }}
-                          disabled={auditSubmitting}
-                          onClick={handleSubmitAuditReport}
-                        >
-                          {auditSubmitting ? 'Submitting Report...' : '📄 Submit Audit Report'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {auditModalTab === 'nc' && (
-                <div>
-                  <h4 style={{ fontSize: 14, color: '#b91c1c', fontWeight: 700, marginBottom: 12 }}>Non-Conformity (NC) Reports</h4>
-
-                  {existingAudit.nc_reports?.length > 0 && (
-                    <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
-                      {existingAudit.nc_reports.map((nc, idx) => (
-                        <div key={idx} style={{ padding: '14px', border: `1px solid ${nc.status === 'corrected' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '8px', background: nc.status === 'corrected' ? '#f0fdf4' : '#fef2f2' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: nc.status === 'corrected' ? '#166534' : '#b91c1c', textTransform: 'uppercase' }}>
-                              {nc.status === 'corrected' ? '✓ Corrected' : '⚠️ Pending Correction'}
-                            </span>
-                            <span style={{ fontSize: 10, color: '#64748b' }}>{nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString() : ''}</span>
-                          </div>
-                          <p style={{ fontSize: 13, color: '#334155', margin: '0 0 10px 0', lineHeight: 1.4 }}>
-                            <strong>Auditor Finding:</strong> {nc.text}
-                          </p>
-                          {nc.document_url && nc.document_url !== '#' && nc.document_url !== 'undefined' ? (
-                            <a
-                              href={getPdfUrl(nc.document_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline btn-sm"
-                              style={{ fontSize: 11, padding: '4px 8px', marginBottom: 8 }}
-                              onClick={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const fullUrl = getPdfUrl(nc.document_url);
-                                if (fullUrl && fullUrl !== '#') {
-                                  window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                                }
-                              }}
-                            >
-                              <FileText size={12} style={{ marginRight: 4 }}/> View Auditor Report Document
-                            </a>
-                          ) : (
-                            <span
-                              style={{
-                                fontSize: 11, padding: '4px 8px', borderRadius: '4px',
-                                background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1',
-                                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'not-allowed', fontWeight: 600,
-                                marginBottom: 8
-                              }}
-                              title="No document file was uploaded for this NC report"
-                            >
-                              <FileText size={12} /> Document Unavailable
-                            </span>
-                          )}
-
-                          {/* Client Written Corrective Action & Document Download Link */}
-                          {(nc.status === 'corrected' || nc.client_response || nc.correction_document_url) && (
-                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #bbf7d0', background: '#ffffff', padding: '12px', borderRadius: 8 }}>
-                              <div style={{ fontSize: 11, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-                                Client Corrective Action Text:
-                              </div>
-                              <div style={{ fontSize: 13, color: '#1e293b', marginBottom: 8, lineHeight: 1.5 }}>
-                                {nc.client_response || 'No text provided by client.'}
-                              </div>
-                              {nc.correction_document_url && nc.correction_document_url !== '#' && nc.correction_document_url !== 'undefined' ? (
-                                <a
-                                  href={getPdfUrl(nc.correction_document_url)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="btn btn-primary btn-sm"
-                                  style={{ fontSize: 11, padding: '5px 12px', background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                  onClick={e => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const fullUrl = getPdfUrl(nc.correction_document_url);
-                                    if (fullUrl && fullUrl !== '#') {
-                                      window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                                    }
-                                  }}
-                                >
-                                  <FileText size={12} /> Download Client Correction Document
-                                </a>
-                              ) : (
-                                <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
-                                  No correction document uploaded by client.
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', marginBottom: 20 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 12 }}>Flag New NC Report</div>
-                    <div className="form-group">
-                      <textarea className="form-control" rows={3} placeholder="Describe the non-conformity..." value={auditForm.nc_text} onChange={e => setAuditForm(f => ({ ...f, nc_text: e.target.value }))}></textarea>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 12 }}>
-                      <label className="form-label" style={{ fontSize: 12 }}>Correctivity Report / File (Optional)</label>
-                      <input type="file" className="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={e => setAuditForm(f => ({ ...f, nc_file: e.target.files[0] }))} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button
-                        className="btn btn-primary"
-                        style={{ background: '#dc2626', borderColor: '#dc2626' }}
-                        disabled={auditSubmitting || !auditForm.nc_text.trim()}
-                        onClick={handleFlagNC}
-                      >
-                        {auditSubmitting ? 'Flagging...' : 'Flag NC'}
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        style={{ borderColor: '#16a34a', color: '#16a34a' }}
-                        disabled={auditSubmitting}
-                        onClick={handleCompleteClean}
-                      >
-                        ✓ No Report (Clean Audit)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
 

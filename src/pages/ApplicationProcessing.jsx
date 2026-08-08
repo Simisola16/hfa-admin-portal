@@ -24,6 +24,7 @@ import FinalAgreementModal from '../components/FinalAgreementModal';
 import ProposalCard from '../components/ProposalCard';
 import InvoiceCard from '../components/InvoiceCard';
 import AuditCard from '../components/AuditCard';
+import NcCard from '../components/NcCard';
 import LogsheetCard from '../components/LogsheetCard';
 import AgreementCard from '../components/AgreementCard';
 
@@ -57,6 +58,7 @@ export default function ApplicationProcessing() {
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
+  const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
 
   // Inline forms/submission states
   const [approveCategory, setApproveCategory] = useState('');
@@ -411,7 +413,6 @@ export default function ApplicationProcessing() {
 
     // 5. Post-Audit Decision (NC vs Clean Close & NC Reply)
     if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || status === 'on_hold') {
-      const isNcActive = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0);
       return (
         <>
           <button
@@ -420,7 +421,7 @@ export default function ApplicationProcessing() {
             onClick={() => setShowNcModal(true)}
             disabled={actionSubmitting}
           >
-            <AlertTriangle size={16} /> {isNcActive ? 'NC Report (View / Reply)' : 'Flag NC'}
+            <AlertTriangle size={16} /> Flag NC
           </button>
           <button
             className="btn btn-primary"
@@ -428,7 +429,7 @@ export default function ApplicationProcessing() {
             onClick={handleCloseNc}
             disabled={actionSubmitting}
           >
-            <CheckCircle size={16} /> {isNcActive ? 'Accept & Close NC' : 'Close NC'}
+            <CheckCircle size={16} /> Close NC
           </button>
         </>
       );
@@ -634,6 +635,16 @@ export default function ApplicationProcessing() {
 
           {/* Audit Card */}
           <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
+
+          {/* Non-Conformity (NC) & Findings Card */}
+          <NcCard
+            app={app}
+            audits={audits}
+            status={status}
+            onFlagNc={() => setShowNcModal(true)}
+            onCloseNc={handleCloseNc}
+            actionSubmitting={actionSubmitting}
+          />
 
           {/* Logsheet Card (Admin Only) */}
           <LogsheetCard logsheet={logsheet} status={status} appId={appId} />
@@ -855,7 +866,7 @@ export default function ApplicationProcessing() {
       {/* Flag / Review NC Modal */}
       {showNcModal && (
         <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowNcModal(false)}>
-          <div className="modal" style={{ maxWidth: 680, width: '92%', maxHeight: '88vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 700, width: '92%', maxHeight: '88vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
@@ -863,19 +874,57 @@ export default function ApplicationProcessing() {
                 </div>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Non-Conformity (NC) Report & Review' : 'Flag Non-Conformity (NC) Report'}
+                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Non-Conformity (NC) Management' : 'Flag Non-Conformity (NC)'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Review client rectification evidence, send official feedback, or close the NC' : 'Provide NC report details and attachment for client corrective action'}
+                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Review client corrections, submit feedback, or close the NC to proceed.' : 'Specify audit non-conformities and attach report documents for client correction.'}
                   </div>
                 </div>
               </div>
               <button className="modal-close" onClick={() => setShowNcModal(false)}><X size={18} /></button>
             </div>
 
+            {/* Tab navigation if NCs already exist */}
+            {(app.nc_reports?.length > 0 || status === 'nc_flagged') && (
+              <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#ffffff', padding: '0 24px' }}>
+                <button
+                  type="button"
+                  style={{
+                    padding: '12px 18px',
+                    border: 'none',
+                    background: 'none',
+                    borderBottom: ncModalTab === 'review' ? '2.5px solid #0284c7' : 'none',
+                    color: ncModalTab === 'review' ? '#0284c7' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setNcModalTab('review')}
+                >
+                  💬 Review &amp; Reply
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '12px 18px',
+                    border: 'none',
+                    background: 'none',
+                    borderBottom: ncModalTab === 'flag_new' ? '2.5px solid #dc2626' : 'none',
+                    color: ncModalTab === 'flag_new' ? '#dc2626' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setNcModalTab('flag_new')}
+                >
+                  ⚠️ Flag Additional Finding
+                </button>
+              </div>
+            )}
+
             <div style={{ padding: '24px', display: 'grid', gap: 18, flex: 1, overflowY: 'auto' }}>
               {/* If NC already exists, display existing findings and client response */}
-              {app.nc_reports && app.nc_reports.length > 0 && (
+              {app.nc_reports && app.nc_reports.length > 0 && ncModalTab === 'review' && (
                 <div style={{ display: 'grid', gap: 14 }}>
                   {app.nc_reports.map((nc, idx) => (
                     <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
@@ -944,8 +993,8 @@ export default function ApplicationProcessing() {
                 </div>
               )}
 
-              {/* Admin Reply or New NC Flagging Form */}
-              {app.nc_reports?.length > 0 || status === 'nc_flagged' ? (
+              {/* Admin Reply Form */}
+              {(app.nc_reports?.length > 0 || status === 'nc_flagged') && ncModalTab === 'review' && (
                 <div style={{ background: 'white', border: '1.5px solid #bae6fd', borderRadius: 12, padding: 18 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', marginBottom: 8 }}>
                     Reply to NC / Provide Corrective Instructions
@@ -986,7 +1035,10 @@ export default function ApplicationProcessing() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Flag New / Additional NC Form */}
+              {(!app.nc_reports || app.nc_reports.length === 0 || ncModalTab === 'flag_new') && (
                 <>
                   <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
@@ -1028,13 +1080,13 @@ export default function ApplicationProcessing() {
 
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowNcModal(false)} disabled={flaggingNc || replyingNc}>Close</button>
-              {app.nc_reports?.length > 0 || status === 'nc_flagged' ? (
-                <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={handleCloseNc} disabled={actionSubmitting}>
-                  {actionSubmitting ? 'Closing...' : 'Accept & Close NC'}
-                </button>
-              ) : (
+              {(!app.nc_reports || app.nc_reports.length === 0 || ncModalTab === 'flag_new') ? (
                 <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc || !ncText.trim()}>
                   {flaggingNc ? 'Flagging Report...' : 'Flag NC'}
+                </button>
+              ) : (
+                <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={handleCloseNc} disabled={actionSubmitting}>
+                  {actionSubmitting ? 'Closing...' : 'Accept & Close NC'}
                 </button>
               )}
             </div>

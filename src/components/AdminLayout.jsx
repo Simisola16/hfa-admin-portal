@@ -15,6 +15,7 @@ import FinalAgreementModal from './FinalAgreementModal';
 import CertificateModal from './CertificateModal';
 import AuditManageModal from './AuditManageModal';
 import ConfirmPaymentModal from './ConfirmPaymentModal';
+import AdminNotificationCenter from './AdminNotificationCenter';
 
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
@@ -415,67 +416,15 @@ export default function AdminLayout() {
                 )}
               </button>
 
-              {showNotifs && (
-                <div style={{
-                  position: 'absolute', right: 0, top: 'calc(100% + 10px)',
-                  width: 380, maxHeight: 500, overflowY: 'auto',
-                  background: 'white', border: '1px solid #e2e8f0',
-                  borderRadius: 16, boxShadow: '0 20px 40px rgba(0,0,0,0.12)', zIndex: 9999,
-                }}>
-                  <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Notifications</div>
-                      {unread > 0 && <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>{unread} unread</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      {unread > 0 && (
-                        <button onClick={markAllRead} style={{ fontSize: 12, fontWeight: 700, color: '#15803d', background: 'none', border: 'none', cursor: 'pointer' }}>
-                          Mark all read
-                        </button>
-                      )}
-                      <button onClick={() => setShowNotifs(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 6 }}>
-                        <X size={15} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {notifLoading && notifications.length === 0 ? (
-                    <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
-                  ) : notifications.length === 0 ? (
-                    <div style={{ padding: '48px 24px', textAlign: 'center', color: '#94a3b8' }}>
-                      <div style={{ background: '#f8fafc', width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                        <Bell size={28} style={{ opacity: 0.3 }} />
-                      </div>
-                      <div style={{ fontWeight: 700, color: '#475569' }}>All clear!</div>
-                      <div style={{ fontSize: 13, marginTop: 4 }}>No new notifications.</div>
-                    </div>
-                  ) : notifications.map(n => {
-                    const isRead = n.is_read;
-                    return (
-                      <div
-                        key={n._id}
-                        onClick={() => handleNotifClick(n)}
-                        style={{
-                          padding: '14px 20px', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start',
-                          background: isRead ? 'white' : TYPE_BG[n.type] || '#f8fafc',
-                          borderBottom: '1px solid #f1f5f9', transition: 'all 0.15s',
-                        }}
-                        className="hover-notif"
-                      >
-                        <div style={{ marginTop: 2, background: isRead ? '#f1f5f9' : 'white', padding: 7, borderRadius: 9, display: 'flex' }}>
-                          {TYPE_ICON[n.type] || TYPE_ICON.info}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: isRead ? 600 : 800, fontSize: 13.5, color: isRead ? '#475569' : '#0f172a', marginBottom: 2 }}>{n.title}</div>
-                          <div style={{ fontSize: 12.5, color: isRead ? '#64748b' : '#334155', lineHeight: 1.5 }}>{n.message}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, fontWeight: 500 }}>{timeAgo(n.created_at)}</div>
-                        </div>
-                        {!isRead && <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#15803d', marginTop: 5, flexShrink: 0, boxShadow: '0 0 0 3px #dcfce7' }} />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <AdminNotificationCenter
+                isOpen={showNotifs}
+                onClose={() => setShowNotifs(false)}
+                notifications={notifications}
+                unreadCount={unread}
+                loading={notifLoading}
+                onRefresh={fetchNotifs}
+                onOpenQuickModal={(type, appId) => setQuickModal({ type, appId })}
+              />
             </div>
 
             {/* Admin avatar */}

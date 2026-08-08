@@ -142,12 +142,14 @@ export default function AdminNotificationCenter({
     const messageLower = (n.message || '').toLowerCase();
 
     let modalType = null;
-    if (titleLower.includes('payment') || messageLower.includes('payment')) modalType = 'confirm_payment';
+    if (titleLower.includes('payment') || messageLower.includes('payment') || titleLower.includes('proof') || messageLower.includes('proof')) modalType = 'confirm_payment';
+    else if (titleLower.includes('proposal accepted') || titleLower.includes('proposal approved') || messageLower.includes('proposal accepted') || messageLower.includes('proposal approved')) modalType = 'send_initial_invoice';
     else if (titleLower.includes('proposal') || messageLower.includes('proposal')) modalType = 'send_proposal';
     else if (titleLower.includes('invoice') || messageLower.includes('invoice')) modalType = 'send_initial_invoice';
-    else if (titleLower.includes('agreement') && (titleLower.includes('signed') || messageLower.includes('signed'))) modalType = 'send_final_agreement';
+    else if ((titleLower.includes('agreement') || messageLower.includes('agreement')) && (titleLower.includes('signed') || messageLower.includes('signed'))) modalType = 'send_final_agreement';
     else if (titleLower.includes('agreement') || messageLower.includes('agreement')) modalType = 'send_agreement';
     else if (titleLower.includes('ready') || messageLower.includes('ready for certificate')) modalType = 'issue_certificate';
+    else if (titleLower.includes('nc') || messageLower.includes('nc') || titleLower.includes('audit') || messageLower.includes('audit')) modalType = 'manage_audit';
 
     const getCleanId = (val) => {
       if (!val) return '';
@@ -157,7 +159,9 @@ export default function AdminNotificationCenter({
     };
 
     const extractAppId = () => {
-      const raw = n.application_id || n.appId || n.app_id || n.data?.application_id || n.data?.app_id;
+      const raw = n.application_id || n.appId || n.app_id || 
+                  n.data?.application_id || n.data?.app_id || n.data?.appId ||
+                  n.audit_id || n.invoice_id || n.agreement_id || n.proposal_id;
       if (raw) {
         const clean = getCleanId(raw);
         if (clean && clean !== '[object Object]') return clean;
@@ -180,6 +184,8 @@ export default function AdminNotificationCenter({
 
     if (n.link) {
       navigate(n.link);
+    } else if (modalType && onOpenQuickModal) {
+      onOpenQuickModal(modalType, null);
     }
   };
 

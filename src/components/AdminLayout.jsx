@@ -123,13 +123,16 @@ export default function AdminLayout() {
     };
 
     const titleLower = (notif.title || '').toLowerCase();
+    const messageLower = (notif.message || '').toLowerCase();
     let modalType = null;
-    if (titleLower.includes('payment')) modalType = 'confirm_payment';
-    else if (titleLower.includes('proposal')) modalType = 'send_proposal';
-    else if (titleLower.includes('invoice')) modalType = 'send_initial_invoice';
-    else if (titleLower.includes('agreement') && titleLower.includes('signed')) modalType = 'send_final_agreement';
-    else if (titleLower.includes('agreement')) modalType = 'send_agreement';
-    else if (titleLower.includes('ready')) modalType = 'issue_certificate';
+    if (titleLower.includes('payment') || messageLower.includes('payment') || titleLower.includes('proof') || messageLower.includes('proof')) modalType = 'confirm_payment';
+    else if (titleLower.includes('proposal accepted') || titleLower.includes('proposal approved') || messageLower.includes('proposal accepted') || messageLower.includes('proposal approved')) modalType = 'send_initial_invoice';
+    else if (titleLower.includes('proposal') || messageLower.includes('proposal')) modalType = 'send_proposal';
+    else if (titleLower.includes('invoice') || messageLower.includes('invoice')) modalType = 'send_initial_invoice';
+    else if ((titleLower.includes('agreement') || messageLower.includes('agreement')) && (titleLower.includes('signed') || messageLower.includes('signed'))) modalType = 'send_final_agreement';
+    else if (titleLower.includes('agreement') || messageLower.includes('agreement')) modalType = 'send_agreement';
+    else if (titleLower.includes('ready') || messageLower.includes('ready for certificate')) modalType = 'issue_certificate';
+    else if (titleLower.includes('nc') || messageLower.includes('nc') || titleLower.includes('audit') || messageLower.includes('audit')) modalType = 'manage_audit';
 
     const getCleanId = (val) => {
       if (!val) return '';
@@ -141,7 +144,8 @@ export default function AdminLayout() {
     const extractAppId = (notifObj) => {
       if (!notifObj) return null;
       const raw = notifObj.application_id || notifObj.appId || notifObj.app_id || 
-                  notifObj.data?.application_id || notifObj.data?.app_id || notifObj.data?.appId;
+                  notifObj.data?.application_id || notifObj.data?.app_id || notifObj.data?.appId ||
+                  notifObj.audit_id || notifObj.invoice_id || notifObj.agreement_id || notifObj.proposal_id;
       if (raw) {
         const clean = getCleanId(raw);
         if (clean && clean !== '[object Object]') return clean;
@@ -190,7 +194,7 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {modalType && (
+        {(modalType || notif.link) && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
             <button
               className="btn btn-primary btn-sm"
@@ -198,10 +202,16 @@ export default function AdminLayout() {
               onClick={(e) => {
                 e.stopPropagation();
                 toast.dismiss(t.id);
-                setQuickModal({ type: modalType, appId: targetAppId });
+                if (modalType && targetAppId) {
+                  setQuickModal({ type: modalType, appId: targetAppId });
+                } else if (notif.link) {
+                  navigate(notif.link);
+                } else if (modalType) {
+                  setQuickModal({ type: modalType, appId: null });
+                }
               }}
             >
-              View &amp; Respond
+              {modalType ? 'View & Respond' : 'View Details'}
             </button>
           </div>
         )}
@@ -524,6 +534,15 @@ export default function AdminLayout() {
           isOpen={true}
           onClose={() => setQuickModal(null)}
           appId={quickModal.appId}
+          onSuccess={() => fetchNotifs()}
+        />
+      )}
+
+      {quickModal?.type === 'manage_audit' && (
+        <AuditManageModal
+          isOpen={true}
+          onClose={() => setQuickModal(null)}
+          app={quickModal.appId}
           onSuccess={() => fetchNotifs()}
         />
       )}

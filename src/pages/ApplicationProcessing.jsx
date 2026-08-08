@@ -82,13 +82,16 @@ export default function ApplicationProcessing() {
         api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null }))
       ]);
 
-      setApp(appRes.data);
-      setProposal(propRes.data || null);
-      setInvoice(invRes.data || null);
+      const fetchedApp = appRes.data?.data || appRes.data || null;
+      const fetchedLogsheet = logsheetRes.data?.data || (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
+
+      setApp(fetchedApp);
+      setProposal(propRes.data?.data || propRes.data || null);
+      setInvoice(invRes.data?.data || invRes.data || null);
       setAllInvoices(allInvRes.data?.data || allInvRes.data || []);
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
       setAudits(auditRes.data?.data || auditRes.data || []);
-      setLogsheet(logsheetRes.data?.data || logsheetRes.data || null);
+      setLogsheet(fetchedLogsheet);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {

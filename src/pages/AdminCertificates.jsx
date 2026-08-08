@@ -220,8 +220,8 @@ export default function AdminCertificates() {
                   <thead>
                     <tr>
                       <th>Certificate No.</th>
-                      <th>Client</th>
-                      <th>Type</th>
+                      <th>Company Name</th>
+                      <th>Type &amp; Standard</th>
                       <th>Issue Date</th>
                       <th>Expiry</th>
                       <th>Status</th>
@@ -236,9 +236,9 @@ export default function AdminCertificates() {
                           : c.status;
                       return (
                       <tr key={c.id || c._id}>
-                        <td style={{ fontWeight: 700 }}>{c.certificate_number}</td>
-                        <td>{c.profiles?.company_name || c.profiles?.full_name || '—'}</td>
-                        <td>{c.certificate_type}</td>
+                        <td style={{ fontWeight: 800, color: 'var(--primary)' }}>{c.certificate_number}</td>
+                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{c.profiles?.company_name || c.application_id?.establishment_name || c.company_name || c.profiles?.full_name || '—'}</td>
+                        <td style={{ fontSize: 13 }}>{c.certificate_type}</td>
                         <td style={{ fontSize: 12 }}>{c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td style={{ fontSize: 12 }}>{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td>

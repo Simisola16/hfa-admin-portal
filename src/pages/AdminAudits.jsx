@@ -57,16 +57,18 @@ export default function AdminAudits() {
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
             filteredAudits.length===0?<div className="empty-state"><div className="empty-state-icon"><Calendar/></div><div className="empty-state-title">No Audits Found</div></div>:(
               <table>
-                <thead><tr><th>Application</th><th>Client</th><th>Inspector</th><th>Site</th><th>Type</th><th>Scheduled Date</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Company Name</th><th>Inspector / Auditor</th><th>Site Location</th><th>Type</th><th>Scheduled Date</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {filteredAudits.map(a=>(
-                    <tr key={a.id}>
-                      <td style={{fontWeight:600,color:'var(--primary)'}}>{a.applications?.application_number||'—'}</td>
-                      <td>{a.profiles?.company_name||'—'}</td>
-                      <td>{a.inspectors?.full_name||'Unassigned'}</td>
-                      <td>{a.sites?.name||'—'}</td>
-                      <td>{a.audit_type}</td>
-                      <td style={{fontSize:12}}>{a.scheduled_date?new Date(a.scheduled_date).toLocaleDateString('en-GB'):'—'}</td>
+                    <tr key={a.id || a._id}>
+                      <td style={{fontWeight:700,color:'#0f172a'}}>
+                        <div>{a.profiles?.company_name || a.applications?.establishment_name || a.applications?.profiles?.company_name || a.company_name || 'Company Facility'}</div>
+                        <div style={{fontSize:11.5,color:'var(--text-muted)',fontWeight:400}}>{a.applications?.category || a.audit_type || 'Standard Audit'}</div>
+                      </td>
+                      <td>{a.inspectors?.full_name || a.auditors?.map(x => x.name).join(', ') || 'Unassigned'}</td>
+                      <td>{a.sites?.name || a.applications?.establishment_address || '—'}</td>
+                      <td><span style={{ fontWeight: 600 }}>{a.audit_type || (a.stage ? `Stage ${a.stage}` : 'Audit')}</span></td>
+                      <td style={{fontSize:12}}>{a.scheduled_date || a.finalized_date ? new Date(a.scheduled_date || a.finalized_date).toLocaleDateString('en-GB'):'—'}</td>
                       <td>
                         <span className={`badge ${STATUS_BADGE[a.status]||'badge-gray'}`} style={{textTransform:'capitalize'}}>
                           {a.status?.replace(/_/g, ' ')}

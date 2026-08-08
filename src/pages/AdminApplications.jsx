@@ -283,8 +283,8 @@ export default function AdminApplications() {
           ) : (
             <table>
               <thead><tr>
-                <th>App No.</th>
-                <th>Client / Company</th>
+                <th>Company Name</th>
+                <th>Primary Contact</th>
                 <th>Site Name</th>
                 <th>Type &amp; Category</th>
                 <th>Date</th>
@@ -294,10 +294,13 @@ export default function AdminApplications() {
               <tbody>
                 {filtered.map(app => (
                   <tr key={app._id}>
-                    <td style={{fontWeight:700,color:'var(--primary)'}}>{app.application_number}</td>
+                    <td style={{fontWeight:800,color:'#0f172a',fontSize:14}}>
+                      <div>{app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}</div>
+                      <div style={{fontSize:11.5,color:'var(--text-muted)',fontWeight:500}}>{app.reg_number ? `Reg: ${app.reg_number}` : (app.establishment_address || '—')}</div>
+                    </td>
                     <td>
-                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.company_name || app.establishment_name || '—'}</div>
-                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.full_name || 'No contact name'}</div>
+                      <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.full_name || app.managing_director || '—'}</div>
+                      <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.email || '—'}</div>
                     </td>
                     <td style={{fontSize:12}}>{app.site_name || '—'}</td>
                     <td>
@@ -338,7 +341,7 @@ export default function AdminApplications() {
             <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Select Action</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{apps.find(a => a._id === openDropdown)?.application_number}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{apps.find(a => a._id === openDropdown)?.profiles?.company_name || apps.find(a => a._id === openDropdown)?.establishment_name || 'Company'}</div>
               </div>
               <button className="modal-close" onClick={() => setOpenDropdown(null)}><X size={20}/></button>
             </div>
@@ -373,7 +376,7 @@ export default function AdminApplications() {
           <div className="modal modal-glass" style={{ maxWidth: 1000 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ background: 'transparent' }}>
               <div>
-                <h2 className="modal-title" style={{ fontSize: 24 }}>{selectedApp.application_number}</h2>
+                <h2 className="modal-title" style={{ fontSize: 24 }}>{selectedApp.profiles?.company_name || selectedApp.establishment_name || selectedApp.company_name || 'Company Facility'}</h2>
                 <div className="text-sm text-muted">Submitted on {new Date(selectedApp.created_at).toLocaleString('en-GB')}</div>
               </div>
               <button className="modal-close" onClick={() => setSelectedApp(null)}><X size={24}/></button>

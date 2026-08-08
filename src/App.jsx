@@ -12,6 +12,7 @@ import AdminCertificates from './pages/AdminCertificates';
 import AdminClients from './pages/AdminClients';
 import AdminInspectors from './pages/AdminInspectors';
 import AdminAudits from './pages/AdminAudits';
+import AdminAuditReports from './pages/AdminAuditReports';
 import AdminInvoices from './pages/AdminInvoices';
 import AdminMessages from './pages/AdminMessages';
 import AdminSites from './pages/AdminSites';
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="/staff" element={<AdminStaff />} />
             <Route path="/inspectors" element={<AdminInspectors />} />
             <Route path="/audits" element={<AdminAudits />} />
+            <Route path="/audit-reports" element={<AdminAuditReports />} />
             <Route path="/invoices" element={<AdminInvoices />} />
             <Route path="/messages" element={<AdminMessages />} />
             <Route path="/sites" element={<AdminSites />} />

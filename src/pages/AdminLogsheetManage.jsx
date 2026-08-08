@@ -246,13 +246,12 @@ export default function AdminLogsheetManage() {
                 <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid var(--border)' }}>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company Name</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Person</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>App Type</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site Location</th>
+                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logsheet Type</th>
                       <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Action</th>
@@ -261,14 +260,12 @@ export default function AdminLogsheetManage() {
                   <tbody>
                     {filteredLogsheets.map(l => (
                       <tr key={l._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
-                          {l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
-                        </td>
-                        <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {l.company_name}
+                        <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                          <div>{l.company_name}</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 500 }}>{l.manufacturing_address || 'Facility'}</div>
                         </td>
                         <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                          <div style={{ fontWeight: 500 }}>{l.contact_person || '—'}</div>
+                          <div style={{ fontWeight: 600 }}>{l.contact_person || '—'}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{l.contact_email}</div>
                         </td>
                         <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>

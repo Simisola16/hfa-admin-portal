@@ -241,8 +241,8 @@ export default function AdminLogsheetWaitingCertificate() {
             <table className="table logsheet-table desktop-only-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>App / Logsheet Ref</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company & Contact</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Facility</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Contact Person</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Signatures</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Completed Date</th>
@@ -252,19 +252,18 @@ export default function AdminLogsheetWaitingCertificate() {
               <tbody>
                 {filteredLogsheets.map((l) => {
                   const appId = l.application_id?._id || l.application_id;
-                  const appNum = l.application_id?.application_number || 'N/A';
                   const { count, total } = getSignatoryProgress(l);
 
                   return (
                     <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{appNum}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>ID: {l._id.slice(-6)}</div>
+                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>{l.company_name || 'Company Facility'}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{l.manufacturing_address || 'Main Facility'}</div>
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{l.company_name || 'Company Name'}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{l.contact_person || l.contact_email || 'No contact'}</div>
+                        <div style={{ fontWeight: 600, color: '#334155' }}>{l.contact_person || '—'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.contact_email}</div>
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>

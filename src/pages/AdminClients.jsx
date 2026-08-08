@@ -136,16 +136,15 @@ export default function AdminClients() {
   };
 
   const getTitle = () => {
-    if (category === 'review') return 'Review Companies (New Signups)';
     if (category === 'processing') return 'Processing List (Pending Applications)';
     if (category === 'bin') return 'Bin List (Suspended Companies)';
     if (category === 'staff') return 'HFA Staff & User Management';
     if (category === 'impersonations') return 'Admin Impersonation Logs';
+    if (category === 'all') return 'All Registered Companies';
     return 'Company List (Certified Clients)';
   };
 
   const getIcon = () => {
-    if (category === 'review') return <Shield size={20} />;
     if (category === 'processing') return <Briefcase size={20} />;
     if (category === 'bin') return <Trash2 size={20} />;
     if (category === 'staff') return <UserCheck size={20} />;
@@ -178,25 +177,25 @@ export default function AdminClients() {
       return isSuspended || !isActive;
     } else {
       if (isSuspended) return false;
-      if (category === 'review') {
-        return c.appCount === 0;
-      } else if (category === 'processing') {
+      if (category === 'processing') {
         return c.appCount > 0 && (c.certCount || 0) === 0;
+      } else if (category === 'all') {
+        return true;
       } else if (category === 'company') {
-        return (c.certCount || 0) > 0;
+        return (c.certCount || 0) > 0 || c.appCount > 0;
       }
     }
     return true;
   });
 
-  const isAdmin = loggedInUser?.role === 'admin';
+  const isAdmin = loggedInUser?.role === 'admin' || loggedInUser?.role === 'superadmin';
 
   return (
     <div className="animate-in">
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12, flexWrap: 'wrap' }}>
         <button className={`btn btn-sm ${category === 'company' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'company' })}>Certified Clients</button>
         <button className={`btn btn-sm ${category === 'processing' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'processing' })}>Processing</button>
-        <button className={`btn btn-sm ${category === 'review' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'review' })}>New Signups</button>
+        <button className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'all' })}>All Companies</button>
         <button className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'bin' })}>Suspended</button>
         {isAdmin && (
           <button className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'impersonations' })}>Impersonation Logs</button>
@@ -338,53 +337,59 @@ export default function AdminClients() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                           {isAdmin && (
                             <button
                               className="btn btn-ghost btn-sm"
                               style={{ 
-                                color: '#d97706', 
-                                fontWeight: 700, 
-                                border: '1px solid #fde68a', 
+                                color: '#b45309', 
+                                fontWeight: 800, 
+                                border: '1.5px solid #fde68a', 
                                 background: '#fef3c7',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4
+                                gap: 6,
+                                borderRadius: 8,
+                                padding: '6px 12px'
                               }}
                               disabled={impersonatingId !== null}
                               onClick={() => handleImpersonate(c._id)}
+                              title="Log into client dashboard as this client"
                             >
                               {impersonatingId === c._id ? (
                                 <span className="spinner" style={{ width: 12, height: 12, borderTopColor: '#d97706' }} />
                               ) : (
-                                'Login as Client'
+                                <>
+                                  <Eye size={13} /> Login as Client
+                                </>
                               )}
                             </button>
                           )}
-                          {(c.suspension_reason || c.is_active === false || category === 'review') && (
+
+                          {(c.suspension_reason || c.is_active === false || c.is_verified === false) ? (
                             <button 
                               className="btn btn-primary btn-sm" 
                               style={{ 
-                                background: (c.is_active !== false && category === 'review') ? '#94a3b8' : '#10b981', 
-                                borderColor: (c.is_active !== false && category === 'review') ? '#94a3b8' : '#10b981', 
-                                fontWeight: 600,
-                                opacity: (c.is_active !== false && category === 'review') ? 0.6 : 1,
-                                cursor: (c.is_active !== false && category === 'review') ? 'default' : 'pointer'
+                                background: '#16a34a', 
+                                borderColor: '#16a34a', 
+                                fontWeight: 800,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                borderRadius: 8,
+                                padding: '6px 12px'
                               }}
-                              onClick={() => {
-                                if (c.is_active === false || c.suspension_reason) {
-                                  handleStatusChange(c._id, true);
-                                }
-                              }}
-                              disabled={c.is_active !== false && category === 'review' && !c.suspension_reason}
+                              onClick={() => handleStatusChange(c._id, true)}
+                              title="Activate account and verify email immediately"
                             >
-                              {c.is_active !== false && !c.suspension_reason ? 'Already Active' : 'Activate'}
+                              <UserCheck size={13} /> Activate &amp; Verify Email
                             </button>
-                          )}
+                          ) : null}
+
                           {!c.suspension_reason && (
                             <button 
                               className="btn btn-ghost btn-sm" 
-                              style={{ color: '#ef4444', fontWeight: 600, border: '1px solid #fee2e2' }}
+                              style={{ color: '#ef4444', fontWeight: 600, border: '1px solid #fee2e2', borderRadius: 8, padding: '6px 10px' }}
                               onClick={() => setSuspensionModal(c)}
                             >
                               Suspend

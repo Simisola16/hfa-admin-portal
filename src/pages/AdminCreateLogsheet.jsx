@@ -183,26 +183,51 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     try {
-      toast.loading('Uploading document...', { id: 'upload' });
-      const url = await api.uploadPdf(file, 'logsheets');
-      setForm({ ...form, document_url: url });
-      toast.success('Document uploaded!', { id: 'upload' });
+      toast.loading(`Uploading ${files.length} audit report file(s)...`, { id: 'upload' });
+      const uploadedDocs = [];
+      for (const file of files) {
+        const url = await api.uploadPdf(file, 'logsheets');
+        uploadedDocs.push({
+          name: file.name,
+          url,
+          uploaded_at: new Date()
+        });
+      }
+      setForm(prev => ({
+        ...prev,
+        document_url: prev.document_url || uploadedDocs[0]?.url || '',
+        document_urls: [...(prev.document_urls || []), ...uploadedDocs],
+        audit_reports: [...(prev.audit_reports || []), ...uploadedDocs]
+      }));
+      toast.success(`${files.length} report document(s) uploaded!`, { id: 'upload' });
     } catch (err) {
       toast.error('Upload failed', { id: 'upload' });
     }
   };
 
   const handleNcReportUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     try {
-      toast.loading('Uploading NC report document...', { id: 'nc-upload' });
-      const url = await api.uploadPdf(file, 'logsheets');
-      setForm(prev => ({ ...prev, nc_report_url: url }));
-      toast.success('NC report document uploaded!', { id: 'nc-upload' });
+      toast.loading(`Uploading ${files.length} NC report file(s)...`, { id: 'nc-upload' });
+      const uploadedDocs = [];
+      for (const file of files) {
+        const url = await api.uploadPdf(file, 'logsheets');
+        uploadedDocs.push({
+          name: file.name,
+          url,
+          uploaded_at: new Date()
+        });
+      }
+      setForm(prev => ({
+        ...prev,
+        nc_report_url: prev.nc_report_url || uploadedDocs[0]?.url || '',
+        nc_reports_files: [...(prev.nc_reports_files || []), ...uploadedDocs]
+      }));
+      toast.success(`${files.length} NC report(s) uploaded!`, { id: 'nc-upload' });
     } catch (err) {
       toast.error('Upload failed', { id: 'nc-upload' });
     }
@@ -304,12 +329,21 @@ export default function AdminCreateLogsheet() {
       toast.error('Please confirm the checkbox at the bottom');
       return;
     }
+    const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
+    if (!hasAuditReports) {
+      toast.error('Please upload at least 1 official Audit Inspection Report document before creating the logsheet.');
+      setActiveTab(1);
+      return;
+    }
     setSubmitting(true);
     try {
       if (isAddon) {
         // For add-on applications — use the dedicated add-on logsheet route
         await api.post(`/api/add-on-applications/${addonId}/create-logsheet`, {
           ...form,
+          document_urls: form.document_urls || [],
+          audit_reports: form.audit_reports || form.document_urls || [],
+          nc_reports_files: form.nc_reports_files || [],
           client_id: application?.client_id?._id || application?.client_id,
         });
         toast.success('Logsheet created for add-on application!');
@@ -317,6 +351,9 @@ export default function AdminCreateLogsheet() {
       } else {
         await api.post('/api/application-logsheets', {
           ...form,
+          document_urls: form.document_urls || [],
+          audit_reports: form.audit_reports || form.document_urls || [],
+          nc_reports_files: form.nc_reports_files || [],
           application_id: application.id || application._id,
           client_id: application.client_id,
           site_id: application.site_id
@@ -892,22 +929,130 @@ export default function AdminCreateLogsheet() {
                   <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
                 </div>
 
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Supporting Document (Optional)</label>
-                  {form.document_url ? (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '12px 16px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                      <CheckCircle2 size={18} color="#16a34a" />
-                      <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>Document Uploaded Successfully</a>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '' })}>Remove</button>
+                {/* Multi-File Uploader for Audit Reports and NC Reports */}
+                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <label className="form-label" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        1. Audit Inspection Reports <span style={{ color: '#dc2626' }}>* (Required — Multiple Files Supported)</span>
+                      </label>
+                      <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                        Upload all official audit findings, checklist documents, and technical evaluation reports.
+                      </div>
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                      <UploadCloud size={14} /> Add Report Files
+                      <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                    </label>
+                  </div>
+
+                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                      {form.document_urls.map((doc, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <CheckCircle2 size={16} color="#16a34a" />
+                            <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                              {doc.name || `Audit_Report_${idx + 1}.pdf`}
+                            </a>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: '#dc2626', padding: '2px 8px' }}
+                            onClick={() => {
+                              const updated = form.document_urls.filter((_, i) => i !== idx);
+                              setForm(f => ({
+                                ...f,
+                                document_urls: updated,
+                                document_url: updated[0]?.url || '',
+                                audit_reports: updated
+                              }));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : form.document_url ? (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                      <CheckCircle2 size={16} color="#16a34a" />
+                      <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
+                        Audit Report Uploaded Successfully
+                      </a>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [] })}>Remove</button>
                     </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', padding: 24, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#f8fafc' }}>
-                      <UploadCloud size={24} color="#475569" style={{ marginBottom: 8 }} />
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>Click to Upload File</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>PDF, PNG, or JPG (Max 5MB)</div>
-                      <input type="file" style={{ display: 'none' }} onChange={handleFileChange} />
+                    <label style={{ display: 'flex', flexDirection: 'column', padding: 20, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
+                      <UploadCloud size={24} color="#0e7490" style={{ marginBottom: 6 }} />
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
+                      <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>You can select more than 1 file (PDF, DOCX, PNG)</div>
+                      <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
                     </label>
                   )}
+
+                  {/* NC Report Files Section */}
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px dashed #cbd5e1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div>
+                        <label className="form-label" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          2. NC Reports &amp; Corrective Action Proofs (Upload 1 or More Files)
+                        </label>
+                        <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                          Attach all Non-Conformity reports, audit corrective action evidence, or audit response letters.
+                        </div>
+                      </div>
+                      <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                        <UploadCloud size={14} /> Add NC Files
+                        <input type="file" multiple style={{ display: 'none' }} onChange={handleNcReportUpload} />
+                      </label>
+                    </div>
+
+                    {Array.isArray(form.nc_reports_files) && form.nc_reports_files.length > 0 ? (
+                      <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                        {form.nc_reports_files.map((doc, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff7ed', padding: '10px 14px', borderRadius: 8, border: '1px solid #fed7aa' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <FileText size={16} color="#ea580c" />
+                              <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#9a3412', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                                {doc.name || `NC_Report_${idx + 1}.pdf`}
+                              </a>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: '#dc2626', padding: '2px 8px' }}
+                              onClick={() => {
+                                const updated = form.nc_reports_files.filter((_, i) => i !== idx);
+                                setForm(f => ({
+                                  ...f,
+                                  nc_reports_files: updated,
+                                  nc_report_url: updated[0]?.url || ''
+                                }));
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : form.nc_report_url ? (
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#fff7ed', padding: '10px 14px', borderRadius: 8, border: '1px solid #fed7aa' }}>
+                        <FileText size={16} color="#ea580c" />
+                        <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" style={{ color: '#9a3412', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
+                          NC Report Attached
+                        </a>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, nc_report_url: '', nc_reports_files: [] })}>Remove</button>
+                      </div>
+                    ) : (
+                      <label style={{ display: 'flex', flexDirection: 'column', padding: 18, alignItems: 'center', justifyContent: 'center', border: '2px dashed #fed7aa', borderRadius: 10, cursor: 'pointer', background: '#fffbeb' }}>
+                        <UploadCloud size={22} color="#ea580c" style={{ marginBottom: 6 }} />
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#9a3412' }}>Upload NC Report Documents (Optional / Multiple)</div>
+                        <input type="file" multiple style={{ display: 'none' }} onChange={handleNcReportUpload} />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

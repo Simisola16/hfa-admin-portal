@@ -174,11 +174,15 @@ export default function AuditCard({ audits, status, app, onManage }) {
           </div>
         )}
 
-        {/* Audit Details Section: Render Stage 1 and Stage 2 separately if dual-stage */}
+        {/* Audit Details Section: Render Stage 1 and Stage 2 stacked vertically for GSO */}
         {isDualStage ? (
-          <div>
-            {renderSingleStageBlock(stage1, 'Stage 1 (Initial Visit)')}
-            {renderSingleStageBlock(stage2, 'Stage 2 (Final Visit)')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px', background: '#fafafa' }}>
+              {renderSingleStageBlock(stage1, 'Stage 1 (Initial Visit)')}
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px', background: '#fafafa' }}>
+              {renderSingleStageBlock(stage2, 'Stage 2 (Final Visit)')}
+            </div>
           </div>
         ) : (
           renderSingleStageBlock(stage1)

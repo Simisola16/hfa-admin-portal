@@ -385,8 +385,9 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // 5. Post-Audit Decision (NC vs Clean Close)
-    if (status === 'audit_successful' || status === 'on_hold') {
+    // 5. Post-Audit Decision (NC vs Clean Close & NC Reply)
+    if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || status === 'on_hold') {
+      const isNcActive = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0);
       return (
         <>
           <button
@@ -395,7 +396,7 @@ export default function ApplicationProcessing() {
             onClick={() => setShowNcModal(true)}
             disabled={actionSubmitting}
           >
-            <AlertTriangle size={16} /> Flag NC Report
+            <AlertTriangle size={16} /> {isNcActive ? 'NC Report (View / Reply)' : 'Flag NC Report'}
           </button>
           <button
             className="btn btn-primary"
@@ -403,7 +404,7 @@ export default function ApplicationProcessing() {
             onClick={() => handlePostAuditDecision('audit_report_submitted')}
             disabled={actionSubmitting}
           >
-            <CheckCircle size={16} /> No NC — Close
+            <CheckCircle size={16} /> {isNcActive ? 'Accept & Close NC' : 'No NC — Close'}
           </button>
         </>
       );
@@ -528,7 +529,7 @@ export default function ApplicationProcessing() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              {app.application_number}
+              {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
             </h1>
             <span className={`badge ${STATUS_BADGE[status] || 'badge-gray'}`} style={{ fontSize: 12 }}>
               {STATUS_LABELS[status] || status.replace(/_/g, ' ')}
@@ -536,7 +537,7 @@ export default function ApplicationProcessing() {
             {refreshing && <RefreshCw size={14} style={{ color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-            {app.profiles?.company_name || app.establishment_name} &middot; Submitted {new Date(app.created_at).toLocaleDateString('en-GB')}
+            {app.establishment_address || 'Facility'} &middot; Type: <strong>{app.application_type}</strong> &middot; Submitted {new Date(app.created_at).toLocaleDateString('en-GB')}
           </div>
         </div>
         {!socketConnected && (
@@ -947,7 +948,7 @@ export default function ApplicationProcessing() {
                 </div>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 500, color: '#0f172a' }}>
-                    Application Submission Details — #{app.application_number}
+                    Application Submission Details — {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
                     Original form responses submitted by client on {new Date(app.created_at).toLocaleDateString('en-GB')}

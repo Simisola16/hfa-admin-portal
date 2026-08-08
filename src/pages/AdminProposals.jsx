@@ -91,8 +91,8 @@ export default function AdminProposals() {
               <thead>
                 <tr>
                   <th>Proposal Title</th>
-                  <th>Client</th>
-                  <th>Application Ref</th>
+                  <th>Company / Facility</th>
+                  <th>Standard &amp; Scope</th>
                   <th>Est. Cost</th>
                   <th>Status</th>
                   <th>Date Sent</th>
@@ -101,16 +101,16 @@ export default function AdminProposals() {
               </thead>
               <tbody>
                 {filtered.map(p => (
-                  <tr key={p.id}>
+                  <tr key={p.id || p._id}>
                     <td>
                       <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.title}</div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{p.application_id?.profiles?.company_name || p.application_id?.establishment_name || '—'}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name || 'No contact name'}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{p.application_id?.profiles?.company_name || p.application_id?.establishment_name || p.company_name || '—'}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.application_id?.profiles?.full_name || p.application_id?.managing_director || '—'}</div>
                     </td>
-                    <td>{p.application_id?.application_number}</td>
-                    <td style={{ fontWeight: 600 }}>£{p.estimated_cost || p.amount || '—'}</td>
+                    <td style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>{p.application_id?.category || 'Halal Certification'}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--primary)' }}>£{Number(p.estimated_cost || p.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</td>
                     <td>
                       <span className={`badge ${
                         p.status === 'accepted' ? 'badge-green' : 

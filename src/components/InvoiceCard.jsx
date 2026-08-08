@@ -35,25 +35,52 @@ export default function InvoiceCard({ invoice, status, onConfirmPayment, confirm
   }
 
   const isClientPaid = invoice.status === 'client_paid';
-  const isPaid = invoice.status === 'paid';
+  const isPaid = invoice.status === 'paid' || invoice.status === 'confirmed' || invoice.status === 'payment_received';
 
   return (
-    <div style={{ background: 'white', borderRadius: 20, border: isClientPaid ? '2px solid #fb923c' : '1px solid #e2e8f0', boxShadow: isClientPaid ? '0 0 0 3px rgba(251,146,60,0.12)' : '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{
+      background: isPaid ? '#f0fdf4' : 'white',
+      borderRadius: 20,
+      border: isPaid ? '2px solid #86efac' : isClientPaid ? '2px solid #fb923c' : '1px solid #e2e8f0',
+      boxShadow: isPaid ? '0 0 0 3px rgba(34,197,94,0.15)' : isClientPaid ? '0 0 0 3px rgba(251,146,60,0.12)' : '0 4px 6px -1px rgba(0,0,0,0.05)'
+    }}>
+      <div style={{
+        padding: '20px 24px',
+        borderBottom: `1px solid ${isPaid ? '#bbf7d0' : '#f1f5f9'}`,
+        background: isPaid ? '#dcfce7' : 'transparent',
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: isClientPaid ? '#fff7ed' : '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Receipt size={18} style={{ color: '#ea580c' }} />
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: isPaid ? '#bbf7d0' : isClientPaid ? '#fff7ed' : '#fff7ed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Receipt size={18} style={{ color: isPaid ? '#15803d' : '#ea580c' }} />
           </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Certification Invoice</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No: {invoice.invoice_number} &middot; Status: <span style={{
-              fontWeight: 700,
-              color: isPaid ? '#15803d' : isClientPaid ? '#b45309' : '#b91c1c'
-            }}>{isPaid ? '✓ Payment Confirmed' : isClientPaid ? '⏳ Payment (Awaiting Confirmation)' : 'Unpaid'}</span></div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: isPaid ? '#14532d' : 'var(--text-primary)' }}>Certification Invoice</div>
+            <div style={{ fontSize: 11, color: isPaid ? '#166534' : 'var(--text-muted)' }}>
+              No: {invoice.invoice_number} &middot; Status: <span style={{
+                fontWeight: 800,
+                color: isPaid ? '#15803d' : isClientPaid ? '#b45309' : '#b91c1c',
+                background: isPaid ? '#bbf7d0' : 'transparent',
+                padding: isPaid ? '2px 8px' : '0',
+                borderRadius: isPaid ? 6 : 0
+              }}>{isPaid ? '✓ Payment Confirmed' : isClientPaid ? '⏳ Payment (Awaiting Confirmation)' : 'Unpaid'}</span>
+            </div>
           </div>
         </div>
         {invoice.invoice_url && (
-          <a href={getPdfUrl(invoice.invoice_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#ea580c', borderColor: '#fed7aa' }}>
+          <a href={getPdfUrl(invoice.invoice_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: isPaid ? '#15803d' : '#ea580c', borderColor: isPaid ? '#86efac' : '#fed7aa' }}>
             <Download size={13} /> View Invoice
           </a>
         )}
@@ -61,12 +88,12 @@ export default function InvoiceCard({ invoice, status, onConfirmPayment, confirm
       <div style={{ padding: '20px 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 4 }}>Title</div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{invoice.title}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isPaid ? '#166534' : 'var(--text-muted)', marginBottom: 4 }}>Title</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: isPaid ? '#14532d' : '#0f172a' }}>{invoice.title}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 4 }}>Amount Due</div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--primary)' }}>£{Number(invoice.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isPaid ? '#166534' : 'var(--text-muted)', marginBottom: 4 }}>Amount Paid</div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: isPaid ? '#15803d' : 'var(--primary)' }}>£{Number(invoice.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</div>
           </div>
         </div>
 

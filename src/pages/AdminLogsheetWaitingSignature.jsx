@@ -281,7 +281,6 @@ export default function AdminLogsheetWaitingSignature() {
                 <table className="logsheet-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                      <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>App ID</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signatory Progress</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Waiting Age</th>
@@ -298,20 +297,15 @@ export default function AdminLogsheetWaitingSignature() {
 
                       return (
                         <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          {/* App ID */}
-                          <td style={{ padding: '16px 20px', fontSize: 13, fontWeight: 600 }}>
+                          {/* Company Name */}
+                          <td style={{ padding: '16px 20px', fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
                             <Link 
                               to={`/applications/${appId}/logsheet`}
-                              style={{ color: 'var(--primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              style={{ color: '#0f172a', textDecoration: 'none' }}
                             >
-                              #{l.application_id?.application_number || l._id?.slice(-6).toUpperCase()}
+                              {l.company_name}
                             </Link>
-                          </td>
-
-                          {/* Company Name */}
-                          <td style={{ padding: '16px 20px', fontSize: 13, fontWeight: 600, color: '#0f172a' }}>
-                            <div>{l.company_name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 400, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                               <MapPin size={11} />
                               {l.manufacturing_address || 'Main Site'}
                             </div>

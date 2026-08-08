@@ -19,7 +19,6 @@ const NAV_SECTIONS = [
         icon: Users, label: 'Companies', path: '/clients',
         children: [
           { label: 'All Clients',       path: '/clients' },
-          { label: 'Review List',       path: '/clients?category=review' },
           { label: 'Processing List',   path: '/clients?category=processing' },
         ],
       },
@@ -47,7 +46,13 @@ const NAV_SECTIONS = [
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
-      { icon: Calendar,     label: 'Audits',      path: '/audits' },
+      {
+        icon: Calendar, label: 'Audits', path: '/audits',
+        children: [
+          { label: 'Audit Schedule', path: '/audits' },
+          { label: 'Audit Reports',  path: '/audit-reports' },
+        ],
+      },
       {
         icon: ClipboardList, label: 'Logsheets', path: '/logsheet/manage',
         children: [

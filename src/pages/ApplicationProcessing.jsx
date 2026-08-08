@@ -64,7 +64,10 @@ export default function ApplicationProcessing() {
   const [holdReason, setHoldReason] = useState('');
   const [ncText, setNcText] = useState('');
   const [ncFile, setNcFile] = useState(null);
+  const [ncReplyText, setNcReplyText] = useState('');
+  const [ncReplyFile, setNcReplyFile] = useState(null);
   const [flaggingNc, setFlaggingNc] = useState(false);
+  const [replyingNc, setReplyingNc] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
 
@@ -107,16 +110,6 @@ export default function ApplicationProcessing() {
   }, [fetchApp]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && showSubmissionModal) {
-        setShowSubmissionModal(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSubmissionModal]);
-
-  useEffect(() => {
     const token = localStorage.getItem('hfa_token');
     if (!token) return;
 
@@ -130,13 +123,10 @@ export default function ApplicationProcessing() {
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('connect_error', handleConnectError);
-
-    // Sync initial state
     setSocketConnected(socket.connected);
 
     const handleUpdate = (data) => {
-      if (data.appId === appId) {
-        // Silent re-fetch to sync fresh DB state with zero UI disruption
+      if (data?.appId === appId || data?.id === appId) {
         fetchApp(true);
       }
     };
@@ -149,41 +139,20 @@ export default function ApplicationProcessing() {
       socket.off('connect_error', handleConnectError);
       socket.off('application_updated', handleUpdate);
     };
-  }, [appId]);
-
-  // Fallback Polling (only if socket is disconnected)
-  useEffect(() => {
-    if (socketConnected) return;
-
-    const interval = setInterval(() => fetchApp(true), 20000);
-    return () => clearInterval(interval);
-  }, [socketConnected, fetchApp]);
-
-  const handleConfirmPayment = async () => {
-    if (!invoice) return;
-    setConfirmingPayment(true);
-    try {
-      await api.put(`/api/invoices/${invoice._id || invoice.id}/confirm-payment`, {});
-      setInvoice(prev => ({ ...prev, status: 'paid' }));
-      toast.success('Payment confirmed! Application moved to Payment Received.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to confirm payment.');
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
+  }, [appId, fetchApp]);
 
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
-      const res = await api.put(`/api/applications/${appId}/approve`, { category: approveCategory || app.category });
-      setApp(res.data);
+      const res = await api.put(`/api/applications/${appId}/approve`, {
+        category: approveCategory || app.category
+      });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
       setShowApproveModal(false);
       toast.success('Application accepted successfully!');
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Acceptance failed.');
+      toast.error(err.message || 'Failed to accept application.');
     } finally {
       setActionSubmitting(false);
     }
@@ -197,51 +166,61 @@ export default function ApplicationProcessing() {
     setActionSubmitting(true);
     try {
       const res = await api.put(`/api/applications/${appId}/reject`, { note: rejectReason.trim() });
-      setApp(res.data);
+      setApp(res.data?.data || res.data || { ...app, status: 'rejected' });
       setShowRejectModal(false);
       setRejectReason('');
       toast.success('Application rejected.');
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Rejection failed.');
+      toast.error(err.message || 'Failed to reject application.');
     } finally {
       setActionSubmitting(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    setConfirmingPayment(true);
+    try {
+      await api.post(`/api/invoices/confirm-payment`, {
+        application_id: appId,
+        invoice_id: invoice?._id || invoice?.id
+      });
+      toast.success('Payment confirmed! Client and Admin notified.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm payment.');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const handleConfirmFinalPayment = async () => {
+    setConfirmingPayment(true);
+    try {
+      const targetInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final') || invoice;
+      await api.post(`/api/invoices/confirm-payment`, {
+        application_id: appId,
+        invoice_id: targetInvoice?._id || targetInvoice?.id
+      });
+      toast.success('Final Certification Payment confirmed!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm final payment.');
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
   const handleHoldConfirm = async () => {
     setActionSubmitting(true);
     try {
-      const res = await api.put(`/api/applications/${appId}/status`, {
+      await api.put(`/api/applications/${appId}/status`, {
         status: 'under_review',
-        note: holdReason.trim() || 'Application placed under review / on hold by admin'
+        note: holdReason.trim() || 'Application put on hold for client clarifications.'
       });
-      setApp(res.data?.data || res.data || { ...app, status: 'under_review' });
       setShowHoldModal(false);
       setHoldReason('');
       toast.success('Application status updated to Under Review.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to update status.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handlePostAuditDecision = async (newStatus) => {
-    setActionSubmitting(true);
-    try {
-      const auditObj = audits?.[0] || audits?.data?.[0];
-      const auditId = auditObj?._id || auditObj?.id;
-      if (newStatus === 'audit_report_submitted' && auditId) {
-        await api.post('/api/audits/complete-clean', { audit_id: auditId }).catch(() => {});
-      }
-      const res = await api.put(`/api/applications/${appId}/status`, { 
-        status: newStatus, 
-        note: newStatus === 'audit_report_submitted' ? 'Audit complete with no NCs. Status moved to NC Closed.' : 'Application put on hold post-audit' 
-      });
-      setApp(res.data?.data || res.data || { ...app, status: newStatus });
-      toast.success(newStatus === 'audit_report_submitted' ? 'Audit complete. Status moved to NC Closed.' : 'Application put on hold.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Failed to update status.');
@@ -257,14 +236,11 @@ export default function ApplicationProcessing() {
     }
     const auditObj = audits?.[0] || audits?.data?.[0];
     const auditId = auditObj?._id || auditObj?.id;
-    if (!auditId) {
-      toast.error('No active audit found for this application.');
-      return;
-    }
     setFlaggingNc(true);
     try {
       const formData = new FormData();
-      formData.append('audit_id', auditId);
+      if (auditId) formData.append('audit_id', auditId);
+      formData.append('application_id', appId);
       formData.append('text', ncText.trim());
       if (ncFile) {
         formData.append('nc_document', ncFile);
@@ -279,6 +255,53 @@ export default function ApplicationProcessing() {
       toast.error(err.message || 'Failed to flag NC report.');
     } finally {
       setFlaggingNc(false);
+    }
+  };
+
+  const handleReplyNc = async () => {
+    if (!ncReplyText.trim()) {
+      toast.error('Please enter your reply comments or instructions.');
+      return;
+    }
+    const auditObj = audits?.[0] || audits?.data?.[0];
+    const auditId = auditObj?._id || auditObj?.id;
+    setReplyingNc(true);
+    try {
+      const formData = new FormData();
+      if (auditId) formData.append('audit_id', auditId);
+      formData.append('application_id', appId);
+      formData.append('reply_text', ncReplyText.trim());
+      if (ncReplyFile) {
+        formData.append('reply_document', ncReplyFile);
+      }
+      await api.post('/api/audits/nc-reply', formData);
+      toast.success('Admin reply submitted successfully! Client notified.');
+      setNcReplyText('');
+      setNcReplyFile(null);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit admin reply.');
+    } finally {
+      setReplyingNc(false);
+    }
+  };
+
+  const handleCloseNc = async () => {
+    setActionSubmitting(true);
+    try {
+      const auditObj = audits?.[0] || audits?.data?.[0];
+      const auditId = auditObj?._id || auditObj?.id;
+      if (auditId) {
+        await api.post('/api/audits/complete-clean', { audit_id: auditId }).catch(() => {});
+      }
+      await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
+      toast.success('NC Closed successfully! You can now create the LogSheet.');
+      setShowNcModal(false);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to close NC.');
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
@@ -308,7 +331,8 @@ export default function ApplicationProcessing() {
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
   const isRenewal = app.application_type === 'renewal';
-  const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
+  const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
+  const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
 
   const handleMarkReadyForCertificate = async () => {
@@ -367,7 +391,7 @@ export default function ApplicationProcessing() {
           style={{ gap: 8, background: '#854d0e' }}
           onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
         >
-          <Receipt size={16} /> {invoice ? 'Resend Initial Invoice' : 'Send Initial Invoice'}
+          <Receipt size={16} /> {initialInvoice ? 'Resend Initial Invoice' : 'Send Initial Invoice'}
         </button>
       );
     }
@@ -396,26 +420,24 @@ export default function ApplicationProcessing() {
             onClick={() => setShowNcModal(true)}
             disabled={actionSubmitting}
           >
-            <AlertTriangle size={16} /> {isNcActive ? 'NC Report (View / Reply)' : 'Flag NC Report'}
+            <AlertTriangle size={16} /> {isNcActive ? 'NC Report (View / Reply)' : 'Flag NC'}
           </button>
           <button
             className="btn btn-primary"
             style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={() => handlePostAuditDecision('audit_report_submitted')}
+            onClick={handleCloseNc}
             disabled={actionSubmitting}
           >
-            <CheckCircle size={16} /> {isNcActive ? 'Accept & Close NC' : 'No NC — Close'}
+            <CheckCircle size={16} /> {isNcActive ? 'Accept & Close NC' : 'Close NC'}
           </button>
         </>
       );
     }
 
-    // 6. LogSheet Stage (Create / Sign LogSheet)
-    // If audit report submitted, logsheet created, or logsheet sign requested,
-    // OR if status is application_successful but logsheet is not yet completed/signed:
+    // 6. LogSheet Stage (Create / Sign LogSheet) - After NC is Closed
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned)) {
+    if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned)) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -600,12 +622,13 @@ export default function ApplicationProcessing() {
           {/* Proposal Card */}
           <ProposalCard app={app} proposal={proposal} />
 
-          {/* Invoice Card */}
+          {/* 1. Initial Certification Invoice Card */}
           <InvoiceCard
             app={app}
-            invoice={invoice}
+            invoice={initialInvoice}
             status={app?.status}
-            onConfirmPayment={invoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            isInitial={true}
+            onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
           />
 
@@ -617,6 +640,18 @@ export default function ApplicationProcessing() {
 
           {/* Agreement Card */}
           <AgreementCard app={app} agreement={agreement} />
+
+          {/* 2. Final Halal Certificate Fee Invoice Card */}
+          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+            <InvoiceCard
+              app={app}
+              invoice={finalInvoice}
+              status={app?.status}
+              isFinal={true}
+              onConfirmPayment={finalInvoice?.status === 'client_paid' ? handleConfirmFinalPayment : undefined}
+              confirmingPayment={confirmingPayment}
+            />
+          )}
         </div>
 
         {/* Right Column: Sidebar info */}
@@ -817,65 +852,191 @@ export default function ApplicationProcessing() {
         onSuccess={() => fetchApp(true)}
       />
 
-      {/* Flag NC Report Modal */}
+      {/* Flag / Review NC Modal */}
       {showNcModal && (
         <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowNcModal(false)}>
-          <div className="modal" style={{ maxWidth: 620, width: '92%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 680, width: '92%', maxHeight: '88vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
                   <AlertTriangle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Flag Non-Conformity (NC) Report</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Provide NC report details and attachment for client corrective action</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Non-Conformity (NC) Report & Review' : 'Flag Non-Conformity (NC) Report'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Review client rectification evidence, send official feedback, or close the NC' : 'Provide NC report details and attachment for client corrective action'}
+                  </div>
                 </div>
               </div>
               <button className="modal-close" onClick={() => setShowNcModal(false)}><X size={18} /></button>
             </div>
 
             <div style={{ padding: '24px', display: 'grid', gap: 18, flex: 1, overflowY: 'auto' }}>
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Non-Conformity Description &amp; Required Action *
-                </label>
-                <textarea
-                  className="form-control"
-                  rows={4}
-                  placeholder="Specify audit findings, clause non-compliance, and instructions for client correction..."
-                  value={ncText}
-                  onChange={e => setNcText(e.target.value)}
-                  disabled={flaggingNc}
-                />
-              </div>
+              {/* If NC already exists, display existing findings and client response */}
+              {app.nc_reports && app.nc_reports.length > 0 && (
+                <div style={{ display: 'grid', gap: 14 }}>
+                  {app.nc_reports.map((nc, idx) => (
+                    <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: '#dc2626' }}>
+                          ⚠️ Flagged Observation #{idx + 1}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>
+                          {nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString('en-GB') : ''}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.5, marginBottom: 8 }}>
+                        {nc.text || 'Non-Conformity flagged during audit.'}
+                      </div>
+                      {nc.url && (
+                        <div style={{ marginTop: 6 }}>
+                          <a href={getPdfUrl(nc.url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#dc2626', borderColor: '#fecaca', gap: 6 }}>
+                            <Download size={13} /> View Flagged NC Sheet
+                          </a>
+                        </div>
+                      )}
 
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Upload Official NC Report Document (Optional)
-                </label>
-                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
-                  Attach official audit observation sheet or NC report PDF.
+                      {/* Client rectification evidence */}
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #cbd5e1' }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#15803d', marginBottom: 4 }}>
+                          🛠️ Client Rectification Response
+                        </div>
+                        {nc.client_response ? (
+                          <div style={{ fontSize: 13, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
+                            {nc.client_response}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
+                            ⏳ Client has not yet submitted corrective explanation.
+                          </div>
+                        )}
+                        {(nc.client_response_url || nc.correction_document_url) && (
+                          <div style={{ marginTop: 8 }}>
+                            <a href={getPdfUrl(nc.client_response_url || nc.correction_document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#15803d', borderColor: '#bbf7d0', gap: 6 }}>
+                              <Download size={13} /> View Client Rectification Document
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Previous Admin Reply */}
+                      {nc.admin_reply && (
+                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #cbd5e1' }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#0369a1', marginBottom: 4 }}>
+                            💬 Previous Admin Reply
+                          </div>
+                          <div style={{ fontSize: 13, color: '#075985', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
+                            {nc.admin_reply}
+                          </div>
+                          {nc.admin_reply_document_url && (
+                            <div style={{ marginTop: 8 }}>
+                              <a href={getPdfUrl(nc.admin_reply_document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#0284c7', borderColor: '#bae6fd', gap: 6 }}>
+                                <Download size={13} /> View Admin Reply Document
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg"
-                  onChange={e => setNcFile(e.target.files[0] || null)}
-                  disabled={flaggingNc}
-                  style={{ fontSize: 13 }}
-                />
-                {ncFile && (
-                  <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, marginTop: 6 }}>
-                    Selected file: {ncFile.name}
+              )}
+
+              {/* Admin Reply or New NC Flagging Form */}
+              {app.nc_reports?.length > 0 || status === 'nc_flagged' ? (
+                <div style={{ background: 'white', border: '1.5px solid #bae6fd', borderRadius: 12, padding: 18 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', marginBottom: 8 }}>
+                    Reply to NC / Provide Corrective Instructions
+                  </label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Enter official feedback, guidance, or verification comments for the client..."
+                    value={ncReplyText}
+                    onChange={e => setNcReplyText(e.target.value)}
+                    disabled={replyingNc}
+                  />
+                  <div style={{ marginTop: 12 }}>
+                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                      Attach Admin Feedback Document (Optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.png,.jpg"
+                      onChange={e => setNcReplyFile(e.target.files[0] || null)}
+                      disabled={replyingNc}
+                      style={{ fontSize: 13 }}
+                    />
+                    {ncReplyFile && (
+                      <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, marginTop: 4 }}>
+                        Selected file: {ncReplyFile.name}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ background: '#0284c7', borderColor: '#0284c7' }}
+                      onClick={handleReplyNc}
+                      disabled={replyingNc || !ncReplyText.trim()}
+                    >
+                      {replyingNc ? 'Sending Reply...' : 'Send Admin Reply'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                      Non-Conformity Description &amp; Required Action *
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows={4}
+                      placeholder="Specify audit findings, clause non-compliance, and instructions for client correction..."
+                      value={ncText}
+                      onChange={e => setNcText(e.target.value)}
+                      disabled={flaggingNc}
+                    />
+                  </div>
+
+                  <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
+                      Upload Official NC Report Document (Optional)
+                    </label>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
+                      Attach official audit observation sheet or NC report PDF.
+                    </div>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.png,.jpg"
+                      onChange={e => setNcFile(e.target.files[0] || null)}
+                      disabled={flaggingNc}
+                      style={{ fontSize: 13 }}
+                    />
+                    {ncFile && (
+                      <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, marginTop: 6 }}>
+                        Selected file: {ncFile.name}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-              <button className="btn btn-ghost" onClick={() => setShowNcModal(false)} disabled={flaggingNc}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc || !ncText.trim()}>
-                {flaggingNc ? 'Flagging Report...' : 'Flag NC Report'}
-              </button>
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setShowNcModal(false)} disabled={flaggingNc || replyingNc}>Close</button>
+              {app.nc_reports?.length > 0 || status === 'nc_flagged' ? (
+                <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={handleCloseNc} disabled={actionSubmitting}>
+                  {actionSubmitting ? 'Closing...' : 'Accept & Close NC'}
+                </button>
+              ) : (
+                <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc || !ncText.trim()}>
+                  {flaggingNc ? 'Flagging Report...' : 'Flag NC'}
+                </button>
+              )}
             </div>
           </div>
         </div>

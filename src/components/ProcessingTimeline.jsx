@@ -96,7 +96,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   }
 
   const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
-  const currentIndex = stepsToShow.indexOf(normStatus);
+  const effectiveStatus = (normStatus === 'audit_completed') ? 'audit_successful' : normStatus;
+  const currentIndex = stepsToShow.indexOf(effectiveStatus);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
@@ -111,7 +112,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   return (
     <div style={{ padding: '8px 0' }}>
       {stepsToShow.map((s, idx) => {
-        const histEntry = historyMap[s];
+        const histEntry = historyMap[s] || (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful']) : null);
         const isComplete = currentIndex > idx;
         const isCurrent = currentIndex === idx;
         const isPending = currentIndex < idx;

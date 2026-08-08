@@ -273,15 +273,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
   const handleMarkStageComplete = async (targetAudit) => {
     const auditObj = targetAudit || existingAudit;
     if (!auditObj) return;
-    const isFinalStage = !isDualStage || (auditObj.stage || activeStage) === 2;
-
-    if (isFinalStage) {
-      setShowNcDialog(true);
-    } else {
-      if (window.confirm('Are you sure you want to mark Stage 1 complete and proceed to Stage 2?')) {
-        await executeCleanCompletion(auditObj);
-      }
-    }
+    await executeCleanCompletion(auditObj);
   };
 
   const handleSubmitAuditReport = async () => {

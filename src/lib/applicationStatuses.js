@@ -104,3 +104,5 @@ export const STATUS_BADGE = {
  * After any of these, the client can submit a new application.
  */
 export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];
+
+// HFA yjj, h

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, MailCheck, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminClients() {
@@ -336,31 +336,37 @@ export default function AdminClients() {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                           {isAdmin && (
                             <button
-                              className="btn btn-ghost btn-sm"
+                              type="button"
+                              className="btn btn-sm"
                               style={{ 
-                                color: '#b45309', 
-                                fontWeight: 800, 
-                                border: '1.5px solid #fde68a', 
-                                background: '#fef3c7',
+                                color: '#92400e', 
+                                fontWeight: 600, 
+                                fontSize: '12px',
+                                border: '1px solid #fde68a', 
+                                background: '#fffbeb',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 8,
-                                padding: '6px 12px'
+                                gap: 5,
+                                borderRadius: 6,
+                                height: 32,
+                                padding: '0 10px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
                               }}
                               disabled={impersonatingId !== null}
                               onClick={() => handleImpersonate(c._id)}
-                              title="Log into client dashboard as this client"
+                              title="Log in directly as this client"
                             >
                               {impersonatingId === c._id ? (
                                 <span className="spinner" style={{ width: 12, height: 12, borderTopColor: '#d97706' }} />
                               ) : (
                                 <>
-                                  <Eye size={13} /> Login as Client
+                                  <LogIn size={13} style={{ color: '#d97706' }} />
+                                  <span>Login as Client</span>
                                 </>
                               )}
                             </button>
@@ -368,29 +374,49 @@ export default function AdminClients() {
 
                           {(c.suspension_reason || c.is_active === false || c.is_verified === false) ? (
                             <button 
-                              className="btn btn-primary btn-sm" 
+                              type="button"
+                              className="btn btn-sm" 
                               style={{ 
-                                background: '#16a34a', 
-                                borderColor: '#16a34a', 
-                                fontWeight: 800,
+                                background: '#15803d', 
+                                border: '1px solid #15803d', 
+                                color: '#ffffff',
+                                fontWeight: 600,
+                                fontSize: '12px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 8,
-                                padding: '6px 12px'
+                                gap: 5,
+                                borderRadius: 6,
+                                height: 32,
+                                padding: '0 10px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
                               }}
                               onClick={() => handleStatusChange(c._id, true)}
-                              title="Activate account and verify email immediately"
+                              title="Verify client email and activate account"
                             >
-                              <UserCheck size={13} /> Activate &amp; Verify Email
+                              <MailCheck size={13} />
+                              <span>Verify Email</span>
                             </button>
                           ) : null}
 
                           {!c.suspension_reason && (
                             <button 
-                              className="btn btn-ghost btn-sm" 
-                              style={{ color: '#ef4444', fontWeight: 600, border: '1px solid #fee2e2', borderRadius: 8, padding: '6px 10px' }}
+                              type="button"
+                              className="btn btn-sm" 
+                              style={{ 
+                                color: '#dc2626', 
+                                fontWeight: 600, 
+                                fontSize: '12px',
+                                background: '#ffffff',
+                                border: '1px solid #fecaca', 
+                                borderRadius: 6, 
+                                height: 32,
+                                padding: '0 10px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
                               onClick={() => setSuspensionModal(c)}
+                              title="Suspend this client account"
                             >
                               Suspend
                             </button>

@@ -8,12 +8,13 @@ async function request(method, path, body, isFormData = false) {
   const token = getToken();
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  if (!isFormData) headers['Content-Type'] = 'application/json';
+  const isForm = isFormData || (typeof FormData !== 'undefined' && body instanceof FormData);
+  if (!isForm) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
-    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
   const data = await res.json();

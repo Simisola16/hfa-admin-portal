@@ -247,7 +247,7 @@ export default function ApplicationProcessing() {
       if (ncFile) {
         formData.append('nc_document', ncFile);
       }
-      await api.post('/api/audits/flag-nc', formData);
+      await api.post('/api/audits/flag-nc', formData, true);
       toast.success('NC Report flagged successfully. Client notified.');
       setShowNcModal(false);
       setNcText('');
@@ -276,7 +276,7 @@ export default function ApplicationProcessing() {
       if (ncReplyFile) {
         formData.append('reply_document', ncReplyFile);
       }
-      await api.post('/api/audits/nc-reply', formData);
+      await api.post('/api/audits/nc-reply', formData, true);
       toast.success('Admin reply submitted successfully! Client notified.');
       setNcReplyText('');
       setNcReplyFile(null);

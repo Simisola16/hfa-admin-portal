@@ -4,7 +4,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
   FileText, Search, Trash2, Eye, CheckSquare, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail 
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool 
 } from 'lucide-react';
 
 export default function AdminLogsheetManage() {

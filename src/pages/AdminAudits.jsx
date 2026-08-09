@@ -38,6 +38,33 @@ export default function AdminAudits() {
     audit_completed: 'badge-green'
   };
 
+  const formatProcessStatus = (s) => {
+    if (!s) return 'Pending';
+    const statusMap = {
+      dates_proposed: 'Dates Proposed',
+      dates_accepted: 'Dates Accepted',
+      dates_rejected: 'Dates Rejected',
+      date_finalized: 'Date Finalized',
+      auditors_assigned: 'Auditors Assigned',
+      audit_assigned: 'Auditors Assigned',
+      audit_completed: 'Audit Completed',
+      audit_successful: 'Audit Successful',
+      on_hold: 'On Hold',
+      pending: 'Pending',
+      scheduled: 'Scheduled',
+      in_progress: 'In Progress',
+      nc_flagged: 'NC Flagged',
+      nc_closed: 'NC Closed',
+      audit_report_submitted: 'Audit Report Submitted',
+    };
+    if (statusMap[s]) return statusMap[s];
+    return s
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   const filteredAudits = audits.filter(a => {
     if (filter === 'upcoming') {
       return a.status !== 'audit_completed' && a.status !== 'completed' && a.status !== 'cancelled';
@@ -70,8 +97,8 @@ export default function AdminAudits() {
                       <td><span style={{ fontWeight: 600 }}>{a.audit_type || (a.stage ? `Stage ${a.stage}` : 'Audit')}</span></td>
                       <td style={{fontSize:12}}>{a.scheduled_date || a.finalized_date ? new Date(a.scheduled_date || a.finalized_date).toLocaleDateString('en-GB'):'—'}</td>
                       <td>
-                        <span className={`badge ${STATUS_BADGE[a.status]||'badge-gray'}`} style={{textTransform:'capitalize'}}>
-                          {a.status?.replace(/_/g, ' ')}
+                        <span className={`badge ${STATUS_BADGE[a.status]||'badge-gray'}`} style={{ fontWeight: 700 }}>
+                          {formatProcessStatus(a.status)}
                         </span>
                       </td>
                       <td>

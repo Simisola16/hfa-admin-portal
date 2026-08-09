@@ -19,11 +19,39 @@ export default function AuditCard({ audits, status, app, onManage }) {
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
   const stage2 = audits?.find(a => a.stage === 2);
 
-  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
+  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee', auditor: 'Auditor' };
   const roleColors = {
-    lead_auditor: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+    lead_auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
     sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    audit_trainee: { bg: '#fefce8', color: '#a16207', border: '#fde68a' },
+    audit_trainee: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+    auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+  };
+
+  const formatProcessStatus = (s) => {
+    if (!s) return 'Pending';
+    const statusMap = {
+      dates_proposed: 'Dates Proposed',
+      dates_accepted: 'Dates Accepted',
+      dates_rejected: 'Dates Rejected',
+      date_finalized: 'Date Finalized',
+      auditors_assigned: 'Auditors Assigned',
+      audit_assigned: 'Auditors Assigned',
+      audit_completed: 'Audit Completed',
+      audit_successful: 'Audit Successful',
+      on_hold: 'On Hold',
+      pending: 'Pending',
+      scheduled: 'Scheduled',
+      in_progress: 'In Progress',
+      nc_flagged: 'NC Flagged',
+      nc_closed: 'NC Closed',
+      audit_report_submitted: 'Audit Report Submitted',
+    };
+    if (statusMap[s]) return statusMap[s];
+    return s
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
   };
 
   if (!isAvailable) {
@@ -74,7 +102,7 @@ export default function AuditCard({ audits, status, app, onManage }) {
           const email = a.email || a.user_id?.email || '';
           const phone = a.contact_number || a.phone || a.user_id?.phone || '';
           const role = a.role || 'lead_auditor';
-          const rc = roleColors[role] || roleColors.audit_trainee;
+          const rc = roleColors[role] || roleColors.lead_auditor;
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div>
@@ -102,7 +130,9 @@ export default function AuditCard({ audits, status, app, onManage }) {
         {stageLabel && (
           <div style={{ fontWeight: 800, fontSize: 12, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{stageLabel}</span>
-            <span style={{ fontSize: 11, textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{(auditObj.status || 'pending').replace(/_/g, ' ')}</span>
+            <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+              {formatProcessStatus(auditObj.status)}
+            </span>
           </div>
         )}
         {auditObj.finalized_date ? (
@@ -165,8 +195,8 @@ export default function AuditCard({ audits, status, app, onManage }) {
                   <div style={{ fontSize: 11, fontWeight: 800, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Stage {stageNum} {isLocked ? '🔒' : stageAudit?.status === 'audit_completed' ? '✓' : ''}
                   </div>
-                  <div style={{ fontSize: 11, color: sc.color, marginTop: 2, textTransform: 'capitalize' }}>
-                    {stageAudit ? stageAudit.status.replace(/_/g, ' ') : (isLocked ? 'Locked' : 'Pending')}
+                  <div style={{ fontSize: 11.5, color: sc.color, marginTop: 2, fontWeight: 700 }}>
+                    {formatProcessStatus(stageAudit ? stageAudit.status : (isLocked ? 'Locked' : 'Pending'))}
                   </div>
                 </div>
               );

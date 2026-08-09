@@ -213,11 +213,12 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   };
 
-  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee' };
+  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee', auditor: 'Auditor' };
   const roleColors = {
-    lead_auditor: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+    lead_auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
     sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    audit_trainee: { bg: '#fefce8', color: '#a16207', border: '#fde68a' },
+    audit_trainee: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+    auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
   };
 
   return (

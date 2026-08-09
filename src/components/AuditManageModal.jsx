@@ -213,6 +213,23 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
   };
 
+  const handleCompleteAudit = async () => {
+    setAuditSubmitting(true);
+    try {
+      await api.post('/api/audits/complete-clean', {
+        audit_id: existingAudit?._id || existingAudit?.id,
+        application_id: app._id || app.id
+      });
+      toast.success('Audit session marked as completed successfully!');
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to complete audit');
+    } finally {
+      setAuditSubmitting(false);
+    }
+  };
+
   const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee', auditor: 'Auditor' };
   const roleColors = {
     lead_auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
@@ -592,14 +609,14 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
           )}
 
           {/* View for Assigned / Completed Audits */}
-          {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
+          {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed' || existingAudit?.status === 'date_finalized') && (
             <div>
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
                 <div style={{ fontSize: 12, color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
                   ✓ Confirmed Audit Date
                 </div>
                 <div style={{ fontSize: 15, color: '#15803d', fontWeight: 800 }}>
-                  {new Date(existingAudit.finalized_date).toDateString()}
+                  {existingAudit.finalized_date ? new Date(existingAudit.finalized_date).toDateString() : 'Confirmed'}
                 </div>
               </div>
 
@@ -609,7 +626,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
               <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
                 {existingAudit.auditors?.map((a, idx) => {
-                  const rc = roleColors[a.role] || roleColors.audit_trainee;
+                  const rc = roleColors[a.role] || roleColors.lead_auditor;
                   return (
                     <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -630,12 +647,42 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                   );
                 })}
               </div>
+
+              {existingAudit.status !== 'audit_completed' && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: 12, marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#166534', marginBottom: 4 }}>
+                    Audit Session Conducted?
+                  </div>
+                  <div style={{ fontSize: 12, color: '#15803d', marginBottom: 12 }}>
+                    Click below to mark this audit session completed. This will advance the processing stage and unlock the Non-Conformity (NC) & Findings section.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ background: '#16a34a', borderColor: '#16a34a', width: '100%', gap: 8, justifyContent: 'center', fontWeight: 700 }}
+                    onClick={handleCompleteAudit}
+                    disabled={auditSubmitting}
+                  >
+                    <CheckCircle size={16} /> {auditSubmitting ? 'Completing Audit...' : 'Mark Audit Completed'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
         </div>
-        <div className="modal-footer">
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="btn btn-ghost" onClick={onClose} disabled={auditSubmitting}>Close</button>
+          {existingAudit?.status !== 'audit_completed' && (existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'date_finalized') && (
+            <button
+              className="btn btn-primary"
+              style={{ background: '#16a34a', borderColor: '#16a34a', gap: 6, fontWeight: 700 }}
+              onClick={handleCompleteAudit}
+              disabled={auditSubmitting}
+            >
+              <CheckCircle size={16} /> {auditSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+            </button>
+          )}
         </div>
       </div>
     </div>

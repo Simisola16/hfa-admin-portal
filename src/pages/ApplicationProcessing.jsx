@@ -394,6 +394,23 @@ export default function ApplicationProcessing() {
     }
   };
 
+  const handleMarkAuditCompleted = async () => {
+    setActionSubmitting(true);
+    try {
+      const activeAudit = audits?.find(a => a.status === 'auditors_assigned' || a.status === 'date_finalized') || audits?.[0];
+      await api.post('/api/audits/complete-clean', {
+        audit_id: activeAudit?._id || activeAudit?.id,
+        application_id: appId
+      });
+      toast.success('Audit session marked as completed successfully!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to complete audit');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
   const renderPrimaryAction = () => {
     // 1. Initial Application Review (Accept / Put On Hold / Reject)
     if (status === 'submitted' || status === 'under_review') {
@@ -428,6 +445,28 @@ export default function ApplicationProcessing() {
     if (isRenewal) {
       // 2. Audit Scheduling & Execution (Directly after Accept)
       if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+        if (status === 'audit_assigned' || status === 'date_finalized') {
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Audit
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+              </button>
+            </div>
+          );
+        }
+
         return (
           <button
             className="btn btn-primary"
@@ -565,6 +604,28 @@ export default function ApplicationProcessing() {
 
     // 4. Audit Scheduling & Execution Stage
     if (['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+      if (status === 'audit_assigned' || status === 'date_finalized') {
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Audit
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleMarkAuditCompleted}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+            </button>
+          </div>
+        );
+      }
+
       return (
         <button
           className="btn btn-primary"

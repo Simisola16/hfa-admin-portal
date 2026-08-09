@@ -77,16 +77,29 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             });
             break;
           case 'approved':
-            actionList.push({
-              id: `app-prop-${app._id}`,
-              app,
-              type: 'send_proposal',
-              title: 'Application Accepted: Send Proposal',
-              desc: `Send certification proposal to ${app.establishment_name}`,
-              buttonText: 'Send Proposal',
-              buttonBg: '#6b21a8',
-              isFullPage: false
-            });
+            if (app.application_type === 'renewal') {
+              actionList.push({
+                id: `app-audit-prop-${app._id}`,
+                app,
+                type: 'manage_audit',
+                title: 'Renewal Accepted: Schedule Audit',
+                desc: `Propose audit dates for renewal of ${app.establishment_name}`,
+                buttonText: 'Manage Audit',
+                buttonBg: '#ea580c',
+                isFullPage: false
+              });
+            } else {
+              actionList.push({
+                id: `app-prop-${app._id}`,
+                app,
+                type: 'send_proposal',
+                title: 'Application Accepted: Send Proposal',
+                desc: `Send certification proposal to ${app.establishment_name}`,
+                buttonText: 'Send Proposal',
+                buttonBg: '#6b21a8',
+                isFullPage: false
+              });
+            }
             break;
           case 'proposal_approved':
             actionList.push({
@@ -151,16 +164,29 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             break;
           case 'logsheet_signed':
           case 'application_successful':
-            actionList.push({
-              id: `app-ag-${app._id}`,
-              app,
-              type: 'send_agreement',
-              title: 'Logsheet Signed: Send Agreement',
-              desc: `Send certification agreement to ${app.establishment_name}`,
-              buttonText: 'Send Agreement',
-              buttonBg: '#2563eb',
-              isFullPage: false
-            });
+            if (app.application_type === 'renewal') {
+              actionList.push({
+                id: `app-cert-${app._id}`,
+                app,
+                type: 'issue_certificate',
+                title: 'Renewal LogSheet Signed: Issue Certificate',
+                desc: `Issue renewal halal certificate for ${app.establishment_name}`,
+                buttonText: 'Issue Certificate',
+                buttonBg: '#16a34a',
+                isFullPage: false
+              });
+            } else {
+              actionList.push({
+                id: `app-ag-${app._id}`,
+                app,
+                type: 'send_agreement',
+                title: 'Logsheet Signed: Send Agreement',
+                desc: `Send certification agreement to ${app.establishment_name}`,
+                buttonText: 'Send Agreement',
+                buttonBg: '#2563eb',
+                isFullPage: false
+              });
+            }
             break;
           case 'agreement_signed':
             actionList.push({

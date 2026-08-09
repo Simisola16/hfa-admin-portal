@@ -14,7 +14,7 @@ import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
  */
 export default function ProcessingTimeline({ status, statusHistory = [], category = '', applicationType = '' }) {
   const isRejected = status === 'rejected';
-  const isRenewal = applicationType === 'renewal';
+  const isRenewal = (applicationType || '').toLowerCase() === 'renewal';
   const isGSO = category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
   // Build a lookup from statusHistory entries for quick timestamp/note access
@@ -38,62 +38,108 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     stepsToShow.push('approved');
   }
 
-  // If application is not rejected, we can show proposal and subsequent stages
+  // If application is not rejected, we can show subsequent stages
   if (!appRejectedInHistory) {
-    stepsToShow.push('proposal_sent');
+    if (isRenewal) {
+      // Renewal & GSO Renewal Flow:
+      // Direct to Audit Scheduling after Application Accepted (No Proposal, No Pre-Audit Invoice, No Agreement)
+      stepsToShow.push(
+        'dates_proposed',
+        'dates_accepted',
+        'date_finalized',
+        'audit_assigned',
+        'audit_successful'
+      );
 
-    const proposalRejectedInHistory = status === 'proposal_rejected' || statusHistory.some(h => h.status === 'proposal_rejected');
-    const proposalApprovedInHistory = status === 'proposal_approved' || STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf('proposal_approved');
-
-    if (status === 'proposal_rejected') {
-      stepsToShow.push('proposal_rejected');
-    } else if (proposalApprovedInHistory) {
-      stepsToShow.push('proposal_approved');
-    } else {
-      // If proposal is sent but not decided, show proposal_approved as target
-      stepsToShow.push('proposal_approved');
-    }
-
-    // Rest of the flow
-    const restFlow = [
-      'invoice_sent',
-      'payment_received',
-      'dates_proposed',
-      'dates_accepted',
-      'date_finalized',
-      'audit_assigned',
-      'audit_successful',
-    ];
-    stepsToShow.push(...restFlow);
-
-    // After Audit Complete: Flag NC (if active/in history) and NC Closed
-    const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
-    if (isNcFlagged) {
-      stepsToShow.push('nc_flagged');
-    }
-
-    const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
-    if (isNcClosedOrBeyond || isNcFlagged) {
-      stepsToShow.push('nc_closed');
-    }
-
-    // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
-    if (status !== 'on_hold') {
-      const downstreamSteps = [
-        'logsheet_created',
-        'logsheet_signed',
-        'application_successful',
-        'agreement_sent',
-        'agreement_signed',
-        'agreement_finalised',
-      ];
-      if (!isRenewal) {
-        downstreamSteps.push('final_invoice_sent', 'final_invoice_paid');
+      // After Audit Complete: Flag NC (if active/in history) and NC Closed
+      const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
+      if (isNcFlagged) {
+        stepsToShow.push('nc_flagged');
       }
-      downstreamSteps.push('ready_for_certificate', 'certificate_issued');
-      stepsToShow.push(...downstreamSteps);
+
+      const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
+      if (isNcClosedOrBeyond || isNcFlagged) {
+        stepsToShow.push('nc_closed');
+      }
+
+      // Downstream renewal steps (Invoice -> Payment -> Logsheet -> Certificate)
+      if (status !== 'on_hold') {
+        stepsToShow.push(
+          'invoice_sent',
+          'payment_received',
+          'logsheet_created',
+          'logsheet_signed',
+          'ready_for_certificate',
+          'certificate_issued'
+        );
+      }
+    } else {
+      // Non-Renewal (Initial) flow:
+      stepsToShow.push('proposal_sent');
+
+      const proposalRejectedInHistory = status === 'proposal_rejected' || statusHistory.some(h => h.status === 'proposal_rejected');
+      const proposalApprovedInHistory = status === 'proposal_approved' || STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf('proposal_approved');
+
+      if (status === 'proposal_rejected') {
+        stepsToShow.push('proposal_rejected');
+      } else if (proposalApprovedInHistory) {
+        stepsToShow.push('proposal_approved');
+      } else {
+        // If proposal is sent but not decided, show proposal_approved as target
+        stepsToShow.push('proposal_approved');
+      }
+
+      // Rest of the flow
+      const restFlow = [
+        'invoice_sent',
+        'payment_received',
+        'dates_proposed',
+        'dates_accepted',
+        'date_finalized',
+        'audit_assigned',
+        'audit_successful',
+      ];
+      stepsToShow.push(...restFlow);
+
+      // After Audit Complete: Flag NC (if active/in history) and NC Closed
+      const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
+      if (isNcFlagged) {
+        stepsToShow.push('nc_flagged');
+      }
+
+      const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
+      if (isNcClosedOrBeyond || isNcFlagged) {
+        stepsToShow.push('nc_closed');
+      }
+
+      // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
+      if (status !== 'on_hold') {
+        const downstreamSteps = [
+          'logsheet_created',
+          'logsheet_signed',
+          'application_successful',
+          'agreement_sent',
+          'agreement_signed',
+          'agreement_finalised',
+          'final_invoice_sent',
+          'final_invoice_paid',
+          'ready_for_certificate',
+          'certificate_issued'
+        ];
+        stepsToShow.push(...downstreamSteps);
+      }
     }
   }
+
+  const getStepLabel = (stepKey) => {
+    if (isRenewal) {
+      if (stepKey === 'submitted') return 'Renewal Application Submitted';
+      if (stepKey === 'approved') return 'Renewal Application Accepted';
+      if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
+      if (stepKey === 'payment_received') return 'Renewal Payment Received';
+    }
+    return STATUS_LABELS[stepKey] || stepKey.replace(/_/g, ' ');
+  };
 
   const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
   const effectiveStatus = (normStatus === 'audit_completed') ? 'audit_successful' : normStatus;
@@ -220,7 +266,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
                   {/* GSO-specific label: logsheet_created maps to Shari'a Board Approval */}
                   {s === 'logsheet_created' && isGSO
                     ? 'Waiting for Shari\'a Board Approval'
-                    : (STATUS_LABELS[s] || s.replace(/_/g, ' '))}
+                    : getStepLabel(s)}
                 </span>
                 {isCurrent && (
                   <span style={{

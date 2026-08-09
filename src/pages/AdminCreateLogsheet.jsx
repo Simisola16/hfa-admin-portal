@@ -297,10 +297,19 @@ export default function AdminCreateLogsheet() {
       toast.error('Your authenticated user account does not have an uploaded digital signature. Please upload one under Signatures first.');
       return;
     }
-    if (roleToPreselect) {
+    const unsignedRoles = [
+      { key: 'Mufti', isSigned: !!currentLogsheet?.mufti_signature },
+      { key: 'Ceo', isSigned: !!currentLogsheet?.ceo_signature },
+      { key: 'Manager', isSigned: !!currentLogsheet?.manager_signature },
+      { key: 'Mufti2', isSigned: !!currentLogsheet?.mufti2_signature },
+    ].filter(r => !r.isSigned).map(r => r.key);
+
+    if (roleToPreselect && unsignedRoles.includes(roleToPreselect)) {
       setSigRoles([roleToPreselect]);
-    } else if (sigRoles.length === 0) {
-      setSigRoles(['Mufti']);
+    } else if (unsignedRoles.length > 0) {
+      setSigRoles([unsignedRoles[0]]);
+    } else {
+      setSigRoles([]);
     }
     setModalConfirmed(false);
     setShowSignModal(true);
@@ -1619,17 +1628,20 @@ export default function AdminCreateLogsheet() {
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {[
-                    { key: 'Mufti', label: 'Mufti' },
-                    { key: 'Ceo', label: 'CEO' },
-                    { key: 'Manager', label: 'Manager' },
-                    { key: 'Mufti2', label: 'Mufti 2' },
+                    { key: 'Mufti', label: 'Mufti', isSigned: Boolean(currentLogsheet?.mufti_signature) },
+                    { key: 'Ceo', label: 'CEO', isSigned: Boolean(currentLogsheet?.ceo_signature) },
+                    { key: 'Manager', label: 'Manager', isSigned: Boolean(currentLogsheet?.manager_signature) },
+                    { key: 'Mufti2', label: 'Mufti 2', isSigned: Boolean(currentLogsheet?.mufti2_signature) },
                   ].map(r => {
                     const isSelected = sigRoles.includes(r.key);
+                    const isAlreadySigned = r.isSigned;
                     return (
                       <button
                         key={r.key}
                         type="button"
+                        disabled={isAlreadySigned}
                         onClick={() => {
+                          if (isAlreadySigned) return;
                           if (isSelected) {
                             setSigRoles(sigRoles.filter(role => role !== r.key));
                           } else {
@@ -1639,19 +1651,24 @@ export default function AdminCreateLogsheet() {
                         style={{
                           padding: '10px 14px',
                           borderRadius: 8,
-                          border: `1.5px solid ${isSelected ? 'var(--primary)' : '#e2e8f0'}`,
-                          background: isSelected ? '#f0fdf4' : '#f8fafc',
-                          color: isSelected ? 'var(--primary-dark)' : '#334155',
+                          border: `1.5px solid ${isAlreadySigned ? '#e2e8f0' : isSelected ? 'var(--primary)' : '#e2e8f0'}`,
+                          background: isAlreadySigned ? '#f1f5f9' : isSelected ? '#f0fdf4' : '#f8fafc',
+                          color: isAlreadySigned ? '#94a3b8' : isSelected ? 'var(--primary-dark)' : '#334155',
                           fontWeight: isSelected ? 700 : 500,
                           fontSize: 13,
-                          cursor: 'pointer',
+                          cursor: isAlreadySigned ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between'
+                          justifyContent: 'space-between',
+                          opacity: isAlreadySigned ? 0.7 : 1
                         }}
                       >
-                        <span>{r.label}</span>
-                        {isSelected && <Check size={14} style={{ color: 'var(--primary)' }} />}
+                        <span>
+                          {r.label}
+                          {isAlreadySigned && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginLeft: 6 }}>(Signed)</span>}
+                        </span>
+                        {isSelected && !isAlreadySigned && <Check size={14} style={{ color: 'var(--primary)' }} />}
+                        {isAlreadySigned && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
                       </button>
                     );
                   })}

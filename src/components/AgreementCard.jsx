@@ -51,7 +51,7 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
         </div>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Certification Agreement Ready</div>
         <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4, maxWidth: 420, margin: '4px auto 16px', lineHeight: 1.45 }}>
-          LogSheet has been approved. You can now send the official certification agreement document to the client, or mark it as completed.
+          LogSheet has been approved. You can now send the official certification agreement document to the client.
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           {onReupload && (
@@ -62,17 +62,6 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
               style={{ background: '#2563eb', borderColor: '#2563eb', fontSize: 13, fontWeight: 700, padding: '9px 18px', borderRadius: 9, display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Send size={15} /> Send Agreement
-            </button>
-          )}
-          {onMarkDone && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onMarkDone}
-              disabled={markingDone}
-              style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderColor: '#15803d', fontSize: 13, fontWeight: 700, padding: '9px 18px', borderRadius: 9, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <CheckCircle size={15} /> {markingDone ? 'Marking Done...' : 'Mark Agreement Done'}
             </button>
           )}
         </div>

@@ -117,7 +117,7 @@ export default function LogsheetCard({ logsheet, status, appId, onMarkDone, mark
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {onMarkDone && !isAdvancedPastLogsheet && (
+          {onMarkDone && isComplete && !isAdvancedPastLogsheet && (
             <button
               type="button"
               className="btn btn-primary btn-sm"

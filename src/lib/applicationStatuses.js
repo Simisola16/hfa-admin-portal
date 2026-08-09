@@ -2,6 +2,7 @@
  * applicationStatuses.js
  * Single source of truth for application status ordering, labels, and badge colours.
  * Used by ProcessingTimeline, ApplicationsPage (client), AdminApplications, ApplicationProcessing.
+ * Phases 5–9 extend this file only — no other changes needed.
  */
 
 export const STATUS_ORDER = [
@@ -18,12 +19,12 @@ export const STATUS_ORDER = [
   'dates_accepted',
   'date_finalized',
   'audit_assigned',
+
   'nc_flagged',
   'nc_closed',
   'audit_report_submitted',
   'on_hold',
   'audit_successful',
-  'audit_completed',
   'logsheet_created',
   'logsheet_signed',
   'application_successful',
@@ -36,30 +37,6 @@ export const STATUS_ORDER = [
   'certificate_issued',
 ];
 
-export const RENEWAL_STATUS_ORDER = [
-  'submitted',
-  'under_review',
-  'rejected',
-  'approved',
-  'dates_proposed',
-  'dates_accepted',
-  'date_finalized',
-  'audit_assigned',
-  'nc_flagged',
-  'nc_closed',
-  'audit_report_submitted',
-  'audit_successful',
-  'audit_completed',
-  'on_hold',
-  'invoice_sent',
-  'payment_received',
-  'logsheet_created',
-  'logsheet_signed',
-  'application_successful',
-  'ready_for_certificate',
-  'certificate_issued',
-];
-
 export const STATUS_LABELS = {
   submitted: 'Application Submitted',
   under_review: 'Under Review',
@@ -68,8 +45,8 @@ export const STATUS_LABELS = {
   proposal_sent: 'Proposal Sent',
   proposal_rejected: 'Proposal Rejected',
   proposal_approved: 'Proposal Accepted',
-  invoice_sent: 'Invoice Sent',
-  payment_received: 'Payment Received',
+  invoice_sent: 'Initial Invoice Sent',
+  payment_received: 'Initial Payment Received',
   dates_proposed: 'Audit Dates Proposed',
   dates_accepted: 'Audit Dates Accepted',
   date_finalized: 'Audit Date Finalized',
@@ -77,17 +54,17 @@ export const STATUS_LABELS = {
   nc_flagged: 'NC Flagged',
   nc_closed: 'NC Closed',
   audit_report_submitted: 'NC Closed',
-  on_hold: 'On Hold',
+  on_hold: 'NC Flagged',
   audit_successful: 'Audit Complete',
-  logsheet_created: 'LogSheet Created',
-  logsheet_signed: 'LogSheet Signed',
+  logsheet_created: 'Logsheet Created',
+  logsheet_signed: 'Logsheet Signed',
   application_successful: 'Application Successful',
   agreement_sent: 'Agreement Sent',
   agreement_signed: 'Agreement Signed',
   agreement_finalised: 'Final Agreement Sent',
   final_invoice_sent: 'Final Certification Invoice Sent',
   final_invoice_paid: 'Final Certification Fee Paid',
-  ready_for_certificate: 'Waiting for Certificate',
+  ready_for_certificate: 'Ready for Certificate',
   certificate_issued: 'Certificate Issued',
 };
 
@@ -110,7 +87,7 @@ export const STATUS_BADGE = {
   audit_report_submitted: 'badge-green',
   on_hold: 'badge-yellow',
   audit_successful: 'badge-green',
-  logsheet_created: 'badge-green',
+  logsheet_created: 'badge-yellow',
   logsheet_signed: 'badge-green',
   application_successful: 'badge-green',
   agreement_sent: 'badge-purple',
@@ -127,3 +104,5 @@ export const STATUS_BADGE = {
  * After any of these, the client can submit a new application.
  */
 export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];
+
+// HFA yjj, h

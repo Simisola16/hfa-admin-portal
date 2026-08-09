@@ -416,100 +416,6 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // ─── RENEWAL FLOW (Accept -> Audit -> Invoice -> Logsheet -> Waiting for Certificate -> Certificate) ───
-    if (isRenewal) {
-      // 2. Audit Stage (Accept -> Audit)
-      if (status === 'approved' || ['dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#ea580c' }}
-            onClick={() => setShowAuditModal(true)}
-          >
-            <Calendar size={16} /> Manage Audit
-          </button>
-        );
-      }
-
-      // Post-Audit Decision (Flag NC / Close NC)
-      if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || status === 'on_hold') {
-        return (
-          <>
-            <button
-              className="btn btn-danger"
-              style={{ gap: 8 }}
-              onClick={() => setShowNcModal(true)}
-              disabled={actionSubmitting}
-            >
-              <AlertTriangle size={16} /> Flag NC
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleCloseNc}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> Close NC
-            </button>
-          </>
-        );
-      }
-
-      // 3. Invoice Stage (After Audit -> Invoice)
-      const renewalInvoice = initialInvoice || invoice;
-      const isRenewalInvoicePaid = renewalInvoice?.status === 'paid' || status === 'payment_received';
-
-      if (['nc_closed', 'audit_report_submitted'].includes(status) || (status === 'invoice_sent' && !isRenewalInvoicePaid)) {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#854d0e' }}
-            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
-          >
-            <Receipt size={16} /> {renewalInvoice ? 'Resend Renewal Invoice' : 'Send Renewal Invoice'}
-          </button>
-        );
-      }
-
-      // 4. Logsheet Stage (After Invoice Paid -> Logsheet)
-      if (status === 'payment_received' || ['logsheet_created', 'logsheet_sign_requested'].includes(status)) {
-        const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#0e7490' }}
-            onClick={() => navigate(`/applications/${appId}/logsheet`)}
-            title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          >
-            <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          </button>
-        );
-      }
-
-      // 5. Waiting for Certificate / Issue Certificate Stage
-      if (status === 'ready_for_certificate' || status === 'logsheet_signed' || status === 'application_successful') {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a' }}
-            onClick={() => setShowCertificateModal(true)}
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
-        );
-      }
-
-      // 6. Certificate Issued
-      if (status === 'certificate_issued') {
-        return (
-          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <CheckCircle size={15} /> ✓ Certificate Issued
-          </span>
-        );
-      }
-    }
-
-    // ─── STANDARD FLOW (New Initial Applications) ───────────────────
     // 2. Proposal Stage
     if (status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected') {
       return (
@@ -637,7 +543,9 @@ export default function ApplicationProcessing() {
     }
 
     // 10. Mark Ready for Certificate Stage
-    if (!isRenewal && status === 'final_invoice_paid') {
+    // For non-renewal: once final invoice is paid (status === 'final_invoice_paid')
+    // For renewal: once agreement is finalized (status === 'agreement_finalised')
+    if ((!isRenewal && status === 'final_invoice_paid') || (isRenewal && status === 'agreement_finalised')) {
       return (
         <button
           className="btn btn-primary"
@@ -675,32 +583,9 @@ export default function ApplicationProcessing() {
     return null;
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 44, height: 44, border: '3px solid #e2e8f0', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading application…</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!app) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 24px' }}>
-        <AlertTriangle size={48} style={{ color: '#f59e0b', margin: '0 auto 16px' }} />
-        <h2 style={{ fontWeight: 700, marginBottom: 8 }}>Application Not Found</h2>
-        <button className="btn btn-primary" onClick={() => navigate('/applications')}>
-          <ArrowLeft size={16} /> Back to Applications
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-in" style={{ paddingBottom: 48 }}>
-      {/* Top Bar / Header */}
+    <div className="page-content">
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/applications')}>
           <ArrowLeft size={16} /> Back
@@ -779,20 +664,18 @@ export default function ApplicationProcessing() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
         {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* Proposal Card (New Applications only) */}
-          {!isRenewal && <ProposalCard app={app} proposal={proposal} />}
+          {/* Proposal Card */}
+          <ProposalCard app={app} proposal={proposal} />
 
-          {/* Initial Invoice Card (New Applications only) */}
-          {!isRenewal && (
-            <InvoiceCard
-              app={app}
-              invoice={initialInvoice}
-              status={app?.status}
-              isInitial={true}
-              onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
-              confirmingPayment={confirmingPayment}
-            />
-          )}
+          {/* 1. Initial Certification Invoice Card */}
+          <InvoiceCard
+            app={app}
+            invoice={initialInvoice}
+            status={app?.status}
+            isInitial={true}
+            onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            confirmingPayment={confirmingPayment}
+          />
 
           {/* Audit Card */}
           <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
@@ -807,18 +690,6 @@ export default function ApplicationProcessing() {
             actionSubmitting={actionSubmitting}
           />
 
-          {/* For Renewal Applications: Invoice Card comes after Audit */}
-          {isRenewal && (
-            <InvoiceCard
-              app={app}
-              invoice={initialInvoice || invoice}
-              status={app?.status}
-              isInitial={false}
-              onConfirmPayment={(initialInvoice?.status === 'client_paid' || invoice?.status === 'client_paid') ? handleConfirmPayment : undefined}
-              confirmingPayment={confirmingPayment}
-            />
-          )}
-
           {/* Logsheet Card (Admin Only) */}
           <LogsheetCard 
             logsheet={logsheet} 
@@ -828,20 +699,18 @@ export default function ApplicationProcessing() {
             markingDone={markingLogsheetDone}
           />
 
-          {/* Agreement Card (New Applications only) */}
-          {!isRenewal && (
-            <AgreementCard 
-              app={app} 
-              agreement={agreement} 
-              status={status}
-              onReupload={() => setShowAgreementModal(true)}
-              onMarkDone={handleMarkAgreementDone}
-              markingDone={markingAgreementDone}
-            />
-          )}
+          {/* Agreement Card */}
+          <AgreementCard 
+            app={app} 
+            agreement={agreement} 
+            status={status}
+            onReupload={() => setShowAgreementModal(true)}
+            onMarkDone={handleMarkAgreementDone}
+            markingDone={markingAgreementDone}
+          />
 
-          {/* Final Invoice Card (New Applications only) */}
-          {!isRenewal && (finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {/* 2. Final Halal Certificate Fee Invoice Card */}
+          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

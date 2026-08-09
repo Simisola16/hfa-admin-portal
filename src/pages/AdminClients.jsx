@@ -110,6 +110,16 @@ export default function AdminClients() {
     }
   };
 
+  const handleVerifyEmail = async (id) => {
+    try {
+      await api.put(`/api/users/${id}/verify-email`);
+      toast.success('Client email verified successfully!');
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message || 'Failed to verify email');
+    }
+  };
+
   const handleImpersonate = async (clientId) => {
     setImpersonatingId(clientId);
     try {
@@ -331,8 +341,8 @@ export default function AdminClients() {
                             <span style={{ fontSize: 10, color: '#ef4444', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.suspension_reason}>Reason: {c.suspension_reason}</span>
                           </div>
                         ) : (
-                          <span className={`badge ${c.is_active !== false ? 'badge-green' : 'badge-yellow'}`}>
-                            {c.is_active !== false ? 'Active' : 'Pending Verification'}
+                          <span className={`badge ${c.is_verified ? 'badge-green' : 'badge-yellow'}`}>
+                            {c.is_verified ? 'Email Verified' : 'Unverified Email'}
                           </span>
                         )}
                       </td>
@@ -366,7 +376,8 @@ export default function AdminClients() {
                             </button>
                           )}
 
-                          {(c.suspension_reason || c.is_active === false || c.is_verified === false) ? (
+                          {/* Suspended Client -> Reactivate button */}
+                          {c.suspension_reason && (
                             <button
                               className="btn btn-primary btn-sm"
                               style={{
@@ -380,11 +391,32 @@ export default function AdminClients() {
                                 padding: '6px 12px'
                               }}
                               onClick={() => handleStatusChange(c._id, true)}
-                              title="Activate account and verify email immediately"
+                              title="Reactivate suspended client account"
                             >
-                              <UserCheck size={13} />  &amp; Verify Email
+                              <UserCheck size={13} /> Reactivate
                             </button>
-                          ) : null}
+                          )}
+
+                          {/* Unverified Email -> Verify Email button in case client did not receive email */}
+                          {!c.is_verified && !c.suspension_reason && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              style={{
+                                background: '#0284c7',
+                                borderColor: '#0284c7',
+                                fontWeight: 800,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                borderRadius: 8,
+                                padding: '6px 12px'
+                              }}
+                              onClick={() => handleVerifyEmail(c._id)}
+                              title="Manually verify email (in case client did not receive verification email)"
+                            >
+                              <CheckCircle size={13} /> Verify Email
+                            </button>
+                          )}
 
                           {!c.suspension_reason && (
                             <button

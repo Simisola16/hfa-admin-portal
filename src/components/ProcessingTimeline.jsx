@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle, Circle, XCircle, Clock, ChevronRight } from 'lucide-react';
-import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
+import { STATUS_ORDER, RENEWAL_STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
 
 /**
  * ProcessingTimeline — Reusable vertical stepper component.
@@ -8,9 +8,6 @@ import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
  * Props:
  *   status        (string)  — current application status
  *   statusHistory (array)   — [{ status, changedAt, changedBy, note }]
- *
- * Phases 5–9 automatically get new stages by extending STATUS_ORDER in applicationStatuses.js.
- * No changes to this component needed.
  */
 export default function ProcessingTimeline({ status, statusHistory = [], category = '', applicationType = '' }) {
   const isRejected = status === 'rejected';
@@ -25,6 +22,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     }
   });
 
+  const activeOrder = isRenewal ? RENEWAL_STATUS_ORDER : STATUS_ORDER;
+
   // Dynamically build the list of steps to display
   const stepsToShow = [];
   stepsToShow.push('submitted');
@@ -38,66 +37,107 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     stepsToShow.push('approved');
   }
 
-  // If application is not rejected, we can show proposal and subsequent stages
-  if (!appRejectedInHistory) {
-    stepsToShow.push('proposal_sent');
+  if (isRenewal) {
+    // ─── RENEWAL APPLICATION WORKFLOW ──────────────────────────────
+    // 1. Accept, reject, on hold
+    // 2. Audit
+    // 3. Invoice
+    // 4. Logsheet
+    // 5. Waiting for Certificate
+    // 6. Certificate
+    if (!appRejectedInHistory) {
+      // 2. Audit Stage
+      stepsToShow.push(
+        'dates_proposed',
+        'dates_accepted',
+        'date_finalized',
+        'audit_assigned',
+        'audit_successful'
+      );
 
-    const proposalRejectedInHistory = status === 'proposal_rejected' || statusHistory.some(h => h.status === 'proposal_rejected');
-    const proposalApprovedInHistory = status === 'proposal_approved' || STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf('proposal_approved');
-
-    if (status === 'proposal_rejected') {
-      stepsToShow.push('proposal_rejected');
-    } else if (proposalApprovedInHistory) {
-      stepsToShow.push('proposal_approved');
-    } else {
-      // If proposal is sent but not decided, show proposal_approved as target
-      stepsToShow.push('proposal_approved');
-    }
-
-    // Rest of the flow
-    const restFlow = [
-      'invoice_sent',
-      'payment_received',
-      'dates_proposed',
-      'dates_accepted',
-      'date_finalized',
-      'audit_assigned',
-      'audit_successful',
-    ];
-    stepsToShow.push(...restFlow);
-
-    // After Audit Complete: Flag NC (if active/in history) and NC Closed
-    const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
-    if (isNcFlagged) {
-      stepsToShow.push('nc_flagged');
-    }
-
-    const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
-    if (isNcClosedOrBeyond || isNcFlagged) {
-      stepsToShow.push('nc_closed');
-    }
-
-    // If currently on hold, don't show downstream steps as pending. If NOT on hold, show normal flow.
-    if (status !== 'on_hold') {
-      const downstreamSteps = [
-        'logsheet_created',
-        'logsheet_signed',
-        'application_successful',
-        'agreement_sent',
-        'agreement_signed',
-        'agreement_finalised',
-      ];
-      if (!isRenewal) {
-        downstreamSteps.push('final_invoice_sent', 'final_invoice_paid');
+      const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
+      if (isNcFlagged) {
+        stepsToShow.push('nc_flagged');
       }
-      downstreamSteps.push('ready_for_certificate', 'certificate_issued');
-      stepsToShow.push(...downstreamSteps);
+
+      const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || activeOrder.indexOf(status) >= activeOrder.indexOf('nc_closed');
+      if (isNcClosedOrBeyond || isNcFlagged) {
+        stepsToShow.push('nc_closed');
+      }
+
+      if (status !== 'on_hold') {
+        // 3. Invoice Stage
+        stepsToShow.push('invoice_sent', 'payment_received');
+
+        // 4. Logsheet Stage
+        stepsToShow.push('logsheet_created', 'logsheet_signed');
+
+        // 5. Waiting for Certificate
+        stepsToShow.push('ready_for_certificate');
+
+        // 6. Certificate
+        stepsToShow.push('certificate_issued');
+      }
+    }
+  } else {
+    // ─── STANDARD INITIAL APPLICATION WORKFLOW ──────────────────────
+    if (!appRejectedInHistory) {
+      stepsToShow.push('proposal_sent');
+
+      const proposalRejectedInHistory = status === 'proposal_rejected' || statusHistory.some(h => h.status === 'proposal_rejected');
+      const proposalApprovedInHistory = status === 'proposal_approved' || STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf('proposal_approved');
+
+      if (status === 'proposal_rejected') {
+        stepsToShow.push('proposal_rejected');
+      } else if (proposalApprovedInHistory) {
+        stepsToShow.push('proposal_approved');
+      } else {
+        stepsToShow.push('proposal_approved');
+      }
+
+      // Rest of standard flow
+      const restFlow = [
+        'invoice_sent',
+        'payment_received',
+        'dates_proposed',
+        'dates_accepted',
+        'date_finalized',
+        'audit_assigned',
+        'audit_successful',
+      ];
+      stepsToShow.push(...restFlow);
+
+      const isNcFlagged = status === 'nc_flagged' || statusHistory.some(h => h.status === 'nc_flagged');
+      if (isNcFlagged) {
+        stepsToShow.push('nc_flagged');
+      }
+
+      const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
+      if (isNcClosedOrBeyond || isNcFlagged) {
+        stepsToShow.push('nc_closed');
+      }
+
+      if (status !== 'on_hold') {
+        const downstreamSteps = [
+          'logsheet_created',
+          'logsheet_signed',
+          'application_successful',
+          'agreement_sent',
+          'agreement_signed',
+          'agreement_finalised',
+          'final_invoice_sent',
+          'final_invoice_paid',
+          'ready_for_certificate',
+          'certificate_issued'
+        ];
+        stepsToShow.push(...downstreamSteps);
+      }
     }
   }
 
   const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
   const effectiveStatus = (normStatus === 'audit_completed') ? 'audit_successful' : normStatus;
-  const currentOrderIdx = STATUS_ORDER.indexOf(effectiveStatus);
+  const currentOrderIdx = activeOrder.indexOf(effectiveStatus);
   const currentIndex = stepsToShow.indexOf(effectiveStatus);
 
   const formatDate = (dateStr) => {
@@ -124,7 +164,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
           isCurrent = currentIndex === idx;
           isPending = currentIndex < idx;
         } else {
-          const stepOrderIdx = STATUS_ORDER.indexOf(s);
+          // Fallback using canonical order when current status is an internal / off-timeline status
+          const stepOrderIdx = activeOrder.indexOf(s);
           if (currentOrderIdx !== -1 && stepOrderIdx !== -1) {
             if (stepOrderIdx <= currentOrderIdx) {
               isComplete = true;
@@ -146,129 +187,125 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
           circleColor = '#dc2626'; lineColor = '#fecaca';
           labelColor = '#991b1b'; bgColor = '#fef2f2'; borderColor = '#fecaca';
         } else if (isHoldStep && status === 'on_hold') {
-          circleColor = '#64748b'; lineColor = '#e2e8f0'; // Muted slate/grey
+          circleColor = '#64748b'; lineColor = '#e2e8f0';
           labelColor = '#334155'; bgColor = '#f8fafc'; borderColor = '#cbd5e1';
         } else if (isComplete) {
-          circleColor = '#15803d'; lineColor = '#86efac';
+          circleColor = '#00853b'; lineColor = '#00853b';
           labelColor = '#0f172a'; bgColor = '#f0fdf4'; borderColor = '#bbf7d0';
         } else if (isCurrent) {
-          circleColor = '#2563eb'; lineColor = '#cbd5e1';
-          labelColor = '#0f172a'; bgColor = '#eff6ff'; borderColor = '#2563eb';
+          circleColor = '#00853b'; lineColor = '#e2e8f0';
+          labelColor = '#00853b'; bgColor = '#f0fdf4'; borderColor = '#86efac';
         } else {
           circleColor = '#cbd5e1'; lineColor = '#e2e8f0';
-          labelColor = '#94a3b8'; bgColor = '#ffffff'; borderColor = '#e2e8f0';
+          labelColor = '#94a3b8'; bgColor = 'transparent'; borderColor = 'transparent';
         }
 
         const isLast = idx === stepsToShow.length - 1;
 
-
         return (
-          <div key={s} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
-            {/* Left: circle + vertical line */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 36, flexShrink: 0 }}>
-              <div style={{
-                width: 32, height: 32,
-                borderRadius: '50%',
-                background: (isComplete || isCurrent || (isHoldStep && status === 'on_hold')) ? circleColor : '#f1f5f9',
-                border: isCurrent ? `3px solid ${circleColor}` : `2px solid ${isComplete ? circleColor : '#e2e8f0'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                boxShadow: isCurrent ? `0 0 0 4px rgba(37, 99, 235, 0.18)` : 'none',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                {isRejectedStep && isRejected ? (
-                  <XCircle size={18} color="white" />
-                ) : isHoldStep && status === 'on_hold' ? (
-                  <Clock size={16} color="white" />
-                ) : isComplete ? (
-                  <CheckCircle size={16} color="white" strokeWidth={2.5} />
-                ) : isCurrent ? (
-                  <div style={{
-                    width: 12, height: 12, borderRadius: '50%',
-                    background: 'white',
-                    animation: 'pulse 1.5s ease-in-out infinite',
-                  }} />
-                ) : (
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#cbd5e1' }} />
-                )}
-              </div>
-              {!isLast && (
-                <div style={{
+          <div key={s} style={{ display: 'flex', position: 'relative', minHeight: 48 }}>
+            {/* Connecting line */}
+            {!isLast && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 11,
+                  top: 24,
+                  bottom: -8,
                   width: 2,
-                  flex: 1,
-                  minHeight: 40,
-                  background: isComplete ? '#86efac' : '#e2e8f0',
-                  margin: '2px 0',
-                }} />
+                  backgroundColor: isComplete ? '#00853b' : '#e2e8f0',
+                  zIndex: 1,
+                  transition: 'background-color 0.3s ease',
+                }}
+              />
+            )}
+
+            {/* Step Icon / Circle */}
+            <div style={{ zIndex: 2, marginRight: 14, flexShrink: 0, marginTop: 2 }}>
+              {isRejectedStep && (status === s || (s === 'proposal_rejected' && status === 'proposal_rejected')) ? (
+                <XCircle size={24} style={{ color: '#dc2626', fill: '#fee2e2' }} />
+              ) : isHoldStep && status === 'on_hold' ? (
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: '#f1f5f9', border: '2px solid #64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: '#64748b' }} />
+                </div>
+              ) : isComplete ? (
+                <CheckCircle size={24} style={{ color: '#00853b', fill: '#dcfce7' }} />
+              ) : isCurrent ? (
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: '#f0fdf4', border: '2.5px solid #00853b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 0 0 3px rgba(0, 133, 59, 0.15)',
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00853b' }} />
+                </div>
+              ) : (
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: '#f8fafc', border: '2px solid #cbd5e1',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#cbd5e1' }} />
+                </div>
               )}
             </div>
 
-            {/* Right: content */}
+            {/* Step Content */}
             <div style={{
-              marginLeft: 12,
-              paddingBottom: isLast ? 0 : 24,
               flex: 1,
-              paddingTop: 4,
+              paddingBottom: isLast ? 0 : 16,
+              background: isCurrent ? bgColor : 'transparent',
+              borderRadius: 8,
+              padding: isCurrent ? '4px 8px 12px' : '0 0 16px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                 <span style={{
                   fontSize: 13,
                   fontWeight: isCurrent ? 800 : isComplete ? 700 : 500,
                   color: labelColor,
+                  letterSpacing: isCurrent ? '-0.01em' : 'normal',
                 }}>
-                  {/* GSO-specific label: logsheet_created maps to Shari'a Board Approval */}
-                  {s === 'logsheet_created' && isGSO
-                    ? 'Waiting for Shari\'a Board Approval'
-                    : (STATUS_LABELS[s] || s.replace(/_/g, ' '))}
+                  {STATUS_LABELS[s] || s.replace(/_/g, ' ')}
                 </span>
-                {isCurrent && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: '0.06em', color: '#1d4ed8',
-                    background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 20,
-                  }}>
-                    Current
+                {histEntry?.changedAt && (
+                  <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>
+                    {formatDate(histEntry.changedAt)}
                   </span>
                 )}
               </div>
 
-              {(isComplete || isCurrent) && histEntry && (
-                <div style={{ marginTop: 4 }}>
-                  {histEntry.changedAt && (
-                    <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Clock size={10} />
-                      {formatDate(histEntry.changedAt)}
-                    </div>
-                  )}
-                  {histEntry.note && histEntry.note !== 'Application submitted by client.' && (
-                    <div style={{
-                      marginTop: 4, fontSize: 12, color: isRejectedStep && isRejected ? '#991b1b' : '#475569',
-                      fontStyle: 'italic',
-                      background: isRejectedStep && isRejected ? '#fef2f2' : '#f8fafc',
-                      padding: '4px 10px', borderRadius: 6,
-                      borderLeft: `3px solid ${isRejectedStep && isRejected ? '#fca5a5' : '#cbd5e1'}`,
-                    }}>
-                      {histEntry.note}
-                    </div>
-                  )}
+              {/* Note / metadata from status history */}
+              {histEntry?.note && (isComplete || isCurrent) && (
+                <div style={{
+                  fontSize: 11.5,
+                  color: isCurrent ? '#00662e' : '#64748b',
+                  marginTop: 3,
+                  lineHeight: 1.4,
+                }}>
+                  {histEntry.note}
                 </div>
               )}
 
-              {isPending && (
-                <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>Pending</div>
+              {/* Special message for currently on hold */}
+              {isCurrent && s === 'on_hold' && (
+                <div style={{
+                  fontSize: 11.5,
+                  color: '#475569',
+                  marginTop: 3,
+                  lineHeight: 1.4,
+                  fontStyle: 'italic',
+                }}>
+                  Application is paused. Admin will resume processing once requirements are met.
+                </div>
               )}
             </div>
           </div>
         );
       })}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.8); }
-        }
-      `}</style>
     </div>
   );
 }

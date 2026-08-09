@@ -45,14 +45,14 @@ export default function AdminCreateLogsheet() {
     company_name: '', company_address: '', manufacturing_address: '',
     contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
     nature_of_business: '', product_category: '', current_cycle_start: '',
-    original_cycle_start: '', document_url: '',
+    original_cycle_start: '', document_url: '', document_urls: [], audit_reports: [],
     
     audit_type: 'Initial', audit_date: '', auditors: '', ncs_close: '',
     docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
     reviewer_name: '', review_date: '',
     
-    annual_certificate: 'No', batch_certificate: 'No', new_products_only: 'No',
-    new_site_line: 'No', new_client: 'No', agreement_signed: 'No', status_date: '',
+    annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
+    new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
     
     comment: '', confirmed: false
   });
@@ -64,108 +64,190 @@ export default function AdminCreateLogsheet() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
       if (isAddon) {
         // Fetch add-on application to prefill form defaults
         const addonRes = await api.get(`/api/add-on-applications/${addonId}`);
         const addonData = addonRes.data?.data || addonRes.data;
         setApplication(addonData);
 
-        // Prefill logsheet form from add-on data
-        setForm(f => ({
-          ...f,
-          company_name: addonData.client_id?.company_name || addonData.client_id?.full_name || '',
-          contact_person: addonData.contact_name || '',
-          contact_email: addonData.contact_email || '',
-          audit_type: 'Add-on Product Review'
-        }));
+        const autoCompanyName = addonData.client_id?.company_name || addonData.establishment_name || addonData.client_id?.full_name || '';
+        const autoContactPerson = addonData.contact_name || addonData.client_id?.full_name || '';
+        const autoContactEmail = addonData.contact_email || addonData.client_id?.email || '';
+        const autoCompanyAddress = addonData.establishment_address || addonData.client_id?.address || '';
+        const autoManufacturingAddress = addonData.manufacturer_address || autoCompanyAddress;
+        const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
+        const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
 
         // Check if logsheet already exists
+        let addonLogsheet = null;
         try {
           const logRes = await api.get(`/api/add-on-applications/${addonId}/logsheet`);
-          setCurrentLogsheet(logRes.data?.data || logRes.data);
+          addonLogsheet = logRes.data?.data || logRes.data;
         } catch (e) { /* No logsheet yet */ }
+
+        if (addonLogsheet && addonLogsheet._id) {
+          setCurrentLogsheet(addonLogsheet);
+          setForm(f => ({ ...f, ...addonLogsheet, confirmed: false }));
+        } else {
+          setForm(f => ({
+            ...f,
+            company_name: autoCompanyName,
+            company_address: autoCompanyAddress,
+            manufacturing_address: autoManufacturingAddress,
+            contact_person: autoContactPerson,
+            contact_email: autoContactEmail,
+            nature_of_business: autoNature,
+            product_category: autoProductCat,
+            issue_date: todayStr,
+            expiry_date: oneYearLater,
+            current_cycle_start: todayStr,
+            original_cycle_start: addonData.created_at ? new Date(addonData.created_at).toISOString().split('T')[0] : todayStr,
+            audit_type: 'Add-on Product Review',
+            audit_date: todayStr,
+            auditors: user?.full_name || 'HFA Technical Committee',
+            ncs_close: 'No NCs flagged',
+            docs_satisfactory: 'Satisfactory - all product specifications verified',
+            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
+            reviewed_by: user?.full_name || 'HFA Technical Committee',
+            reviewer_name: user?.full_name || 'Technical Reviewer',
+            review_date: todayStr,
+            annual_certificate: 'No',
+            batch_certificate: 'No',
+            new_products_only: 'Yes',
+            new_site_line: 'No',
+            new_client: 'No',
+            agreement_signed: 'Yes',
+            status_date: todayStr,
+            comment: 'Recommended for add-on product certification endorsement.',
+            confirmed: false
+          }));
+        }
       } else {
         // ── Main application flow ─────────────────────────────────────────
         // 1. Fetch application details
         const appRes = await api.get(`/api/applications/${appId}`);
-        const appData = appRes.data;
+        const appData = appRes.data?.data || appRes.data;
         setApplication(appData);
 
-      // 2. Fetch audit details (if any)
-      let auditData = null;
-      try {
-        const auditRes = await api.get(`/api/audits/application/${appId}`);
-        auditData = auditRes.data?.data || auditRes.data;
-      } catch (e) {
-        console.log('No audit found for this application yet');
-      }
-
-      // 3. See if logsheet exists
-      let logsheetObj = null;
-      let logsheetData = {};
-      try {
-        const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
-        logsheetObj = logRes.data?.data || logRes.data;
-        logsheetData = logsheetObj || {};
-      } catch (e) {
-        // Not found, use defaults from app & audit
-        if (appData) {
-          logsheetData = {
-            company_name: appData.profiles?.company_name || '',
-            company_address: appData.profiles?.address || '',
-            manufacturing_address: appData.sites?.[0]?.address || '',
-            contact_person: appData.profiles?.full_name || '',
-            contact_email: appData.profiles?.email || '',
-            nature_of_business: appData.business_type || '',
-            product_category: appData.product_category || ''
-          };
-
-          if (appData.application_type) {
-            const lowerType = appData.application_type.toLowerCase();
-            if (lowerType.includes('initial')) {
-              logsheetData.audit_type = 'Initial';
-            } else if (lowerType.includes('surveillance')) {
-              logsheetData.audit_type = 'Surveillance';
-            } else if (lowerType.includes('renewal')) {
-              logsheetData.audit_type = 'Re-audit';
-            }
-          }
+        // 2. Fetch audit details (if any)
+        let auditData = null;
+        try {
+          const auditRes = await api.get(`/api/audits/application/${appId}`);
+          auditData = auditRes.data?.data || auditRes.data;
+        } catch (e) {
+          console.log('No audit found for this application yet');
         }
 
-        if (auditData) {
-          if (auditData.finalized_date) {
-            logsheetData.audit_date = auditData.finalized_date;
-          } else if (auditData.selected_dates && auditData.selected_dates.length > 0) {
-            logsheetData.audit_date = auditData.selected_dates[0];
+        // 3. See if logsheet exists
+        let logsheetObj = null;
+        try {
+          const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
+          logsheetObj = logRes.data?.data || logRes.data;
+        } catch (e) {
+          // Not found yet
+        }
+
+        if (logsheetObj && logsheetObj._id) {
+          setCurrentLogsheet(logsheetObj);
+          setForm(f => ({ ...f, ...logsheetObj, confirmed: false }));
+        } else {
+          // Automatic extraction of Company & Site details from application & audits
+          const autoCompanyName = appData?.establishment_name || appData?.site_name || appData?.client_id?.company_name || appData?.profiles?.company_name || '';
+          const autoCompanyAddress = appData?.establishment_address || appData?.client_id?.address || appData?.profiles?.address || '';
+          const autoManufacturingAddress = appData?.manufacturer_address || appData?.establishment_address || appData?.sites?.[0]?.address || autoCompanyAddress;
+          const autoContactPerson = appData?.halal_coordinator || appData?.qa_contact || appData?.managing_director || appData?.client_id?.full_name || appData?.profiles?.full_name || '';
+          const autoContactEmail = appData?.client_id?.email || appData?.profiles?.email || appData?.finance_contact || '';
+          const autoNature = appData?.scope || appData?.business_type || appData?.category || 'Halal Food Production & Processing';
+          const autoProductCategory = appData?.category || appData?.product_category || (appData?.products?.length > 0 ? appData.products.map(p => p.name || p.category).filter(Boolean).slice(0, 5).join(', ') : '') || '';
+
+          let autoAuditType = 'Initial';
+          if (appData?.application_type) {
+            const lt = appData.application_type.toLowerCase();
+            if (lt.includes('initial')) autoAuditType = 'Initial';
+            else if (lt.includes('surveillance')) autoAuditType = 'Surveillance';
+            else if (lt.includes('renewal') || lt.includes('re-audit')) autoAuditType = 'Re-audit';
           }
 
-          if (auditData.auditors && auditData.auditors.length > 0) {
-            logsheetData.auditors = auditData.auditors.map(a => a.name).join(', ');
-          }
+          const auditsArr = Array.isArray(auditData) ? auditData : (auditData ? [auditData] : []);
+          const primaryAudit = auditsArr[0] || null;
 
-          if (auditData.nc_reports) {
-            const outstanding = auditData.nc_reports.filter(nc => nc.status !== 'corrected');
-            if (auditData.nc_reports.length === 0) {
-              logsheetData.ncs_close = 'No NCs flagged';
-            } else if (outstanding.length === 0) {
-              const lastCorrected = auditData.nc_reports.reduce((latest, nc) => {
-                if (!nc.corrected_at) return latest;
-                const d = new Date(nc.corrected_at);
-                return !latest || d > latest ? d : latest;
-              }, null);
-              logsheetData.ncs_close = lastCorrected 
-                ? `All NCs corrected by ${new Date(lastCorrected).toLocaleDateString('en-GB')}`
-                : 'All NCs corrected';
-            } else {
-              logsheetData.ncs_close = `${outstanding.length} NC(s) outstanding`;
+          let autoAuditDate = '';
+          let autoAuditors = '';
+          let autoNcsClose = 'No NCs flagged';
+
+          if (primaryAudit) {
+            if (primaryAudit.finalized_date) {
+              autoAuditDate = new Date(primaryAudit.finalized_date).toISOString().split('T')[0];
+            } else if (primaryAudit.scheduled_date) {
+              autoAuditDate = new Date(primaryAudit.scheduled_date).toISOString().split('T')[0];
+            } else if (primaryAudit.selected_dates && primaryAudit.selected_dates.length > 0) {
+              autoAuditDate = new Date(primaryAudit.selected_dates[0]).toISOString().split('T')[0];
             }
+
+            if (primaryAudit.auditors && primaryAudit.auditors.length > 0) {
+              autoAuditors = primaryAudit.auditors.map(a => a.name || a.full_name).filter(Boolean).join(', ');
+            }
+
+            if (primaryAudit.nc_reports) {
+              const outstanding = primaryAudit.nc_reports.filter(nc => nc.status !== 'corrected' && nc.status !== 'closed');
+              if (primaryAudit.nc_reports.length === 0) {
+                autoNcsClose = 'No NCs flagged';
+              } else if (outstanding.length === 0) {
+                autoNcsClose = 'All NCs closed and verified';
+              } else {
+                autoNcsClose = `${outstanding.length} NC(s) outstanding`;
+              }
+            }
+          } else if (appData?.audit_date) {
+            autoAuditDate = new Date(appData.audit_date).toISOString().split('T')[0];
           }
+
+          const existingReports = appData?.audit_reports?.map(r => ({ name: r.name || 'Audit_Report.pdf', url: r.url, uploaded_at: r.uploaded_at })) || [];
+
+          setForm(f => ({
+            ...f,
+            company_name: autoCompanyName,
+            company_address: autoCompanyAddress,
+            manufacturing_address: autoManufacturingAddress,
+            contact_person: autoContactPerson,
+            contact_email: autoContactEmail,
+            nature_of_business: autoNature,
+            product_category: autoProductCategory,
+            issue_date: todayStr,
+            expiry_date: oneYearLater,
+            current_cycle_start: autoAuditDate || todayStr,
+            original_cycle_start: appData?.created_at ? new Date(appData.created_at).toISOString().split('T')[0] : todayStr,
+            
+            audit_type: autoAuditType,
+            audit_date: autoAuditDate || todayStr,
+            auditors: autoAuditors || (user?.full_name ? `${user.full_name} (Lead Auditor)` : 'Lead Auditor'),
+            ncs_close: autoNcsClose,
+            docs_satisfactory: 'Satisfactory - all documentation verified',
+            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
+            reviewed_by: user?.full_name || 'HFA Technical Committee',
+            reviewer_name: user?.full_name || 'Technical Reviewer',
+            review_date: todayStr,
+            
+            annual_certificate: 'Yes',
+            batch_certificate: 'No',
+            new_products_only: 'No',
+            new_site_line: 'No',
+            new_client: autoAuditType === 'Initial' ? 'Yes' : 'No',
+            agreement_signed: 'Yes',
+            status_date: todayStr,
+            
+            comment: 'Recommended for Halal certification approval following successful audit and compliance review.',
+            confirmed: false,
+            
+            document_urls: existingReports,
+            audit_reports: existingReports,
+            document_url: existingReports[0]?.url || ''
+          }));
         }
       }
-
-      setCurrentLogsheet(logsheetObj);
-      setForm(f => ({ ...f, ...logsheetData, confirmed: false }));
-      } // end else (main application)
 
       // Fetch signatures for signing panel (shared for both modes)
       try {
@@ -202,34 +284,9 @@ export default function AdminCreateLogsheet() {
         document_urls: [...(prev.document_urls || []), ...uploadedDocs],
         audit_reports: [...(prev.audit_reports || []), ...uploadedDocs]
       }));
-      toast.success(`${files.length} report document(s) uploaded!`, { id: 'upload' });
+      toast.success(`${files.length} audit report document(s) uploaded!`, { id: 'upload' });
     } catch (err) {
       toast.error('Upload failed', { id: 'upload' });
-    }
-  };
-
-  const handleNcReportUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    try {
-      toast.loading(`Uploading ${files.length} NC report file(s)...`, { id: 'nc-upload' });
-      const uploadedDocs = [];
-      for (const file of files) {
-        const url = await api.uploadPdf(file, 'logsheets');
-        uploadedDocs.push({
-          name: file.name,
-          url,
-          uploaded_at: new Date()
-        });
-      }
-      setForm(prev => ({
-        ...prev,
-        nc_report_url: prev.nc_report_url || uploadedDocs[0]?.url || '',
-        nc_reports_files: [...(prev.nc_reports_files || []), ...uploadedDocs]
-      }));
-      toast.success(`${files.length} NC report(s) uploaded!`, { id: 'nc-upload' });
-    } catch (err) {
-      toast.error('Upload failed', { id: 'nc-upload' });
     }
   };
 
@@ -325,16 +382,138 @@ export default function AdminCreateLogsheet() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.confirmed) {
-      toast.error('Please confirm the checkbox at the bottom');
-      return;
-    }
-    const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
-    if (!hasAuditReports) {
-      toast.error('Please upload at least 1 official Audit Inspection Report document before creating the logsheet.');
+
+    // 1. Validate Tab 1: Company & Site Details
+    if (!form.company_name?.trim()) {
+      toast.error('Company Name is required (Tab 1)');
       setActiveTab(1);
       return;
     }
+    if (!form.contact_person?.trim()) {
+      toast.error('Contact Person is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.company_address?.trim()) {
+      toast.error('Company Address is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.manufacturing_address?.trim()) {
+      toast.error('Manufacturing Site Address is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.contact_email?.trim()) {
+      toast.error('Contact Email is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.nature_of_business?.trim()) {
+      toast.error('Nature of Business is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.product_category?.trim()) {
+      toast.error('Product Category is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.issue_date) {
+      toast.error('Issue Date of Certificate is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.expiry_date) {
+      toast.error('Expiry Date of Certificate is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.current_cycle_start) {
+      toast.error('Current Cycle Start Date is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+    if (!form.original_cycle_start) {
+      toast.error('Original Cycle Start Date is required (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
+
+    const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
+    if (!hasAuditReports) {
+      toast.error('Please upload at least 1 Audit Report document before creating the logsheet (Tab 1).');
+      setActiveTab(1);
+      return;
+    }
+
+    // 2. Validate Tab 2: Review of Application
+    if (!form.audit_type?.trim()) {
+      toast.error('Audit Type is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.audit_date) {
+      toast.error('Audit Date is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.auditors?.trim()) {
+      toast.error('Auditor(s) are required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.ncs_close?.trim()) {
+      toast.error('NCS Close status is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.docs_satisfactory?.trim()) {
+      toast.error('Documentation Review Status is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.pork_free_statement?.trim()) {
+      toast.error('Pork Free Statement is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.reviewed_by?.trim()) {
+      toast.error('Reviewed By is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.reviewer_name?.trim()) {
+      toast.error('Reviewer Name is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+    if (!form.review_date) {
+      toast.error('Date of Review is required (Tab 2)');
+      setActiveTab(2);
+      return;
+    }
+
+    // 3. Validate Tab 3: Certificate Status
+    if (!form.status_date) {
+      toast.error('Status Date is required (Tab 3)');
+      setActiveTab(3);
+      return;
+    }
+
+    // 4. Validate Tab 4: Comment
+    if (!form.comment?.trim()) {
+      toast.error('Comment / Reason for Decision is required (Tab 4)');
+      setActiveTab(4);
+      return;
+    }
+
+    // 5. Confirmation
+    if (!form.confirmed) {
+      toast.error('Please confirm the verification checkbox at the bottom');
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (isAddon) {
@@ -343,7 +522,6 @@ export default function AdminCreateLogsheet() {
           ...form,
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
-          nc_reports_files: form.nc_reports_files || [],
           client_id: application?.client_id?._id || application?.client_id,
         });
         toast.success('Logsheet created for add-on application!');
@@ -353,7 +531,6 @@ export default function AdminCreateLogsheet() {
           ...form,
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
-          nc_reports_files: form.nc_reports_files || [],
           application_id: application.id || application._id,
           client_id: application.client_id,
           site_id: application.site_id
@@ -495,27 +672,27 @@ export default function AdminCreateLogsheet() {
       {/* DOCUMENT-STYLE PRESENTATION CARD */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
         
-        {/* Official Document Header */}
-        <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', padding: '28px 32px', borderBottom: '1px solid #334155' }}>
+        {/* Official Document Header - Bright Modern HFA Emerald Theme */}
+        <div style={{ background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', padding: '24px 30px', borderBottom: '1px solid #0f766e' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', color: '#38bdf8', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', color: '#ffffff', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(255,255,255,0.3)' }}>
                 <CheckSquare size={12} /> OFFICIAL CERTIFICATION DECISION RECORD
               </div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
                 Halal Certification Audit Logsheet
               </h2>
-              <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>
-                Halal Food Authority — Technical & Shariah Committee Decision File
+              <p style={{ fontSize: 13, color: '#d1fae5', margin: '4px 0 0' }}>
+                Halal Food Authority — Technical &amp; Shariah Committee Decision File
               </p>
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Application Reference</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#38bdf8', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Application Reference</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
                 #{application?.application_number || 'N/A'}
               </div>
-              <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
                 Audit Type: <strong>{form.audit_type || 'Initial'}</strong>
               </div>
             </div>
@@ -526,11 +703,11 @@ export default function AdminCreateLogsheet() {
         {!isReadOnly && (
           <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             {[
-              { id: 1, label: 'Company Details', icon: Building },
-              { id: 2, label: 'Review of Application', icon: FileText },
-              { id: 3, label: 'Certificate Status', icon: Award },
-              { id: 4, label: 'Comment / Reason', icon: MessageSquare }
-            ].map((tab, idx) => {
+              { id: 1, label: '1. Company & Site Details', icon: Building },
+              { id: 2, label: '2. Review of Application', icon: FileText },
+              { id: 3, label: '3. Certificate Status', icon: Award },
+              { id: 4, label: '4. Comment / Reason', icon: MessageSquare }
+            ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -545,11 +722,11 @@ export default function AdminCreateLogsheet() {
                     justifyContent: 'center',
                     gap: 8,
                     padding: '14px 16px',
-                    fontWeight: isActive ? 600 : 500,
+                    fontWeight: isActive ? 700 : 500,
                     color: isActive ? 'var(--primary)' : '#64748b',
                     background: isActive ? '#fff' : 'transparent',
                     border: 'none',
-                    borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                    borderBottom: isActive ? '2.5px solid var(--primary)' : '2.5px solid transparent',
                     cursor: 'pointer',
                     fontSize: 13
                   }}
@@ -569,7 +746,7 @@ export default function AdminCreateLogsheet() {
             <div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Building size={16} style={{ color: 'var(--primary)' }} />
-                1. Company & Site Details
+                1. Company &amp; Site Details
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
                 <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -604,7 +781,7 @@ export default function AdminCreateLogsheet() {
             <div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Calendar size={16} style={{ color: 'var(--primary)' }} />
-                2. Certification Validity & Cycle Dates
+                2. Certification Validity &amp; Cycle Dates
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -630,12 +807,12 @@ export default function AdminCreateLogsheet() {
             <div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FileText size={16} style={{ color: 'var(--primary)' }} />
-                3. Audit & Technical Compliance Review
+                3. Audit &amp; Technical Compliance Review
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                 <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT TYPE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#4f46e5', marginTop: 2 }}>{form.audit_type || 'Initial'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0d9488', marginTop: 2 }}>{form.audit_type || 'Initial'}</div>
                 </div>
                 <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT DATE</div>
@@ -664,7 +841,7 @@ export default function AdminCreateLogsheet() {
             <div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Award size={16} style={{ color: 'var(--primary)' }} />
-                4. Scope & Certificate Scope Checks
+                4. Scope &amp; Certificate Scope Checks
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                 {[
@@ -690,7 +867,7 @@ export default function AdminCreateLogsheet() {
               <div>
                 <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
-                  5. Committee Comments & Recommendation Notes
+                  5. Committee Comments &amp; Recommendation Notes
                 </h4>
                 <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                   {form.comment}
@@ -698,15 +875,36 @@ export default function AdminCreateLogsheet() {
               </div>
             )}
 
-            {/* Supporting Attachments */}
-            {(form.document_url || form.nc_report_url) && (
+            {/* Attached Audit Reports */}
+            {((form.document_urls && form.document_urls.length > 0) || form.document_url) && (
               <div>
                 <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FileText size={16} style={{ color: 'var(--primary)' }} />
-                  Attached Supporting Documents
+                  Attached Audit Reports
                 </h4>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  {form.document_url && (
+                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                    form.document_urls.map((doc, idx) => (
+                      <a
+                        key={idx}
+                        href={getPdfUrl(doc.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        onClick={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const fullUrl = getPdfUrl(doc.url);
+                          if (fullUrl && fullUrl !== '#') {
+                            window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                      >
+                        <Download size={14} /> {doc.name || `Audit Report ${idx + 1}`}
+                      </a>
+                    ))
+                  ) : form.document_url ? (
                     <a
                       href={getPdfUrl(form.document_url)}
                       target="_blank"
@@ -722,28 +920,9 @@ export default function AdminCreateLogsheet() {
                         }
                       }}
                     >
-                      <Download size={14} /> Logsheet Attachment PDF
+                      <Download size={14} /> Audit Report PDF
                     </a>
-                  )}
-                  {form.nc_report_url && (
-                    <a
-                      href={getPdfUrl(form.nc_report_url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-outline btn-sm"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const fullUrl = getPdfUrl(form.nc_report_url);
-                        if (fullUrl && fullUrl !== '#') {
-                          window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                        }
-                      }}
-                    >
-                      <Download size={14} /> NC Report Attachment PDF
-                    </a>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}
@@ -757,68 +936,92 @@ export default function AdminCreateLogsheet() {
                     Committee Signatures
                   </h4>
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                    Official digital signatures applied by authorized Shariah & Management signatories.
+                    Official digital signatures applied by authorized Shariah &amp; Management signatories.
                   </p>
                 </div>
-
-                {!isFullySigned && (
+                {totalSignedCount < 4 && (
                   <button 
-                    type="button"
                     onClick={() => openSigningModal()}
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-outline btn-sm"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
                   >
-                    <PenTool size={14} /> Apply Signature
+                    <PenTool size={14} /> Add Signature
                   </button>
                 )}
               </div>
 
-              {/* 4 Signatory Grid */}
+              {/* 4-Role Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                 {signatories.map((s, idx) => (
                   <div 
                     key={idx} 
                     style={{ 
-                      border: `1.5px solid ${s.signature ? '#bbf7d0' : '#e2e8f0'}`, 
+                      border: `1.5px solid ${s.signature ? '#86efac' : '#e2e8f0'}`,
                       borderRadius: 10, 
                       padding: 16, 
-                      background: s.signature ? '#f0fdf4' : '#fafafa', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      minHeight: 140, 
-                      textAlign: 'center',
-                      position: 'relative'
+                      background: s.signature ? '#f0fdf4' : '#fafafa',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: 170
                     }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 700, color: s.signature ? '#15803d' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {s.label}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: s.signature ? '#166534' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {s.label}
+                        </span>
+                        {s.signature ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: 10 }}>
+                            <Check size={12} /> Signed
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: 10 }}>
+                            Pending
+                          </span>
+                        )}
+                      </div>
+
+                      {s.signature ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 50, marginBottom: 8 }}>
+                            <img 
+                              src={getPdfUrl(s.signature)} 
+                              alt={`${s.label} Signature`} 
+                              style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }} 
+                            />
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{s.name || 'Authorised Signatory'}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ height: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1.5px dashed #cbd5e1', borderRadius: 6, margin: '8px 0', background: '#fff' }}>
+                          <PenTool size={18} style={{ color: '#94a3b8', marginBottom: 4 }} />
+                          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Awaiting Signature</span>
+                        </div>
+                      )}
                     </div>
 
-                    {s.signature ? (
-                      <div style={{ margin: '8px 0', width: '100%' }}>
-                        <img 
-                          src={getPdfUrl(s.signature)} 
-                          alt={`${s.label} Signature`} 
-                          style={{ maxHeight: 48, maxWidth: 160, objectFit: 'contain', margin: '0 auto', display: 'block' }} 
-                        />
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#14532d', marginTop: 4 }}>
-                          {s.name || 'Signatory'}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#166534', opacity: 0.8 }}>
-                          {s.date ? new Date(s.date).toLocaleDateString('en-GB') : 'Signed'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ margin: '16px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontStyle: 'italic', color: '#94a3b8' }}>Awaiting Signature</span>
-                        {!isFullySigned && (
-                          <button 
-                            type="button" 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', border: '1px solid #cbd5e1', padding: '3px 10px', background: '#fff' }}
+                    {!s.signature && (
+                      <div style={{ marginTop: 8 }}>
+                        {userSignature ? (
+                          <button
+                            type="button"
                             onClick={() => openSigningModal(s.roleKey)}
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', fontSize: 12, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                          >
+                            <PenTool size={13} /> Sign as {s.roleKey}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', fontSize: 11, padding: '6px 10px', opacity: 0.6 }}
+                            title="Upload signature in Signatures page first"
                           >
                             Sign as {s.roleKey}
                           </button>
@@ -883,65 +1086,73 @@ export default function AdminCreateLogsheet() {
           <form onSubmit={handleSubmit} style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
             {activeTab === 1 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                {/* Auto-populated Indicator Banner */}
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, gridColumn: '1 / -1', marginBottom: 4 }}>
+                  <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  <div style={{ fontSize: 13, color: '#166534', fontWeight: 500 }}>
+                    <strong>Company &amp; Site Details Auto-Populated:</strong> Application data has been automatically loaded. All fields are required to fill before creation.
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label">Company Name</label>
-                  <input type="text" className="form-control" value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
+                  <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} placeholder="Enter company name" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Contact Person</label>
-                  <input type="text" className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
+                  <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} placeholder="Enter contact person" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Company Address</label>
-                  <input type="text" className="form-control" value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} />
+                  <label className="form-label">Company Address <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} placeholder="Enter registered company address" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Manufacturing Address</label>
-                  <input type="text" className="form-control" value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} />
+                  <label className="form-label">Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} placeholder="Enter manufacturing site address" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Contact E-mail</label>
-                  <input type="email" className="form-control" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
+                  <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="email" className="form-control" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="name@company.com" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nature of the business</label>
-                  <input type="text" className="form-control" value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} />
+                  <label className="form-label">Nature of the business <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} placeholder="e.g. Halal Food Production" />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Product Category</label>
-                  <input type="text" className="form-control" value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} />
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Product Category <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} placeholder="e.g. Category C - Food Manufacturing" />
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label">Issue date of certificate</label>
-                  <input type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
+                  <label className="form-label">Issue date of certificate <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Expiry date of certificate</label>
-                  <input type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
+                  <label className="form-label">Expiry date of certificate <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" value={form.expiry_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Current Cycle Start Date</label>
-                  <input type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
+                  <label className="form-label">Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" value={form.current_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, current_cycle_start: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Original Cycle Start Date</label>
-                  <input type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
+                  <label className="form-label">Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
                 </div>
 
-                {/* Multi-File Uploader for Audit Reports and NC Reports */}
-                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                {/* Audit Reports Upload Section Only */}
+                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 22, borderRadius: 12, border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div>
-                      <label className="form-label" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                        1. Audit Inspection Reports <span style={{ color: '#dc2626' }}>* (Required — Multiple Files Supported)</span>
+                      <label className="form-label" style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                        Audit Reports <span style={{ color: '#dc2626' }}>* (Required)</span>
                       </label>
-                      <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                        Upload all official audit findings, checklist documents, and technical evaluation reports.
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                        Upload official audit inspection reports, findings, and technical evaluation documents.
                       </div>
                     </div>
                     <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                      <UploadCloud size={14} /> Add Report Files
+                      <UploadCloud size={14} /> Add Audit Reports
                       <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
                     </label>
                   </div>
@@ -981,78 +1192,16 @@ export default function AdminCreateLogsheet() {
                       <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
                         Audit Report Uploaded Successfully
                       </a>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [] })}>Remove</button>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [], audit_reports: [] })}>Remove</button>
                     </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', padding: 20, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
-                      <UploadCloud size={24} color="#0e7490" style={{ marginBottom: 6 }} />
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
-                      <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>You can select more than 1 file (PDF, DOCX, PNG)</div>
+                    <label style={{ display: 'flex', flexDirection: 'column', padding: 22, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
+                      <UploadCloud size={26} color="#0d9488" style={{ marginBottom: 6 }} />
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Select 1 or more files (PDF, DOCX, PNG)</div>
                       <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
                     </label>
                   )}
-
-                  {/* NC Report Files Section */}
-                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px dashed #cbd5e1' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <div>
-                        <label className="form-label" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                          2. NC Reports &amp; Corrective Action Proofs (Upload 1 or More Files)
-                        </label>
-                        <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                          Attach all Non-Conformity reports, audit corrective action evidence, or audit response letters.
-                        </div>
-                      </div>
-                      <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                        <UploadCloud size={14} /> Add NC Files
-                        <input type="file" multiple style={{ display: 'none' }} onChange={handleNcReportUpload} />
-                      </label>
-                    </div>
-
-                    {Array.isArray(form.nc_reports_files) && form.nc_reports_files.length > 0 ? (
-                      <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                        {form.nc_reports_files.map((doc, idx) => (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff7ed', padding: '10px 14px', borderRadius: 8, border: '1px solid #fed7aa' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <FileText size={16} color="#ea580c" />
-                              <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#9a3412', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                                {doc.name || `NC_Report_${idx + 1}.pdf`}
-                              </a>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              style={{ color: '#dc2626', padding: '2px 8px' }}
-                              onClick={() => {
-                                const updated = form.nc_reports_files.filter((_, i) => i !== idx);
-                                setForm(f => ({
-                                  ...f,
-                                  nc_reports_files: updated,
-                                  nc_report_url: updated[0]?.url || ''
-                                }));
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : form.nc_report_url ? (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#fff7ed', padding: '10px 14px', borderRadius: 8, border: '1px solid #fed7aa' }}>
-                        <FileText size={16} color="#ea580c" />
-                        <a href={getPdfUrl(form.nc_report_url)} target="_blank" rel="noreferrer" style={{ color: '#9a3412', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
-                          NC Report Attached
-                        </a>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, nc_report_url: '', nc_reports_files: [] })}>Remove</button>
-                      </div>
-                    ) : (
-                      <label style={{ display: 'flex', flexDirection: 'column', padding: 18, alignItems: 'center', justifyContent: 'center', border: '2px dashed #fed7aa', borderRadius: 10, cursor: 'pointer', background: '#fffbeb' }}>
-                        <UploadCloud size={22} color="#ea580c" style={{ marginBottom: 6 }} />
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#9a3412' }}>Upload NC Report Documents (Optional / Multiple)</div>
-                        <input type="file" multiple style={{ display: 'none' }} onChange={handleNcReportUpload} />
-                      </label>
-                    )}
-                  </div>
                 </div>
               </div>
             )}
@@ -1060,44 +1209,45 @@ export default function AdminCreateLogsheet() {
             {activeTab === 2 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 <div className="form-group">
-                  <label className="form-label">Audit Type</label>
-                  <select className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
+                  <label className="form-label">Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
                     <option value="Initial">Initial</option>
                     <option value="Surveillance">Surveillance</option>
                     <option value="Re-audit">Re-audit</option>
+                    <option value="Add-on Product Review">Add-on Product Review</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Audit Date</label>
-                  <input type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
+                  <label className="form-label">Audit Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Auditors</label>
-                  <input type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
+                  <label className="form-label">Auditors <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">NCS Close (if any)</label>
-                  <input type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} />
+                  <label className="form-label">NCS Close (if any) <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} placeholder="e.g. No NCs flagged / All NCs closed" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Audit Documentation reviewed and found satisfactory</label>
-                  <input type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} />
+                  <label className="form-label">Audit Documentation reviewed and found satisfactory <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} placeholder="e.g. Satisfactory - all documentation verified" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Pork free statement / signed pork policy submitted</label>
-                  <input type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} />
+                  <label className="form-label">Pork free statement / signed pork policy submitted <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} placeholder="e.g. Confirmed - signed pork-free declaration in place" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Reviewed By</label>
-                  <input type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} />
+                  <label className="form-label">Reviewed By <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} placeholder="e.g. HFA Technical Committee" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Reviewer Name</label>
-                  <input type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} />
+                  <label className="form-label">Reviewer Name <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} placeholder="e.g. Lead Technical Reviewer" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Date of Review</label>
-                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
+                  <label className="form-label">Date of Review <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
                 </div>
               </div>
             )}
@@ -1105,52 +1255,53 @@ export default function AdminCreateLogsheet() {
             {activeTab === 3 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 <div className="form-group">
-                  <label className="form-label">Annual certificate</label>
-                  <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
+                  <label className="form-label">Annual certificate <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Batch certificate</label>
-                  <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
+                  <label className="form-label">Batch certificate <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Only addition of new products</label>
-                  <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
+                  <label className="form-label">Only addition of new products <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Addition of new site (or line)</label>
-                  <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
+                  <label className="form-label">Addition of new site (or line) <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">New Client</label>
-                  <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
+                  <label className="form-label">New Client <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Agreement Signed</label>
-                  <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
+                  <label className="form-label">Agreement Signed <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select required className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Status Date</label>
-                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
+                  <label className="form-label">Status Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
                 </div>
               </div>
             )}
 
             {activeTab === 4 && (
               <div className="form-group">
-                <label className="form-label">Comment / Reason for Decision</label>
+                <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
                 <textarea 
+                  required
                   className="form-control" 
                   rows={8}
                   style={{ fontSize: 14, padding: 14 }}
@@ -1170,8 +1321,8 @@ export default function AdminCreateLogsheet() {
                   onChange={e => setForm({ ...form, confirmed: e.target.checked })}
                   style={{ width: 18, height: 18, cursor: 'pointer' }}
                 />
-                <span style={{ fontSize: 13, fontWeight: 500, color: '#334155' }}>
-                  I confirm that all product matrix and audit compliance details above have been verified.
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
+                  I confirm that all product matrix and audit compliance details above have been verified. <span style={{ color: '#dc2626' }}>*</span>
                 </span>
               </label>
 
@@ -1180,7 +1331,7 @@ export default function AdminCreateLogsheet() {
                   type="submit" 
                   className="btn btn-primary" 
                   disabled={submitting || !form.confirmed} 
-                  style={{ padding: '10px 24px', fontSize: 14, fontWeight: 600 }}
+                  style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700 }}
                 >
                   {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
                 </button>
@@ -1212,10 +1363,10 @@ export default function AdminCreateLogsheet() {
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
             animation: 'slideDown 0.2s ease-out'
           }}>
-            {/* Modal Header */}
-            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Modal Header - Emerald Gradient Theme */}
+            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <PenTool size={20} style={{ color: '#38bdf8' }} />
+                <PenTool size={20} style={{ color: '#ffffff' }} />
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Apply Committee Electronic Signature</h3>
               </div>
               <button 

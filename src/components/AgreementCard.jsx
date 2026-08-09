@@ -117,8 +117,8 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
             </button>
           )}
 
-          {/* Mark Agreement Done Button */}
-          {onMarkDone && !isFinalized && (
+          {/* Mark Agreement Done Button - only after client sends signed agreement */}
+          {onMarkDone && !isFinalized && (agreement?.client_signed || agreement?.signed_agreement_url) && (
             <button
               type="button"
               className="btn btn-primary btn-sm"

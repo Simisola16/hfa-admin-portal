@@ -449,7 +449,7 @@ export default function ApplicationProcessing() {
     const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
     const canCompleteAudit = isDualStage
       ? (stage1?.status === 'audit_completed' && isStage2Ready)
-      : (status === 'audit_assigned' || status === 'date_finalized' || stage1?.status === 'auditors_assigned');
+      : (status === 'audit_assigned' || stage1?.status === 'auditors_assigned');
 
     if (isRenewal) {
       // 2. Audit Scheduling & Execution (Directly after Accept)

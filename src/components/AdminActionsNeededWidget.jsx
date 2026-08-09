@@ -130,10 +130,10 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
               id: `app-auditassign-${app._id}`,
               app,
               type: 'manage_audit',
-              title: 'Auditors Assigned: Complete Audit',
-              desc: `Mark audit session completed for ${app.establishment_name}`,
-              buttonText: 'Complete Audit',
-              buttonBg: '#16a34a',
+              title: 'Audit Scheduled: Team Assigned',
+              desc: `Audit scheduled with assigned team for ${app.establishment_name}`,
+              buttonText: 'Manage Audit',
+              buttonBg: '#0284c7',
               isFullPage: false
             });
             break;

@@ -4,7 +4,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, 
-  Clock, CheckCircle2, CheckSquare, PenTool, Check, ShieldCheck, 
+  Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck, 
   X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';

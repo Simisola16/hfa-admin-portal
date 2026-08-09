@@ -206,6 +206,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       }
       toast.success('Auditors assigned successfully!' + (isDualStage && stage2Filled.length > 0 ? ' Stage 2 auditors will be applied when Stage 2 date is finalized.' : ''));
       onSuccess();
+      onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to assign auditors');
     } finally {
@@ -649,23 +650,23 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
               </div>
 
               {existingAudit.status !== 'audit_completed' && (
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: 12, marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#166534', marginBottom: 4 }}>
-                    {isDualStage ? `Stage ${activeStage} Audit Session Conducted?` : 'Audit Session Conducted?'}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '16px 18px', borderRadius: 12, marginTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+                    {isDualStage ? `Stage ${activeStage} Audit Completion` : 'Audit Session Completion'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#15803d', marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12, lineHeight: 1.5 }}>
                     {isDualStage && activeStage === 1
-                      ? 'Click below to mark Stage 1 completed. You can then finalize dates and assign auditors for Stage 2.'
-                      : 'Click below to mark this audit session completed. This will advance the processing stage and unlock the Non-Conformity (NC) & Findings section.'}
+                      ? 'Once Stage 1 audit has been conducted on site / remotely, mark it completed to proceed to Stage 2.'
+                      : 'Once the audit session has been conducted on site / remotely, mark it completed to advance the processing stage and unlock Findings & Non-Conformity (NC).'}
                   </div>
                   <button
                     type="button"
                     className="btn btn-primary"
-                    style={{ background: '#16a34a', borderColor: '#16a34a', width: '100%', gap: 8, justifyContent: 'center', fontWeight: 700 }}
+                    style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 700, gap: 6, fontSize: 12.5 }}
                     onClick={handleCompleteAudit}
                     disabled={auditSubmitting}
                   >
-                    <CheckCircle size={16} /> {auditSubmitting ? 'Completing...' : isDualStage ? (activeStage === 1 ? 'Mark Stage 1 Completed' : 'Mark Stage 2 & Audit Completed') : 'Mark Audit Completed'}
+                    <CheckCircle size={15} /> {auditSubmitting ? 'Completing...' : isDualStage ? (activeStage === 1 ? 'Mark Stage 1 Completed' : 'Mark Stage 2 & Audit Completed') : 'Mark Audit Completed'}
                   </button>
                 </div>
               )}
@@ -673,18 +674,8 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
           )}
 
         </div>
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <button className="btn btn-ghost" onClick={onClose} disabled={auditSubmitting}>Close</button>
-          {existingAudit?.status !== 'audit_completed' && existingAudit?.status === 'auditors_assigned' && (
-            <button
-              className="btn btn-primary"
-              style={{ background: '#16a34a', borderColor: '#16a34a', gap: 6, fontWeight: 700 }}
-              onClick={handleCompleteAudit}
-              disabled={auditSubmitting}
-            >
-              <CheckCircle size={16} /> {auditSubmitting ? 'Completing...' : isDualStage ? (activeStage === 1 ? 'Mark Stage 1 Completed' : 'Mark Stage 2 Completed') : 'Mark Audit Completed'}
-            </button>
-          )}
         </div>
       </div>
     </div>

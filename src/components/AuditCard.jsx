@@ -160,7 +160,14 @@ export default function AuditCard({ audits, status, app, onManage }) {
   };
 
   // Collect all NC reports across audits
-  const allNcReports = audits.flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
+  const rawNcReports = audits.flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
+  const allNcReports = rawNcReports.filter((nc, idx, self) => {
+    return self.findIndex(o => {
+      if (o._id && nc._id && String(o._id) === String(nc._id)) return true;
+      if (o.text && nc.text && o.text.trim().toLowerCase() === nc.text.trim().toLowerCase()) return true;
+      return false;
+    }) === idx;
+  });
 
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminClients() {

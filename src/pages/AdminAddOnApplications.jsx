@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -6,7 +6,9 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import {
   PlusCircle, Search, X, Check, FileText, AlertCircle,
   Clock, Package, RefreshCw, ChevronDown, ChevronUp, User,
-  CheckCircle, Users, ArrowRight, Building2, Calendar
+  CheckCircle, Users, ArrowRight, Building2, Calendar,
+  Layers, ShieldCheck, CheckCheck, ExternalLink, Sparkles,
+  Tag, ArrowUpRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,32 +26,18 @@ const STATUS_LABELS = {
   completed: 'Completed'
 };
 
-const STATUS_BADGE = {
-  submitted: 'badge-yellow',
-  accepted: 'badge-green',
-  rejected: 'badge-red',
-  ft_assigned: 'badge-blue',
-  product_approval_form_enabled: 'badge-purple',
-  all_forms_received: 'badge-teal',
-  logsheet_created: 'badge-blue',
-  waiting_sharia_signature: 'badge-orange',
-  product_form_approved: 'badge-green',
-  ready_for_certificate: 'badge-teal',
-  completed: 'badge-green'
-};
-
-const STATUS_COLOR = {
-  submitted: '#f59e0b',
-  accepted: '#16a34a',
-  rejected: '#ef4444',
-  ft_assigned: '#2563eb',
-  product_approval_form_enabled: '#7c3aed',
-  all_forms_received: '#0d9488',
-  logsheet_created: '#2563eb',
-  waiting_sharia_signature: '#ea580c',
-  product_form_approved: '#16a34a',
-  ready_for_certificate: '#0d9488',
-  completed: '#16a34a'
+const STATUS_CONFIG = {
+  submitted: { label: 'Submitted', bg: '#fef3c7', color: '#92400e', border: '#fde68a', dot: '#f59e0b' },
+  accepted: { label: 'Accepted', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#22c55e' },
+  rejected: { label: 'Rejected', bg: '#fee2e2', color: '#991b1b', border: '#fecaca', dot: '#ef4444' },
+  ft_assigned: { label: 'FT Assigned', bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
+  product_approval_form_enabled: { label: 'Form Enabled', bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', dot: '#a855f7' },
+  all_forms_received: { label: 'Forms Received', bg: '#ccfbf1', color: '#115e59', border: '#99f6e4', dot: '#14b8a6' },
+  logsheet_created: { label: 'Logsheet Created', bg: '#e0f2fe', color: '#075985', border: '#bae6fd', dot: '#0ea5e9' },
+  waiting_sharia_signature: { label: "Shari'a Signature", bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
+  product_form_approved: { label: 'Form Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
+  ready_for_certificate: { label: 'Ready for Cert', bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', dot: '#6366f1' },
+  completed: { label: 'Completed', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' }
 };
 
 const FLOW_STEPS = [
@@ -68,6 +56,7 @@ export default function AdminAddOnApplications() {
   const [ftUsers, setFtUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
 
   const [activeApp, setActiveApp] = useState(null);
@@ -78,7 +67,6 @@ export default function AdminAddOnApplications() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Multi-FT selection
   const [selectedFtIds, setSelectedFtIds] = useState([]);
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
@@ -107,16 +95,11 @@ export default function AdminAddOnApplications() {
     setDecision('accepted');
     setRejectionReason('');
     setNotes('');
-    // Pre-select already-assigned FT staff
     const preSelected = (app.assigned_food_techs || []).map(ft => (ft._id || ft).toString());
     setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
   };
 
   const closeModal = () => { setActiveApp(null); setActionType(null); };
-
-  const toggleFt = (id) => {
-    setSelectedFtIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
   const handleReview = async () => {
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
@@ -142,6 +125,19 @@ export default function AdminAddOnApplications() {
     } finally { setSubmitting(false); }
   };
 
+  const handleRequestProductApprovalForm = async (targetApp) => {
+    try {
+      await api.put(`/api/add-on-applications/${targetApp._id}/enable-form`, {
+        form_text: 'Please complete and submit the Product Approval Form for each product.',
+        is_draft: false
+      });
+      toast.success('Request for Product Approval Form sent to client!');
+      fetchApps();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message);
+    }
+  };
+
   const handleCreateLogsheet = (app) => {
     sessionStorage.setItem('addon_app_id', app._id);
     navigate(`/addon-applications/${app._id}/logsheet`);
@@ -151,7 +147,7 @@ export default function AdminAddOnApplications() {
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${activeApp._id}/approve-form`);
-      toast.success('Product Form approved!');
+      toast.success('Product Approval Form approved! Application is now Ready for Certificate.');
       closeModal(); fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
@@ -162,36 +158,52 @@ export default function AdminAddOnApplications() {
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${activeApp._id}/complete`);
-      toast.success('Certificate updated! Add-on application complete.');
+      toast.success('Certificate product list updated successfully!');
       closeModal(); fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally { setSubmitting(false); }
   };
 
-  const filteredByView = apps.filter(app => {
-    if (view === 'request') return app.status === 'submitted';
-    if (view === 'inprogress') return !['submitted', 'rejected', 'completed'].includes(app.status);
-    return true;
-  });
+  const baseList = useMemo(() => {
+    if (view === 'request') return apps.filter(a => a.status === 'submitted');
+    if (view === 'inprogress') return apps.filter(a => a.status !== 'completed' && a.status !== 'rejected');
+    return apps;
+  }, [apps, view]);
 
-  const filtered = filteredByView.filter(a => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      a.client_id?.company_name?.toLowerCase().includes(s) ||
-      a.client_id?.full_name?.toLowerCase().includes(s) ||
-      a.certificate_id?.certificate_number?.toLowerCase().includes(s) ||
-      a.contact_name?.toLowerCase().includes(s) ||
-      a.contact_email?.toLowerCase().includes(s) ||
-      (a.products || []).some(p => p.name?.toLowerCase().includes(s))
-    );
-  });
+  const stats = useMemo(() => {
+    const total = apps.length;
+    const pending = apps.filter(a => a.status === 'submitted').length;
+    const inProgress = apps.filter(a => !['submitted', 'completed', 'rejected'].includes(a.status)).length;
+    const completed = apps.filter(a => a.status === 'completed').length;
+    return { total, pending, inProgress, completed };
+  }, [apps]);
+
+  const filtered = useMemo(() => {
+    return baseList.filter(a => {
+      if (statusFilter === 'pending' && a.status !== 'submitted') return false;
+      if (statusFilter === 'ft_assigned' && a.status !== 'ft_assigned') return false;
+      if (statusFilter === 'forms' && !['product_approval_form_enabled', 'all_forms_received'].includes(a.status)) return false;
+      if (statusFilter === 'ready' && a.status !== 'ready_for_certificate') return false;
+      if (statusFilter === 'completed' && a.status !== 'completed') return false;
+
+      if (!search.trim()) return true;
+      const s = search.toLowerCase();
+      return (
+        a.client_id?.company_name?.toLowerCase().includes(s) ||
+        a.client_id?.full_name?.toLowerCase().includes(s) ||
+        a.certificate_id?.certificate_number?.toLowerCase().includes(s) ||
+        a.contact_name?.toLowerCase().includes(s) ||
+        a.contact_email?.toLowerCase().includes(s) ||
+        (a.products || []).some(p => (p.name || p.new_name)?.toLowerCase().includes(s))
+      );
+    });
+  }, [baseList, statusFilter, search]);
 
   const getViewMeta = () => {
-    if (view === 'request') return { title: 'Add-on Request Queue', subtitle: 'Applications awaiting accept or reject decision', count: filtered.length, color: '#f59e0b' };
-    if (view === 'inprogress') return { title: 'In-Progress Applications', subtitle: 'Applications undergoing the processing workflow', count: filtered.length, color: '#2563eb' };
-    return { title: 'All Add-on Applications', subtitle: 'Complete history of all add-on product requests', count: filtered.length, color: '#475569' };
+    if (view === 'request') return { title: 'Add-on Review Queue', subtitle: 'Review and accept or reject pending add-on product requests' };
+    if (view === 'inprogress') return { title: 'In-Progress Add-on Applications', subtitle: 'Applications undergoing food technology evaluation and certification updates' };
+    return { title: 'Add-on Product Applications', subtitle: 'Manage, review, and track all client product modification requests' };
   };
 
   const meta = getViewMeta();
@@ -204,232 +216,420 @@ export default function AdminAddOnApplications() {
   };
 
   return (
-    <div className="animate-in">
-      {/* ─── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="toolbar" style={{ marginBottom: 20 }}>
-        <div className="search-box">
-          <Search size={15} className="search-icon" />
-          <input placeholder="Search by client, certificate, contact, or product..." value={search} onChange={e => setSearch(e.target.value)} />
-          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}><X size={14} /></button>}
+    <div className="animate-in" style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 64 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+              {meta.title}
+            </h1>
+            <span style={{ fontSize: 12, fontWeight: 700, background: '#f1f5f9', color: '#475569', padding: '3px 10px', borderRadius: 20 }}>
+              {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{meta.subtitle}</p>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={fetchApps}><RefreshCw size={14} /></button>
-        <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>{meta.count} {view === 'request' ? 'Pending' : view === 'inprogress' ? 'In Progress' : 'Total'}</span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={fetchApps}
+            disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 14px', fontWeight: 600, color: '#475569' }}
+          >
+            <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
-      {/* ─── Page Header ─────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>{meta.title}</h2>
-        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{meta.subtitle}</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 22 }}>
+        <div
+          onClick={() => setStatusFilter('all')}
+          style={{
+            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'all' ? '#0284c7' : '#e2e8f0'}`,
+            boxShadow: statusFilter === 'all' ? '0 0 0 2px #e0f2fe' : '0 1px 3px rgba(0,0,0,0.03)',
+            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Requests</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginTop: 2 }}>{stats.total}</div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Layers size={20} color="#64748b" />
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('pending')}
+          style={{
+            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'pending' ? '#f59e0b' : '#e2e8f0'}`,
+            boxShadow: statusFilter === 'pending' ? '0 0 0 2px #fef3c7' : '0 1px 3px rgba(0,0,0,0.03)',
+            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Review</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#b45309', marginTop: 2 }}>{stats.pending}</div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Clock size={20} color="#d97706" />
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('ft_assigned')}
+          style={{
+            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'ft_assigned' ? '#2563eb' : '#e2e8f0'}`,
+            boxShadow: statusFilter === 'ft_assigned' ? '0 0 0 2px #dbeafe' : '0 1px 3px rgba(0,0,0,0.03)',
+            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In Processing</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', marginTop: 2 }}>{stats.inProgress}</div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Users size={20} color="#2563eb" />
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('completed')}
+          style={{
+            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'completed' ? '#16a34a' : '#e2e8f0'}`,
+            boxShadow: statusFilter === 'completed' ? '0 0 0 2px #dcfce7' : '0 1px 3px rgba(0,0,0,0.03)',
+            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completed</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#15803d', marginTop: 2 }}>{stats.completed}</div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircle size={20} color="#16a34a" />
+          </div>
+        </div>
       </div>
 
-      {/* ─── Main Card ───────────────────────────────────────────────────── */}
-      <div className="card shadow-sm border-0" style={{ borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{
+        background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', padding: '12px 16px',
+        marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { id: 'all', label: 'All Requests' },
+            { id: 'pending', label: 'Pending Review' },
+            { id: 'ft_assigned', label: 'FT Assigned' },
+            { id: 'forms', label: 'Forms Phase' },
+            { id: 'ready', label: 'Ready for Cert' },
+            { id: 'completed', label: 'Completed' }
+          ].map(tab => {
+            const isActive = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStatusFilter(tab.id)}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: isActive ? 700 : 600,
+                  background: isActive ? '#0f172a' : 'transparent', color: isActive ? 'white' : '#64748b',
+                  border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 260, maxWidth: 360, flex: 1 }}>
+          <Search size={14} style={{ color: '#94a3b8', marginRight: 8, flexShrink: 0 }} />
+          <input
+            type="text"
+            placeholder="Search client, cert, contact, product..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, width: '100%', color: '#1e293b' }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading ? (
-          <div className="loading-overlay"><div className="spinner" /></div>
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', padding: 80, textAlign: 'center' }}>
+            <div className="spinner" style={{ margin: '0 auto' }} />
+          </div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: '80px 20px', textAlign: 'center' }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Package size={28} style={{ color: '#94a3b8' }} />
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', padding: '72px 20px', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <Package size={24} style={{ color: '#94a3b8' }} />
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#334155', marginBottom: 6 }}>No applications found</div>
-            <div style={{ fontSize: 13, color: '#94a3b8' }}>No add-on product requests matching your current filter.</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#334155', marginBottom: 4 }}>No Add-on Applications Found</div>
+            <div style={{ fontSize: 13, color: '#94a3b8' }}>No requests match the current search or status filter.</div>
           </div>
         ) : (
-          <div>
-            {filtered.map((app, appIdx) => {
-              const clientName = app.client_id?.company_name || app.client_id?.full_name || '—';
-              const certNo = app.certificate_id?.certificate_number || '—';
-              const statusLabel = STATUS_LABELS[app.status] || app.status;
-              const badgeClass = STATUS_BADGE[app.status] || 'badge-gray';
-              const statusColor = STATUS_COLOR[app.status] || '#475569';
-              const isExpanded = expandedId === app._id;
-              const stepIdx = FLOW_STEPS.indexOf(app.status);
-              const ftNames = getAssignedFtNames(app);
+          filtered.map(app => {
+            const clientName = app.client_id?.company_name || app.client_id?.full_name || 'Unnamed Client';
+            const certNo = app.certificate_id?.certificate_number || null;
+            const linkedAppNo = app.application_id?.application_number || null;
+            const cfg = STATUS_CONFIG[app.status] || { label: app.status, bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', dot: '#94a3b8' };
+            const isExpanded = expandedId === app._id;
+            const stepIdx = FLOW_STEPS.indexOf(app.status);
+            const ftNames = getAssignedFtNames(app);
+            const productsList = app.products || [];
 
-              return (
-                <div key={app._id} style={{ borderBottom: appIdx < filtered.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                  {/* ─── Row ──────────────────────────────────────────── */}
-                  <div style={{ padding: '18px 24px', display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'center' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 160px 200px', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-
-                      {/* Client + Cert */}
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 2 }}>{clientName}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <FileText size={10} /> {certNo}
+            return (
+              <div
+                key={app._id}
+                style={{
+                  background: 'white',
+                  borderRadius: 14,
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  overflow: 'hidden',
+                  transition: 'border-color 0.15s, box-shadow 0.15s'
+                }}
+              >
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(220px, 1.6fr) minmax(160px, 1fr) auto',
+                    gap: 16,
+                    alignItems: 'center'
+                  }}>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 10, flexShrink: 0,
+                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                        color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 15, fontWeight: 800, textTransform: 'uppercase'
+                      }}>
+                        {clientName.charAt(0)}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>
+                          {clientName}
                         </div>
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Calendar size={10} /> {new Date(app.createdAt).toLocaleDateString('en-GB')}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
+                          {certNo ? (
+                            <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                              <FileText size={10} /> {certNo}
+                            </span>
+                          ) : linkedAppNo ? (
+                            <span style={{ fontSize: 11, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                              App: {linkedAppNo}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: '#94a3b8' }}>Pending Cert</span>
+                          )}
+                          <span style={{ fontSize: 11, color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Calendar size={10} /> {new Date(app.createdAt).toLocaleDateString('en-GB')}
+                          </span>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Products */}
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
-                          Products ({(app.products || []).length})
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(app.products || []).slice(0, 3).map((p, i) => (
-                            <span key={i} style={{
-                              fontSize: 10, padding: '2px 7px', borderRadius: 5,
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
+                        Products ({productsList.length})
+                      </div>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {productsList.slice(0, 3).map((p, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
                               background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
                               color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1',
                               border: `1px solid ${p.type === 'Add product' ? '#bbf7d0' : p.type === 'Remove product' ? '#fecaca' : '#bae6fd'}`,
-                              fontWeight: 600
-                            }}>
-                              {p.sn || i + 1}. {p.name}
+                              display: 'inline-flex', alignItems: 'center', gap: 4
+                            }}
+                          >
+                            <span style={{ opacity: 0.7, fontWeight: 700 }}>
+                              {p.type === 'Add product' ? '+' : p.type === 'Remove product' ? '-' : '~'}
                             </span>
-                          ))}
-                          {(app.products || []).length > 3 && (
-                            <span style={{ fontSize: 10, color: '#94a3b8', padding: '2px 6px' }}>+{app.products.length - 3} more</span>
+                            {p.new_name || p.name}
+                          </span>
+                        ))}
+                          {productsList.length > 3 && (
+                            <span style={{ fontSize: 10.5, color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                              +{productsList.length - 3} more
+                            </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Status */}
+                      {/* 3. Status & FT Staff */}
                       <div>
-                        <span className={`badge ${badgeClass}`} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4, display: 'inline-block' }}>
-                          {statusLabel}
-                        </span>
-                        {ftNames && (
-                          <div style={{ fontSize: 10, color: '#2563eb', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Users size={9} /> {ftNames}
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                          padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em'
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+                          {cfg.label}
+                        </div>
+                        {ftNames ? (
+                          <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Users size={11} /> {ftNames}
                           </div>
+                        ) : (
+                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>FT: Unassigned</div>
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 11 }}
-                        >
-                          Track <ArrowRight size={11} />
-                        </button>
-
+                      {/* 4. Action Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                         {isManagerOrAdmin && app.status === 'submitted' && (
-                          <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }} onClick={() => openAction(app, 'review')}>
-                            Review
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openAction(app, 'review')}
+                            style={{ background: '#f59e0b', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            Review Request
                           </button>
                         )}
 
-                        {isManagerOrAdmin && ['accepted', 'ft_assigned'].includes(app.status) && (
-                          <button className="btn btn-sm" style={{ background: '#2563eb', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'assign_ft')}>
-                            {app.status === 'ft_assigned' ? 'Re-assign FT' : 'Assign FT'}
+                        {isManagerOrAdmin && app.status === 'accepted' && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openAction(app, 'assign_ft')}
+                            style={{ background: '#2563eb', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            <Users size={13} style={{ marginRight: 4 }} /> Assign FT
                           </button>
                         )}
 
                         {isManagerOrAdmin && app.status === 'ft_assigned' && (
                           <button
                             className="btn btn-sm"
-                            style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: 11 }}
-                            onClick={async () => {
-                              try {
-                                await api.put(`/api/add-on-applications/${app._id}/enable-form`, {
-                                  form_text: 'Please complete and submit the Product Approval Form for each product.',
-                                  is_draft: false
-                                });
-                                toast.success('Request for Product Approval Form sent to client!');
-                                fetchData();
-                              } catch (err) {
-                                toast.error(err.response?.data?.error || err.message);
-                              }
-                            }}
+                            onClick={() => handleRequestProductApprovalForm(app)}
+                            style={{ background: '#7c3aed', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                           >
-                            Request for Product Approval Form
+                            <FileText size={13} /> Request for Product Approval Form
                           </button>
                         )}
 
                         {app.status === 'product_approval_form_enabled' && (
-                          <span style={{ fontSize: 10, color: '#7c3aed', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Clock size={10} /> Awaiting client
+                          <span style={{ fontSize: 11.5, color: '#7c3aed', fontWeight: 700, background: '#f5f3ff', padding: '6px 12px', borderRadius: 8, border: '1px solid #ddd6fe', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                            <Clock size={12} /> Awaiting Client Forms
                           </span>
                         )}
 
                         {isManagerOrAdmin && app.status === 'all_forms_received' && (
-                          <button className="btn btn-sm" style={{ background: '#0d9488', color: 'white', border: 'none', fontSize: 11 }} onClick={() => handleCreateLogsheet(app)}>
-                            Logsheet
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => handleCreateLogsheet(app)}
+                            style={{ background: '#0d9488', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            Create Logsheet
                           </button>
                         )}
 
-                        {isManagerOrAdmin && ['logsheet_created', 'waiting_sharia_signature', 'all_forms_received'].includes(app.status) && (
-                          <button className="btn btn-sm" style={{ background: '#16a34a', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'approve_form')}>
+                        {isManagerOrAdmin && ['logsheet_created', 'waiting_sharia_signature', 'product_form_approved'].includes(app.status) && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openAction(app, 'approve_form')}
+                            style={{ background: '#16a34a', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
                             Approve Form
                           </button>
                         )}
 
                         {isManagerOrAdmin && app.status === 'ready_for_certificate' && (
-                          <button className="btn btn-sm" style={{ background: '#0e7490', color: 'white', border: 'none', fontSize: 11 }} onClick={() => openAction(app, 'complete')}>
-                            Issue Cert
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openAction(app, 'complete')}
+                            style={{ background: '#0e7490', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            Issue Certificate
                           </button>
                         )}
 
-                        {app.status === 'completed' && (
-                          <span style={{ fontSize: 11, color: '#166534', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <CheckCircle size={12} /> Done
-                          </span>
-                        )}
-
+                        {/* Process & Track Details Button */}
                         <button
                           className="btn btn-ghost btn-sm"
-                          onClick={() => setExpandedId(isExpanded ? null : app._id)}
-                          style={{ padding: '4px 6px' }}
+                          onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 12px', color: '#334155', whiteSpace: 'nowrap' }}
                         >
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          Track <ArrowUpRight size={13} />
+                        </button>
+
+                        {/* Expand Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : app._id)}
+                          style={{
+                            background: isExpanded ? '#f1f5f9' : 'transparent',
+                            border: '1px solid #e2e8f0', borderRadius: 8, width: 32, height: 32,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color: '#64748b'
+                          }}
+                        >
+                          {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </button>
                       </div>
+
                     </div>
                   </div>
 
                   {/* Progress bar below row */}
-                  <div style={{ height: 3, background: '#f1f5f9', borderRadius: 0 }}>
+                  <div style={{ height: 3, background: '#f1f5f9', width: '100%' }}>
                     <div style={{
                       height: '100%',
-                      width: `${app.status === 'completed' ? 100 : Math.round(((stepIdx + 1) / FLOW_STEPS.length) * 100)}%`,
-                      background: statusColor,
-                      borderRadius: 0,
-                      transition: 'width 0.5s ease'
+                      width: `${app.status === 'completed' ? 100 : Math.max(8, Math.round(((stepIdx + 1) / FLOW_STEPS.length) * 100))}%`,
+                      background: cfg.dot,
+                      transition: 'width 0.4s ease'
                     }} />
                   </div>
 
                   {/* Expanded Detail */}
                   {isExpanded && (
-                    <div style={{ background: '#fafbfc', borderTop: '1px solid #f1f5f9', padding: '20px 24px 24px' }}>
+                    <div style={{ background: '#fafbfc', borderTop: '1px solid #e2e8f0', padding: '20px 24px' }}>
 
-                      {/* 10-Step Flow */}
-                      <div style={{ marginBottom: 20, background: 'white', padding: '14px 18px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                          Workflow Progress — <span style={{ color: statusColor }}>{STATUS_LABELS[app.status]}</span>
+                      {/* Stepper Header */}
+                      <div style={{ marginBottom: 20, background: 'white', padding: '16px 20px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Sparkles size={13} style={{ color: cfg.dot }} /> Workflow Progress Stepper — <span style={{ color: cfg.color }}>{cfg.label}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}>
                           {FLOW_STEPS.map((stepId, idx) => {
                             const currentIdx = FLOW_STEPS.indexOf(app.status);
                             const isDone = currentIdx > idx || app.status === 'completed';
                             const isCurrent = currentIdx === idx && app.status !== 'completed';
+                            const stepCfg = STATUS_CONFIG[stepId] || {};
+
                             return (
                               <React.Fragment key={stepId}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 56 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 64 }}>
                                   <div style={{
                                     width: 24, height: 24, borderRadius: '50%',
-                                    background: isDone ? '#16a34a' : isCurrent ? statusColor : '#e2e8f0',
+                                    background: isDone ? '#16a34a' : isCurrent ? (stepCfg.dot || '#0284c7') : '#e2e8f0',
                                     color: isDone || isCurrent ? 'white' : '#94a3b8',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 10, fontWeight: 700, marginBottom: 4,
-                                    boxShadow: isCurrent ? `0 0 0 3px ${statusColor}30` : 'none',
+                                    fontSize: 10, fontWeight: 800, marginBottom: 4,
+                                    boxShadow: isCurrent ? `0 0 0 3px ${(stepCfg.dot || '#0284c7')}30` : 'none',
                                     transition: 'all 0.2s'
                                   }}>
                                     {isDone ? '✓' : idx + 1}
                                   </div>
                                   <span style={{
-                                    fontSize: 9, fontWeight: isCurrent ? 700 : 500, textAlign: 'center', lineHeight: 1.2,
-                                    color: isDone ? '#16a34a' : isCurrent ? statusColor : '#94a3b8'
+                                    fontSize: 9.5, fontWeight: isCurrent ? 800 : 500, textAlign: 'center', lineHeight: 1.2,
+                                    color: isDone ? '#16a34a' : isCurrent ? (stepCfg.color || '#0284c7') : '#94a3b8'
                                   }}>
                                     {STATUS_LABELS[stepId]}
                                   </span>
                                 </div>
                                 {idx < FLOW_STEPS.length - 1 && (
-                                  <div style={{ flex: '0 0 12px', height: 2, background: isDone ? '#16a34a' : '#e2e8f0', marginBottom: 14 }} />
+                                  <div style={{ flex: '0 0 14px', height: 2, background: isDone ? '#16a34a' : '#e2e8f0', marginBottom: 14 }} />
                                 )}
                               </React.Fragment>
                             );
@@ -438,29 +638,31 @@ export default function AdminAddOnApplications() {
                       </div>
 
                       {/* Details Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                         {/* Products */}
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Products</div>
-                          <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <div style={{ background: 'white', borderRadius: 12, border: '1px solid #e2e8f0', padding: 16 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                            Requested Products ({productsList.length})
+                          </div>
+                          <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr style={{ background: '#f8fafc' }}>
-                                  <th style={{ padding: '8px 10px', textAlign: 'center', width: 32, color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>S/N</th>
-                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Product Name</th>
-                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Code</th>
-                                  <th style={{ padding: '8px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Type</th>
+                                  <th style={{ padding: '7px 10px', textAlign: 'center', width: 32, color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>#</th>
+                                  <th style={{ padding: '7px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Product Name</th>
+                                  <th style={{ padding: '7px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Code</th>
+                                  <th style={{ padding: '7px 10px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Type</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {(app.products || []).map((p, i) => (
-                                  <tr key={i} style={{ borderBottom: i < (app.products.length - 1) ? '1px solid #f8fafc' : 'none' }}>
+                                {productsList.map((p, i) => (
+                                  <tr key={i} style={{ borderBottom: i < (productsList.length - 1) ? '1px solid #f1f5f9' : 'none' }}>
                                     <td style={{ padding: '7px 10px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>{p.sn || i + 1}</td>
-                                    <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>{p.name}</td>
-                                    <td style={{ padding: '7px 10px', color: '#64748b' }}>{p.code || '—'}</td>
+                                    <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>{p.new_name || p.name}</td>
+                                    <td style={{ padding: '7px 10px', color: '#64748b' }}>{p.new_code || p.code || '—'}</td>
                                     <td style={{ padding: '7px 10px' }}>
                                       <span style={{
-                                        fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
+                                        fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 700,
                                         background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
                                         color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1'
                                       }}>{p.type}</span>
@@ -472,53 +674,37 @@ export default function AdminAddOnApplications() {
                           </div>
                         </div>
 
-                        {/* App Details */}
+                        {/* Contact & Meta */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {/* Contact */}
-                          <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Contact</div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{app.contact_name}</div>
-                            <div style={{ fontSize: 12, color: '#64748b' }}>{app.contact_email}</div>
-                            {app.contact_phone && <div style={{ fontSize: 12, color: '#64748b' }}>{app.contact_phone}</div>}
+                          <div style={{ background: 'white', borderRadius: 12, border: '1px solid #e2e8f0', padding: 16 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Contact Person</div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{app.contact_name}</div>
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.contact_email}</div>
+                            {app.contact_phone && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.contact_phone}</div>}
                           </div>
 
-                          {/* Assigned FT */}
-                          {ftNames && (
-                            <div style={{ background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd', padding: 14 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Users size={11} /> Assigned FT Staff
-                              </div>
-                              {(app.assigned_food_techs || [app.assigned_food_tech]).filter(Boolean).map((ft, i) => (
-                                <div key={i} style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>
-                                  {ft.full_name || ft} {ft.email ? <span style={{ fontWeight: 400, color: '#7dd3fc' }}>({ft.email})</span> : ''}
-                                </div>
-                              ))}
+                          {app.message && (
+                            <div style={{ background: 'white', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Client Note</div>
+                              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.5 }}>{app.message}</div>
                             </div>
                           )}
 
                           {app.rejection_reason && (
-                            <div style={{ background: '#fef2f2', padding: 12, borderRadius: 10, border: '1px solid #fecaca', fontSize: 12, color: '#991b1b' }}>
-                              <AlertCircle size={12} style={{ display: 'inline', marginRight: 4 }} />
+                            <div style={{ background: '#fef2f2', borderRadius: 12, border: '1px solid #fecaca', padding: 14, color: '#991b1b', fontSize: 12 }}>
                               <strong>Rejection Reason:</strong> {app.rejection_reason}
-                            </div>
-                          )}
-
-                          {app.message && (
-                            <div style={{ background: 'white', padding: 12, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Client Note</div>
-                              <div style={{ fontSize: 12, color: '#334155' }}>{app.message}</div>
                             </div>
                           )}
                         </div>
                       </div>
+
                     </div>
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
-      </div>
+            })
+          )}
+        </div>
 
       {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 

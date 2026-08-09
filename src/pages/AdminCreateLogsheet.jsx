@@ -5,10 +5,11 @@ import toast from 'react-hot-toast';
 import { 
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, 
   Clock, CheckCircle2, CheckSquare, PenTool, Check, ShieldCheck, 
-  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download
+  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
+import ProductApprovalModal from '../components/ProductApprovalModal';
 
 export default function AdminCreateLogsheet() {
   const { appId, addonId } = useParams();
@@ -22,6 +23,7 @@ export default function AdminCreateLogsheet() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
+  const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
   
   const [signatures, setSignatures] = useState([]);
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
@@ -441,7 +443,7 @@ export default function AdminCreateLogsheet() {
     }
 
     const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
-    if (!hasAuditReports) {
+    if (!isAddon && !hasAuditReports) {
       toast.error('Please upload at least 1 Audit Report document before creating the logsheet (Tab 1).');
       setActiveTab(1);
       return;
@@ -926,18 +928,150 @@ export default function AdminCreateLogsheet() {
               </div>
             </div>
 
-            {/* Section 6: Attached Audit Reports */}
+            {/* Section 6: Attached Audit Reports OR Filled Product Approval Request Forms */}
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <FileText size={16} style={{ color: '#047857' }} />
-                6. Attached Audit Reports
+                {isAddon ? '6. Filled Product Approval Request Forms & Declarations' : '6. Attached Audit Reports'}
               </h4>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                  form.document_urls.map((doc, idx) => (
+
+              {isAddon ? (
+                <div>
+                  <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14 }}>
+                    Official client-submitted 3-page Halal Certification Product Approval Request Forms with full ingredient declarations, porcine segregation checks, and technical sign-offs:
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+                    {(application?.products || []).map((p, pIdx) => {
+                      const resp = (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
+                      const isSaved = resp?.is_saved;
+                      const formData = resp?.form_data || {};
+
+                      return (
+                        <div
+                          key={pIdx}
+                          style={{
+                            background: '#f8fafc',
+                            border: `1.5px solid ${isSaved ? '#bbf7d0' : '#e2e8f0'}`,
+                            borderRadius: 10,
+                            padding: '14px 18px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 12
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{
+                              width: 34, height: 34, borderRadius: 8,
+                              background: isSaved ? '#dcfce7' : '#f1f5f9',
+                              color: isSaved ? '#166534' : '#64748b',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontWeight: 800, fontSize: 13
+                            }}>
+                              #{pIdx + 1}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                                {p.name} {p.code ? `(${p.code})` : ''}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: isSaved ? '#15803d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                {isSaved ? (
+                                  <>
+                                    <CheckCircle2 size={13} style={{ color: '#16a34a' }} />
+                                    <span>Form Completed &amp; Signed by Client ({formData.print_name || 'Signatory'})</span>
+                                  </>
+                                ) : (
+                                  <span>Awaiting Client Form Completion</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 10 }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              style={{
+                                background: '#164e63',
+                                borderColor: '#164e63',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                fontSize: 12,
+                                fontWeight: 700
+                              }}
+                              onClick={() => setViewProductModal({
+                                isOpen: true,
+                                formData: formData && Object.keys(formData).length > 0 ? formData : {
+                                  product_name: p.name,
+                                  product_code: p.code,
+                                  company_name_address: form.company_name
+                                },
+                                product: p,
+                                company: application?.client_id
+                              })}
+                            >
+                              <Eye size={14} /> View Filled Product Form
+                            </button>
+
+                            {resp?.response_url && (
+                              <a
+                                href={getPdfUrl(resp.response_url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-outline btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                              >
+                                <Download size={13} /> Attached PDF
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
+                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Additional Supporting Documents:</div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {form.document_urls.map((doc, idx) => (
+                          <a key={idx} href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                            <Download size={13} /> {doc.name || `Document_${idx + 1}`}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                    form.document_urls.map((doc, idx) => (
+                      <a
+                        key={idx}
+                        href={getPdfUrl(doc.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
+                        onClick={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const fullUrl = getPdfUrl(doc.url);
+                          if (fullUrl && fullUrl !== '#') {
+                            window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                      >
+                        <Download size={14} style={{ color: '#047857' }} /> {doc.name || `Audit Report Document ${idx + 1}`}
+                      </a>
+                    ))
+                  ) : form.document_url ? (
                     <a
-                      key={idx}
-                      href={getPdfUrl(doc.url)}
+                      href={getPdfUrl(form.document_url)}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-outline btn-sm"
@@ -945,39 +1079,21 @@ export default function AdminCreateLogsheet() {
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const fullUrl = getPdfUrl(doc.url);
+                        const fullUrl = getPdfUrl(form.document_url);
                         if (fullUrl && fullUrl !== '#') {
                           window.open(fullUrl, '_blank', 'noopener,noreferrer');
                         }
                       }}
                     >
-                      <Download size={14} style={{ color: '#047857' }} /> {doc.name || `Audit Report Document ${idx + 1}`}
+                      <Download size={14} style={{ color: '#047857' }} /> Audit Report Document
                     </a>
-                  ))
-                ) : form.document_url ? (
-                  <a
-                    href={getPdfUrl(form.document_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-outline btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
-                    onClick={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const fullUrl = getPdfUrl(form.document_url);
-                      if (fullUrl && fullUrl !== '#') {
-                        window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                  >
-                    <Download size={14} style={{ color: '#047857' }} /> Audit Report Document
-                  </a>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
-                    No audit report files attached.
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
+                      No audit report files attached.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* SECTION F: FORMAL SIGNATURE MATRIX BLOCK */}
@@ -1193,67 +1309,130 @@ export default function AdminCreateLogsheet() {
                   <input required type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
                 </div>
 
-                {/* Audit Reports Upload Section Only */}
-                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 22, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                  {isAddon ? (
                     <div>
-                      <label className="form-label" style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
-                        Audit Reports <span style={{ color: '#dc2626' }}>* (Required)</span>
-                      </label>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                        Upload official audit inspection reports, findings, and technical evaluation documents.
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', margin: 0 }}>
+                          Client Product Approval Request Forms &amp; Specifications
+                        </label>
+                        <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700 }}>
+                          {application?.products?.length || 0} PRODUCTS IN ADD-ON
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+                        Official 3-page Halal Certification Product Approval Request Forms submitted by the client (Ingredients, Porcine Segregation, Processing Aids, Ethanol, Packaging specs &amp; Signatures).
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+                        {(application?.products || []).map((p, pIdx) => {
+                          const resp = (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
+                          const isSaved = resp?.is_saved;
+                          const formData = resp?.form_data || {};
+
+                          return (
+                            <div key={pIdx} style={{ background: '#fff', border: `1.5px solid ${isSaved ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: 6, background: isSaved ? '#dcfce7' : '#f1f5f9', color: isSaved ? '#166534' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>
+                                  #{pIdx + 1}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                                    {p.name} {p.code ? `(${p.code})` : ''}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: isSaved ? '#16a34a' : '#94a3b8' }}>
+                                    {isSaved ? '✓ Form Filled & Signed by Client' : 'Awaiting Client Form Completion'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#164e63', borderColor: '#164e63', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                onClick={() => setViewProductModal({
+                                  isOpen: true,
+                                  formData: formData && Object.keys(formData).length > 0 ? formData : {
+                                    product_name: p.name,
+                                    product_code: p.code,
+                                    company_name_address: form.company_name
+                                  },
+                                  product: p,
+                                  company: application?.client_id
+                                })}
+                              >
+                                <Eye size={13} /> View Filled Product Form
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12, marginTop: 12 }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0284c7', fontWeight: 600, cursor: 'pointer' }}>
+                          <UploadCloud size={14} /> Attach Additional Product Specifications (Optional)
+                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                        </label>
                       </div>
                     </div>
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                      <UploadCloud size={14} /> Add Audit Reports
-                      <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-                    </label>
-                  </div>
-
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                      {form.document_urls.map((doc, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <CheckCircle2 size={16} color="#16a34a" />
-                            <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                              {doc.name || `Audit_Report_${idx + 1}.pdf`}
-                            </a>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ color: '#dc2626', padding: '2px 8px' }}
-                            onClick={() => {
-                              const updated = form.document_urls.filter((_, i) => i !== idx);
-                              setForm(f => ({
-                                ...f,
-                                document_urls: updated,
-                                document_url: updated[0]?.url || '',
-                                audit_reports: updated
-                              }));
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : form.document_url ? (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                      <CheckCircle2 size={16} color="#16a34a" />
-                      <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
-                        Audit Report Uploaded Successfully
-                      </a>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [], audit_reports: [] })}>Remove</button>
-                    </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', padding: 22, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
-                      <UploadCloud size={26} color="#0d9488" style={{ marginBottom: 6 }} />
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Select 1 or more files (PDF, DOCX, PNG)</div>
-                      <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-                    </label>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', margin: 0 }}>
+                          Upload Audit Reports <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>
+                          <UploadCloud size={14} /> Add Audit Reports
+                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                        </label>
+                      </div>
+
+                      {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                        <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                          {form.document_urls.map((doc, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <CheckCircle2 size={16} color="#16a34a" />
+                                <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                                  {doc.name || `Audit_Report_${idx + 1}.pdf`}
+                                </a>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ color: '#dc2626', padding: '2px 8px' }}
+                                onClick={() => {
+                                  const updated = form.document_urls.filter((_, i) => i !== idx);
+                                  setForm(f => ({
+                                    ...f,
+                                    document_urls: updated,
+                                    document_url: updated[0]?.url || '',
+                                    audit_reports: updated
+                                  }));
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : form.document_url ? (
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                          <CheckCircle2 size={16} color="#16a34a" />
+                          <a href={getPdfUrl(form.document_url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, flex: 1, textDecoration: 'none' }}>
+                            Audit Report Uploaded Successfully
+                          </a>
+                          <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [], audit_reports: [] })}>Remove</button>
+                        </div>
+                      ) : (
+                        <label style={{ display: 'flex', flexDirection: 'column', padding: 22, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
+                          <UploadCloud size={26} color="#0d9488" style={{ marginBottom: 6 }} />
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Select 1 or more files (PDF, DOCX, PNG)</div>
+                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                        </label>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1565,6 +1744,15 @@ export default function AdminCreateLogsheet() {
           </div>
         </div>
       )}
+
+      {/* Product Approval Request Form Full 3-Page Modal Viewer */}
+      <ProductApprovalModal
+        isOpen={viewProductModal.isOpen}
+        onClose={() => setViewProductModal(prev => ({ ...prev, isOpen: false }))}
+        formData={viewProductModal.formData}
+        product={viewProductModal.product}
+        company={viewProductModal.company}
+      />
     </div>
   );
 }

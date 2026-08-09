@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check
+  ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
+import ProductApprovalModal from '../components/ProductApprovalModal';
 
 const STATUS_LABELS = {
   submitted: 'Submit Add-On',
@@ -71,6 +72,7 @@ export default function AdminAddOnProcessing() {
   const [selectedFtIds, setSelectedFtIds] = useState([]);
   const [formText, setFormText] = useState('');
   const [formFile, setFormFile] = useState(null);
+  const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
 
   const toggleFt = (ftId) => {
     setSelectedFtIds(prev =>
@@ -497,18 +499,36 @@ export default function AdminAddOnProcessing() {
 
                     {isSaved ? (
                       <div style={{ fontSize: 13, color: '#334155' }}>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            style={{ background: '#164e63', borderColor: '#164e63', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                            onClick={() => setViewProductModal({
+                              isOpen: true,
+                              formData: resp.form_data && Object.keys(resp.form_data).length > 0 ? resp.form_data : {
+                                product_name: p.name,
+                                product_code: p.code,
+                                company_name_address: app.client_id?.company_name
+                              },
+                              product: p,
+                              company: app.client_id
+                            })}
+                          >
+                            <Eye size={13} /> View Filled Product Approval Form
+                          </button>
+
+                          {resp.response_url && (
+                            <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white' }}>
+                              <Download size={13} /> Attached PDF
+                            </a>
+                          )}
+                        </div>
+
                         {resp.response_text && (
-                          <div style={{ background: 'white', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0', marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                          <div style={{ background: 'white', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 12.5, whiteSpace: 'pre-wrap' }}>
                             {resp.response_text}
                           </div>
-                        )}
-                        {resp.response_url && (
-                          <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white' }}>
-                            <Download size={13} /> View Attached Response File
-                          </a>
-                        )}
-                        {!resp.response_text && !resp.response_url && (
-                          <div style={{ color: '#166534', italic: 'true', fontSize: 12 }}>Acknowledged.</div>
                         )}
                       </div>
                     ) : (
@@ -737,6 +757,14 @@ export default function AdminAddOnProcessing() {
         </div>
       )}
 
+      {/* Product Approval Request Form Full 3-Page Modal Viewer */}
+      <ProductApprovalModal
+        isOpen={viewProductModal.isOpen}
+        onClose={() => setViewProductModal(prev => ({ ...prev, isOpen: false }))}
+        formData={viewProductModal.formData}
+        product={viewProductModal.product}
+        company={viewProductModal.company}
+      />
     </div>
   );
 }

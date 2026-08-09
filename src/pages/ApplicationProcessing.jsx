@@ -73,6 +73,7 @@ export default function ApplicationProcessing() {
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [markingLogsheetDone, setMarkingLogsheetDone] = useState(false);
+  const [markingAgreementDone, setMarkingAgreementDone] = useState(false);
 
   const fetchApp = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -356,6 +357,27 @@ export default function ApplicationProcessing() {
       toast.error(err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
+    }
+  };
+
+  const handleMarkAgreementDone = async () => {
+    const agreementId = agreement?._id || agreement?.id;
+    setMarkingAgreementDone(true);
+    try {
+      if (agreementId) {
+        await api.post(`/api/agreements/${agreementId}/mark-done`);
+      } else {
+        await api.put(`/api/applications/${appId}/status`, {
+          status: 'agreement_finalised',
+          note: 'Certification Agreement marked as done & approved by admin.'
+        });
+      }
+      toast.success('Certification Agreement marked as Done! Application advanced to next stage.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark agreement as done.');
+    } finally {
+      setMarkingAgreementDone(false);
     }
   };
 
@@ -678,7 +700,14 @@ export default function ApplicationProcessing() {
           />
 
           {/* Agreement Card */}
-          <AgreementCard app={app} agreement={agreement} />
+          <AgreementCard 
+            app={app} 
+            agreement={agreement} 
+            status={status}
+            onReupload={() => setShowAgreementModal(true)}
+            onMarkDone={handleMarkAgreementDone}
+            markingDone={markingAgreementDone}
+          />
 
           {/* 2. Final Halal Certificate Fee Invoice Card */}
           {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (

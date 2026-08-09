@@ -119,13 +119,14 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
       <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">Send Certification Agreement</div>
+          <div className="modal-title">{propAgreement ? '🔄 Re-upload / Update Certification Agreement' : 'Send Certification Agreement'}</div>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
-            Provide a certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>.
-            This will be visible to the client on their portal.
+            {propAgreement
+              ? <>Upload a revised or corrected certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>. The client will be notified to review and sign the updated agreement.</>
+              : <>Provide a certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>. This will be visible to the client on their portal.</>}
           </p>
 
           <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', marginBottom: '24px' }}>
@@ -226,7 +227,7 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
             onClick={handleSubmit}
             disabled={submitting || !agreementForm.title || (agreementForm.type === 'upload' ? !agreementForm.file : !agreementForm.details.trim())}
           >
-            {submitting ? 'Sending...' : 'Send Agreement'}
+            {submitting ? 'Uploading...' : (propAgreement ? 'Re-upload & Send to Client' : 'Send Agreement')}
           </button>
         </div>
       </div>

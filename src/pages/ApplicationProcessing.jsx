@@ -442,10 +442,18 @@ export default function ApplicationProcessing() {
     // 5. Waiting for Certificate (Issue Certificate)
     // 6. Certificate (Issued)
     // =========================================================================
+    const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+    const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+    const stage2 = audits?.find(a => a.stage === 2);
+    const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
+    const canCompleteAudit = isDualStage
+      ? (stage1?.status === 'audit_completed' && isStage2Ready)
+      : (status === 'audit_assigned' || status === 'date_finalized' || stage1?.status === 'auditors_assigned');
+
     if (isRenewal) {
       // 2. Audit Scheduling & Execution (Directly after Accept)
       if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-        if (status === 'audit_assigned' || status === 'date_finalized') {
+        if (canCompleteAudit) {
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
@@ -604,7 +612,7 @@ export default function ApplicationProcessing() {
 
     // 4. Audit Scheduling & Execution Stage
     if (['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-      if (status === 'audit_assigned' || status === 'date_finalized') {
+      if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button

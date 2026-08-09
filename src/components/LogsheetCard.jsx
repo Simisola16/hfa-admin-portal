@@ -20,7 +20,7 @@ const POST_AUDIT_STATUSES = [
   'certificate_issued'
 ];
 
-export default function LogsheetCard({ logsheet, status, appId }) {
+export default function LogsheetCard({ logsheet, status, appId, onMarkDone, markingDone = false }) {
   const navigate = useNavigate();
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
 
@@ -31,6 +31,16 @@ export default function LogsheetCard({ logsheet, status, appId }) {
   );
 
   const isAvailable = POST_AUDIT_STATUSES.includes(normalizedStatus) || hasLogsheet;
+  const isAdvancedPastLogsheet = [
+    'application_successful',
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'certificate_issued'
+  ].includes(normalizedStatus);
 
   // Case 1: Before audit stage and no logsheet created yet -> Locked
   if (!isAvailable && !hasLogsheet) {
@@ -106,15 +116,43 @@ export default function LogsheetCard({ logsheet, status, appId }) {
           </div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {onMarkDone && !isAdvancedPastLogsheet && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onMarkDone}
+              disabled={markingDone}
+              style={{
+                background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                borderColor: '#15803d',
+                color: 'white',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 8,
+                boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
+              }}
+              title="Mark Logsheet as completed and advance application to Agreement stage"
+            >
+              <CheckCircle size={14} /> {markingDone ? 'Marking Done...' : 'Mark Logsheet Done'}
+            </button>
+          )}
+
           <button
+            type="button"
             className="btn btn-outline btn-sm"
             onClick={() => navigate(`/signatures`)}
             style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <PenTool size={13} /> Signatures Portal
           </button>
+          
           <button
+            type="button"
             className="btn btn-primary btn-sm"
             onClick={() => navigate(`/applications/${appId}/logsheet`)}
             style={{ background: '#0e7490', borderColor: '#0e7490', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}

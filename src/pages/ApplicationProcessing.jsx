@@ -72,6 +72,7 @@ export default function ApplicationProcessing() {
   const [replyingNc, setReplyingNc] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [markingLogsheetDone, setMarkingLogsheetDone] = useState(false);
 
   const fetchApp = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -336,6 +337,27 @@ export default function ApplicationProcessing() {
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
+
+  const handleMarkLogsheetDone = async () => {
+    const logsheetId = logsheet?._id || logsheet?.id;
+    if (!logsheetId) {
+      toast.error('No logsheet record found for this application.');
+      return;
+    }
+    setMarkingLogsheetDone(true);
+    try {
+      await api.put(`/api/application-logsheets/${logsheetId}/status`, {
+        status: 'Waiting For Certificate',
+        force: true
+      });
+      toast.success('Logsheet marked as Done! Application moved to Application Successful & Agreement unlocked.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark logsheet as done.');
+    } finally {
+      setMarkingLogsheetDone(false);
+    }
+  };
 
   const handleMarkReadyForCertificate = async () => {
     setActionSubmitting(true);
@@ -647,7 +669,13 @@ export default function ApplicationProcessing() {
           />
 
           {/* Logsheet Card (Admin Only) */}
-          <LogsheetCard logsheet={logsheet} status={status} appId={appId} />
+          <LogsheetCard 
+            logsheet={logsheet} 
+            status={status} 
+            appId={appId} 
+            onMarkDone={handleMarkLogsheetDone}
+            markingDone={markingLogsheetDone}
+          />
 
           {/* Agreement Card */}
           <AgreementCard app={app} agreement={agreement} />

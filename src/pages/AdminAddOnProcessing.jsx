@@ -262,7 +262,7 @@ export default function AdminAddOnProcessing() {
           )}
 
           {isManagerOrAdmin && app.status === 'logsheet_created' && app.logsheet_id && (
-            <button className="btn btn-outline" onClick={() => navigate(`/logsheets/${app.logsheet_id._id || app.logsheet_id}`)}>
+            <button className="btn btn-outline" onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
               View Logsheet
             </button>
           )}

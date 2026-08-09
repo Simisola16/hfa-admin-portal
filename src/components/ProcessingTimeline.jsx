@@ -97,6 +97,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
 
   const normStatus = (status || 'submitted').toLowerCase().replace(/ /g, '_');
   const effectiveStatus = (normStatus === 'audit_completed') ? 'audit_successful' : normStatus;
+  const currentOrderIdx = STATUS_ORDER.indexOf(effectiveStatus);
   const currentIndex = stepsToShow.indexOf(effectiveStatus);
 
   const formatDate = (dateStr) => {
@@ -112,10 +113,30 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   return (
     <div style={{ padding: '8px 0' }}>
       {stepsToShow.map((s, idx) => {
-        const histEntry = historyMap[s] || (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful']) : null);
-        const isComplete = currentIndex > idx;
-        const isCurrent = currentIndex === idx;
-        const isPending = currentIndex < idx;
+        const histEntry = historyMap[s] || (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful'] || historyMap['logsheet_created']) : null);
+        
+        let isComplete = false;
+        let isCurrent = false;
+        let isPending = false;
+
+        if (currentIndex !== -1) {
+          isComplete = currentIndex > idx;
+          isCurrent = currentIndex === idx;
+          isPending = currentIndex < idx;
+        } else {
+          const stepOrderIdx = STATUS_ORDER.indexOf(s);
+          if (currentOrderIdx !== -1 && stepOrderIdx !== -1) {
+            if (stepOrderIdx <= currentOrderIdx) {
+              isComplete = true;
+            } else {
+              isPending = true;
+            }
+          } else {
+            isPending = idx > 0;
+            isCurrent = idx === 0;
+          }
+        }
+
         const isRejectedStep = s === 'rejected' || s === 'proposal_rejected';
         const isHoldStep = s === 'on_hold';
 

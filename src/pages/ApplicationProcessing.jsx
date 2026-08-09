@@ -185,9 +185,10 @@ export default function ApplicationProcessing() {
   const handleConfirmPayment = async () => {
     setConfirmingPayment(true);
     try {
+      const activeInv = initialInvoice || invoice;
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
-        invoice_id: invoice?._id || invoice?.id
+        invoice_id: activeInv?._id || activeInv?.id
       });
       toast.success('Payment confirmed! Client and Admin notified.');
       fetchApp(true);
@@ -886,6 +887,7 @@ export default function ApplicationProcessing() {
               invoice={initialInvoice || invoice}
               status={app?.status}
               isInitial={true}
+              isRenewal={true}
               onConfirmPayment={(initialInvoice || invoice)?.status === 'client_paid' ? handleConfirmPayment : undefined}
               confirmingPayment={confirmingPayment}
             />

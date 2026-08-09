@@ -133,17 +133,30 @@ export default function AdminAddOnProcessing() {
     } finally { setSubmitting(false); }
   };
 
-  const handleEnableForm = async () => {
-    if (!formText.trim() && !formFile) {
-      return toast.error('Please upload a form document or write form content.');
+  const handleRequestProductApprovalForm = async () => {
+    setSubmitting(true);
+    try {
+      await api.put(`/api/add-on-applications/${app._id}/enable-form`, {
+        form_text: 'Please complete and submit the Product Approval Form for each product.',
+        is_draft: false
+      });
+      toast.success('Request for Product Approval Form sent to client successfully!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message);
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleEnableForm = async () => {
     setSubmitting(true);
     try {
       const fd = new FormData();
       if (formFile) fd.append('form_file', formFile);
       if (formText.trim()) fd.append('form_text', formText);
       await api.put(`/api/add-on-applications/${app._id}/enable-form`, fd, true);
-      toast.success('Product Approval Form enabled and sent to client!');
+      toast.success('Request for Product Approval Form sent to client!');
       setActionType(null);
       fetchApp(true);
     } catch (err) {
@@ -256,8 +269,13 @@ export default function AdminAddOnProcessing() {
           }}>
             <Users size={15} style={{ marginRight: 4 }} /> Re-assign FT
           </button>
-          <button className="btn btn-primary" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
-            <FileText size={16} style={{ marginRight: 6 }} /> Enable Product Form
+          <button
+            className="btn btn-primary"
+            style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+            disabled={submitting}
+            onClick={handleRequestProductApprovalForm}
+          >
+            <FileText size={16} style={{ marginRight: 6 }} /> Request for Product Approval Form
           </button>
         </div>
       );
@@ -502,8 +520,13 @@ export default function AdminAddOnProcessing() {
               </div>
 
               {isManagerOrAdmin && app.status === 'ft_assigned' && (
-                <button className="btn btn-primary btn-sm" style={{ background: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
-                  Enable / Edit Form
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+                  disabled={submitting}
+                  onClick={handleRequestProductApprovalForm}
+                >
+                  Request for Product Approval Form
                 </button>
               )}
             </div>

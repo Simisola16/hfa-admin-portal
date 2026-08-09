@@ -321,8 +321,23 @@ export default function AdminAddOnApplications() {
                         )}
 
                         {isManagerOrAdmin && app.status === 'ft_assigned' && (
-                          <button className="btn btn-sm" style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: 11 }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
-                            Enable Form
+                          <button
+                            className="btn btn-sm"
+                            style={{ background: '#7c3aed', color: 'white', border: 'none', fontSize: 11 }}
+                            onClick={async () => {
+                              try {
+                                await api.put(`/api/add-on-applications/${app._id}/enable-form`, {
+                                  form_text: 'Please complete and submit the Product Approval Form for each product.',
+                                  is_draft: false
+                                });
+                                toast.success('Request for Product Approval Form sent to client!');
+                                fetchData();
+                              } catch (err) {
+                                toast.error(err.response?.data?.error || err.message);
+                              }
+                            }}
+                          >
+                            Request for Product Approval Form
                           </button>
                         )}
 

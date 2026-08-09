@@ -416,6 +416,127 @@ export default function ApplicationProcessing() {
       );
     }
 
+    // =========================================================================
+    // RENEWAL APPLICATION WORKFLOW
+    // 1. Review (Accept, Reject, Put on Hold)
+    // 2. Audit (Manage Audit, Propose Dates, Conduct Audit, NC Flag & Close)
+    // 3. Invoice (Send Renewal Invoice, Client Pays, Admin Confirms Payment)
+    // 4. Logsheet (Create / Sign LogSheet, Mark Logsheet Done)
+    // 5. Waiting for Certificate (Issue Certificate)
+    // 6. Certificate (Issued)
+    // =========================================================================
+    if (isRenewal) {
+      // 2. Audit Scheduling & Execution (Directly after Accept)
+      if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#ea580c' }}
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Calendar size={16} /> Manage Audit
+          </button>
+        );
+      }
+
+      // Post-Audit Decision (Flag NC / Close NC)
+      if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || (status === 'on_hold' && audits.length > 0)) {
+        return (
+          <>
+            <button
+              className="btn btn-danger"
+              style={{ gap: 8 }}
+              onClick={() => setShowNcModal(true)}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleCloseNc}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> Close NC
+            </button>
+          </>
+        );
+      }
+
+      // 3. Invoice Stage (Post-Audit / NC Closed)
+      const renewalInvoice = initialInvoice || invoice;
+      const isRenewalInvoicePaid = renewalInvoice?.status === 'paid' || status === 'payment_received';
+
+      if (['nc_closed', 'audit_report_submitted'].includes(status) && !renewalInvoice) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#854d0e' }}
+            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
+          >
+            <Receipt size={16} /> Send Renewal Invoice
+          </button>
+        );
+      }
+
+      if (status === 'invoice_sent' && !isRenewalInvoicePaid) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#854d0e' }}
+            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
+          >
+            <Receipt size={16} /> Resend Renewal Invoice
+          </button>
+        );
+      }
+
+      // 4. LogSheet Stage (Post-Invoice Payment)
+      const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
+
+      if (isRenewalInvoicePaid || ['payment_received', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
+        if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
+          const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+          return (
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0e7490' }}
+              onClick={() => navigate(`/applications/${appId}/logsheet`)}
+              title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            >
+              <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            </button>
+          );
+        }
+      }
+
+      // 5. Waiting for Certificate Stage
+      if (status === 'ready_for_certificate' || status === 'Waiting For Certificate' || (isLogsheetSigned && status !== 'certificate_issued')) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a' }}
+            onClick={() => setShowCertificateModal(true)}
+          >
+            <Award size={16} /> Issue Certificate
+          </button>
+        );
+      }
+
+      // 6. Certificate Issued
+      if (status === 'certificate_issued') {
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+            <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+    }
+
+    // =========================================================================
+    // INITIAL (STANDARD) APPLICATION WORKFLOW
+    // =========================================================================
+
     // 2. Proposal Stage
     if (status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected') {
       return (
@@ -523,7 +644,7 @@ export default function ApplicationProcessing() {
     }
 
     // 9. Final Invoice Stage (For non-renewal apps when agreement is finalized)
-    if (!isRenewal && (status === 'agreement_finalised' || status === 'final_invoice_sent')) {
+    if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
       if (isFinalInvoicePaid) {
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -543,9 +664,7 @@ export default function ApplicationProcessing() {
     }
 
     // 10. Mark Ready for Certificate Stage
-    // For non-renewal: once final invoice is paid (status === 'final_invoice_paid')
-    // For renewal: once agreement is finalized (status === 'agreement_finalised')
-    if ((!isRenewal && status === 'final_invoice_paid') || (isRenewal && status === 'agreement_finalised')) {
+    if (status === 'final_invoice_paid' || status === 'agreement_finalised') {
       return (
         <button
           className="btn btn-primary"
@@ -664,23 +783,24 @@ export default function ApplicationProcessing() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
         {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* Proposal Card */}
-          <ProposalCard app={app} proposal={proposal} />
+          {/* For non-renewal, show proposal card and initial invoice */}
+          {!isRenewal && <ProposalCard app={app} proposal={proposal} />}
 
-          {/* 1. Initial Certification Invoice Card */}
-          <InvoiceCard
-            app={app}
-            invoice={initialInvoice}
-            status={app?.status}
-            isInitial={true}
-            onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
-            confirmingPayment={confirmingPayment}
-          />
+          {!isRenewal && (
+            <InvoiceCard
+              app={app}
+              invoice={initialInvoice}
+              status={app?.status}
+              isInitial={true}
+              onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+              confirmingPayment={confirmingPayment}
+            />
+          )}
 
-          {/* Audit Card */}
+          {/* 1. Audit Card */}
           <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
 
-          {/* Non-Conformity (NC) & Findings Card */}
+          {/* 2. Non-Conformity (NC) & Findings Card */}
           <NcCard
             app={app}
             audits={audits}
@@ -690,7 +810,19 @@ export default function ApplicationProcessing() {
             actionSubmitting={actionSubmitting}
           />
 
-          {/* Logsheet Card (Admin Only) */}
+          {/* 3. Renewal Invoice Card (Post-Audit for Renewal) */}
+          {isRenewal && (
+            <InvoiceCard
+              app={app}
+              invoice={initialInvoice || invoice}
+              status={app?.status}
+              isInitial={true}
+              onConfirmPayment={(initialInvoice || invoice)?.status === 'client_paid' ? handleConfirmPayment : undefined}
+              confirmingPayment={confirmingPayment}
+            />
+          )}
+
+          {/* 4. Logsheet Card */}
           <LogsheetCard 
             logsheet={logsheet} 
             status={status} 
@@ -699,18 +831,19 @@ export default function ApplicationProcessing() {
             markingDone={markingLogsheetDone}
           />
 
-          {/* Agreement Card */}
-          <AgreementCard 
-            app={app} 
-            agreement={agreement} 
-            status={status}
-            onReupload={() => setShowAgreementModal(true)}
-            onMarkDone={handleMarkAgreementDone}
-            markingDone={markingAgreementDone}
-          />
+          {/* For non-renewal: Agreement Card and Final Invoice Card */}
+          {!isRenewal && (
+            <AgreementCard 
+              app={app} 
+              agreement={agreement} 
+              status={status}
+              onReupload={() => setShowAgreementModal(true)}
+              onMarkDone={handleMarkAgreementDone}
+              markingDone={markingAgreementDone}
+            />
+          )}
 
-          {/* 2. Final Halal Certificate Fee Invoice Card */}
-          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {!isRenewal && (finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

@@ -208,28 +208,37 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
           </div>
         )}
 
-        {/* Action Buttons: Exactly matching the 2 buttons requested by user */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
-          <button
-            type="button"
-            className="btn btn-danger"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontWeight: 700, borderRadius: 8 }}
-            onClick={onFlagNc}
-            disabled={actionSubmitting}
-          >
-            <AlertTriangle size={16} /> Flag NC
-          </button>
+        {/* Action Buttons / Closed Status Banner */}
+        {isNcClosed ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, marginTop: 12 }}>
+            <CheckCircle size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+            <div style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>
+              All Non-Conformities (NC) have been closed &amp; verified. Audit stage completed.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+            <button
+              type="button"
+              className="btn btn-danger"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontWeight: 700, borderRadius: 8 }}
+              onClick={onFlagNc}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
 
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontWeight: 700, borderRadius: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={onCloseNc}
-            disabled={actionSubmitting}
-          >
-            <CheckCircle size={16} /> Close NC
-          </button>
-        </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontWeight: 700, borderRadius: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={onCloseNc}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> Close NC
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

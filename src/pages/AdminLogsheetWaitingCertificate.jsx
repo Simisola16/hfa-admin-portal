@@ -291,7 +291,9 @@ export default function AdminLogsheetWaitingCertificate() {
                       <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                           <Link 
-                            to={`/logsheet/create?appId=${appId}`}
+                            to={l.source_type === 'addon_application' || l.addon_application_id
+                              ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/logsheet`
+                              : `/applications/${l.application_id?._id || l.application_id}/logsheet`}
                             className="btn btn-outline btn-sm"
                             style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           >

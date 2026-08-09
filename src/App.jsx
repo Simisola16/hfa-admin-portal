@@ -73,6 +73,8 @@ export default function App() {
             <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />
             <Route path="/logsheet/waiting-signature" element={<AdminLogsheetWaitingSignature />} />
             <Route path="/logsheet/waiting-certificate" element={<AdminLogsheetWaitingCertificate />} />
+            <Route path="/logsheet/create" element={<Navigate to="/logsheet/manage" replace />} />
+            <Route path="/logsheets/:id" element={<Navigate to="/logsheet/manage" replace />} />
             <Route path="/tickets" element={<AdminTickets />} />
             <Route path="/signatures" element={<AdminSignatures />} />
             <Route path="/users" element={<AdminClients />} />

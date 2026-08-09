@@ -740,192 +740,245 @@ export default function AdminCreateLogsheet() {
 
         {/* UNIFIED READ-ONLY DOCUMENT VIEW */}
         {isReadOnly ? (
-          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 28 }}>
             
-            {/* Section A: Applicant Profile */}
-            <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Building size={16} style={{ color: 'var(--primary)' }} />
+            {/* Section 1: Company & Site Details */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <Building size={16} style={{ color: '#047857' }} />
                 1. Company &amp; Site Details
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPANY NAME</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.company_name || '—'}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company Name</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>{form.company_name || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CONTACT PERSON</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.contact_person || '—'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{form.contact_email}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Contact Person</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>{form.contact_person || '—'}</div>
+                  <div style={{ fontSize: 12, color: '#047857', fontWeight: 500, marginTop: 1 }}>{form.contact_email || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPANY ADDRESS</div>
-                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.company_address || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company Registered Address</div>
+                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.company_address || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>MANUFACTURING SITE ADDRESS</div>
-                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.manufacturing_address || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Manufacturing Site Address</div>
+                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.manufacturing_address || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>NATURE OF BUSINESS</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.nature_of_business || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nature of Business</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.nature_of_business || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PRODUCT CATEGORY</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.product_category || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product Category</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.product_category || '—'}</div>
                 </div>
               </div>
             </div>
 
-            {/* Section B: Certification Dates */}
-            <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Calendar size={16} style={{ color: 'var(--primary)' }} />
+            {/* Section 2: Certification Validity & Cycle Dates */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <Calendar size={16} style={{ color: '#047857' }} />
                 2. Certification Validity &amp; Cycle Dates
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>ISSUE DATE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.issue_date ? new Date(form.issue_date).toLocaleDateString('en-GB') : '—'}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Certificate Issue Date</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#047857', marginTop: 3 }}>{form.issue_date ? new Date(form.issue_date).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>EXPIRY DATE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{form.expiry_date ? new Date(form.expiry_date).toLocaleDateString('en-GB') : '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Certificate Expiry Date</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', marginTop: 3 }}>{form.expiry_date ? new Date(form.expiry_date).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CURRENT CYCLE START</div>
-                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.current_cycle_start ? new Date(form.current_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current Cycle Start Date</div>
+                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.current_cycle_start ? new Date(form.current_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>ORIGINAL CYCLE START</div>
-                  <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Original Cycle Start Date</div>
+                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
               </div>
             </div>
 
-            {/* Section C: Audit & Technical Review */}
-            <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FileText size={16} style={{ color: 'var(--primary)' }} />
+            {/* Section 3: Audit & Technical Compliance Review */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <FileText size={16} style={{ color: '#047857' }} />
                 3. Audit &amp; Technical Compliance Review
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT TYPE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0d9488', marginTop: 2 }}>{form.audit_type || 'Initial'}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Audit Type</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0d9488', marginTop: 3 }}>{form.audit_type || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDIT DATE</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.audit_date ? new Date(form.audit_date).toLocaleDateString('en-GB') : '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Audit Date</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.audit_date ? new Date(form.audit_date).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AUDITORS</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.auditors || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Auditor(s) Assigned</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.auditors || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>NON-CONFORMANCES (NCS CLOSE)</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.ncs_close || 'No NCs flagged'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Non-Conformances (NCS Close)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: form.ncs_close?.toLowerCase().includes('closed') || form.ncs_close?.toLowerCase().includes('no') ? '#15803d' : '#b45309', marginTop: 3 }}>
+                    {form.ncs_close || 'No NCs Flagged'}
+                  </div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>DOCUMENTATION REVIEW STATUS</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.docs_satisfactory || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Documentation Review Status</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 3 }}>{form.docs_satisfactory || '—'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>PORK FREE POLICY STATEMENT</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 2 }}>{form.pork_free_statement || '—'}</div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pork Free Policy Statement</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 3 }}>{form.pork_free_statement || '—'}</div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reviewed By (Role / Dept)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.reviewed_by || '—'}</div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reviewer Name</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.reviewer_name || '—'}</div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Date of Review</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.review_date ? new Date(form.review_date).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
               </div>
             </div>
 
-            {/* Section D: Scope & Committee Decisions */}
-            <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Award size={16} style={{ color: 'var(--primary)' }} />
-                4. Scope &amp; Certificate Scope Checks
+            {/* Section 4: Certificate Status & Scope Checks */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <Award size={16} style={{ color: '#047857' }} />
+                4. Scope &amp; Certificate Status Checks
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
                 {[
                   { label: 'Annual Certificate', val: form.annual_certificate },
                   { label: 'Batch Certificate', val: form.batch_certificate },
-                  { label: 'Addition of New Products', val: form.new_products_only },
-                  { label: 'Addition of New Site/Line', val: form.new_site_line },
-                  { label: 'New Client', val: form.new_client },
-                  { label: 'Agreement Signed', val: form.agreement_signed },
+                  { label: 'Only Addition of New Products', val: form.new_products_only },
+                  { label: 'Addition of New Site / Line', val: form.new_site_line },
+                  { label: 'New Client Application', val: form.new_client },
+                  { label: 'Certification Agreement Signed', val: form.agreement_signed },
                 ].map((item, idx) => (
-                  <div key={idx} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 500 }}>{item.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: item.val === 'Yes' ? '#dcfce7' : '#f1f5f9', color: item.val === 'Yes' ? '#15803d' : '#64748b' }}>
+                  <div key={idx} style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>{item.label}</span>
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: '3px 10px',
+                      borderRadius: 12,
+                      background: item.val === 'Yes' ? '#dcfce7' : '#f1f5f9',
+                      color: item.val === 'Yes' ? '#15803d' : '#64748b',
+                      border: `1px solid ${item.val === 'Yes' ? '#bbf7d0' : '#e2e8f0'}`
+                    }}>
                       {item.val || 'No'}
                     </span>
                   </div>
                 ))}
               </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Status Effective Date:</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{form.status_date ? new Date(form.status_date).toLocaleDateString('en-GB') : '—'}</span>
+              </div>
             </div>
 
-            {/* Section E: Committee Comments */}
-            {form.comment && (
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
-                  5. Committee Comments &amp; Recommendation Notes
-                </h4>
-                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {form.comment}
-                </div>
+            {/* Section 5: Committee Comments & Recommendation Notes */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <MessageSquare size={16} style={{ color: '#047857' }} />
+                5. Committee Comments &amp; Recommendation Notes
+              </h4>
+              <div style={{
+                background: '#f8fafc',
+                padding: '16px 20px',
+                borderRadius: 8,
+                border: '1px solid #e2e8f0',
+                fontSize: 13.5,
+                color: form.comment ? '#1e293b' : '#64748b',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.6,
+                fontStyle: form.comment ? 'normal' : 'italic'
+              }}>
+                {form.comment || 'No additional committee notes or conditions recorded.'}
               </div>
-            )}
+            </div>
 
-            {/* Attached Audit Reports */}
-            {((form.document_urls && form.document_urls.length > 0) || form.document_url) && (
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FileText size={16} style={{ color: 'var(--primary)' }} />
-                  Attached Audit Reports
-                </h4>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                    form.document_urls.map((doc, idx) => (
-                      <a
-                        key={idx}
-                        href={getPdfUrl(doc.url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                        onClick={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const fullUrl = getPdfUrl(doc.url);
-                          if (fullUrl && fullUrl !== '#') {
-                            window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                          }
-                        }}
-                      >
-                        <Download size={14} /> {doc.name || `Audit Report ${idx + 1}`}
-                      </a>
-                    ))
-                  ) : form.document_url ? (
+            {/* Section 6: Attached Audit Reports */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <FileText size={16} style={{ color: '#047857' }} />
+                6. Attached Audit Reports
+              </h4>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                  form.document_urls.map((doc, idx) => (
                     <a
-                      href={getPdfUrl(form.document_url)}
+                      key={idx}
+                      href={getPdfUrl(doc.url)}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-outline btn-sm"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const fullUrl = getPdfUrl(form.document_url);
+                        const fullUrl = getPdfUrl(doc.url);
                         if (fullUrl && fullUrl !== '#') {
                           window.open(fullUrl, '_blank', 'noopener,noreferrer');
                         }
                       }}
                     >
-                      <Download size={14} /> Audit Report PDF
+                      <Download size={14} style={{ color: '#047857' }} /> {doc.name || `Audit Report Document ${idx + 1}`}
                     </a>
-                  ) : null}
-                </div>
+                  ))
+                ) : form.document_url ? (
+                  <a
+                    href={getPdfUrl(form.document_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-outline btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const fullUrl = getPdfUrl(form.document_url);
+                      if (fullUrl && fullUrl !== '#') {
+                        window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    <Download size={14} style={{ color: '#047857' }} /> Audit Report Document
+                  </a>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
+                    No audit report files attached.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* SECTION F: FORMAL SIGNATURE MATRIX BLOCK */}
             <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 8 }}>

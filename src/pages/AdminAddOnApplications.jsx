@@ -595,48 +595,6 @@ export default function AdminAddOnApplications() {
                   {isExpanded && (
                     <div style={{ background: '#fafbfc', borderTop: '1px solid #e2e8f0', padding: '20px 24px' }}>
 
-                      {/* Stepper Header */}
-                      <div style={{ marginBottom: 20, background: 'white', padding: '16px 20px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Sparkles size={13} style={{ color: cfg.dot }} /> Workflow Progress Stepper — <span style={{ color: cfg.color }}>{cfg.label}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 4 }}>
-                          {FLOW_STEPS.map((stepId, idx) => {
-                            const currentIdx = FLOW_STEPS.indexOf(app.status);
-                            const isDone = currentIdx > idx || app.status === 'completed';
-                            const isCurrent = currentIdx === idx && app.status !== 'completed';
-                            const stepCfg = STATUS_CONFIG[stepId] || {};
-
-                            return (
-                              <React.Fragment key={stepId}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 64 }}>
-                                  <div style={{
-                                    width: 24, height: 24, borderRadius: '50%',
-                                    background: isDone ? '#16a34a' : isCurrent ? (stepCfg.dot || '#0284c7') : '#e2e8f0',
-                                    color: isDone || isCurrent ? 'white' : '#94a3b8',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 10, fontWeight: 800, marginBottom: 4,
-                                    boxShadow: isCurrent ? `0 0 0 3px ${(stepCfg.dot || '#0284c7')}30` : 'none',
-                                    transition: 'all 0.2s'
-                                  }}>
-                                    {isDone ? '✓' : idx + 1}
-                                  </div>
-                                  <span style={{
-                                    fontSize: 9.5, fontWeight: isCurrent ? 800 : 500, textAlign: 'center', lineHeight: 1.2,
-                                    color: isDone ? '#16a34a' : isCurrent ? (stepCfg.color || '#0284c7') : '#94a3b8'
-                                  }}>
-                                    {STATUS_LABELS[stepId]}
-                                  </span>
-                                </div>
-                                {idx < FLOW_STEPS.length - 1 && (
-                                  <div style={{ flex: '0 0 14px', height: 2, background: isDone ? '#16a34a' : '#e2e8f0', marginBottom: 14 }} />
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </div>
-                      </div>
-
                       {/* Details Grid */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                         {/* Products */}

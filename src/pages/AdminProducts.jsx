@@ -41,10 +41,12 @@ export default function AdminProducts() {
   };
 
   const filtered = products.filter(p => {
+    const clientName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '';
+    const barcodeStr = p.barcode || p.code || '';
     const matchSearch = !search || 
       p.name?.toLowerCase().includes(search.toLowerCase()) || 
-      p.profiles?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode?.toLowerCase().includes(search.toLowerCase());
+      clientName.toLowerCase().includes(search.toLowerCase()) ||
+      barcodeStr.toLowerCase().includes(search.toLowerCase());
     const matchStatus = !filterStatus || p.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -104,65 +106,73 @@ export default function AdminProducts() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(product => (
-                  <tr key={product.id}>
-                    <td>
-                      <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{product.name}</div>
-                      <div className="truncate" style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
-                        {product.description || 'No description'}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{product.profiles?.company_name || '—'}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: 13 }}>{product.category || '—'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{product.product_type}</div>
-                    </td>
-                    <td style={{ fontFamily: 'monospace' }}>{product.barcode || '—'}</td>
-                    <td>
-                      <span className={`badge ${
-                        product.status === 'approved' ? 'badge-green' : 
-                        product.status === 'rejected' ? 'badge-red' : 
-                        'badge-yellow'
-                      }`}>
-                        {product.status === 'approved' ? 'Accepted' : (product.status || 'pending')}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      {new Date(product.created_at).toLocaleDateString('en-GB')}
-                    </td>
-                    <td style={{ display: 'flex', gap: 6 }}>
-                      <button 
-                        className="btn btn-ghost btn-sm" 
-                        onClick={() => setSelected(product)}
-                        title="Quick View"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      {product.status === 'pending' && (
-                        <>
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ color: 'var(--primary)' }}
-                            onClick={() => handleStatusUpdate(product.id, 'approved')}
-                            title="Accept"
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ color: 'var(--danger)' }}
-                            onClick={() => handleStatusUpdate(product.id, 'rejected')}
-                            title="Reject"
-                          >
-                            <XCircle size={14} />
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(product => {
+                  const prodId = product._id || product.id;
+                  const clientName = product.client_id?.company_name || product.client_id?.full_name || product.profiles?.company_name || '—';
+                  const barcodeVal = product.barcode || product.code || '—';
+
+                  return (
+                    <tr key={prodId}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{product.name}</div>
+                        <div className="truncate" style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
+                          {product.description || 'No description'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{clientName}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13 }}>{product.category || '—'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{product.product_type}</div>
+                      </td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: barcodeVal !== '—' ? 600 : 400 }}>
+                        {barcodeVal}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          product.status === 'approved' || product.status === 'active' ? 'badge-green' : 
+                          product.status === 'rejected' ? 'badge-red' : 
+                          'badge-yellow'
+                        }`}>
+                          {product.status === 'approved' || product.status === 'active' ? 'Accepted' : (product.status || 'pending')}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {new Date(product.created_at || product.createdAt).toLocaleDateString('en-GB')}
+                      </td>
+                      <td style={{ display: 'flex', gap: 6 }}>
+                        <button 
+                          className="btn btn-ghost btn-sm" 
+                          onClick={() => setSelected(product)}
+                          title="Quick View"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        {product.status === 'pending' && (
+                          <>
+                            <button 
+                              className="btn btn-ghost btn-sm" 
+                              style={{ color: 'var(--primary)' }}
+                              onClick={() => handleStatusUpdate(prodId, 'approved')}
+                              title="Accept"
+                            >
+                              <CheckCircle size={14} />
+                            </button>
+                            <button 
+                              className="btn btn-ghost btn-sm" 
+                              style={{ color: 'var(--danger)' }}
+                              onClick={() => handleStatusUpdate(prodId, 'rejected')}
+                              title="Reject"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -213,17 +223,17 @@ export default function AdminProducts() {
 
               <div style={{ background: 'var(--primary-light)', padding: 16, borderRadius: 12, marginTop: 24 }}>
                 <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase' }}>Client Information</div>
-                <div style={{ fontWeight: 600 }}>{selected.profiles?.company_name}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{selected.profiles?.full_name}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{selected.profiles?.email}</div>
+                <div style={{ fontWeight: 600 }}>{selected.client_id?.company_name || selected.profiles?.company_name || '—'}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{selected.client_id?.full_name || selected.profiles?.full_name}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{selected.client_id?.email || selected.profiles?.email}</div>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>
               {selected.status === 'pending' && (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleStatusUpdate(selected.id, 'rejected')}>Reject</button>
-                  <button className="btn btn-primary" onClick={() => handleStatusUpdate(selected.id, 'approved')}>Accept Product</button>
+                  <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleStatusUpdate(selected._id || selected.id, 'rejected')}>Reject</button>
+                  <button className="btn btn-primary" onClick={() => handleStatusUpdate(selected._id || selected.id, 'approved')}>Accept Product</button>
                 </div>
               )}
             </div>

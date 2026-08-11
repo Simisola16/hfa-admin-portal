@@ -166,10 +166,14 @@ export default function AdminAddOnApplications() {
   };
 
   const baseList = useMemo(() => {
-    if (view === 'request') return apps.filter(a => a.status === 'submitted');
+    if (view === 'request') {
+      if (statusFilter !== 'all') return apps;
+      const activeRequests = apps.filter(a => a.status !== 'completed' && a.status !== 'rejected');
+      return activeRequests.length > 0 ? activeRequests : apps;
+    }
     if (view === 'inprogress') return apps.filter(a => a.status !== 'completed' && a.status !== 'rejected');
     return apps;
-  }, [apps, view]);
+  }, [apps, view, statusFilter]);
 
   const stats = useMemo(() => {
     const total = apps.length;
@@ -182,6 +186,7 @@ export default function AdminAddOnApplications() {
   const filtered = useMemo(() => {
     return baseList.filter(a => {
       if (statusFilter === 'pending' && a.status !== 'submitted') return false;
+      if (statusFilter === 'inprogress' && (a.status === 'submitted' || a.status === 'completed' || a.status === 'rejected')) return false;
       if (statusFilter === 'ft_assigned' && a.status !== 'ft_assigned') return false;
       if (statusFilter === 'forms' && !['product_approval_form_enabled', 'all_forms_received'].includes(a.status)) return false;
       if (statusFilter === 'ready' && a.status !== 'ready_for_certificate') return false;
@@ -278,10 +283,10 @@ export default function AdminAddOnApplications() {
         </div>
 
         <div
-          onClick={() => setStatusFilter('ft_assigned')}
+          onClick={() => setStatusFilter('inprogress')}
           style={{
-            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'ft_assigned' ? '#2563eb' : '#e2e8f0'}`,
-            boxShadow: statusFilter === 'ft_assigned' ? '0 0 0 2px #dbeafe' : '0 1px 3px rgba(0,0,0,0.03)',
+            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'inprogress' ? '#2563eb' : '#e2e8f0'}`,
+            boxShadow: statusFilter === 'inprogress' ? '0 0 0 2px #dbeafe' : '0 1px 3px rgba(0,0,0,0.03)',
             cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}
         >

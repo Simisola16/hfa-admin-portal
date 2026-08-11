@@ -901,6 +901,54 @@ export default function ProductApprovalRequestForm({
           </div>
         </div>
 
+        {/* YES: attach artwork document */}
+        {form.is_artwork_labelling_required === 'Yes' && (
+          <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', marginBottom: 10 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+              Attach copy of artwork / labelling:
+            </div>
+            {readOnly ? (
+              form.artwork_labelling_document ? (
+                <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FileText size={14} /> {typeof form.artwork_labelling_document === 'string' ? form.artwork_labelling_document : form.artwork_labelling_document?.name || 'Document attached'}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>No document attached</div>
+              )
+            ) : (
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="form-control form-control-sm"
+                style={{ fontSize: 12 }}
+                onChange={e => {
+                  const file = e.target.files?.[0] || null;
+                  updateField('artwork_labelling_document', file);
+                }}
+              />
+            )}
+            {!readOnly && <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG</div>}
+          </div>
+        )}
+
+        {/* NO: provide details */}
+        {form.is_artwork_labelling_required === 'No' && (
+          <div style={{ padding: '10px 14px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa', marginBottom: 10 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
+              Please provide details:
+            </div>
+            <textarea
+              className="form-control form-control-sm"
+              rows={3}
+              disabled={readOnly}
+              placeholder="Provide details..."
+              value={form.artwork_labelling_details || ''}
+              onChange={e => updateField('artwork_labelling_details', e.target.value)}
+              style={{ fontSize: 12, resize: 'vertical' }}
+            />
+          </div>
+        )}
+
         {/* 12.2 Is food contact packaging free from animal derivatives? */}
         <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px', gap: 12, alignItems: 'center' }}>

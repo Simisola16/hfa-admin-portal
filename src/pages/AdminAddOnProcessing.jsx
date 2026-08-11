@@ -497,6 +497,7 @@ export default function AdminAddOnProcessing() {
           </div>
 
           {/* Card 2: Product Approval Form Management */}
+          {!['logsheet_created', 'logsheet_signed', 'payment_received', 'ready_for_certificate', 'completed'].includes(app.status) && (
           <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -621,6 +622,7 @@ export default function AdminAddOnProcessing() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Card 3: Halal Logsheet Review */}
           <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>

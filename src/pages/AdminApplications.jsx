@@ -1026,7 +1026,7 @@ export default function AdminApplications() {
                                 <tr>
                                   <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontWeight: 600, fontSize: '14px', background: '#f8fafc', color: '#475569' }}>Latest Proposal Status:</td>
                                   <td style={{ border: '1px solid #cbd5e1', padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: existingProposal.status === 'rejected' ? '#ef4444' : '#16a34a' }}>
-                                    {existingProposal.status?.toUpperCase()}
+                                    {existingProposal.status?.replace(/_/g, ' ').toUpperCase()}
                                   </td>
                                 </tr>
                                 <tr>

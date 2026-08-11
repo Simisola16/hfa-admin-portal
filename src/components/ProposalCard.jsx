@@ -42,7 +42,7 @@ export default function ProposalCard({ proposal, status }) {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Certification Proposal</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Version {proposal.version || 1} &middot; Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{proposal.status}</span></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Version {proposal.version || 1} &middot; Status: <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{proposal.status?.replace(/_/g, ' ')}</span></div>
           </div>
         </div>
         {proposal.proposal_url && (

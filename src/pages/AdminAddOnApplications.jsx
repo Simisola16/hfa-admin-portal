@@ -166,27 +166,24 @@ export default function AdminAddOnApplications() {
   };
 
   const baseList = useMemo(() => {
-    if (view === 'request') {
-      if (statusFilter !== 'all') return apps;
-      const activeRequests = apps.filter(a => a.status !== 'completed' && a.status !== 'rejected');
-      return activeRequests.length > 0 ? activeRequests : apps;
-    }
-    if (view === 'inprogress') return apps.filter(a => a.status !== 'completed' && a.status !== 'rejected');
+    if (view === 'request') return apps.filter(a => a.status === 'submitted' || a.status === 'on_hold');
+    if (view === 'inprogress') return apps.filter(a => a.status !== 'submitted' && a.status !== 'on_hold' && a.status !== 'completed' && a.status !== 'rejected');
     return apps;
-  }, [apps, view, statusFilter]);
+  }, [apps, view]);
 
   const stats = useMemo(() => {
     const total = apps.length;
-    const pending = apps.filter(a => a.status === 'submitted').length;
-    const inProgress = apps.filter(a => !['submitted', 'completed', 'rejected'].includes(a.status)).length;
+    const pending = apps.filter(a => a.status === 'submitted' || a.status === 'on_hold').length;
+    const inProgress = apps.filter(a => !['submitted', 'on_hold', 'completed', 'rejected'].includes(a.status)).length;
     const completed = apps.filter(a => a.status === 'completed').length;
     return { total, pending, inProgress, completed };
   }, [apps]);
 
   const filtered = useMemo(() => {
     return baseList.filter(a => {
-      if (statusFilter === 'pending' && a.status !== 'submitted') return false;
-      if (statusFilter === 'inprogress' && (a.status === 'submitted' || a.status === 'completed' || a.status === 'rejected')) return false;
+      if (statusFilter === 'pending' && !['submitted', 'on_hold'].includes(a.status)) return false;
+      if (statusFilter === 'on_hold' && a.status !== 'on_hold') return false;
+      if (statusFilter === 'inprogress' && (a.status === 'submitted' || a.status === 'on_hold' || a.status === 'completed' || a.status === 'rejected')) return false;
       if (statusFilter === 'ft_assigned' && a.status !== 'ft_assigned') return false;
       if (statusFilter === 'forms' && !['product_approval_form_enabled', 'all_forms_received'].includes(a.status)) return false;
       if (statusFilter === 'ready' && a.status !== 'ready_for_certificate') return false;
@@ -206,9 +203,9 @@ export default function AdminAddOnApplications() {
   }, [baseList, statusFilter, search]);
 
   const getViewMeta = () => {
-    if (view === 'request') return { title: 'Add-on Review Queue', subtitle: 'Review and accept or reject pending add-on product requests' };
-    if (view === 'inprogress') return { title: 'In-Progress Add-on Applications', subtitle: 'Applications undergoing food technology evaluation and certification updates' };
-    return { title: 'Add-on Product Applications', subtitle: 'Manage, review, and track all client product modification requests' };
+    if (view === 'request') return { title: 'Add-on Request Review Queue', subtitle: 'Review new product addition requests submitted by clients (Accept, Put on Hold, or Reject)' };
+    if (view === 'inprogress') return { title: 'InProgress Add-on Applications', subtitle: 'Accepted add-on applications undergoing food technology evaluation and certificate updates' };
+    return { title: 'Add-on Product Applications List', subtitle: 'Manage, review, and track all client product modification requests' };
   };
 
   const meta = getViewMeta();
@@ -493,7 +490,7 @@ export default function AdminAddOnApplications() {
 
                       {/* 4. Action Buttons */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                        {isManagerOrAdmin && app.status === 'submitted' && (
+                        {isManagerOrAdmin && (app.status === 'submitted' || app.status === 'on_hold') && (
                           <button
                             className="btn btn-sm"
                             onClick={() => openAction(app, 'review')}
@@ -664,14 +661,14 @@ export default function AdminAddOnApplications() {
                     </div>
                   )}
                 </div>
-              );
-            })
-          )}
-        </div>
+            );
+          })
+        )}
+      </div>
 
       {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 
-      {/* Accept Or Reject */}
+      {/* Accept, Hold, Or Reject */}
       {activeApp && actionType === 'review' && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
@@ -695,21 +692,30 @@ export default function AdminAddOnApplications() {
 
               <div className="form-group">
                 <label className="form-label">Decision</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                   <button type="button"
                     onClick={() => setDecision('accepted')}
                     style={{
-                      padding: '12px', borderRadius: 10, border: `2px solid ${decision === 'accepted' ? '#16a34a' : '#e2e8f0'}`,
-                      background: decision === 'accepted' ? '#f0fdf4' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                      padding: '10px 8px', borderRadius: 10, border: `2px solid ${decision === 'accepted' ? '#16a34a' : '#e2e8f0'}`,
+                      background: decision === 'accepted' ? '#f0fdf4' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
                       color: decision === 'accepted' ? '#16a34a' : '#64748b', transition: 'all 0.15s'
                     }}>
                     ✅ Accept
                   </button>
                   <button type="button"
+                    onClick={() => setDecision('on_hold')}
+                    style={{
+                      padding: '10px 8px', borderRadius: 10, border: `2px solid ${decision === 'on_hold' ? '#d97706' : '#e2e8f0'}`,
+                      background: decision === 'on_hold' ? '#fffbeb' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
+                      color: decision === 'on_hold' ? '#d97706' : '#64748b', transition: 'all 0.15s'
+                    }}>
+                    ⏸️ Hold
+                  </button>
+                  <button type="button"
                     onClick={() => setDecision('rejected')}
                     style={{
-                      padding: '12px', borderRadius: 10, border: `2px solid ${decision === 'rejected' ? '#ef4444' : '#e2e8f0'}`,
-                      background: decision === 'rejected' ? '#fef2f2' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                      padding: '10px 8px', borderRadius: 10, border: `2px solid ${decision === 'rejected' ? '#ef4444' : '#e2e8f0'}`,
+                      background: decision === 'rejected' ? '#fef2f2' : 'white', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
                       color: decision === 'rejected' ? '#ef4444' : '#64748b', transition: 'all 0.15s'
                     }}>
                     ❌ Reject
@@ -721,6 +727,11 @@ export default function AdminAddOnApplications() {
                 <div className="form-group animate-in">
                   <label className="form-label">Rejection Reason <span>*</span></label>
                   <textarea className="form-control" rows={3} value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="Explain why this application is being rejected..." required />
+                </div>
+              ) : decision === 'on_hold' ? (
+                <div className="form-group animate-in">
+                  <label className="form-label">Hold Reason / Note</label>
+                  <textarea className="form-control" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Explain why this request is being placed on hold..." />
                 </div>
               ) : (
                 <div className="form-group animate-in">

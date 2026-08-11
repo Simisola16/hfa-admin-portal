@@ -41,6 +41,7 @@ export default function AdminProducts() {
   };
 
   const filtered = products.filter(p => {
+    if (p.status === 'pending') return false;
     const clientName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '';
     const barcodeStr = p.barcode || p.code || '';
     const matchSearch = !search || 
@@ -69,9 +70,8 @@ export default function AdminProducts() {
           onChange={e => setFilterStatus(e.target.value)}
         >
           <option value="">All Statuses</option>
-          <option value="pending">Pending Review</option>
+          <option value="active">Active / Certified</option>
           <option value="approved">Accepted</option>
-          <option value="rejected">Rejected</option>
         </select>
         <button className="btn btn-ghost btn-sm" onClick={fetchProducts}>
           <RefreshCw size={14} />
@@ -80,8 +80,8 @@ export default function AdminProducts() {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title">Product List</div>
-          <div className="card-subtitle">Manage and review client products for certification</div>
+          <div className="card-title">Certified Product List</div>
+          <div className="card-subtitle">Active certified client products (Product addition & modification requests are managed on the Add-on Applications page)</div>
         </div>
         <div className="table-wrap">
           {loading ? (

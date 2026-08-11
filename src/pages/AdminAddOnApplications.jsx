@@ -244,107 +244,136 @@ export default function AdminAddOnApplications() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 22 }}>
-        <div
-          onClick={() => setStatusFilter('all')}
-          style={{
-            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'all' ? '#0284c7' : '#e2e8f0'}`,
-            boxShadow: statusFilter === 'all' ? '0 0 0 2px #e0f2fe' : '0 1px 3px rgba(0,0,0,0.03)',
-            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Requests</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginTop: 2 }}>{stats.total}</div>
+      {/* Stat Cards - Only shown in InProgress and List views */}
+      {view !== 'request' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 22 }}>
+          <div
+            onClick={() => setStatusFilter('all')}
+            style={{
+              background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'all' ? '#0284c7' : '#e2e8f0'}`,
+              boxShadow: statusFilter === 'all' ? '0 0 0 2px #e0f2fe' : '0 1px 3px rgba(0,0,0,0.03)',
+              cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Requests</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginTop: 2 }}>{stats.total}</div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Layers size={20} color="#64748b" />
+            </div>
           </div>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Layers size={20} color="#64748b" />
-          </div>
-        </div>
 
-        <div
-          onClick={() => setStatusFilter('pending')}
-          style={{
-            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'pending' ? '#f59e0b' : '#e2e8f0'}`,
-            boxShadow: statusFilter === 'pending' ? '0 0 0 2px #fef3c7' : '0 1px 3px rgba(0,0,0,0.03)',
-            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Review</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#b45309', marginTop: 2 }}>{stats.pending}</div>
+          <div
+            onClick={() => setStatusFilter('pending')}
+            style={{
+              background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'pending' ? '#f59e0b' : '#e2e8f0'}`,
+              boxShadow: statusFilter === 'pending' ? '0 0 0 2px #fef3c7' : '0 1px 3px rgba(0,0,0,0.03)',
+              cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Review</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#b45309', marginTop: 2 }}>{stats.pending}</div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={20} color="#d97706" />
+            </div>
           </div>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={20} color="#d97706" />
-          </div>
-        </div>
 
-        <div
-          onClick={() => setStatusFilter('inprogress')}
-          style={{
-            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'inprogress' ? '#2563eb' : '#e2e8f0'}`,
-            boxShadow: statusFilter === 'inprogress' ? '0 0 0 2px #dbeafe' : '0 1px 3px rgba(0,0,0,0.03)',
-            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In Processing</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', marginTop: 2 }}>{stats.inProgress}</div>
+          <div
+            onClick={() => setStatusFilter('inprogress')}
+            style={{
+              background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'inprogress' ? '#2563eb' : '#e2e8f0'}`,
+              boxShadow: statusFilter === 'inprogress' ? '0 0 0 2px #dbeafe' : '0 1px 3px rgba(0,0,0,0.03)',
+              cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In Processing</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', marginTop: 2 }}>{stats.inProgress}</div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={20} color="#2563eb" />
+            </div>
           </div>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Users size={20} color="#2563eb" />
-          </div>
-        </div>
 
-        <div
-          onClick={() => setStatusFilter('completed')}
-          style={{
-            background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'completed' ? '#16a34a' : '#e2e8f0'}`,
-            boxShadow: statusFilter === 'completed' ? '0 0 0 2px #dcfce7' : '0 1px 3px rgba(0,0,0,0.03)',
-            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completed</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#15803d', marginTop: 2 }}>{stats.completed}</div>
-          </div>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle size={20} color="#16a34a" />
+          <div
+            onClick={() => setStatusFilter('completed')}
+            style={{
+              background: 'white', padding: '16px 18px', borderRadius: 14, border: `1px solid ${statusFilter === 'completed' ? '#16a34a' : '#e2e8f0'}`,
+              boxShadow: statusFilter === 'completed' ? '0 0 0 2px #dcfce7' : '0 1px 3px rgba(0,0,0,0.03)',
+              cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completed</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#15803d', marginTop: 2 }}>{stats.completed}</div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle size={20} color="#16a34a" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div style={{
         background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', padding: '12px 16px',
         marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {[
-            { id: 'all', label: 'All Requests' },
-            { id: 'pending', label: 'Pending Review' },
-            { id: 'ft_assigned', label: 'FT Assigned' },
-            { id: 'forms', label: 'Forms Phase' },
-            { id: 'ready', label: 'Ready for Cert' },
-            { id: 'completed', label: 'Completed' }
-          ].map(tab => {
-            const isActive = statusFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id)}
-                style={{
-                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: isActive ? 700 : 600,
-                  background: isActive ? '#0f172a' : 'transparent', color: isActive ? 'white' : '#64748b',
-                  border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {view !== 'request' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: 'All Requests' },
+              { id: 'pending', label: 'Pending Review' },
+              { id: 'ft_assigned', label: 'FT Assigned' },
+              { id: 'forms', label: 'Forms Phase' },
+              { id: 'ready', label: 'Ready for Cert' },
+              { id: 'completed', label: 'Completed' }
+            ].map(tab => {
+              const isActive = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: isActive ? 700 : 600,
+                    background: isActive ? '#0f172a' : 'transparent', color: isActive ? 'white' : '#64748b',
+                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: 'All Pending Requests' },
+              { id: 'pending', label: 'New Requests' },
+              { id: 'on_hold', label: 'On Hold' }
+            ].map(tab => {
+              const isActive = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: isActive ? 700 : 600,
+                    background: isActive ? '#0f172a' : 'transparent', color: isActive ? 'white' : '#64748b',
+                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 260, maxWidth: 360, flex: 1 }}>
           <Search size={14} style={{ color: '#94a3b8', marginRight: 8, flexShrink: 0 }} />

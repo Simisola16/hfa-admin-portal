@@ -45,6 +45,7 @@ export const INITIAL_PRODUCT_APPROVAL_FORM = {
   // Section 4: Food Contact Packaging (12)
   is_artwork_labelling_required: 'No',
   is_packaging_animal_free: 'Yes',
+  packaging_animal_free_document: null,
   packaging_animal_free_details: '',
   packaging_details: [
     { packaging_material: '', chemical_composition: '', migration_certificate: '', suitability: '' }
@@ -534,8 +535,8 @@ export default function ProductApprovalRequestForm({
                   <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 120 }}>Source<br/><span style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>(Animal, plant, synthetic)</span></th>
                   <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 120 }}>Supplier</th>
                   <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 120 }}>Manufacturer</th>
-                  <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 140 }}>Halal Certificate / Statement<br/><span style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>(Valid 3 yrs max)</span></th>
-                  <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 120 }}>Halal Body &amp; Expiry</th>
+                  <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 140 }}>Halal Certification Body</th>
+                  <th style={{ padding: '8px 10px', fontWeight: 700, minWidth: 120 }}>Halal Expiry Date</th>
                   {!readOnly && <th style={{ width: 36, padding: '8px 6px' }}></th>}
                 </tr>
               </thead>
@@ -599,7 +600,7 @@ export default function ProductApprovalRequestForm({
                         disabled={readOnly}
                         value={row.certificate_statement || ''}
                         onChange={e => updateTable('ingredients', idx, 'certificate_statement', e.target.value)}
-                        placeholder="Cert ref / Statement"
+                        placeholder="e.g. HFA / JAKIM"
                       />
                     </td>
                     <td style={{ padding: '4px 6px' }}>
@@ -609,7 +610,7 @@ export default function ProductApprovalRequestForm({
                         disabled={readOnly}
                         value={row.halal_body_expiry || ''}
                         onChange={e => updateTable('ingredients', idx, 'halal_body_expiry', e.target.value)}
-                        placeholder="e.g. HFA (Exp: Dec 2026)"
+                        placeholder="e.g. DD/MM/YYYY"
                       />
                     </td>
                     {!readOnly && (
@@ -901,27 +902,79 @@ export default function ProductApprovalRequestForm({
         </div>
 
         {/* 12.2 Is food contact packaging free from animal derivatives? */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-          <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>12.2</span>
-          <div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>Is the food contact packaging free from animal derivatives?</span>
-            <div style={{ fontSize: 11, color: '#64748b' }}>If YES: Provide animal-free statement or valid Halal cert. If NO: Provide details.</div>
+        <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>12.2</span>
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>Is the food contact packaging free from animal derivatives?</span>
+              <div style={{ fontSize: 11, color: '#64748b' }}>
+                If YES: Attach animal-free statement or valid Halal cert. If NO: Provide details.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {['Yes', 'No'].map(opt => (
+                <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: readOnly ? 'default' : 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  <input
+                    type="radio"
+                    name="is_packaging_animal_free"
+                    value={opt}
+                    checked={form.is_packaging_animal_free === opt}
+                    onChange={e => updateField('is_packaging_animal_free', e.target.value)}
+                    disabled={readOnly}
+                  />
+                  {opt}
+                </label>
+              ))}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 16 }}>
-            {['Yes', 'No'].map(opt => (
-              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: readOnly ? 'default' : 'pointer', fontSize: 13, fontWeight: 600 }}>
+
+          {/* YES: attach document */}
+          {form.is_packaging_animal_free === 'Yes' && (
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+                Attach animal-free statement or valid Halal certificate:
+              </div>
+              {readOnly ? (
+                form.packaging_animal_free_document ? (
+                  <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <FileText size={14} /> {typeof form.packaging_animal_free_document === 'string' ? form.packaging_animal_free_document : form.packaging_animal_free_document?.name || 'Document attached'}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#94a3b8' }}>No document attached</div>
+                )
+              ) : (
                 <input
-                  type="radio"
-                  name="is_packaging_animal_free"
-                  value={opt}
-                  checked={form.is_packaging_animal_free === opt}
-                  onChange={e => updateField('is_packaging_animal_free', e.target.value)}
-                  disabled={readOnly}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="form-control form-control-sm"
+                  style={{ fontSize: 12 }}
+                  onChange={e => {
+                    const file = e.target.files?.[0] || null;
+                    updateField('packaging_animal_free_document', file);
+                  }}
                 />
-                {opt}
-              </label>
-            ))}
-          </div>
+              )}
+              {!readOnly && <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG</div>}
+            </div>
+          )}
+
+          {/* NO: provide details */}
+          {form.is_packaging_animal_free === 'No' && (
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '10px 14px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
+                Please provide details:
+              </div>
+              <textarea
+                className="form-control form-control-sm"
+                rows={3}
+                disabled={readOnly}
+                placeholder="Describe the animal derivatives present in the packaging and any mitigating actions taken..."
+                value={form.packaging_animal_free_details || ''}
+                onChange={e => updateField('packaging_animal_free_details', e.target.value)}
+                style={{ fontSize: 12, resize: 'vertical' }}
+              />
+            </div>
+          )}
         </div>
 
         {/* 12.3 Food Contact Packaging Specification Details */}

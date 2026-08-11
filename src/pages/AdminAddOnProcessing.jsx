@@ -313,9 +313,6 @@ export default function AdminAddOnProcessing() {
           <button className="btn btn-primary" style={{ background: '#0e7490', borderColor: '#0e7490' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
             <ClipboardList size={16} style={{ marginRight: 6 }} /> Manage Logsheet
           </button>
-          <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('approve_form')}>
-            <CheckCircle size={16} style={{ marginRight: 6 }} /> Approve Product Form
-          </button>
         </div>
       );
     }
@@ -325,9 +322,6 @@ export default function AdminAddOnProcessing() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn btn-primary" style={{ background: '#ea580c', borderColor: '#ea580c' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
             <ClipboardList size={16} style={{ marginRight: 6 }} /> View & Sign Logsheet
-          </button>
-          <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('approve_form')}>
-            <CheckCircle size={16} style={{ marginRight: 6 }} /> Approve Product Form
           </button>
         </div>
       );

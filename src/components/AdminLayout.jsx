@@ -225,10 +225,13 @@ export default function AdminLayout() {
     setNotifLoading(true);
     try {
       const res = await api.get('/api/notifications');
-      setNotifications(res.data || []);
-      setUnread(res.unreadCount || 0);
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const count = typeof res?.unreadCount === 'number' ? res.unreadCount : list.filter(n => n && !n.is_read).length;
+      setNotifications(list);
+      setUnread(count);
     } catch {
       setNotifications([]);
+      setUnread(0);
     } finally {
       setNotifLoading(false);
     }
@@ -254,8 +257,9 @@ export default function AdminLayout() {
     setSocketConnected(socket.connected);
 
     const handleNotification = (notif) => {
-      setNotifications(prev => [notif, ...prev]);
-      setUnread(prev => prev + 1);
+      if (!notif) return;
+      setNotifications(prev => [notif, ...(Array.isArray(prev) ? prev : [])]);
+      setUnread(prev => (typeof prev === 'number' ? prev : 0) + 1);
 
       // Trigger bell pulse animation
       setAnimateBell(true);
@@ -287,12 +291,12 @@ export default function AdminLayout() {
 
   // Auto-clear unread notifications matching the active route
   useEffect(() => {
-    if (!notifications || notifications.length === 0) return;
+    if (!Array.isArray(notifications) || notifications.length === 0) return;
     const currentPathname = location.pathname;
     const currentSearch = location.search;
 
     const matchingUnread = notifications.filter(n => {
-      if (n.is_read || !n.link) return false;
+      if (!n || n.is_read || !n.link) return false;
       const [linkPath, linkSearch = ''] = n.link.split('?');
       if (linkPath !== currentPathname) return false;
       if (linkSearch) {
@@ -305,10 +309,10 @@ export default function AdminLayout() {
       matchingUnread.forEach(n => {
         api.put(`/api/notifications/${n._id}/read`).catch(() => {});
       });
-      setNotifications(prev => prev.map(n =>
+      setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n =>
         matchingUnread.some(m => m._id === n._id) ? { ...n, is_read: true } : n
       ));
-      setUnread(prev => Math.max(0, prev - matchingUnread.length));
+      setUnread(prev => Math.max(0, (typeof prev === 'number' ? prev : 0) - matchingUnread.length));
     }
   }, [location.pathname, location.search]);
 

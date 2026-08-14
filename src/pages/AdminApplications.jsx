@@ -94,9 +94,14 @@ export default function AdminApplications() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [a, i] = await Promise.all([api.get('/api/applications'), api.get('/api/inspectors')]);
-      setApps(a.data || []);
-      setInspectors(i.data || []);
+      const [a, i] = await Promise.all([
+        api.get('/api/applications').catch(() => ({ data: [] })),
+        api.get('/api/inspectors').catch(() => ({ data: [] }))
+      ]);
+      const rawApps = Array.isArray(a) ? a : (Array.isArray(a?.data?.data) ? a.data.data : (Array.isArray(a?.data) ? a.data : []));
+      const rawInspectors = Array.isArray(i) ? i : (Array.isArray(i?.data?.data) ? i.data.data : (Array.isArray(i?.data) ? i.data : []));
+      setApps(rawApps);
+      setInspectors(rawInspectors);
     } catch (err) {
       toast.error('Failed to load data');
     } finally {
@@ -125,8 +130,9 @@ export default function AdminApplications() {
 
   useEffect(() => {
     const appId = searchParams.get('appId');
-    if (appId && apps.length > 0) {
-      const targetApp = apps.find(a => a._id === appId || a.id === appId);
+    const safeAppsList = Array.isArray(apps) ? apps : [];
+    if (appId && safeAppsList.length > 0) {
+      const targetApp = safeAppsList.find(a => a && (a._id === appId || a.id === appId));
       if (targetApp) {
         setManageModal(targetApp);
         setModalTab('details');
@@ -165,7 +171,9 @@ export default function AdminApplications() {
     return s === 'certificate_issued' || s === 'send_certificate' || s === 'certificate_processing';
   };
 
-  const filtered = apps.filter(a => {
+  const safeApps = Array.isArray(apps) ? apps : [];
+  const filtered = safeApps.filter(a => {
+    if (!a) return false;
     // 1. View Type Filter
     if (typeParam === 'new') {
       // New Applications view: exclude terminal states (certificate_issued and rejected)

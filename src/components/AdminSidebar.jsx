@@ -131,8 +131,8 @@ function sectionContainsPath(section, pathname, search) {
 }
 
 function getUnreadNavCount(notifications, pathStr, children = []) {
-  if (!notifications || notifications.length === 0) return 0;
-  const unreadList = notifications.filter(n => !n.is_read && n.link);
+  if (!Array.isArray(notifications) || notifications.length === 0) return 0;
+  const unreadList = notifications.filter(n => n && !n.is_read && n.link);
   if (unreadList.length === 0) return 0;
 
   const matchSinglePath = (link, targetPath) => {

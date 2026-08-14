@@ -53,13 +53,17 @@ export default function AdminCertificates() {
     setLoading(true);
     try {
       const [certsRes, appsRes, survRes] = await Promise.all([
-        api.get('/api/certificates'),
-        api.get('/api/applications'),
+        api.get('/api/certificates').catch(() => ({ data: [] })),
+        api.get('/api/applications').catch(() => ({ data: [] })),
         api.get('/api/surveillance').catch(() => ({ data: { data: [] } }))
       ]);
-      setCerts(certsRes.data || []);
-      setApps(appsRes.data?.filter(a => a.status === 'approved' || a.status === 'certificate_issued') || []);
-      setSurvRequests(survRes.data?.data || survRes.data || []);
+      const rawCerts = Array.isArray(certsRes) ? certsRes : (Array.isArray(certsRes?.data) ? certsRes.data : []);
+      const rawApps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : []);
+      const rawSurv = Array.isArray(survRes) ? survRes : (Array.isArray(survRes?.data?.data) ? survRes.data.data : (Array.isArray(survRes?.data) ? survRes.data : []));
+
+      setCerts(rawCerts);
+      setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'certificate_issued')));
+      setSurvRequests(rawSurv);
     } catch (err) {
       toast.error('Failed to load certificates & requests.');
     } finally {

@@ -189,7 +189,10 @@ export default function AdminNotificationCenter({
     }
   };
 
-  const filteredNotifications = notifications.filter(n => {
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+
+  const filteredNotifications = safeNotifications.filter(n => {
+    if (!n) return false;
     if (filterTab === 'unread') return !n.is_read;
     if (filterTab === 'action') {
       const t = (n.title || '').toLowerCase();
@@ -232,14 +235,14 @@ export default function AdminNotificationCenter({
         justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: '#f0fdf4', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Bell size={17} style={{ color: '#15803d' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Bell size={16} style={{ color: '#15803d' }} />
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a', lineHeight: 1.2 }}>Admin Notifications</div>
             <div style={{ fontSize: 11.5, color: unreadCount > 0 ? '#15803d' : '#64748b', fontWeight: 600 }}>
-              {unreadCount > 0 ? `${unreadCount} unread system alert${unreadCount > 1 ? 's' : ''}` : 'All system queues clear'}
+              {unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
             </div>
           </div>
         </div>
@@ -263,7 +266,7 @@ export default function AdminNotificationCenter({
               }}
               title="Mark all notifications as read"
             >
-              <Check size={12} /> Mark read
+              <Check size={12} /> Mark all read
             </button>
           )}
           <button
@@ -294,7 +297,7 @@ export default function AdminNotificationCenter({
         flexShrink: 0
       }}>
         {[
-          { id: 'all', label: `All (${notifications.length})` },
+          { id: 'all', label: `All (${safeNotifications.length})` },
           { id: 'unread', label: `Unread (${unreadCount})` },
           { id: 'action', label: 'Action Needed' }
         ].map(tab => (
@@ -322,7 +325,7 @@ export default function AdminNotificationCenter({
 
       {/* Notifications List */}
       <div style={{ flex: 1, overflowY: 'auto', maxHeight: 400, padding: 0 }}>
-        {loading && notifications.length === 0 ? (
+        {loading && safeNotifications.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center' }}>
             <div className="spinner" style={{ margin: '0 auto 10px' }} />
             <div style={{ fontSize: 12, color: '#94a3b8' }}>Loading notifications...</div>

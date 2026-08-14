@@ -33,10 +33,10 @@ export default function AdminAuditReports() {
         api.get('/api/applications').catch(() => ({ data: [] }))
       ]);
 
-      const logsheets = logsheetsRes.data?.data || logsheetsRes.data || [];
-      const apps = appsRes.data?.data || appsRes.data || [];
+      const logsheets = Array.isArray(logsheetsRes) ? logsheetsRes : (Array.isArray(logsheetsRes?.data?.data) ? logsheetsRes.data.data : (Array.isArray(logsheetsRes?.data) ? logsheetsRes.data : []));
+      const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data?.data) ? appsRes.data.data : (Array.isArray(appsRes?.data) ? appsRes.data : []));
 
-      const appMap = apps.reduce((acc, a) => ({ ...acc, [String(a._id || a.id)]: a }), {});
+      const appMap = apps.reduce((acc, a) => a ? ({ ...acc, [String(a._id || a.id)]: a }) : acc, {});
 
       const compiledReports = [];
 
@@ -207,18 +207,20 @@ export default function AdminAuditReports() {
     fetchReports();
   }, []);
 
-  const filteredReports = reports.filter(r => {
+  const safeReports = Array.isArray(reports) ? reports : [];
+  const filteredReports = safeReports.filter(r => {
+    if (!r) return false;
     const matchesSearch =
-      r.company_name.toLowerCase().includes(search.toLowerCase()) ||
-      r.file_name.toLowerCase().includes(search.toLowerCase()) ||
-      r.report_type.toLowerCase().includes(search.toLowerCase()) ||
-      r.auditors.toLowerCase().includes(search.toLowerCase());
+      (r.company_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.file_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.report_type || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.auditors || '').toLowerCase().includes(search.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    if (typeFilter === 'audit_report') return r.report_type.includes('Audit');
-    if (typeFilter === 'nc_report') return r.report_type.includes('NC');
-    if (typeFilter === 'logsheet_doc') return r.source.includes('LogSheet');
+    if (typeFilter === 'audit_report') return (r.report_type || '').includes('Audit');
+    if (typeFilter === 'nc_report') return (r.report_type || '').includes('NC');
+    if (typeFilter === 'logsheet_doc') return (r.source || '').includes('LogSheet');
     return true;
   });
 

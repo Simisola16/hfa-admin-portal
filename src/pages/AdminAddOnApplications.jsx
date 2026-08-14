@@ -74,11 +74,13 @@ export default function AdminAddOnApplications() {
   const fetchApps = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/add-on-applications');
-      setApps(res.data?.data || res.data || []);
+      const res = await api.get('/api/add-on-applications').catch(() => ({ data: [] }));
+      const loaded = Array.isArray(res) ? res : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res?.data) ? res.data : []));
+      setApps(loaded);
       if (isManagerOrAdmin) {
-        const usersRes = await api.get('/api/users');
-        setFtUsers((usersRes.data || []).filter(u => u.role === 'food_tech'));
+        const usersRes = await api.get('/api/users').catch(() => ({ data: [] }));
+        const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
+        setFtUsers(rawUsers.filter(u => u && u.role === 'food_tech'));
       }
     } catch {
       toast.error('Failed to load add-on applications.');
@@ -173,22 +175,26 @@ export default function AdminAddOnApplications() {
     } finally { setSubmitting(false); }
   };
 
+  const safeApps = Array.isArray(apps) ? apps : [];
+
   const baseList = useMemo(() => {
-    if (view === 'request') return apps.filter(a => a.status === 'submitted' || a.status === 'on_hold');
-    if (view === 'inprogress') return apps.filter(a => a.status !== 'submitted' && a.status !== 'on_hold' && a.status !== 'completed' && a.status !== 'rejected');
-    return apps;
-  }, [apps, view]);
+    if (view === 'request') return safeApps.filter(a => a && (a.status === 'submitted' || a.status === 'on_hold'));
+    if (view === 'inprogress') return safeApps.filter(a => a && a.status !== 'submitted' && a.status !== 'on_hold' && a.status !== 'completed' && a.status !== 'rejected');
+    return safeApps;
+  }, [safeApps, view]);
 
   const stats = useMemo(() => {
-    const total = apps.length;
-    const pending = apps.filter(a => a.status === 'submitted' || a.status === 'on_hold').length;
-    const inProgress = apps.filter(a => !['submitted', 'on_hold', 'completed', 'rejected'].includes(a.status)).length;
-    const completed = apps.filter(a => a.status === 'completed').length;
+    const total = safeApps.length;
+    const pending = safeApps.filter(a => a && (a.status === 'submitted' || a.status === 'on_hold')).length;
+    const inProgress = safeApps.filter(a => a && !['submitted', 'on_hold', 'completed', 'rejected'].includes(a.status)).length;
+    const completed = safeApps.filter(a => a && a.status === 'completed').length;
     return { total, pending, inProgress, completed };
-  }, [apps]);
+  }, [safeApps]);
 
   const filtered = useMemo(() => {
-    return baseList.filter(a => {
+    const safeBaseList = Array.isArray(baseList) ? baseList : [];
+    return safeBaseList.filter(a => {
+      if (!a) return false;
       if (statusFilter === 'pending' && !['submitted', 'on_hold'].includes(a.status)) return false;
       if (statusFilter === 'on_hold' && a.status !== 'on_hold') return false;
       if (statusFilter === 'inprogress' && (a.status === 'submitted' || a.status === 'on_hold' || a.status === 'completed' || a.status === 'rejected')) return false;

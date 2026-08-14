@@ -27,6 +27,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
   const [auditForm, setAuditForm] = useState({
     dates: ['', '', ''],
     auditors: [],
+    stage2Auditors: [],
     finalized_date: ''
   });
 
@@ -198,9 +199,10 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         stage: activeStage
       });
       toast.success('3 Dates proposed to client successfully!');
-      onSuccess();
+      if (typeof onSuccess === 'function') onSuccess();
+      if (typeof onClose === 'function') onClose();
     } catch (err) {
-      toast.error(err.message || 'Failed to propose dates');
+      toast.error(err.response?.data?.error || err.message || 'Failed to propose dates');
     } finally {
       setAuditSubmitting(false);
     }
@@ -213,34 +215,45 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
     }
     setAuditSubmitting(true);
     try {
+      const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
+      const targetAppId = getCleanId(app?._id || app?.id || app);
+
       const res = await api.post('/api/audits/finalize-date', {
-        audit_id: existingAudit._id || existingAudit.id,
+        audit_id: currentAuditId,
+        application_id: targetAppId,
         finalized_date: auditForm.finalized_date
       });
       toast.success('Audit date finalized successfully!');
-      onSuccess();
+      if (typeof onSuccess === 'function') onSuccess();
     } catch (err) {
-      toast.error(err.message || 'Failed to finalize date');
+      toast.error(err.response?.data?.error || err.message || 'Failed to finalize date');
     } finally {
       setAuditSubmitting(false);
     }
   };
 
   const handleAssignAuditors = async () => {
-    if (auditForm.auditors.some(a => !a.name || !a.email)) {
+    if (!Array.isArray(auditForm.auditors) || auditForm.auditors.length === 0 || auditForm.auditors.some(a => !a || !a.name || !a.email)) {
       toast.error('Please fill in Name and Email for all auditors.');
       return;
     }
     // Validate Stage 2 auditors if any were entered (partial entries are not allowed)
-    const stage2Filled = auditForm.stage2Auditors.filter(a => a.name || a.email);
-    if (stage2Filled.length > 0 && stage2Filled.some(a => !a.name || !a.email)) {
+    const safeStage2 = Array.isArray(auditForm.stage2Auditors) ? auditForm.stage2Auditors : [];
+    const stage2Filled = safeStage2.filter(a => a && (a.name || a.email));
+    if (stage2Filled.length > 0 && stage2Filled.some(a => !a || !a.name || !a.email)) {
       toast.error('Please fill in Name and Email for all Stage 2 auditors, or leave them all blank to assign later.');
       return;
     }
+
+    const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
+    const targetAppId = getCleanId(app?._id || app?.id || app);
+
     setAuditSubmitting(true);
     try {
       await api.post('/api/audits/assign-auditors', {
-        audit_id: existingAudit._id || existingAudit.id,
+        audit_id: currentAuditId,
+        application_id: targetAppId,
+        stage: activeStage,
         auditors: auditForm.auditors
       });
       // If Stage 2 auditors were pre-filled, find or create the Stage 2 audit and assign them
@@ -249,20 +262,21 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         if (stage2Audit && (stage2Audit.status === 'date_finalized' || stage2Audit.status === 'dates_accepted')) {
           await api.post('/api/audits/assign-auditors', {
             audit_id: stage2Audit._id || stage2Audit.id,
-            auditors: auditForm.stage2Auditors
+            application_id: targetAppId,
+            stage: 2,
+            auditors: stage2Filled
           }).catch(() => {}); // Don't block Stage 1 assignment if Stage 2 doesn't exist yet
         }
         // Store stage2 pre-assignment in session — will be applied when Stage 2 date is finalized
-        // We stash them in sessionStorage so they survive the modal re-open if needed
         try {
-          sessionStorage.setItem(`stage2_auditors_${app._id || app.id}`, JSON.stringify(auditForm.stage2Auditors));
+          sessionStorage.setItem(`stage2_auditors_${targetAppId}`, JSON.stringify(stage2Filled));
         } catch (_) {}
       }
       toast.success('Auditors assigned successfully!' + (isDualStage && stage2Filled.length > 0 ? ' Stage 2 auditors will be applied when Stage 2 date is finalized.' : ''));
-      onSuccess();
-      onClose();
+      if (typeof onSuccess === 'function') onSuccess();
+      if (typeof onClose === 'function') onClose();
     } catch (err) {
-      toast.error(err.message || 'Failed to assign auditors');
+      toast.error(err.response?.data?.error || err.message || 'Failed to assign auditors');
     } finally {
       setAuditSubmitting(false);
     }
@@ -276,8 +290,8 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         application_id: app._id || app.id
       });
       toast.success('Audit session marked as completed successfully!');
-      onSuccess();
-      onClose();
+      if (typeof onSuccess === 'function') onSuccess();
+      if (typeof onClose === 'function') onClose();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to complete audit');
     } finally {

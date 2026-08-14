@@ -19,9 +19,20 @@ const getCleanId = (val) => {
   return String(val);
 };
 
-export default function AuditManageModal({ isOpen, onClose, app, existingAudits: propExistingAudits, onSuccess }) {
-  const [existingAudits, setExistingAudits] = useState([]);
-  const [activeStage, setActiveStage] = useState(1);
+export default function AuditManageModal({
+  isOpen = true,
+  onClose,
+  app: propApp,
+  applicationId,
+  audit,
+  existingAudits: propExistingAudits,
+  onSuccess
+}) {
+  const app = propApp || audit?.application_id || audit?.applications || applicationId;
+  const [existingAudits, setExistingAudits] = useState(
+    propExistingAudits || (audit ? [audit] : [])
+  );
+  const [activeStage, setActiveStage] = useState(audit?.stage || 1);
   const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [appData, setAppData] = useState(typeof app === 'object' && app !== null ? app : null);
   const [auditForm, setAuditForm] = useState({
@@ -33,7 +44,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
   // Load application if only ID was passed
   useEffect(() => {
-    const targetAppId = getCleanId(app?._id || app?.id || app);
+    const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
     if (isOpen && targetAppId) {
       if (typeof app === 'string' || !app?.category) {
         api.get(`/api/applications/${targetAppId}`).then(res => {
@@ -43,27 +54,31 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         setAppData(app);
       }
     }
-  }, [isOpen, app]);
+  }, [isOpen, app, applicationId]);
 
   const currentApp = appData || (typeof app === 'object' ? app : {});
   const isDualStage = currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
   // Sync prop existingAudits with local state
   useEffect(() => {
-    setExistingAudits(propExistingAudits || []);
-  }, [propExistingAudits, isOpen, activeStage]);
+    if (propExistingAudits) {
+      setExistingAudits(propExistingAudits);
+    } else if (audit) {
+      setExistingAudits([audit]);
+    }
+  }, [propExistingAudits, audit, isOpen, activeStage]);
 
   // Load audit from backend if not provided as prop
   useEffect(() => {
-    const targetAppId = getCleanId(app?._id || app?.id || app);
-    if (isOpen && targetAppId && (!propExistingAudits || propExistingAudits.length === 0)) {
+    const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+    if (isOpen && targetAppId && (!propExistingAudits || propExistingAudits.length === 0) && !audit) {
       api.get(`/api/audits/application/${targetAppId}`)
         .then(res => {
           setExistingAudits(res.data?.data || res.data || []);
         })
         .catch(() => setExistingAudits([]));
     }
-  }, [isOpen, app, propExistingAudits]);
+  }, [isOpen, app, applicationId, propExistingAudits, audit]);
 
   const [inspectorsList, setInspectorsList] = useState([]);
 

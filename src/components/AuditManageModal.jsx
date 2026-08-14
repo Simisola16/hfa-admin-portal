@@ -66,19 +66,77 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
   const [inspectorsList, setInspectorsList] = useState([]);
 
-  // Fetch registered inspectors from backend
+  // Fetch registered HFA staff and inspectors from backend
   useEffect(() => {
     if (isOpen) {
-      api.get('/api/inspectors')
-        .then(res => setInspectorsList(res.data || []))
-        .catch(() => setInspectorsList([]));
+      Promise.all([
+        api.get('/api/users').catch(() => ({ data: [] })),
+        api.get('/api/inspectors').catch(() => ({ data: [] }))
+      ]).then(([usersRes, inspRes]) => {
+        const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
+        const rawInspectors = Array.isArray(inspRes) ? inspRes : (Array.isArray(inspRes?.data) ? inspRes.data : []);
+
+        // Filter staff members only (exclude regular client accounts)
+        const staffMembers = rawUsers.filter(u =>
+          u && ['inspector', 'auditor', 'food_tech', 'food_tech_manager', 'admin', 'superadmin'].includes(u.role)
+        ).map(u => ({
+          _id: u._id || u.id,
+          id: u._id || u.id,
+          full_name: u.full_name || u.company_name || u.username,
+          name: u.full_name || u.company_name || u.username,
+          email: u.email,
+          phone: u.phone || '',
+          phone_number: u.phone || '',
+          role: u.role,
+          specialization: u.role === 'inspector' ? 'Auditor / Inspector' : (u.role === 'food_tech' ? 'Food Technologist' : (u.role === 'food_tech_manager' ? 'Food Tech Manager' : 'HFA Staff')),
+          is_staff: true
+        }));
+
+        // Format standalone inspectors
+        const formattedInspectors = rawInspectors.map(insp => ({
+          _id: insp._id || insp.id,
+          id: insp._id || insp.id,
+          full_name: insp.full_name || insp.name,
+          name: insp.full_name || insp.name,
+          email: insp.email,
+          phone: insp.phone_number || insp.phone || '',
+          phone_number: insp.phone_number || insp.phone || '',
+          role: insp.role || 'inspector',
+          specialization: insp.specialization || 'Registered Inspector',
+          is_staff: false
+        }));
+
+        // Combine and deduplicate by email or ID
+        const combined = [...staffMembers];
+        formattedInspectors.forEach(insp => {
+          const exists = combined.some(c =>
+            (insp._id && c._id && String(c._id) === String(insp._id)) ||
+            (insp.email && c.email && c.email.toLowerCase() === insp.email.toLowerCase())
+          );
+          if (!exists) {
+            combined.push(insp);
+          }
+        });
+
+        // Sort alphabetically by full_name
+        combined.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+        setInspectorsList(combined);
+      }).catch(() => setInspectorsList([]));
     }
   }, [isOpen]);
 
   const handleSelectAuditor = (index, inspectorId) => {
     if (!inspectorId || inspectorId === 'custom') {
       const updated = [...auditForm.auditors];
-      updated[index] = { ...updated[index], inspector_id: '' };
+      updated[index] = {
+        ...updated[index],
+        inspector_id: inspectorId === 'custom' ? 'custom' : '',
+        name: inspectorId === 'custom' ? (updated[index]?.name || '') : '',
+        email: inspectorId === 'custom' ? (updated[index]?.email || '') : '',
+        contact_number: inspectorId === 'custom' ? (updated[index]?.contact_number || '') : '',
+        purpose: inspectorId === 'custom' ? (updated[index]?.purpose || '') : ''
+      };
       setAuditForm(f => ({ ...f, auditors: updated }));
       return;
     }
@@ -91,7 +149,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
       inspector_id: found._id || found.id,
       name: found.full_name || found.name || '',
       email: found.email || '',
-      contact_number: found.phone_number || found.phone || '',
+      contact_number: found.phone_number || found.phone || updated[index]?.contact_number || '',
       purpose: found.specialization || updated[index]?.purpose || 'Halal Facility & Systems Audit'
     };
     setAuditForm(f => ({ ...f, auditors: updated }));
@@ -391,72 +449,100 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                     )}
                     <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span>Auditor {i + 1}</span>
-                      {auditor.inspector_id && (
+                      {auditor.inspector_id && auditor.inspector_id !== 'custom' && (
                         <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
-                          ✓ Registered Auditor Selected
+                          ✓ HFA Staff / Registered Auditor Linked
                         </span>
                       )}
                     </div>
 
                     {/* Choose Registered Auditor Dropdown */}
                     <div className="form-group" style={{ marginBottom: 14 }}>
-                      <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>
-                        Select Auditor <span style={{ color: '#ef4444' }}>*</span>
+                      <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Select Auditor from HFA Staff <span style={{ color: '#ef4444' }}>*</span></span>
                       </label>
                       <select
                         className="form-control"
                         value={auditor.inspector_id || ''}
-                        onChange={e => handleSelectAuditor(i, e.target.value, false)}
+                        onChange={e => handleSelectAuditor(i, e.target.value)}
                         style={{
-                          borderColor: auditor.inspector_id ? '#16a34a' : '#cbd5e1',
-                          background: auditor.inspector_id ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 600
+                          borderColor: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#16a34a' : '#cbd5e1',
+                          background: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          padding: '10px 14px'
                         }}
                       >
-                        <option value="">-- Choose Registered Auditor / Inspector --</option>
-                        {inspectorsList.map(insp => (
-                          <option key={insp._id || insp.id} value={insp._id || insp.id}>
-                            👤 {insp.full_name || insp.name} — {insp.email} ({insp.specialization || insp.role || 'Auditor'})
-                          </option>
-                        ))}
+                        <option value="">-- Choose Registered HFA Staff / Auditor --</option>
+                        {inspectorsList.map(insp => {
+                          const roleLabel = insp.role ? insp.role.replace(/_/g, ' ').toUpperCase() : 'STAFF';
+                          return (
+                            <option key={insp._id || insp.id} value={insp._id || insp.id}>
+                              👤 {insp.full_name || insp.name} ({insp.email}) — [{roleLabel}]
+                            </option>
+                          );
+                        })}
                         <option value="custom">✏️ Enter Custom / External Auditor Details</option>
                       </select>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Auditor Name</label>
-                        <input className="form-control" disabled={!!auditor.inspector_id} value={auditor.name} onChange={e => {
-                          const newAuditors = [...auditForm.auditors];
-                          newAuditors[i] = { ...auditor, name: e.target.value };
-                          setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="e.g. Dr. Ahmad Khan" />
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Name</label>
+                        <input
+                          className="form-control"
+                          disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                          value={auditor.name}
+                          onChange={e => {
+                            const newAuditors = [...auditForm.auditors];
+                            newAuditors[i] = { ...auditor, name: e.target.value };
+                            setAuditForm({ ...auditForm, auditors: newAuditors });
+                          }}
+                          placeholder="e.g. Dr. Ahmad Khan"
+                        />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Auditor Email</label>
-                        <input type="email" className="form-control" disabled={!!auditor.inspector_id} value={auditor.email} onChange={e => {
-                          const newAuditors = [...auditForm.auditors];
-                          newAuditors[i] = { ...auditor, email: e.target.value };
-                          setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="e.g. ahmad@hfa.org" />
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Email</label>
+                        <input
+                          type="email"
+                          className="form-control"
+                          disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                          value={auditor.email}
+                          onChange={e => {
+                            const newAuditors = [...auditForm.auditors];
+                            newAuditors[i] = { ...auditor, email: e.target.value };
+                            setAuditForm({ ...auditForm, auditors: newAuditors });
+                          }}
+                          placeholder="e.g. ahmad@hfa.org"
+                        />
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Contact Number</label>
-                        <input className="form-control" disabled={!!auditor.inspector_id} value={auditor.contact_number} onChange={e => {
-                          const newAuditors = [...auditForm.auditors];
-                          newAuditors[i] = { ...auditor, contact_number: e.target.value };
-                          setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="+44..." />
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Contact Number</label>
+                        <input
+                          className="form-control"
+                          value={auditor.contact_number}
+                          onChange={e => {
+                            const newAuditors = [...auditForm.auditors];
+                            newAuditors[i] = { ...auditor, contact_number: e.target.value };
+                            setAuditForm({ ...auditForm, auditors: newAuditors });
+                          }}
+                          placeholder="+44..."
+                        />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Audit Purpose / Role</label>
-                        <input className="form-control" disabled={!!auditor.inspector_id} value={auditor.purpose} onChange={e => {
-                          const newAuditors = [...auditForm.auditors];
-                          newAuditors[i] = { ...auditor, purpose: e.target.value };
-                          setAuditForm({ ...auditForm, auditors: newAuditors });
-                        }} placeholder="e.g. Halal Facility & Systems Audit" />
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Audit Purpose / Role</label>
+                        <input
+                          className="form-control"
+                          value={auditor.purpose}
+                          onChange={e => {
+                            const newAuditors = [...auditForm.auditors];
+                            newAuditors[i] = { ...auditor, purpose: e.target.value };
+                            setAuditForm({ ...auditForm, auditors: newAuditors });
+                          }}
+                          placeholder="e.g. Halal Facility & Systems Audit"
+                        />
                       </div>
                     </div>
                   </div>

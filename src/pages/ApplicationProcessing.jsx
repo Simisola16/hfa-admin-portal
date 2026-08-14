@@ -612,7 +612,7 @@ export default function ApplicationProcessing() {
     }
 
     // 4. Audit Scheduling & Execution Stage
-    if (['payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+    if (['payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
       if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

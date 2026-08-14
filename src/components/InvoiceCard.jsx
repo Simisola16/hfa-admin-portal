@@ -16,7 +16,7 @@ export default function InvoiceCard({ invoice, status, isInitial, isFinal, isRen
     ? ['nc_closed', 'audit_report_submitted', 'audit_successful', 'audit_completed', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
     : isFinal 
       ? ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
-      : ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
+      : ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
 
   const cardTitle = isRenewal ? 'Renewal Certification Invoice' : isFinal ? '2. Final Halal Certificate Fee Invoice' : '1. Initial Certification Invoice';
   const cardSubtitle = isRenewal ? 'Renewal Certification Fee' : isFinal ? 'Final Halal Certification Fee' : 'Stage 1 Application & Audit Fee';

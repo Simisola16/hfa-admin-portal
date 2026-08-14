@@ -909,6 +909,7 @@ export default function ApplicationProcessing() {
               agreement={agreement} 
               status={status}
               onReupload={() => setShowAgreementModal(true)}
+              onSendFinal={() => setShowFinalAgreementModal(true)}
               onMarkDone={handleMarkAgreementDone}
               markingDone={markingAgreementDone}
             />

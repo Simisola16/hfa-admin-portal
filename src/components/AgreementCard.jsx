@@ -10,7 +10,7 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function AgreementCard({ agreement, status, onReupload, onMarkDone, markingDone = false }) {
+export default function AgreementCard({ app, agreement, status, onReupload, onSendFinal, onMarkDone, markingDone = false }) {
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
   const isAvailable = [
     'application_successful',
@@ -23,6 +23,13 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
     'ready_for_certificate',
     'certificate_issued'
   ].includes(normalizedStatus) || Boolean(agreement);
+
+  const hasClientSigned = Boolean(agreement?.client_signed || agreement?.signed_agreement_url);
+  const hasAdminSentSignedCopy = Boolean(
+    agreement?.final_agreement_url ||
+    agreement?.status === 'finalized' ||
+    ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus)
+  );
 
   const isFinalized = Boolean(
     agreement?.final_agreement_url ||
@@ -86,17 +93,17 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: 12,
-                  background: isFinalized ? '#dcfce7' : (agreement.client_signed ? '#e0f2fe' : '#fef3c7'),
-                  color: isFinalized ? '#15803d' : (agreement.client_signed ? '#0369a1' : '#b45309'),
-                  border: `1px solid ${isFinalized ? '#86efac' : (agreement.client_signed ? '#bae6fd' : '#fde68a')}`
+                  background: isFinalized ? '#dcfce7' : (hasAdminSentSignedCopy ? '#f0fdf4' : (hasClientSigned ? '#e0f2fe' : '#fef3c7')),
+                  color: isFinalized ? '#15803d' : (hasAdminSentSignedCopy ? '#166534' : (hasClientSigned ? '#0369a1' : '#b45309')),
+                  border: `1px solid ${isFinalized ? '#86efac' : (hasAdminSentSignedCopy ? '#bbf7d0' : (hasClientSigned ? '#bae6fd' : '#fde68a'))}`
                 }}
               >
-                {isFinalized ? 'Agreement Finalized & Verified' : (agreement.client_signed ? 'Client Signed' : 'Awaiting Client Signature')}
+                {isFinalized ? 'Agreement Finalized & Verified' : (hasAdminSentSignedCopy ? 'HFA Signed Copy Sent' : (hasClientSigned ? 'Client Signed' : 'Awaiting Client Signature'))}
               </span>
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
               Status: <strong style={{ color: '#334155', textTransform: 'capitalize' }}>
-                {isFinalized ? 'Finalized' : (agreement.client_signed ? 'Signed by Client' : 'Pending Client Action')}
+                {isFinalized ? 'Finalized' : (hasAdminSentSignedCopy ? 'HFA Countersigned Copy Sent' : (hasClientSigned ? 'Signed by Client (Awaiting HFA Signed Agreement)' : 'Pending Client Action'))}
               </strong>
             </div>
           </div>
@@ -117,8 +124,33 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
             </button>
           )}
 
-          {/* Mark Agreement Done Button - only after client sends signed agreement */}
-          {onMarkDone && !isFinalized && (agreement?.client_signed || agreement?.signed_agreement_url) && (
+          {/* STEP 1: When client has signed, but Admin has NOT sent their signed copy yet -> Show 'Send HFA Signed Agreement' button */}
+          {hasClientSigned && !hasAdminSentSignedCopy && onSendFinal && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onSendFinal}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                borderColor: '#0284c7',
+                color: 'white',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 8,
+                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+              }}
+              title="Upload and send HFA countersigned / signed agreement copy to the client"
+            >
+              <FileCheck size={14} /> Send HFA Signed Agreement
+            </button>
+          )}
+
+          {/* STEP 2: ONLY AFTER Admin has sent their own signed agreement -> Show 'Mark Agreement Done' button */}
+          {hasAdminSentSignedCopy && onMarkDone && !['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -176,6 +208,30 @@ export default function AgreementCard({ agreement, status, onReupload, onMarkDon
             </div>
           </div>
         </div>
+
+        {hasClientSigned && !hasAdminSentSignedCopy && (
+          <div style={{ marginBottom: 18, background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16 }}>
+                ✓
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>Client Has Signed Agreement</div>
+                <div style={{ fontSize: 12, color: '#15803d', marginTop: 1 }}>Please send the HFA countersigned / signed agreement copy to unlock the next stage.</div>
+              </div>
+            </div>
+            {onSendFinal && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={onSendFinal}
+                style={{ background: '#0284c7', borderColor: '#0284c7', fontWeight: 700, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <FileCheck size={14} /> Send HFA Signed Agreement
+              </button>
+            )}
+          </div>
+        )}
 
         {agreement.admin_comment && (
           <div style={{ marginBottom: 18, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 14 }}>

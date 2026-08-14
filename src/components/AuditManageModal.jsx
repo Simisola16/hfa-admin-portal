@@ -66,7 +66,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
 
   const [inspectorsList, setInspectorsList] = useState([]);
 
-  // Fetch registered HFA staff and inspectors from backend
+  // Fetch registered Auditors from backend
   useEffect(() => {
     if (isOpen) {
       Promise.all([
@@ -76,9 +76,9 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
         const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
         const rawInspectors = Array.isArray(inspRes) ? inspRes : (Array.isArray(inspRes?.data) ? inspRes.data : []);
 
-        // Filter staff members only (exclude regular client accounts)
-        const staffMembers = rawUsers.filter(u =>
-          u && ['inspector', 'auditor', 'food_tech', 'food_tech_manager', 'admin', 'superadmin'].includes(u.role)
+        // Filter ONLY staff with role 'inspector' or 'auditor'
+        const auditorStaff = rawUsers.filter(u =>
+          u && ['inspector', 'auditor'].includes(u.role)
         ).map(u => ({
           _id: u._id || u.id,
           id: u._id || u.id,
@@ -87,13 +87,13 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
           email: u.email,
           phone: u.phone || '',
           phone_number: u.phone || '',
-          role: u.role,
-          specialization: u.role === 'inspector' ? 'Auditor / Inspector' : (u.role === 'food_tech' ? 'Food Technologist' : (u.role === 'food_tech_manager' ? 'Food Tech Manager' : 'HFA Staff')),
+          role: 'auditor',
+          specialization: 'Auditor',
           is_staff: true
         }));
 
-        // Format standalone inspectors
-        const formattedInspectors = rawInspectors.map(insp => ({
+        // Format registered auditors from /api/inspectors
+        const formattedAuditors = rawInspectors.map(insp => ({
           _id: insp._id || insp.id,
           id: insp._id || insp.id,
           full_name: insp.full_name || insp.name,
@@ -101,14 +101,14 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
           email: insp.email,
           phone: insp.phone_number || insp.phone || '',
           phone_number: insp.phone_number || insp.phone || '',
-          role: insp.role || 'inspector',
-          specialization: insp.specialization || 'Registered Inspector',
+          role: 'auditor',
+          specialization: insp.specialization || 'Auditor',
           is_staff: false
         }));
 
         // Combine and deduplicate by email or ID
-        const combined = [...staffMembers];
-        formattedInspectors.forEach(insp => {
+        const combined = [...auditorStaff];
+        formattedAuditors.forEach(insp => {
           const exists = combined.some(c =>
             (insp._id && c._id && String(c._id) === String(insp._id)) ||
             (insp.email && c.email && c.email.toLowerCase() === insp.email.toLowerCase())
@@ -459,7 +459,7 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                     {/* Choose Registered Auditor Dropdown */}
                     <div className="form-group" style={{ marginBottom: 14 }}>
                       <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Select Auditor from HFA Staff <span style={{ color: '#ef4444' }}>*</span></span>
+                        <span>Select Auditor <span style={{ color: '#ef4444' }}>*</span></span>
                       </label>
                       <select
                         className="form-control"
@@ -473,15 +473,12 @@ export default function AuditManageModal({ isOpen, onClose, app, existingAudits:
                           padding: '10px 14px'
                         }}
                       >
-                        <option value="">-- Choose Registered HFA Staff / Auditor --</option>
-                        {inspectorsList.map(insp => {
-                          const roleLabel = insp.role ? insp.role.replace(/_/g, ' ').toUpperCase() : 'STAFF';
-                          return (
-                            <option key={insp._id || insp.id} value={insp._id || insp.id}>
-                              👤 {insp.full_name || insp.name} ({insp.email}) — [{roleLabel}]
-                            </option>
-                          );
-                        })}
+                        <option value="">-- Choose Registered Auditor --</option>
+                        {inspectorsList.map(aud => (
+                          <option key={aud._id || aud.id} value={aud._id || aud.id}>
+                            👤 {aud.full_name || aud.name} ({aud.email}) — [AUDITOR]
+                          </option>
+                        ))}
                         <option value="custom">✏️ Enter Custom / External Auditor Details</option>
                       </select>
                     </div>

@@ -192,7 +192,7 @@ export default function AdminAudits() {
               <thead>
                 <tr>
                   <th>Company &amp; Category</th>
-                  <th>Inspector / Auditor</th>
+                  <th>Auditor</th>
                   <th>Site Location</th>
                   <th>Type</th>
                   <th>Scheduled Date</th>

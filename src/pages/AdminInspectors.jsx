@@ -11,7 +11,7 @@ export default function AdminInspectors() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ full_name:'', email:'', phone:'', specialization:'', regions:'', is_active:true });
 
-  const fetch = () => { setLoading(true); api.get('/api/inspectors').then(d=>setInspectors(d.data||[])).catch(()=>toast.error('Failed')).finally(()=>setLoading(false)); };
+  const fetch = () => { setLoading(true); api.get('/api/inspectors').then(d=>setInspectors(d.data||[])).catch(()=>toast.error('Failed to load auditors')).finally(()=>setLoading(false)); };
   useEffect(()=>{fetch();},[]);
   const set = (k)=>(e)=>setForm(f=>({...f,[k]:e.target.value}));
   const openEdit = (i)=>{ setEditing(i); setForm({...i, regions: i.regions?.join(', ')||''}); setShowModal(true); };
@@ -21,28 +21,28 @@ export default function AdminInspectors() {
     e.preventDefault(); setSubmitting(true);
     const payload = {...form, regions: form.regions.split(',').map(r=>r.trim()).filter(Boolean)};
     try {
-      if(editing){ await api.put(`/api/inspectors/${editing.id}`,payload); toast.success('Inspector updated'); }
-      else{ await api.post('/api/inspectors',payload); toast.success('Inspector added'); }
+      if(editing){ await api.put(`/api/inspectors/${editing.id}`,payload); toast.success('Auditor updated'); }
+      else{ await api.post('/api/inspectors',payload); toast.success('Auditor added'); }
       setShowModal(false); fetch();
     } catch(err){toast.error(err.message);} finally{setSubmitting(false);}
   };
 
   const handleDelete = async (id) => {
-    if(!confirm('Delete inspector?')) return;
-    try{ await api.delete(`/api/inspectors/${id}`); toast.success('Deleted'); fetch(); }
+    if(!confirm('Delete auditor?')) return;
+    try{ await api.delete(`/api/inspectors/${id}`); toast.success('Auditor deleted'); fetch(); }
     catch(err){toast.error(err.message);}
   };
 
   return (
     <div>
       <div className="toolbar">
-        <button className="btn btn-primary" onClick={openNew} style={{marginLeft:'auto'}}><Plus size={15}/> Add Inspector</button>
+        <button className="btn btn-primary" onClick={openNew} style={{marginLeft:'auto'}}><Plus size={15}/> Add Auditor</button>
       </div>
       <div className="card">
-        <div className="card-header"><div className="card-title">Inspectors ({inspectors.length})</div></div>
+        <div className="card-header"><div className="card-title">Auditors ({inspectors.length})</div></div>
         <div className="table-wrap">
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
-            inspectors.length===0?<div className="empty-state"><div className="empty-state-icon"><UserCheck/></div><div className="empty-state-title">No Inspectors</div></div>:(
+            inspectors.length===0?<div className="empty-state"><div className="empty-state-icon"><UserCheck/></div><div className="empty-state-title">No Auditors</div></div>:(
               <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Specialization</th><th>Regions</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -70,7 +70,7 @@ export default function AdminInspectors() {
       {showModal&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
           <div className="modal">
-            <div className="modal-header"><span className="modal-title">{editing?'Edit Inspector':'Add Inspector'}</span><button className="modal-close" onClick={()=>setShowModal(false)}><X size={16}/></button></div>
+            <div className="modal-header"><span className="modal-title">{editing?'Edit Auditor':'Add Auditor'}</span><button className="modal-close" onClick={()=>setShowModal(false)}><X size={16}/></button></div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="form-grid">
@@ -92,7 +92,7 @@ export default function AdminInspectors() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting?<span className="spinner" style={{width:16,height:16}}/>:(editing?'Update':'Add Inspector')}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting?<span className="spinner" style={{width:16,height:16}}/>:(editing?'Update':'Add Auditor')}</button>
               </div>
             </form>
           </div>

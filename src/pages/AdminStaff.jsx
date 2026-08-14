@@ -214,12 +214,12 @@ export default function AdminStaff() {
                             <option value="superadmin">Superadmin</option>
                             <option value="admin">Administrator</option>
                             <option value="food_tech_manager">Food Tech Manager</option>
-                            <option value="food_tech">Food Tech Inspector</option>
-                            <option value="inspector">Auditor (Inspector)</option>
+                            <option value="food_tech">Food Technologist</option>
+                            <option value="inspector">Auditor</option>
                           </select>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', padding: '4px 8px', background: '#f1f5f9', borderRadius: 6 }}>
-                            {c.role?.replace(/_/g, ' ')}
+                            {c.role === 'inspector' ? 'AUDITOR' : c.role?.replace(/_/g, ' ')}
                           </span>
                         )}
                       </td>
@@ -301,11 +301,11 @@ export default function AdminStaff() {
                     onChange={e => setStaffForm(f => ({ ...f, role: e.target.value }))}
                     required
                   >
-                    <option value="food_tech">Food Tech Inspector</option>
+                    <option value="food_tech">Food Technologist</option>
                     <option value="food_tech_manager">Food Tech Manager</option>
                     <option value="admin">Administrator</option>
                     <option value="superadmin">Superadmin</option>
-                    <option value="inspector">Auditor (Inspector)</option>
+                    <option value="inspector">Auditor</option>
                   </select>
                 </div>
 

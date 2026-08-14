@@ -35,7 +35,7 @@ const pageMeta = {
   '/certificates':                { title: 'Certificates',        sub: 'Manage issued certificates',     section: 'Certification' },
   '/exports':                     { title: 'Export Certificates', sub: 'Manage export certificate requests', section: 'Certification' },
   '/staff':                       { title: 'HFA Staff',           sub: 'Manage staff accounts and roles', section: 'People & Sites' },
-  '/inspectors':                  { title: 'Inspectors',          sub: 'Manage inspector profiles',      section: 'People & Sites' },
+  '/inspectors':                  { title: 'Auditors',            sub: 'Manage registered auditor profiles', section: 'People & Sites' },
   '/sites':                       { title: 'Sites',               sub: 'All registered business sites',  section: 'People & Sites' },
   '/products':                    { title: 'Products',            sub: 'All registered products',        section: 'Products' },
   '/addon-applications':          { title: 'Add-on Applications', sub: 'Manage certificate product changes', section: 'Products' },

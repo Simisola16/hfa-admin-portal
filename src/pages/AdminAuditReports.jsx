@@ -42,8 +42,11 @@ export default function AdminAuditReports() {
 
       // Extract from LogSheets
       logsheets.forEach(log => {
-        const appId = String(log.application_id?._id || log.application_id || log.addon_application_id || '');
-        const app = appMap[appId] || log.application_id || {};
+        const isAddon = !!log.addon_application_id || log.source_type === 'addon_application';
+        const rawAppId = log.application_id?._id || log.application_id;
+        const rawAddonId = log.addon_application_id?._id || log.addon_application_id;
+        const appId = String(rawAppId || rawAddonId || '');
+        const app = (rawAppId && appMap[String(rawAppId)]) || log.application_id || {};
         const companyName = log.company_name || app.profiles?.company_name || app.establishment_name || 'Client Facility';
 
         // 1. Primary document_url
@@ -51,7 +54,9 @@ export default function AdminAuditReports() {
           compiledReports.push({
             id: `log-doc-${log._id}`,
             company_name: companyName,
-            appId: appId || log._id,
+            appId: appId,
+            addonId: rawAddonId ? String(rawAddonId) : null,
+            isAddon: isAddon,
             logsheetId: log._id,
             file_name: log.document_url.split('/').pop() || 'Audit_Logsheet_Report.pdf',
             url: log.document_url,
@@ -70,7 +75,9 @@ export default function AdminAuditReports() {
               compiledReports.push({
                 id: `log-docs-${log._id}-${idx}`,
                 company_name: companyName,
-                appId: appId || log._id,
+                appId: appId,
+                addonId: rawAddonId ? String(rawAddonId) : null,
+                isAddon: isAddon,
                 logsheetId: log._id,
                 file_name: doc.name || doc.url.split('/').pop() || `Audit_Report_${idx + 1}.pdf`,
                 url: doc.url,
@@ -91,7 +98,9 @@ export default function AdminAuditReports() {
               compiledReports.push({
                 id: `log-aud-${log._id}-${idx}`,
                 company_name: companyName,
-                appId: appId || log._id,
+                appId: appId,
+                addonId: rawAddonId ? String(rawAddonId) : null,
+                isAddon: isAddon,
                 logsheetId: log._id,
                 file_name: doc.name || doc.url.split('/').pop() || `Audit_Finding_Report_${idx + 1}.pdf`,
                 url: doc.url,
@@ -112,7 +121,9 @@ export default function AdminAuditReports() {
               compiledReports.push({
                 id: `log-nc-${log._id}-${idx}`,
                 company_name: companyName,
-                appId: appId || log._id,
+                appId: appId,
+                addonId: rawAddonId ? String(rawAddonId) : null,
+                isAddon: isAddon,
                 logsheetId: log._id,
                 file_name: doc.name || doc.url.split('/').pop() || `NC_Action_Report_${idx + 1}.pdf`,
                 url: doc.url,
@@ -402,10 +413,16 @@ export default function AdminAuditReports() {
                           <Eye size={13} /> View Report
                         </a>
 
-                        {item.appId && (
+                        {(item.appId || item.addonId) && (
                           <button
                             className="btn btn-ghost btn-sm"
-                            onClick={() => navigate(`/applications/${item.appId}/processing`)}
+                            onClick={() => {
+                              if (item.isAddon) {
+                                navigate(`/addon-applications/${item.addonId || item.appId}/processing`);
+                              } else {
+                                navigate(`/applications/${item.appId}/processing`);
+                              }
+                            }}
                             style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px' }}
                             title="Open Application Processing"
                           >

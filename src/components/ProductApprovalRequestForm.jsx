@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Plus, Trash2, CheckCircle, FileText, AlertTriangle, ShieldCheck, 
-  Download, Upload, Save, Check, RefreshCw
+  Download, Upload, Save, Check, RefreshCw, X
 } from 'lucide-react';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
 
 export const INITIAL_PRODUCT_APPROVAL_FORM = {
   // Header
@@ -44,6 +46,8 @@ export const INITIAL_PRODUCT_APPROVAL_FORM = {
 
   // Section 4: Food Contact Packaging (12)
   is_artwork_labelling_required: 'No',
+  artwork_labelling_document: null,
+  artwork_labelling_details: '',
   is_packaging_animal_free: 'Yes',
   packaging_animal_free_document: null,
   packaging_animal_free_details: '',
@@ -84,6 +88,26 @@ export default function ProductApprovalRequestForm({
       }));
     }
   }, [formData, product]);
+
+  const [uploadingField, setUploadingField] = useState(null);
+
+  const handleFileUpload = async (field, file) => {
+    if (!file) {
+      updateField(field, null);
+      return;
+    }
+    setUploadingField(field);
+    try {
+      const url = await api.uploadPdf(file, 'addon-forms');
+      updateField(field, url);
+      toast.success('Document uploaded successfully');
+    } catch (err) {
+      console.error('File upload failed:', err);
+      toast.error('Failed to upload document');
+    } finally {
+      setUploadingField(null);
+    }
+  };
 
   const updateField = (key, val) => {
     if (readOnly) return;
@@ -878,76 +902,114 @@ export default function ProductApprovalRequestForm({
       <div style={{ border: '1px solid #cbd5e1', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '16px 18px', marginBottom: 24, background: '#fff' }}>
         
         {/* 12.1 Is artwork / labelling required? */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-          <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>12.1</span>
-          <div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>Is artwork / labelling required?</span>
-            <span style={{ fontSize: 11.5, color: '#64748b', marginLeft: 8 }}>(If yes, please attach copy of artwork / labelling)</span>
-          </div>
-          <div style={{ display: 'flex', gap: 16 }}>
-            {['Yes', 'No'].map(opt => (
-              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: readOnly ? 'default' : 'pointer', fontSize: 13, fontWeight: 600 }}>
-                <input
-                  type="radio"
-                  name="is_artwork_labelling_required"
-                  value={opt}
-                  checked={form.is_artwork_labelling_required === opt}
-                  onChange={e => updateField('is_artwork_labelling_required', e.target.value)}
-                  disabled={readOnly}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* YES: attach artwork document */}
-        {form.is_artwork_labelling_required === 'Yes' && (
-          <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', marginBottom: 10 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
-              Attach copy of artwork / labelling:
+        <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>12.1</span>
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>Is artwork / labelling required?</span>
+              <span style={{ fontSize: 11.5, color: '#64748b', marginLeft: 8 }}>(If yes, please attach copy of artwork / labelling)</span>
             </div>
-            {readOnly ? (
-              form.artwork_labelling_document ? (
-                <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <FileText size={14} /> {typeof form.artwork_labelling_document === 'string' ? form.artwork_labelling_document : form.artwork_labelling_document?.name || 'Document attached'}
+            <div style={{ display: 'flex', gap: 16 }}>
+              {['Yes', 'No'].map(opt => (
+                <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: readOnly ? 'default' : 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  <input
+                    type="radio"
+                    name="is_artwork_labelling_required"
+                    value={opt}
+                    checked={form.is_artwork_labelling_required === opt}
+                    onChange={e => updateField('is_artwork_labelling_required', e.target.value)}
+                    disabled={readOnly}
+                  />
+                  {opt}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* YES: attach artwork document */}
+          {form.is_artwork_labelling_required === 'Yes' && (
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '12px 16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+                Attach copy of artwork / labelling:
+              </div>
+              {form.artwork_labelling_document ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '8px 12px', borderRadius: 6, border: '1px solid #86efac' }}>
+                  <a
+                    href={typeof form.artwork_labelling_document === 'string' ? form.artwork_labelling_document : '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                  >
+                    <FileText size={14} /> {typeof form.artwork_labelling_document === 'string' ? form.artwork_labelling_document.split('/').pop() || 'Artwork_Document.pdf' : form.artwork_labelling_document?.name || 'Document attached'}
+                  </a>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => updateField('artwork_labelling_document', null)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '2px 8px', fontSize: 11, color: '#ef4444' }}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
-              ) : (
+              ) : readOnly ? (
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>No document attached</div>
-              )
-            ) : (
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="form-control form-control-sm"
-                style={{ fontSize: 12 }}
-                onChange={e => {
-                  const file = e.target.files?.[0] || null;
-                  updateField('artwork_labelling_document', file);
-                }}
-              />
-            )}
-            {!readOnly && <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG</div>}
-          </div>
-        )}
+              ) : (
+                <div>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.docx"
+                    className="form-control form-control-sm"
+                    style={{ fontSize: 12 }}
+                    disabled={uploadingField === 'artwork_labelling_document'}
+                    onChange={e => handleFileUpload('artwork_labelling_document', e.target.files?.[0])}
+                  />
+                  {uploadingField === 'artwork_labelling_document' && (
+                    <div style={{ fontSize: 11, color: '#166534', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <RefreshCw size={12} className="spin" /> Uploading artwork file...
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG, DOCX</div>
+                </div>
+              )}
 
-        {/* NO: provide details */}
-        {form.is_artwork_labelling_required === 'No' && (
-          <div style={{ padding: '10px 14px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa', marginBottom: 10 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
-              Please provide details:
+              {/* Artwork specifications / details notes */}
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 4 }}>
+                  Artwork / Labelling Notes (Optional):
+                </div>
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={2}
+                  disabled={readOnly}
+                  placeholder="Provide artwork specifications or notes..."
+                  value={form.artwork_labelling_details || ''}
+                  onChange={e => updateField('artwork_labelling_details', e.target.value)}
+                  style={{ fontSize: 12, resize: 'vertical' }}
+                />
+              </div>
             </div>
-            <textarea
-              className="form-control form-control-sm"
-              rows={3}
-              disabled={readOnly}
-              placeholder="Provide details..."
-              value={form.artwork_labelling_details || ''}
-              onChange={e => updateField('artwork_labelling_details', e.target.value)}
-              style={{ fontSize: 12, resize: 'vertical' }}
-            />
-          </div>
-        )}
+          )}
+
+          {/* NO: provide details */}
+          {form.is_artwork_labelling_required === 'No' && (
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '12px 16px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
+                Please provide details:
+              </div>
+              <textarea
+                className="form-control form-control-sm"
+                rows={3}
+                disabled={readOnly}
+                placeholder="Explain why artwork/labelling is not required or provide packaging details..."
+                value={form.artwork_labelling_details || ''}
+                onChange={e => updateField('artwork_labelling_details', e.target.value)}
+                style={{ fontSize: 12, resize: 'vertical' }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* 12.2 Is food contact packaging free from animal derivatives? */}
         <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -978,38 +1040,58 @@ export default function ProductApprovalRequestForm({
 
           {/* YES: attach document */}
           {form.is_packaging_animal_free === 'Yes' && (
-            <div style={{ marginTop: 10, marginLeft: 52, padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '12px 16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
                 Attach animal-free statement or valid Halal certificate:
               </div>
-              {readOnly ? (
-                form.packaging_animal_free_document ? (
-                  <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <FileText size={14} /> {typeof form.packaging_animal_free_document === 'string' ? form.packaging_animal_free_document : form.packaging_animal_free_document?.name || 'Document attached'}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>No document attached</div>
-                )
+              {form.packaging_animal_free_document ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '8px 12px', borderRadius: 6, border: '1px solid #86efac' }}>
+                  <a
+                    href={typeof form.packaging_animal_free_document === 'string' ? form.packaging_animal_free_document : '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                  >
+                    <FileText size={14} /> {typeof form.packaging_animal_free_document === 'string' ? form.packaging_animal_free_document.split('/').pop() || 'Packaging_Cert.pdf' : form.packaging_animal_free_document?.name || 'Document attached'}
+                  </a>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => updateField('packaging_animal_free_document', null)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '2px 8px', fontSize: 11, color: '#ef4444' }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ) : readOnly ? (
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>No document attached</div>
               ) : (
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  className="form-control form-control-sm"
-                  style={{ fontSize: 12 }}
-                  onChange={e => {
-                    const file = e.target.files?.[0] || null;
-                    updateField('packaging_animal_free_document', file);
-                  }}
-                />
+                <div>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.docx"
+                    className="form-control form-control-sm"
+                    style={{ fontSize: 12 }}
+                    disabled={uploadingField === 'packaging_animal_free_document'}
+                    onChange={e => handleFileUpload('packaging_animal_free_document', e.target.files?.[0])}
+                  />
+                  {uploadingField === 'packaging_animal_free_document' && (
+                    <div style={{ fontSize: 11, color: '#166534', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <RefreshCw size={12} className="spin" /> Uploading document...
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG, DOCX</div>
+                </div>
               )}
-              {!readOnly && <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>Accepted: PDF, JPG, PNG</div>}
             </div>
           )}
 
           {/* NO: provide details */}
           {form.is_packaging_animal_free === 'No' && (
-            <div style={{ marginTop: 10, marginLeft: 52, padding: '10px 14px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
+            <div style={{ marginTop: 10, marginLeft: 52, padding: '12px 16px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#9a3412', marginBottom: 6 }}>
                 Please provide details:
               </div>
               <textarea

@@ -19,6 +19,7 @@ import AdminSites from './pages/AdminSites';
 import AdminProducts from './pages/AdminProducts';
 import AdminReports from './pages/AdminReports';
 import AdminProposals from './pages/AdminProposals';
+import AdminAgreements from './pages/AdminAgreements';
 import AdminExports from './pages/AdminExports';
 import AdminLogsheets from './pages/AdminLogsheets';
 import AdminCreateLogsheet from './pages/AdminCreateLogsheet';
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/products/manage" element={<AdminManageProducts />} />
             <Route path="/reports" element={<AdminReports />} />
             <Route path="/proposals" element={<AdminProposals />} />
+            <Route path="/agreements" element={<AdminAgreements />} />
             <Route path="/exports" element={<AdminExports />} />
             <Route path="/export" element={<AdminExports />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />

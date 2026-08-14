@@ -184,7 +184,8 @@ export default function AdminAddOnProcessing() {
   const handleComplete = async () => {
     setSubmitting(true);
     try {
-      await api.put(`/api/add-on-applications/${app._id}/complete`);
+      const certId = app.certificate_id?._id || app.certificate_id;
+      await api.put(`/api/add-on-applications/${app._id}/complete`, { certificate_id: certId });
       toast.success('Certificate updated! Add-on application complete.');
       setActionType(null);
       fetchApp(true);
@@ -296,14 +297,9 @@ export default function AdminAddOnProcessing() {
 
     if (app.status === 'all_forms_received') {
       return (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={handleCreateLogsheet}>
-            <ClipboardList size={16} style={{ marginRight: 6 }} /> Create Logsheet
-          </button>
-          <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('approve_form')}>
-            <CheckCircle size={16} style={{ marginRight: 6 }} /> Approve Product Form
-          </button>
-        </div>
+        <button className="btn btn-primary" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={handleCreateLogsheet}>
+          <ClipboardList size={16} style={{ marginRight: 6 }} /> Create Logsheet
+        </button>
       );
     }
 
@@ -312,6 +308,9 @@ export default function AdminAddOnProcessing() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn btn-primary" style={{ background: '#0e7490', borderColor: '#0e7490' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
             <ClipboardList size={16} style={{ marginRight: 6 }} /> Manage Logsheet
+          </button>
+          <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('approve_form')}>
+            <CheckCircle size={16} style={{ marginRight: 6 }} /> Approve Product Form
           </button>
         </div>
       );
@@ -393,7 +392,7 @@ export default function AdminAddOnProcessing() {
               {app.status === 'accepted' && 'Assign Food Technologies staff member(s) to verify product formulations and ingredients.'}
               {app.status === 'ft_assigned' && 'Configure and enable the Product Approval Form for client submission.'}
               {app.status === 'product_approval_form_enabled' && 'The Product Approval Form has been enabled. Awaiting client product details submission.'}
-              {app.status === 'all_forms_received' && 'All product forms have been received from client. Generate Halal Logsheet or approve product form.'}
+              {app.status === 'all_forms_received' && 'All product forms have been received from client. Generate Halal Logsheet to proceed to Shariah committee review.'}
               {['logsheet_created', 'waiting_sharia_signature'].includes(app.status) && 'Halal Logsheet is in technical & Shariah committee review.'}
               {['product_form_approved', 'ready_for_certificate'].includes(app.status) && 'Product approval complete. Issue updated certificate to finalize application.'}
             </div>

@@ -31,6 +31,20 @@ export default function AdminClients() {
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
+  // Client Company Registration Modal State
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [companyForm, setCompanyForm] = useState({
+    company_name: '',
+    full_name: '',
+    email: '',
+    password: '',
+    phone: '',
+    address: '',
+    postcode: '',
+    country: 'United Kingdom'
+  });
+  const [companySubmitting, setCompanySubmitting] = useState(false);
+
   const fetchUsers = () => {
     setLoading(true);
     api.get('/api/users')
@@ -87,6 +101,36 @@ export default function AdminClients() {
       toast.error(err.message || 'Failed to create staff account');
     } finally {
       setStaffSubmitting(false);
+    }
+  };
+
+  const handleCreateCompany = async (e) => {
+    e.preventDefault();
+    if (!companyForm.company_name.trim()) return toast.error('Company Name is required.');
+    if (!companyForm.email.trim()) return toast.error('Email address is required.');
+    if (!companyForm.password.trim()) return toast.error('Password is required.');
+    if (!companyForm.full_name.trim()) return toast.error('Primary Contact Name is required.');
+
+    setCompanySubmitting(true);
+    try {
+      await api.post('/api/users', { ...companyForm, role: 'client' });
+      toast.success(`Company "${companyForm.company_name}" registered successfully!`);
+      setShowCompanyModal(false);
+      setCompanyForm({
+        company_name: '',
+        full_name: '',
+        email: '',
+        password: '',
+        phone: '',
+        address: '',
+        postcode: '',
+        country: 'United Kingdom'
+      });
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to register company.');
+    } finally {
+      setCompanySubmitting(false);
     }
   };
 
@@ -221,6 +265,15 @@ export default function AdminClients() {
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
             {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} Companies`}
           </span>
+          {category !== 'impersonations' && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowCompanyModal(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+            >
+              <PlusCircle size={15} /> Register Company
+            </button>
+          )}
         </div>
       </div>
 
@@ -526,6 +579,105 @@ export default function AdminClients() {
                 Confirm Suspension
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Register Company Modal */}
+      {showCompanyModal && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="modal" style={{ maxWidth: 540 }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: 8, borderRadius: 10 }}>
+                  <PlusCircle size={20} />
+                </div>
+                <div>
+                  <div className="modal-title">Register New Company</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Create a corporate client account directly</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowCompanyModal(false)}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleCreateCompany}>
+              <div className="modal-body" style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
+                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Company Name <span>*</span></label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Halal Food Express Ltd"
+                    value={companyForm.company_name}
+                    onChange={e => setCompanyForm(c => ({ ...c, company_name: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Primary Contact Person <span>*</span></label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. John Doe"
+                    value={companyForm.full_name}
+                    onChange={e => setCompanyForm(c => ({ ...c, full_name: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Email Address <span>*</span></label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="client@company.com"
+                    value={companyForm.email}
+                    onChange={e => setCompanyForm(c => ({ ...c, email: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Password <span>*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="Create a secure password"
+                    value={companyForm.password}
+                    onChange={e => setCompanyForm(c => ({ ...c, password: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Phone Number</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="+44 20 1234 5678"
+                    value={companyForm.phone}
+                    onChange={e => setCompanyForm(c => ({ ...c, phone: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Facility Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Street, City, Postal Code"
+                    value={companyForm.address}
+                    onChange={e => setCompanyForm(c => ({ ...c, address: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ background: '#f8fafc' }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowCompanyModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={companySubmitting}>
+                  {companySubmitting ? 'Registering...' : 'Register Company'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

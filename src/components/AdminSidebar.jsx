@@ -46,6 +46,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
+      { icon: PenTool,      label: 'Agreements',  path: '/agreements' },
       {
         icon: Calendar, label: 'Audits', path: '/audits',
         children: [

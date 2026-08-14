@@ -99,6 +99,13 @@ export default function AdminAddOnApplications() {
     setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
   };
 
+  const toggleFt = (ftId) => {
+    const idStr = String(ftId);
+    setSelectedFtIds(prev =>
+      prev.includes(idStr) ? prev.filter(id => id !== idStr) : [...prev, idStr]
+    );
+  };
+
   const closeModal = () => { setActiveApp(null); setActionType(null); };
 
   const handleReview = async () => {
@@ -157,7 +164,8 @@ export default function AdminAddOnApplications() {
   const handleComplete = async () => {
     setSubmitting(true);
     try {
-      await api.put(`/api/add-on-applications/${activeApp._id}/complete`);
+      const certId = activeApp?.certificate_id?._id || activeApp?.certificate_id;
+      await api.put(`/api/add-on-applications/${activeApp._id}/complete`, { certificate_id: certId });
       toast.success('Certificate product list updated successfully!');
       closeModal(); fetchApps();
     } catch (err) {
@@ -808,7 +816,7 @@ export default function AdminAddOnApplications() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
                     {ftUsers.map(ft => {
-                      const isSelected = selectedFtIds.includes(ft._id);
+                      const isSelected = selectedFtIds.includes(String(ft._id));
                       return (
                         <label key={ft._id} style={{
                           display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',

@@ -339,18 +339,43 @@ export default function AdminAddOnProcessing() {
     }
 
     if (app.status === 'product_approval_form_enabled') {
+      const isClientSubmitted = app.product_approval_form?.submitted_at || (app.products?.length > 0 && app.products.every((_, idx) => (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)));
+
       return (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" style={{ border: '1.5px solid #cbd5e1' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
             <Eye size={15} style={{ marginRight: 6 }} /> View Form Template
           </button>
+          {isClientSubmitted && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                background: '#ea580c',
+                borderColor: '#ea580c',
+                color: 'white',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px'
+              }}
+              onClick={() => {
+                setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                setMoreInfoFile(null);
+                setActionType('request_more_info');
+              }}
+            >
+              <HelpCircle size={15} /> Request for More Information
+            </button>
+          )}
           <button
             className="btn btn-primary"
             style={{ background: '#0d9488', borderColor: '#0d9488', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             disabled={submitting}
             onClick={handleConfirmFormReceived}
           >
-            <CheckCircle size={15} /> Confirm Product Form Received
+            <CheckCircle size={15} /> Product Form Received
           </button>
         </div>
       );
@@ -589,11 +614,11 @@ export default function AdminAddOnProcessing() {
                     disabled={submitting}
                     onClick={handleConfirmFormReceived}
                   >
-                    <CheckCircle size={14} /> Confirm Product Form Received
+                    <CheckCircle size={14} /> Product Form Received
                   </button>
                 )}
 
-                {isManagerOrAdmin && (['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) || (app.status === 'product_approval_form_enabled' && app.product_approval_form?.submitted_at)) && (
+                {isManagerOrAdmin && (['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) || (app.status === 'product_approval_form_enabled' && (app.product_approval_form?.submitted_at || (app.products?.length > 0 && app.products.every((_, idx) => (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)))))) && (
                   <button
                     type="button"
                     className="btn btn-sm"

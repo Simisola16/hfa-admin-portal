@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users,
-  HelpCircle, MessageSquare
+  HelpCircle, MessageSquare, CheckCircle2
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -700,6 +700,38 @@ export default function AdminAddOnProcessing() {
                   <div style={{ fontSize: 13, color: '#94a3b8' }}>Product Approval Form has not been enabled yet.</div>
                 )}
               </div>
+
+              {/* Client Reply to Requested Information & Documents */}
+              {(app.product_approval_form?.client_reply_text || app.product_approval_form?.client_reply_file_url) && (
+                <div style={{ marginBottom: 20, background: '#f0fdf4', padding: 18, borderRadius: 12, border: '1.5px solid #86efac' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle2 size={15} color="#16a34a" /> Client Reply &amp; Uploaded Supporting Documents
+                    </div>
+                    {app.product_approval_form?.client_replied_at && (
+                      <span style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>
+                        Replied on {new Date(app.product_approval_form.client_replied_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  {app.product_approval_form?.client_reply_text && (
+                    <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, color: '#1e293b', whiteSpace: 'pre-wrap', marginBottom: app.product_approval_form?.client_reply_file_url ? 10 : 0 }}>
+                      {app.product_approval_form.client_reply_text}
+                    </div>
+                  )}
+                  {app.product_approval_form?.client_reply_file_url && (
+                    <a
+                      href={getPdfUrl(app.product_approval_form.client_reply_file_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-sm"
+                      style={{ background: '#15803d', borderColor: '#15803d', color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Download size={14} /> Download Client Uploaded Document
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Client Responses summary */}
               <div>

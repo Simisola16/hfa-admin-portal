@@ -56,7 +56,7 @@ export default function AdminCreateLogsheet() {
     nature_of_business: '', product_category: '', current_cycle_start: '',
     original_cycle_start: '', document_url: '', document_urls: [], audit_reports: [],
     
-    audit_type: 'Initial', audit_date: '', auditors: '', ncs_close: '',
+    audit_type: 'New', audit_date: '', auditors: '', ncs_close: '',
     docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
     reviewer_name: '', review_date: '',
     
@@ -182,10 +182,10 @@ export default function AdminCreateLogsheet() {
           const autoNature = appData?.scope || appData?.business_type || appData?.category || 'Halal Food Production & Processing';
           const autoProductCategory = appData?.category || appData?.product_category || (appData?.products?.length > 0 ? appData.products.map(p => p.name || p.category).filter(Boolean).slice(0, 5).join(', ') : '') || '';
 
-          let autoAuditType = 'Initial';
+          let autoAuditType = 'New';
           if (appData?.application_type) {
             const lt = appData.application_type.toLowerCase();
-            if (lt.includes('initial')) autoAuditType = 'Initial';
+            if (lt.includes('initial') || lt.includes('new')) autoAuditType = 'New';
             else if (lt.includes('surveillance')) autoAuditType = 'Surveillance';
             else if (lt.includes('renewal') || lt.includes('re-audit')) autoAuditType = 'Re-audit';
           }
@@ -254,7 +254,7 @@ export default function AdminCreateLogsheet() {
             batch_certificate: 'No',
             new_products_only: 'No',
             new_site_line: 'No',
-            new_client: autoAuditType === 'Initial' ? 'Yes' : 'No',
+            new_client: (autoAuditType === 'New' || autoAuditType === 'Initial') ? 'Yes' : 'No',
             agreement_signed: 'Yes',
             status_date: todayStr,
             
@@ -784,7 +784,7 @@ export default function AdminCreateLogsheet() {
                 #{application?.application_number || 'N/A'}
               </div>
               <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
-                Audit Type: <strong>{form.audit_type || 'Initial'}</strong>
+                Audit Type: <strong>{form.audit_type || 'New'}</strong>
               </div>
             </div>
           </div>
@@ -1534,7 +1534,7 @@ export default function AdminCreateLogsheet() {
                 <div className="form-group">
                   <label className="form-label">Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
                   <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
-                    <option value="Initial">Initial</option>
+                    <option value="New">New</option>
                     <option value="Surveillance">Surveillance</option>
                     <option value="Re-audit">Re-audit</option>
                     <option value="Add-on Product Review">Add-on Product Review</option>

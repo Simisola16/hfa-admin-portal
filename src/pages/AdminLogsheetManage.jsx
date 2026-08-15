@@ -292,7 +292,7 @@ export default function AdminLogsheetManage() {
                         <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600 }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4f46e5' }}>
                             <Tag size={12} />
-                            {l.audit_type || 'Initial'}
+                            {l.audit_type || 'New'}
                           </span>
                         </td>
                         <td style={{ padding: '16px 24px', textAlign: 'center', position: 'relative' }}>
@@ -386,7 +386,7 @@ export default function AdminLogsheetManage() {
                       </h3>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f5f3ff', color: '#4f46e5', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '6px' }}>
                         <Tag size={10} />
-                        {l.audit_type || 'Initial'} Logsheet
+                        {l.audit_type || 'New'} Logsheet
                       </div>
                     </div>
 

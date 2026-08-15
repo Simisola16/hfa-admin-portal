@@ -385,7 +385,7 @@ export default function AdminLogsheetWaitingSignature() {
                           <td style={{ padding: '16px 20px', fontSize: 12, fontWeight: 500 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#4f46e5', background: '#f5f3ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #e0e7ff' }}>
                               <Tag size={11} />
-                              {l.audit_type || 'Initial'}
+                              {l.audit_type || 'New'}
                             </span>
                           </td>
 
@@ -519,7 +519,7 @@ export default function AdminLogsheetWaitingSignature() {
                         </h3>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f3ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, marginTop: 4 }}>
                           <Tag size={10} />
-                          {l.audit_type || 'Initial'} Logsheet
+                          {l.audit_type || 'New'} Logsheet
                         </div>
                       </div>
 

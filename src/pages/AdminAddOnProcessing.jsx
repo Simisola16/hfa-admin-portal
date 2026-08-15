@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users
+  ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users,
+  HelpCircle, MessageSquare
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -71,6 +72,8 @@ export default function AdminAddOnProcessing() {
   const [selectedFtIds, setSelectedFtIds] = useState([]);
   const [formText, setFormText] = useState('');
   const [formFile, setFormFile] = useState(null);
+  const [moreInfoMessage, setMoreInfoMessage] = useState('');
+  const [moreInfoFile, setMoreInfoFile] = useState(null);
   const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
 
   const toggleFt = (ftId) => {
@@ -192,6 +195,29 @@ export default function AdminAddOnProcessing() {
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally { setSubmitting(false); }
+  };
+
+  const handleRequestMoreInfo = async () => {
+    if (!moreInfoMessage.trim()) {
+      return toast.error('Please specify the information or clarification needed.');
+    }
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append('message', moreInfoMessage.trim());
+      if (moreInfoFile) fd.append('info_file', moreInfoFile);
+
+      await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd);
+      toast.success('Request for more information sent to client successfully!');
+      setActionType(null);
+      setMoreInfoMessage('');
+      setMoreInfoFile(null);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to send request for more information');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -500,16 +526,41 @@ export default function AdminAddOnProcessing() {
                 </div>
               </div>
 
-              {isManagerOrAdmin && app.status === 'ft_assigned' && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
-                  disabled={submitting}
-                  onClick={handleRequestProductApprovalForm}
-                >
-                  Request for Product Approval Form
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {isManagerOrAdmin && app.status === 'ft_assigned' && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+                    disabled={submitting}
+                    onClick={handleRequestProductApprovalForm}
+                  >
+                    Request for Product Approval Form
+                  </button>
+                )}
+
+                {isManagerOrAdmin && ['product_approval_form_enabled', 'all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{
+                      background: '#ea580c',
+                      borderColor: '#ea580c',
+                      color: 'white',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                    onClick={() => {
+                      setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                      setMoreInfoFile(null);
+                      setActionType('request_more_info');
+                    }}
+                  >
+                    <HelpCircle size={14} /> Request for More Information
+                  </button>
+                )}
+              </div>
             </div>
 
             <div style={{ padding: '20px 24px' }}>
@@ -1070,6 +1121,67 @@ export default function AdminAddOnProcessing() {
               <button className="btn btn-ghost" onClick={() => setActionType(null)} disabled={submitting}>Cancel</button>
               <button className="btn btn-primary" onClick={handleComplete} disabled={submitting}>
                 {submitting ? 'Updating Certificate...' : 'Complete & Update Certificate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Request for More Information Modal */}
+      {actionType === 'request_more_info' && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #fed7aa', background: '#fff7ed' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
+                  <HelpCircle size={18} />
+                </div>
+                <span className="modal-title" style={{ color: '#9a3412', fontWeight: 800 }}>Request for More Information</span>
+              </div>
+              <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 16 }}>
+              <p style={{ fontSize: 13, color: '#475569', margin: 0, lineHeight: 1.5 }}>
+                Specify the questions, clarifications, or missing documents needed from the client regarding their product specifications. The client will be alerted to update and resubmit their form.
+              </p>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Information / Clarification Details <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={5}
+                  value={moreInfoMessage}
+                  onChange={e => setMoreInfoMessage(e.target.value)}
+                  placeholder="e.g. Please provide the specification sheet for Product #2 and clarify the source of the emulsifier..."
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 600 }}>Attach Reference Document / Checklist (Optional)</label>
+                <input
+                  type="file"
+                  accept=".pdf,image/*,.doc,.docx"
+                  onChange={e => setMoreInfoFile(e.target.files[0] || null)}
+                  className="form-control"
+                />
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={15} color="#ea580c" style={{ flexShrink: 0 }} />
+                <span>An email &amp; in-app notification will be sent directly to <strong>{app.contact_email || 'the client'}</strong>.</span>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setActionType(null)} disabled={submitting}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleRequestMoreInfo}
+                disabled={submitting || !moreInfoMessage.trim()}
+                style={{ background: '#ea580c', borderColor: '#ea580c', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {submitting ? 'Sending Request...' : 'Send Request to Client'}
               </button>
             </div>
           </div>

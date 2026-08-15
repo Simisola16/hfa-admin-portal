@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { 
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, 
   Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck, 
-  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package
+  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package, Lock
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
@@ -127,8 +127,11 @@ export default function AdminCreateLogsheet() {
           || addonData.application_id?.manufacturer_address 
           || autoCompanyAddress;
 
-        if (!autoCompanyAddress && autoManufacturingAddress) autoCompanyAddress = autoManufacturingAddress;
-        if (!autoManufacturingAddress && autoCompanyAddress) autoManufacturingAddress = autoCompanyAddress;
+        const fallbackCompanyAddr = `${autoCompanyName || 'Company'} Head Office, United Kingdom`;
+        const fallbackMfgAddr = `${autoCompanyName || 'Company'} Manufacturing Facility, United Kingdom`;
+
+        if (!autoCompanyAddress) autoCompanyAddress = autoManufacturingAddress || fallbackCompanyAddr;
+        if (!autoManufacturingAddress) autoManufacturingAddress = autoCompanyAddress || fallbackMfgAddr;
 
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
         const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
@@ -266,8 +269,11 @@ export default function AdminCreateLogsheet() {
           || appData?.establishment_address 
           || autoCompanyAddress;
 
-        if (!autoCompanyAddress && autoManufacturingAddress) autoCompanyAddress = autoManufacturingAddress;
-        if (!autoManufacturingAddress && autoCompanyAddress) autoManufacturingAddress = autoCompanyAddress;
+        const fallbackCompanyAddr = `${autoCompanyName || 'Company'} Head Office, United Kingdom`;
+        const fallbackMfgAddr = `${autoCompanyName || 'Company'} Manufacturing Facility, United Kingdom`;
+
+        if (!autoCompanyAddress) autoCompanyAddress = autoManufacturingAddress || fallbackCompanyAddr;
+        if (!autoManufacturingAddress) autoManufacturingAddress = autoCompanyAddress || fallbackMfgAddr;
 
         // 3. See if logsheet exists
         let logsheetObj = null;
@@ -1474,12 +1480,38 @@ export default function AdminCreateLogsheet() {
                   <input required type="text" className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} placeholder="Enter contact person" />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Company Address <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.company_address} onChange={e => setForm({ ...form, company_address: e.target.value })} placeholder="Enter registered company address" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Company Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.company_address}
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    placeholder="Registered company address"
+                  />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.manufacturing_address} onChange={e => setForm({ ...form, manufacturing_address: e.target.value })} placeholder="Enter manufacturing site address" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.manufacturing_address}
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    placeholder="Manufacturing site address"
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>

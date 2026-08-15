@@ -579,13 +579,13 @@ export default function AdminAddOnApplications() {
                           </button>
                         )}
 
-                        {isManagerOrAdmin && ['logsheet_created', 'waiting_sharia_signature', 'product_form_approved'].includes(app.status) && (
+                        {['logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
                           <button
                             className="btn btn-sm"
-                            onClick={() => openAction(app, 'approve_form')}
-                            style={{ background: '#16a34a', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                            onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}
+                            style={{ background: '#0e7490', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 14px', borderRadius: 8, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                           >
-                            Approve Form
+                            <ClipboardList size={13} /> View & Sign Logsheet
                           </button>
                         )}
 

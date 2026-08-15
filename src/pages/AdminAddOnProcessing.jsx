@@ -206,9 +206,7 @@ export default function AdminAddOnProcessing() {
       if (moreInfoFile) {
         const fd = new FormData();
         fd.append('message', moreInfoMessage.trim());
-        fd.append('form_text', moreInfoMessage.trim());
         fd.append('info_file', moreInfoFile);
-        fd.append('form_file', moreInfoFile);
 
         try {
           await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd, true);

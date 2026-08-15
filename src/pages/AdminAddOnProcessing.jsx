@@ -339,7 +339,10 @@ export default function AdminAddOnProcessing() {
     }
 
     if (app.status === 'product_approval_form_enabled') {
-      const isClientSubmitted = app.product_approval_form?.submitted_at || (app.products?.length > 0 && app.products.every((_, idx) => (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)));
+      const allProductsCompleted = app.products?.length > 0 && app.products.every((_, idx) => 
+        (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)
+      );
+      const isClientSubmitted = !!(app.product_approval_form?.submitted_at || allProductsCompleted);
 
       return (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -347,36 +350,38 @@ export default function AdminAddOnProcessing() {
             <Eye size={15} style={{ marginRight: 6 }} /> View Form Template
           </button>
           {isClientSubmitted && (
-            <button
-              type="button"
-              className="btn btn-sm"
-              style={{
-                background: '#ea580c',
-                borderColor: '#ea580c',
-                color: 'white',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 14px'
-              }}
-              onClick={() => {
-                setMoreInfoMessage(app.product_approval_form?.form_text || '');
-                setMoreInfoFile(null);
-                setActionType('request_more_info');
-              }}
-            >
-              <HelpCircle size={15} /> Request for More Information
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  background: '#ea580c',
+                  borderColor: '#ea580c',
+                  color: 'white',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px'
+                }}
+                onClick={() => {
+                  setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                  setMoreInfoFile(null);
+                  setActionType('request_more_info');
+                }}
+              >
+                <HelpCircle size={15} /> Request for More Information
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ background: '#0d9488', borderColor: '#0d9488', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                disabled={submitting}
+                onClick={handleConfirmFormReceived}
+              >
+                <CheckCircle size={15} /> Product Form Received
+              </button>
+            </>
           )}
-          <button
-            className="btn btn-primary"
-            style={{ background: '#0d9488', borderColor: '#0d9488', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            disabled={submitting}
-            onClick={handleConfirmFormReceived}
-          >
-            <CheckCircle size={15} /> Product Form Received
-          </button>
         </div>
       );
     }
@@ -598,27 +603,66 @@ export default function AdminAddOnProcessing() {
                   </button>
                 )}
 
-                {isManagerOrAdmin && app.status === 'product_approval_form_enabled' && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    style={{
-                      background: '#0d9488',
-                      borderColor: '#0d9488',
-                      color: 'white',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6
-                    }}
-                    disabled={submitting}
-                    onClick={handleConfirmFormReceived}
-                  >
-                    <CheckCircle size={14} /> Product Form Received
-                  </button>
-                )}
+                {isManagerOrAdmin && app.status === 'product_approval_form_enabled' && (() => {
+                  const allProductsCompleted = app.products?.length > 0 && app.products.every((_, idx) => 
+                    (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)
+                  );
+                  const isClientSubmitted = !!(app.product_approval_form?.submitted_at || allProductsCompleted);
 
-                {isManagerOrAdmin && (['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) || (app.status === 'product_approval_form_enabled' && (app.product_approval_form?.submitted_at || (app.products?.length > 0 && app.products.every((_, idx) => (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)))))) && (
+                  if (!isClientSubmitted) {
+                    const respondedCount = (app.product_approval_form?.product_responses || []).filter(r => r.is_saved).length;
+                    const totalCount = app.products?.length || 0;
+                    return (
+                      <span className="badge badge-orange" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+                        <Clock size={12} /> Awaiting Client Submission ({respondedCount} of {totalCount} filled)
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        style={{
+                          background: '#ea580c',
+                          borderColor: '#ea580c',
+                          color: 'white',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                        onClick={() => {
+                          setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                          setMoreInfoFile(null);
+                          setActionType('request_more_info');
+                        }}
+                      >
+                        <HelpCircle size={14} /> Request for More Information
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        style={{
+                          background: '#0d9488',
+                          borderColor: '#0d9488',
+                          color: 'white',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                        disabled={submitting}
+                        onClick={handleConfirmFormReceived}
+                      >
+                        <CheckCircle size={14} /> Product Form Received
+                      </button>
+                    </>
+                  );
+                })()}
+
+                {isManagerOrAdmin && ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
                   <button
                     type="button"
                     className="btn btn-sm"

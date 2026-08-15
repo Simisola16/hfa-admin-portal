@@ -339,10 +339,7 @@ export default function AdminAddOnProcessing() {
     }
 
     if (app.status === 'product_approval_form_enabled') {
-      const allProductsCompleted = app.products?.length > 0 && app.products.every((_, idx) => 
-        (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)
-      );
-      const isClientSubmitted = !!(app.product_approval_form?.submitted_at || allProductsCompleted);
+      const isClientSubmitted = !!app.product_approval_form?.submitted_at;
 
       return (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -604,10 +601,7 @@ export default function AdminAddOnProcessing() {
                 )}
 
                 {isManagerOrAdmin && app.status === 'product_approval_form_enabled' && (() => {
-                  const allProductsCompleted = app.products?.length > 0 && app.products.every((_, idx) => 
-                    (app.product_approval_form?.product_responses || []).some(r => r.product_index === idx && r.is_saved)
-                  );
-                  const isClientSubmitted = !!(app.product_approval_form?.submitted_at || allProductsCompleted);
+                  const isClientSubmitted = !!app.product_approval_form?.submitted_at;
 
                   if (!isClientSubmitted) {
                     const respondedCount = (app.product_approval_form?.product_responses || []).filter(r => r.is_saved).length;

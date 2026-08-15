@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, CheckCircle } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, CheckCircle, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminClients() {
@@ -191,6 +191,7 @@ export default function AdminClients() {
 
   const getTitle = () => {
     if (category === 'processing') return 'Processing List (Pending Applications)';
+    if (category === 'signups') return 'Company List (New Sign-ups)';
     if (category === 'bin') return 'Bin List (Suspended Companies)';
     if (category === 'staff') return 'HFA Staff & User Management';
     if (category === 'impersonations') return 'Admin Impersonation Logs';
@@ -200,9 +201,11 @@ export default function AdminClients() {
 
   const getIcon = () => {
     if (category === 'processing') return <Briefcase size={20} />;
+    if (category === 'signups') return <UserPlus size={20} />;
     if (category === 'bin') return <Trash2 size={20} />;
     if (category === 'staff') return <UserCheck size={20} />;
     if (category === 'impersonations') return <History size={20} />;
+    if (category === 'all') return <Users size={20} />;
     return <Award size={20} />;
   };
 
@@ -233,10 +236,12 @@ export default function AdminClients() {
       if (isSuspended) return false;
       if (category === 'processing') {
         return c.appCount > 0 && (c.certCount || 0) === 0;
+      } else if (category === 'signups') {
+        return (c.appCount || 0) === 0 && (c.certCount || 0) === 0;
       } else if (category === 'all') {
         return true;
       } else if (category === 'company') {
-        return (c.certCount || 0) > 0 || c.appCount > 0;
+        return (c.certCount || 0) > 0 || (c.appCount > 0 && c.approvedAppCount > 0);
       }
     }
     return true;
@@ -249,6 +254,7 @@ export default function AdminClients() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12, flexWrap: 'wrap' }}>
         <button className={`btn btn-sm ${category === 'company' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'company' })}>Certified Clients</button>
         <button className={`btn btn-sm ${category === 'processing' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'processing' })}>Processing</button>
+        <button className={`btn btn-sm ${category === 'signups' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'signups' })}>Sign-ups</button>
         <button className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'all' })}>All Companies</button>
         <button className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'bin' })}>Suspended</button>
         {isAdmin && (
@@ -285,7 +291,10 @@ export default function AdminClients() {
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {category === 'staff' ? 'Manage internal HFA roles and credentials' :
                 category === 'impersonations' ? 'Tamper-evident audit trail of all administrator impersonation actions' :
-                  'Manage corporate clients and their status'}
+                category === 'signups' ? 'Newly registered corporate companies who recently signed up' :
+                category === 'processing' ? 'Corporate clients with active applications under review' :
+                category === 'all' ? 'Comprehensive directory of all registered corporate clients' :
+                'Manage corporate clients and their status'}
             </div>
           </div>
         </div>
@@ -386,7 +395,9 @@ export default function AdminClients() {
                           </span>
                         </div>
                       </td>
-                      <td style={{ fontSize: 12, color: '#64748b' }}>{new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                      <td style={{ fontSize: 12, color: '#64748b' }}>
+                        {new Date(c.created_at || c.createdAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
                       <td>
                         {c.suspension_reason ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -394,9 +405,16 @@ export default function AdminClients() {
                             <span style={{ fontSize: 10, color: '#ef4444', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.suspension_reason}>Reason: {c.suspension_reason}</span>
                           </div>
                         ) : (
-                          <span className={`badge ${c.is_verified ? 'badge-green' : 'badge-yellow'}`}>
-                            {c.is_verified ? 'Email Verified' : 'Unverified Email'}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span className={`badge ${c.is_verified ? 'badge-green' : 'badge-yellow'}`}>
+                              {c.is_verified ? 'Email Verified' : 'Unverified Email'}
+                            </span>
+                            {(c.appCount || 0) === 0 && (c.certCount || 0) === 0 && (
+                              <span className="badge badge-blue" style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                                New Sign-up
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>

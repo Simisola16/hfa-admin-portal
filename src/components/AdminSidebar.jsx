@@ -19,6 +19,7 @@ const NAV_SECTIONS = [
         icon: Users, label: 'Companies', path: '/clients',
         children: [
           { label: 'All Clients',       path: '/clients' },
+          { label: 'Sign-ups',          path: '/clients?category=signups' },
           { label: 'Processing List',   path: '/clients?category=processing' },
         ],
       },

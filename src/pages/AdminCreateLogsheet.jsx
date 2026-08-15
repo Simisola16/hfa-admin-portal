@@ -82,11 +82,54 @@ export default function AdminCreateLogsheet() {
         const addonData = addonRes.data?.data || addonRes.data;
         setApplication(addonData);
 
-        const autoCompanyName = addonData.client_id?.company_name || addonData.establishment_name || addonData.client_id?.full_name || '';
-        const autoContactPerson = addonData.contact_name || addonData.client_id?.full_name || '';
-        const autoContactEmail = addonData.contact_email || addonData.client_id?.email || '';
-        const autoCompanyAddress = addonData.establishment_address || addonData.client_id?.address || '';
-        const autoManufacturingAddress = addonData.manufacturer_address || autoCompanyAddress;
+        let addonClient = addonData.client_id;
+        if (typeof addonClient === 'string' || (addonClient && !addonClient.address)) {
+          try {
+            const uId = addonClient?._id || addonClient;
+            if (uId) {
+              const uRes = await api.get(`/api/users/${uId}`).catch(() => null);
+              if (uRes?.data?.data || uRes?.data) {
+                addonClient = { ...(typeof addonClient === 'object' ? addonClient : {}), ...(uRes.data.data || uRes.data) };
+              }
+            }
+          } catch (e) {}
+        }
+
+        const addonClientAddr = [
+          addonClient?.address,
+          addonClient?.city,
+          addonClient?.postcode,
+          addonClient?.country
+        ].filter(Boolean).join(', ') || addonClient?.address || '';
+
+        const addonSite = addonData.site_id;
+        const addonSiteAddr = addonSite ? [
+          addonSite.address_1,
+          addonSite.address_2,
+          addonSite.city,
+          addonSite.state,
+          addonSite.postcode || addonSite.postal_code,
+          addonSite.country
+        ].filter(Boolean).join(', ') || addonSite.address || '' : '';
+
+        const autoCompanyName = addonClient?.company_name || addonData.establishment_name || addonClient?.full_name || '';
+        const autoContactPerson = addonData.contact_name || addonClient?.full_name || '';
+        const autoContactEmail = addonData.contact_email || addonClient?.email || '';
+        
+        let autoCompanyAddress = addonData.establishment_address 
+          || addonSite?.head_office_address 
+          || addonClientAddr 
+          || addonData.application_id?.establishment_address 
+          || '';
+
+        let autoManufacturingAddress = addonData.manufacturer_address 
+          || addonSiteAddr 
+          || addonData.application_id?.manufacturer_address 
+          || autoCompanyAddress;
+
+        if (!autoCompanyAddress && autoManufacturingAddress) autoCompanyAddress = autoManufacturingAddress;
+        if (!autoManufacturingAddress && autoCompanyAddress) autoManufacturingAddress = autoCompanyAddress;
+
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
         const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
 
@@ -99,7 +142,13 @@ export default function AdminCreateLogsheet() {
 
         if (addonLogsheet && addonLogsheet._id) {
           setCurrentLogsheet(addonLogsheet);
-          setForm(f => ({ ...f, ...addonLogsheet, confirmed: false }));
+          setForm(f => ({
+            ...f,
+            ...addonLogsheet,
+            company_address: addonLogsheet.company_address || autoCompanyAddress,
+            manufacturing_address: addonLogsheet.manufacturing_address || autoManufacturingAddress,
+            confirmed: false
+          }));
         } else {
           setForm(f => ({
             ...f,
@@ -160,6 +209,66 @@ export default function AdminCreateLogsheet() {
           }
         } catch (pErr) {}
 
+        // Automatic extraction of Company & Site details from application & audits & user profile
+        let clientData = appData?.client_id;
+        if (typeof clientData === 'string' || (clientData && !clientData.address)) {
+          try {
+            const uId = clientData?._id || clientData || appData?.profiles?._id;
+            if (uId) {
+              const uRes = await api.get(`/api/users/${uId}`).catch(() => null);
+              if (uRes?.data?.data || uRes?.data) {
+                clientData = { ...(typeof clientData === 'object' ? clientData : {}), ...(uRes.data.data || uRes.data) };
+              }
+            }
+          } catch (e) {}
+        }
+
+        let siteData = appData?.site || appData?.sites?.[0];
+        if (!siteData && appData?.site_id) {
+          try {
+            const sRes = await api.get(`/api/sites/${appData.site_id}`).catch(() => null);
+            if (sRes?.data?.data || sRes?.data) {
+              siteData = sRes.data.data || sRes.data;
+            }
+          } catch (e) {}
+        }
+
+        const clientFullAddr = [
+          clientData?.address || appData?.profiles?.address,
+          clientData?.city || appData?.profiles?.city,
+          clientData?.postcode || appData?.profiles?.postcode,
+          clientData?.country || appData?.profiles?.country
+        ].filter(Boolean).join(', ');
+
+        const siteFullAddr = siteData ? [
+          siteData.address_1,
+          siteData.address_2,
+          siteData.city,
+          siteData.state,
+          siteData.postcode,
+          siteData.country
+        ].filter(Boolean).join(', ') : (siteData?.address || '');
+
+        const siteHeadOffice = siteData?.head_office_address || '';
+
+        const autoCompanyName = appData?.establishment_name || appData?.site_name || clientData?.company_name || appData?.profiles?.company_name || '';
+        
+        let autoCompanyAddress = appData?.establishment_address 
+          || siteHeadOffice 
+          || clientFullAddr 
+          || clientData?.address 
+          || appData?.profiles?.address 
+          || siteFullAddr 
+          || '';
+
+        let autoManufacturingAddress = appData?.manufacturer_address 
+          || siteFullAddr 
+          || appData?.establishment_address 
+          || autoCompanyAddress;
+
+        if (!autoCompanyAddress && autoManufacturingAddress) autoCompanyAddress = autoManufacturingAddress;
+        if (!autoManufacturingAddress && autoCompanyAddress) autoManufacturingAddress = autoCompanyAddress;
+
         // 3. See if logsheet exists
         let logsheetObj = null;
         try {
@@ -171,14 +280,16 @@ export default function AdminCreateLogsheet() {
 
         if (logsheetObj && logsheetObj._id) {
           setCurrentLogsheet(logsheetObj);
-          setForm(f => ({ ...f, ...logsheetObj, confirmed: false }));
+          setForm(f => ({
+            ...f,
+            ...logsheetObj,
+            company_address: logsheetObj.company_address || autoCompanyAddress,
+            manufacturing_address: logsheetObj.manufacturing_address || autoManufacturingAddress,
+            confirmed: false
+          }));
         } else {
-          // Automatic extraction of Company & Site details from application & audits
-          const autoCompanyName = appData?.establishment_name || appData?.site_name || appData?.client_id?.company_name || appData?.profiles?.company_name || '';
-          const autoCompanyAddress = appData?.establishment_address || appData?.client_id?.address || appData?.profiles?.address || '';
-          const autoManufacturingAddress = appData?.manufacturer_address || appData?.establishment_address || appData?.sites?.[0]?.address || autoCompanyAddress;
-          const autoContactPerson = appData?.halal_coordinator || appData?.qa_contact || appData?.managing_director || appData?.client_id?.full_name || appData?.profiles?.full_name || '';
-          const autoContactEmail = appData?.client_id?.email || appData?.profiles?.email || appData?.finance_contact || '';
+          const autoContactPerson = appData?.halal_coordinator || appData?.qa_contact || appData?.managing_director || clientData?.full_name || appData?.profiles?.full_name || '';
+          const autoContactEmail = clientData?.email || appData?.profiles?.email || appData?.finance_contact || '';
           const autoNature = appData?.scope || appData?.business_type || appData?.category || 'Halal Food Production & Processing';
           const autoProductCategory = appData?.category || appData?.product_category || (appData?.products?.length > 0 ? appData.products.map(p => p.name || p.category).filter(Boolean).slice(0, 5).join(', ') : '') || '';
 

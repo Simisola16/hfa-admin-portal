@@ -76,8 +76,18 @@ export default function AdminCreateLogsheet() {
       const todayStr = new Date().toISOString().split('T')[0];
       const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+      if (!entityId || entityId === 'undefined') {
+        toast.error('Invalid application reference.');
+        setLoading(false);
+        return;
+      }
+
       if (isAddon) {
-        // Fetch add-on application to prefill form defaults
+        if (!addonId || addonId === 'undefined') {
+          toast.error('Invalid Add-on application reference.');
+          setLoading(false);
+          return;
+        }
         const addonRes = await api.get(`/api/add-on-applications/${addonId}`);
         const addonData = addonRes.data?.data || addonRes.data;
         setApplication(addonData);
@@ -188,6 +198,12 @@ export default function AdminCreateLogsheet() {
         }
       } else {
         // ── Main application flow ─────────────────────────────────────────
+        if (!appId || appId === 'undefined') {
+          toast.error('Invalid Application reference.');
+          setLoading(false);
+          return;
+        }
+
         // 1. Fetch application details
         const appRes = await api.get(`/api/applications/${appId}`);
         const appData = appRes.data?.data || appRes.data;

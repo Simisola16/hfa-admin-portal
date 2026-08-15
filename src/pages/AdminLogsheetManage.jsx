@@ -107,6 +107,24 @@ export default function AdminLogsheetManage() {
     }
   };
 
+  const getLogsheetLink = (l) => {
+    if (l.source_type === 'addon_application' || l.addon_application_id) {
+      const id = l.addon_application_id?._id || l.addon_application_id;
+      return `/addon-applications/${id}/logsheet`;
+    }
+    const id = l.application_id?._id || l.application_id;
+    return id ? `/applications/${id}/logsheet` : '/logsheet/manage';
+  };
+
+  const getApplicationLink = (l) => {
+    if (l.source_type === 'addon_application' || l.addon_application_id) {
+      const id = l.addon_application_id?._id || l.addon_application_id;
+      return `/addon-applications/${id}/processing`;
+    }
+    const id = l.application_id?._id || l.application_id;
+    return id ? `/applications/${id}/processing` : '/applications';
+  };
+
   return (
     <div style={{ padding: '0 8px' }}>
       <style>{`
@@ -324,7 +342,7 @@ export default function AdminLogsheetManage() {
                               onClick={e => e.stopPropagation()}
                             >
                               <Link 
-                                to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                                to={getLogsheetLink(l)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', color: '#16a34a', textDecoration: 'none', borderRadius: '6px', background: 'transparent', fontWeight: 600 }}
                                 className="dropdown-item"
                               >
@@ -415,7 +433,7 @@ export default function AdminLogsheetManage() {
 
                     <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '14px', marginTop: '4px' }}>
                       <Link 
-                        to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                        to={getLogsheetLink(l)}
                         style={{ 
                           flex: 1, 
                           display: 'inline-flex', 
@@ -436,7 +454,7 @@ export default function AdminLogsheetManage() {
                       </Link>
 
                       <Link 
-                        to={`/applications/${l.application_id?._id || l.application_id}/logsheet`}
+                        to={getLogsheetLink(l)}
                         style={{ 
                           flex: 1.2, 
                           display: 'inline-flex', 

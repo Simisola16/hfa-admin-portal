@@ -205,9 +205,19 @@ export default function AdminAddOnProcessing() {
     try {
       const fd = new FormData();
       fd.append('message', moreInfoMessage.trim());
-      if (moreInfoFile) fd.append('info_file', moreInfoFile);
+      fd.append('form_text', moreInfoMessage.trim());
+      if (moreInfoFile) {
+        fd.append('info_file', moreInfoFile);
+        fd.append('form_file', moreInfoFile);
+      }
 
-      await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd);
+      try {
+        await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd, true);
+      } catch (reqErr) {
+        // Fallback to enable-form endpoint
+        await api.put(`/api/add-on-applications/${app._id}/enable-form`, fd, true);
+      }
+
       toast.success('Request for more information sent to client successfully!');
       setActionType(null);
       setMoreInfoMessage('');

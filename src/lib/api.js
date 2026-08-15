@@ -17,8 +17,20 @@ async function request(method, path, body, isFormData = false) {
     body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  let data;
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json().catch(() => ({}));
+  } else {
+    const text = await res.text().catch(() => '');
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: text || res.statusText || 'Request failed' };
+    }
+  }
+
+  if (!res.ok) throw new Error(data?.error || data?.message || `Request failed with status ${res.status}`);
   return data;
 }
 

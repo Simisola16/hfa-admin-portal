@@ -17,11 +17,11 @@ const STATUS_LABELS = {
   accepted: 'Accepted',
   rejected: 'Rejected',
   ft_assigned: 'FT Assigned',
-  product_approval_form_enabled: 'Form Enabled',
-  all_forms_received: 'Forms Received',
+  product_approval_form_enabled: 'Product Form Enabled',
+  all_forms_received: 'Product Form Received',
   logsheet_created: 'Logsheet Created',
-  waiting_sharia_signature: "Shari'a Signature",
-  product_form_approved: 'Form Approved',
+  waiting_sharia_signature: "Committee Signature",
+  product_form_approved: 'Product Form Approved',
   ready_for_certificate: 'Ready for Cert',
   completed: 'Completed'
 };
@@ -31,11 +31,11 @@ const STATUS_CONFIG = {
   accepted: { label: 'Accepted', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#22c55e' },
   rejected: { label: 'Rejected', bg: '#fee2e2', color: '#991b1b', border: '#fecaca', dot: '#ef4444' },
   ft_assigned: { label: 'FT Assigned', bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
-  product_approval_form_enabled: { label: 'Form Enabled', bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', dot: '#a855f7' },
-  all_forms_received: { label: 'Forms Received', bg: '#ccfbf1', color: '#115e59', border: '#99f6e4', dot: '#14b8a6' },
+  product_approval_form_enabled: { label: 'Product Form Enabled', bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', dot: '#a855f7' },
+  all_forms_received: { label: 'Product Form Received', bg: '#ccfbf1', color: '#115e59', border: '#99f6e4', dot: '#14b8a6' },
   logsheet_created: { label: 'Logsheet Created', bg: '#e0f2fe', color: '#075985', border: '#bae6fd', dot: '#0ea5e9' },
-  waiting_sharia_signature: { label: "Shari'a Signature", bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
-  product_form_approved: { label: 'Form Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
+  waiting_sharia_signature: { label: "Committee Signature", bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
+  product_form_approved: { label: 'Product Form Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
   ready_for_certificate: { label: 'Ready for Cert', bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', dot: '#6366f1' },
   completed: { label: 'Completed', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' }
 };

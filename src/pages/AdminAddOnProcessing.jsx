@@ -19,7 +19,7 @@ const STATUS_LABELS = {
   product_approval_form_enabled: 'Product Approval Form Enabled',
   all_forms_received: 'All Product Approval Form Received',
   logsheet_created: 'Create Logsheet',
-  waiting_sharia_signature: 'Waiting For Shari\'a Board Signature',
+  waiting_sharia_signature: 'Waiting For Committee Signature',
   product_form_approved: 'Product Form Approved',
   ready_for_certificate: 'Ready For Certificate',
   completed: 'Certificate'
@@ -43,11 +43,11 @@ const FLOW_STEPS = [
   { id: 'submitted', label: 'Submit Add-On' },
   { id: 'accepted', label: 'Accepted' },
   { id: 'ft_assigned', label: 'Assign FT' },
-  { id: 'product_approval_form_enabled', label: 'Form Enabled' },
-  { id: 'all_forms_received', label: 'Form Received' },
+  { id: 'product_approval_form_enabled', label: 'Product Form Enabled' },
+  { id: 'all_forms_received', label: 'Product Form Received' },
   { id: 'logsheet_created', label: 'Create Logsheet' },
-  { id: 'waiting_sharia_signature', label: 'Shari\'a Signature' },
-  { id: 'product_form_approved', label: 'Form Approved' },
+  { id: 'waiting_sharia_signature', label: 'Committee Signature' },
+  { id: 'product_form_approved', label: 'Product Form Approved' },
   { id: 'ready_for_certificate', label: 'Ready for Cert' },
   { id: 'completed', label: 'Certificate' }
 ];

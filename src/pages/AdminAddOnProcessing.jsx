@@ -203,28 +203,37 @@ export default function AdminAddOnProcessing() {
     }
     setSubmitting(true);
     try {
-      const fd = new FormData();
-      fd.append('message', moreInfoMessage.trim());
-      fd.append('form_text', moreInfoMessage.trim());
       if (moreInfoFile) {
+        const fd = new FormData();
+        fd.append('message', moreInfoMessage.trim());
+        fd.append('form_text', moreInfoMessage.trim());
         fd.append('info_file', moreInfoFile);
         fd.append('form_file', moreInfoFile);
-      }
 
-      try {
-        await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd, true);
-      } catch (reqErr) {
-        // Fallback to enable-form endpoint
-        await api.put(`/api/add-on-applications/${app._id}/enable-form`, fd, true);
+        try {
+          await api.put(`/api/add-on-applications/${app._id}/request-more-info`, fd, true);
+        } catch (e1) {
+          await api.post(`/api/add-on-applications/${app._id}/request-more-info`, fd, true);
+        }
+      } else {
+        const payload = {
+          message: moreInfoMessage.trim(),
+          form_text: moreInfoMessage.trim()
+        };
+        try {
+          await api.put(`/api/add-on-applications/${app._id}/request-more-info`, payload);
+        } catch (e2) {
+          await api.post(`/api/add-on-applications/${app._id}/request-more-info`, payload);
+        }
       }
 
       toast.success('Request for more information sent to client successfully!');
       setActionType(null);
       setMoreInfoMessage('');
       setMoreInfoFile(null);
-      fetchApp(true);
+      await fetchApp(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to send request for more information');
+      toast.error(err.message || 'Failed to send request for more information');
     } finally {
       setSubmitting(false);
     }

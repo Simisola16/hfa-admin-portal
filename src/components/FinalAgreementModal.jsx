@@ -20,18 +20,26 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propAgreement?.application_id);
 
   React.useEffect(() => {
-    if (isOpen && !propApp && targetAppId) {
-      setLoading(true);
-      Promise.all([
-        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-        api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
-      ]).then(([appRes, agRes]) => {
-        setApp(appRes.data?.data || appRes.data || null);
-        setAgreement(agRes.data?.data || agRes.data || null);
-      }).finally(() => setLoading(false));
-    } else if (isOpen) {
-      setApp(propApp || null);
-      setAgreement(propAgreement || null);
+    if (isOpen && targetAppId) {
+      const needApp = !propApp;
+      const needAgreement = !propAgreement;
+
+      if (needApp || needAgreement) {
+        setLoading(true);
+        Promise.all([
+          needApp ? api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: propApp }),
+          needAgreement ? api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: propAgreement })
+        ]).then(([appRes, agRes]) => {
+          if (needApp) setApp(appRes.data?.data || appRes.data || null);
+          else setApp(propApp);
+
+          if (needAgreement) setAgreement(agRes.data?.data || agRes.data || null);
+          else setAgreement(propAgreement);
+        }).finally(() => setLoading(false));
+      } else {
+        setApp(propApp || null);
+        setAgreement(propAgreement || null);
+      }
     }
   }, [isOpen, propApp, propAgreement, targetAppId]);
 

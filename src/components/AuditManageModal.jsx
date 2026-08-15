@@ -171,7 +171,7 @@ export default function AuditManageModal({
     setAuditForm(f => ({ ...f, auditors: updated }));
   };
 
-  const existingAudit = existingAudits.find(a => a.stage === activeStage);
+  const existingAudit = existingAudits.find(a => (a.stage || 1) === activeStage) || (activeStage === 1 ? existingAudits[0] : null);
 
   // Setup initial auditors list depending on dual exporter or single
   useEffect(() => {
@@ -207,9 +207,12 @@ export default function AuditManageModal({
     }
     setAuditSubmitting(true);
     try {
+      const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+      const targetClientId = getCleanId(app?.client_id?._id || app?.client_id || app?.profiles?._id || app?.profiles?.id || app?.profiles);
+
       const res = await api.post('/api/audits/propose-dates', {
-        application_id: app._id || app.id,
-        client_id: app.client_id || app.profiles?._id || app.profiles?.id,
+        application_id: targetAppId,
+        client_id: targetClientId,
         dates: auditForm.dates,
         stage: activeStage
       });
@@ -231,7 +234,7 @@ export default function AuditManageModal({
     setAuditSubmitting(true);
     try {
       const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
-      const targetAppId = getCleanId(app?._id || app?.id || app);
+      const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
 
       const res = await api.post('/api/audits/finalize-date', {
         audit_id: currentAuditId,
@@ -261,7 +264,7 @@ export default function AuditManageModal({
     }
 
     const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
-    const targetAppId = getCleanId(app?._id || app?.id || app);
+    const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
 
     setAuditSubmitting(true);
     try {
@@ -273,7 +276,7 @@ export default function AuditManageModal({
       });
       // If Stage 2 auditors were pre-filled, find or create the Stage 2 audit and assign them
       if (isDualStage && stage2Filled.length > 0) {
-        const stage2Audit = existingAudits.find(a => a.stage === 2);
+        const stage2Audit = existingAudits.find(a => (a.stage || 1) === 2);
         if (stage2Audit && (stage2Audit.status === 'date_finalized' || stage2Audit.status === 'dates_accepted')) {
           await api.post('/api/audits/assign-auditors', {
             audit_id: stage2Audit._id || stage2Audit.id,
@@ -300,9 +303,12 @@ export default function AuditManageModal({
   const handleCompleteAudit = async () => {
     setAuditSubmitting(true);
     try {
+      const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
+      const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+
       await api.post('/api/audits/complete-clean', {
-        audit_id: existingAudit?._id || existingAudit?.id,
-        application_id: app._id || app.id
+        audit_id: currentAuditId,
+        application_id: targetAppId
       });
       toast.success('Audit session marked as completed successfully!');
       if (typeof onSuccess === 'function') onSuccess();

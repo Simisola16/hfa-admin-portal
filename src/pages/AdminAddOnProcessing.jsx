@@ -237,6 +237,19 @@ export default function AdminAddOnProcessing() {
     }
   };
 
+  const handleConfirmFormReceived = async () => {
+    setSubmitting(true);
+    try {
+      await api.put(`/api/add-on-applications/${app._id}/confirm-form-received`);
+      toast.success('Product Form confirmed received!');
+      await fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm form received');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading-overlay"><div className="spinner" /></div>;
   }
@@ -327,13 +340,18 @@ export default function AdminAddOnProcessing() {
 
     if (app.status === 'product_approval_form_enabled') {
       return (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" style={{ border: '1.5px solid #cbd5e1' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
             <Eye size={15} style={{ marginRight: 6 }} /> View Form Template
           </button>
-          <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700, padding: '8px 14px', background: '#f5f3ff', borderRadius: 8, border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Clock size={14} /> Awaiting Client Form Responses
-          </span>
+          <button
+            className="btn btn-primary"
+            style={{ background: '#0d9488', borderColor: '#0d9488', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            disabled={submitting}
+            onClick={handleConfirmFormReceived}
+          >
+            <CheckCircle size={15} /> Confirm Product Form Received
+          </button>
         </div>
       );
     }
@@ -555,7 +573,27 @@ export default function AdminAddOnProcessing() {
                   </button>
                 )}
 
-                {isManagerOrAdmin && ['product_approval_form_enabled', 'all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
+                {isManagerOrAdmin && app.status === 'product_approval_form_enabled' && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{
+                      background: '#0d9488',
+                      borderColor: '#0d9488',
+                      color: 'white',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                    disabled={submitting}
+                    onClick={handleConfirmFormReceived}
+                  >
+                    <CheckCircle size={14} /> Confirm Product Form Received
+                  </button>
+                )}
+
+                {isManagerOrAdmin && (['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) || (app.status === 'product_approval_form_enabled' && app.product_approval_form?.submitted_at)) && (
                   <button
                     type="button"
                     className="btn btn-sm"

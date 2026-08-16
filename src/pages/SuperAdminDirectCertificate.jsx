@@ -57,8 +57,9 @@ export default function SuperAdminDirectCertificate() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
-  // Role Security Check
+  // Role & Privilege Security Check
   const isSuperAdmin = profile?.role === 'superadmin' || user?.role === 'superadmin';
+  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
 
   // Tabs: 'create' | 'history'
   const [activeTab, setActiveTab] = useState('create');
@@ -406,16 +407,16 @@ export default function SuperAdminDirectCertificate() {
     setNotes('Directly issued with certified products by Superadmin.');
   };
 
-  // Guard: Unauthorized view if not superadmin
-  if (!isSuperAdmin) {
+  // Guard: Unauthorized view if not superadmin and has no privilege
+  if (!hasDirectCertPrivilege) {
     return (
       <div style={{ maxWidth: 680, margin: '40px auto', padding: '32px 24px', textAlign: 'center', background: '#fff', borderRadius: 16, border: '1.5px solid #fee2e2', boxShadow: '0 10px 25px -5px rgba(220, 38, 38, 0.1)' }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <Lock size={32} />
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>Superadmin Access Required</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>Privilege Required</h2>
         <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-          This console is strictly restricted to <strong>Superadmin</strong> accounts. You do not have permission to issue direct certificates or bypass application workflows.
+          This studio is restricted to <strong>Superadmin</strong> accounts or authorized staff members who have been granted <strong>Direct Certificate Studio</strong> privilege. Please contact a Superadmin to request access.
         </p>
         <button className="btn btn-primary" onClick={() => navigate('/dashboard')} style={{ margin: '0 auto' }}>
           Return to Dashboard

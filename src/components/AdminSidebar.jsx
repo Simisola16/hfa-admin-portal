@@ -114,7 +114,7 @@ const NAV_SECTIONS = [
   {
     key: 'superadmin_section',
     label: '👑 SUPERADMIN CONSOLE',
-    superadminOnly: true,
+    directCertOnly: true,
     items: [
       {
         icon: Sparkles,
@@ -211,7 +211,12 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
     setExpanded(prev => ({ ...prev, [label]: !prev[label] }));
 
   const isSuperAdmin = profile?.role === 'superadmin';
-  const visibleSections = NAV_SECTIONS.filter(section => !section.superadminOnly || isSuperAdmin);
+  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
+  const visibleSections = NAV_SECTIONS.filter(section => {
+    if (section.superadminOnly) return isSuperAdmin;
+    if (section.directCertOnly) return hasDirectCertPrivilege;
+    return true;
+  });
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>

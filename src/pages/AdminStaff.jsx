@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import {
-  Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle, RefreshCw, KeyRound, Lock
+  Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle, RefreshCw, KeyRound, Lock, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,7 +19,8 @@ export default function AdminStaff() {
     password: '',
     full_name: '',
     role: 'food_tech',
-    username: ''
+    username: '',
+    can_issue_direct_certificate: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -70,12 +71,24 @@ export default function AdminStaff() {
       await api.post('/api/users', staffForm);
       toast.success('HFA Staff account created successfully!');
       setShowStaffModal(false);
-      setStaffForm({ email: '', password: '', full_name: '', role: 'food_tech', username: '' });
+      setStaffForm({ email: '', password: '', full_name: '', role: 'food_tech', username: '', can_issue_direct_certificate: false });
       fetchUsers();
     } catch (err) {
       toast.error(err.message || 'Failed to create staff account');
     } finally {
       setStaffSubmitting(false);
+    }
+  };
+
+  const handleToggleDirectCertPermission = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke Direct Certificate privileges.');
+    const nextVal = !currentStatus;
+    try {
+      await api.put(`/api/users/${userId}/direct-cert-permission`, { can_issue_direct_certificate: nextVal });
+      toast.success(`Direct Certificate Studio privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update Direct Certificate privilege');
     }
   };
 
@@ -187,6 +200,7 @@ export default function AdminStaff() {
                   <th>Staff Name / Email</th>
                   <th>Username</th>
                   <th>Role</th>
+                  <th>Direct Cert Studio</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -194,6 +208,9 @@ export default function AdminStaff() {
               <tbody>
                 {filtered.map(c => {
                   const isActive = c.is_active !== false;
+                  const isUserSuperAdmin = c.role === 'superadmin';
+                  const hasDirectPrivilege = isUserSuperAdmin || c.can_issue_direct_certificate === true;
+
                   return (
                     <tr key={c._id} className="hover-row">
                       <td>
@@ -222,6 +239,50 @@ export default function AdminStaff() {
                           <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', padding: '4px 8px', background: '#f1f5f9', borderRadius: 6 }}>
                             {c.role === 'inspector' ? 'AUDITOR' : c.role === 'audit_manager' ? 'AUDIT MANAGER' : c.role?.replace(/_/g, ' ')}
                           </span>
+                        )}
+                      </td>
+                      <td>
+                        {isUserSuperAdmin ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              border: '1px solid #fde68a',
+                              borderRadius: 20,
+                              padding: '3px 10px',
+                              fontSize: 11.5,
+                              fontWeight: 700
+                            }}
+                          >
+                            👑 Full Access (Superadmin)
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => isSuperAdmin && handleToggleDirectCertPermission(c._id, c.can_issue_direct_certificate, c.full_name)}
+                            disabled={!isSuperAdmin}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              background: c.can_issue_direct_certificate ? '#ecfdf5' : '#f8fafc',
+                              color: c.can_issue_direct_certificate ? '#047857' : '#64748b',
+                              border: c.can_issue_direct_certificate ? '1.5px solid #a7f3d0' : '1px dashed #cbd5e1',
+                              borderRadius: 20,
+                              padding: '4px 12px',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: isSuperAdmin ? 'pointer' : 'default',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isSuperAdmin ? (c.can_issue_direct_certificate ? 'Click to revoke Direct Certificate Studio privilege' : 'Click to grant Direct Certificate Studio privilege') : 'Superadmin permission needed to modify'}
+                          >
+                            <Sparkles size={13} style={{ color: c.can_issue_direct_certificate ? '#10b981' : '#94a3b8' }} />
+                            {c.can_issue_direct_certificate ? '⚡ Granted (Revoke)' : '+ Grant Privilege'}
+                          </button>
                         )}
                       </td>
                       <td>
@@ -345,6 +406,25 @@ export default function AdminStaff() {
                     placeholder="Set initial password"
                     required
                   />
+                </div>
+
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_issue_direct_certificate}
+                      onChange={e => setStaffForm(f => ({ ...f, can_issue_direct_certificate: e.target.checked }))}
+                      style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer', accentColor: '#16a34a' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Sparkles size={14} style={{ color: '#16a34a' }} /> Grant Direct Certificate Studio Privilege
+                      </span>
+                      <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 2 }}>
+                        Allows this staff account to directly issue certificates and certify products without requiring an application.
+                      </span>
+                    </div>
+                  </label>
                 </div>
               </div>
               <div className="modal-footer">

@@ -6,10 +6,24 @@ import {
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
+  Sparkles, ShieldCheck
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
 const NAV_SECTIONS = [
+  {
+    key: 'superadmin_section',
+    label: '👑 SUPERADMIN CONSOLE',
+    superadminOnly: true,
+    items: [
+      {
+        icon: Sparkles,
+        label: 'Direct Certificate',
+        path: '/superadmin/direct-certificate',
+        badge: '⚡ DIRECT'
+      },
+    ],
+  },
   {
     key: 'overview',
     label: 'OVERVIEW',
@@ -196,6 +210,9 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
   const toggle = (label) =>
     setExpanded(prev => ({ ...prev, [label]: !prev[label] }));
 
+  const isSuperAdmin = profile?.role === 'superadmin';
+  const visibleSections = NAV_SECTIONS.filter(section => !section.superadminOnly || isSuperAdmin);
+
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
       {/* ── Logo / Collapse toggle ── */}
@@ -243,7 +260,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
 
       {/* ── Navigation ── */}
       <nav className="sidebar-nav" style={{ padding: '8px 0' }}>
-        {NAV_SECTIONS.map((section, sIdx) => (
+        {visibleSections.map((section, sIdx) => (
           <div key={section.key} className="nav-section">
             {/* Divider between sections (skip before first) */}
             {sIdx > 0 && <div className="nav-section-divider" />}
@@ -363,11 +380,28 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                 >
                   <Icon size={17} style={{ flexShrink: 0 }} />
                   <span className="nav-item-label">{item.label}</span>
+                  {item.badge && !collapsed && (
+                    <span
+                      style={{
+                        marginLeft: 'auto',
+                        background: 'linear-gradient(135deg, #15803d, #047857)',
+                        color: '#ffffff',
+                        fontSize: 9.5,
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: 6,
+                        letterSpacing: '0.3px',
+                        boxShadow: '0 2px 6px rgba(21, 128, 61, 0.25)'
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                   {parentUnread > 0 && (
                     <span
                       className="nav-attention-badge"
                       style={{
-                        marginLeft: 'auto',
+                        marginLeft: item.badge ? 6 : 'auto',
                         background: '#2563eb',
                         color: '#ffffff',
                         fontSize: 10,
@@ -397,10 +431,14 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
       {/* ── Footer: user + logout ── */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="sidebar-avatar" style={{ flexShrink: 0 }}>{initials}</div>
+          <div className="sidebar-avatar" style={{ flexShrink: 0, background: isSuperAdmin ? '#064e3b' : undefined }}>
+            {initials}
+          </div>
           <div className="sidebar-user-info">
             <div className="sidebar-user-name truncate">{profile?.full_name || 'Admin'}</div>
-            <div className="sidebar-user-role">Administrator</div>
+            <div className="sidebar-user-role" style={{ color: isSuperAdmin ? '#15803d' : undefined, fontWeight: isSuperAdmin ? 700 : undefined }}>
+              {isSuperAdmin ? '👑 Super Administrator' : 'Administrator'}
+            </div>
           </div>
         </div>
         <button

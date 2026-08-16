@@ -20,6 +20,7 @@ import AdminNotificationCenter from './AdminNotificationCenter';
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
   '/dashboard':                   { title: 'Dashboard',           sub: 'System overview',                section: null },
+  '/superadmin/direct-certificate': { title: 'Direct Certificate Studio', sub: 'Instant Superadmin Certificate & Product Issuance', section: 'Superadmin' },
   '/applications':                { title: 'Applications',        sub: 'Manage all applications',        section: 'Applications' },
   '/clients':                     { title: 'Companies',           sub: 'Manage client accounts',         section: 'Applications' },
   '/proposals':                   { title: 'Proposals',           sub: 'Manage client proposals',        section: 'Certification' },

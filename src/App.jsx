@@ -35,6 +35,7 @@ import AdminAddOnProcessing from './pages/AdminAddOnProcessing';
 import AdminAddOnApprovalForm from './pages/AdminAddOnApprovalForm';
 import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
+import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />

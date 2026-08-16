@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
+import { generateHfaId } from '../lib/idGenerator';
 
 const getCleanId = (val) => {
   if (!val) return '';
@@ -31,8 +32,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     const yearsToAdd = isThreeYear ? 3 : 1;
     const expiryDate = new Date();
     expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
+    const companyName = loadedApp.establishment_name || loadedApp.client_id?.company_name || loadedApp.client_id?.full_name || 'HFA';
     setCertificateForm({
-      certificate_number: `HFA-CERT-${Date.now().toString().slice(-8)}`,
+      certificate_number: generateHfaId(companyName),
       certificate_type: isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification',
       issue_date: new Date().toISOString().split('T')[0],
       expiry_date: expiryDate.toISOString().split('T')[0],

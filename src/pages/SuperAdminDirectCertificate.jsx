@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { generateHfaId } from '../lib/idGenerator';
 import {
   Award, Shield, ShieldCheck, Plus, Trash2, Copy, Download, Search,
   CheckCircle2, AlertTriangle, FileText, Sparkles, Building2, Package,
@@ -95,10 +96,8 @@ export default function SuperAdminDirectCertificate() {
   const [manufacturerAddress, setManufacturerAddress] = useState('');
 
   // Certificate Parameters
-  const generateRandomCertNo = () => {
-    const year = new Date().getFullYear();
-    const rand = Math.floor(10000 + Math.random() * 90000);
-    return `HFA-UK-${year}-${rand}`;
+  const generateRandomCertNo = (companyName) => {
+    return generateHfaId(companyName || 'UK');
   };
 
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
@@ -588,7 +587,10 @@ export default function SuperAdminDirectCertificate() {
                         return (
                           <div
                             key={c._id}
-                            onClick={() => setSelectedClient(c)}
+                            onClick={() => {
+                              setSelectedClient(c);
+                              setCertNumber(generateHfaId(c.company_name || c.full_name));
+                            }}
                             style={{
                               padding: '10px 14px',
                               borderRadius: 10,
@@ -657,7 +659,13 @@ export default function SuperAdminDirectCertificate() {
                         className="form-control"
                         placeholder="e.g. Al-Barakah Foods Ltd"
                         value={newClient.company_name}
-                        onChange={e => setNewClient({ ...newClient, company_name: e.target.value })}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setNewClient(prev => ({ ...prev, company_name: val }));
+                          if (val.trim().length >= 2) {
+                            setCertNumber(generateHfaId(val));
+                          }
+                        }}
                         required
                       />
                     </div>
@@ -736,7 +744,12 @@ export default function SuperAdminDirectCertificate() {
                         type="button"
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0 4px', fontSize: 11, color: '#16a34a', height: 'auto' }}
-                        onClick={() => setCertNumber(generateRandomCertNo())}
+                        onClick={() => {
+                          const compName = clientMode === 'existing'
+                            ? (selectedClient?.company_name || selectedClient?.full_name || 'UK')
+                            : (newClient.company_name || 'UK');
+                          setCertNumber(generateHfaId(compName));
+                        }}
                       >
                         <RefreshCw size={11} style={{ marginRight: 3 }} /> Generate New
                       </button>

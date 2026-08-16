@@ -8,6 +8,7 @@ import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
+import { generateHfaId } from '../lib/idGenerator';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -740,7 +741,7 @@ export default function AdminApplications() {
                                   issue_date: new Date().toISOString().split('T')[0],
                                   expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
                                   products_covered: '',
-                                  certificate_number: `HFA-CERT-${Date.now().toString().slice(-6)}`,
+                                  certificate_number: generateHfaId(manageModal?.establishment_name || manageModal?.client_id?.company_name || manageModal?.client_id?.full_name || 'HFA'),
                                   file: null
                                 });
                                 setShowCertificateModal(true);

@@ -12,19 +12,6 @@ import {
 /* ─── Navigation structure ──────────────────────────────────────── */
 const NAV_SECTIONS = [
   {
-    key: 'superadmin_section',
-    label: '👑 SUPERADMIN CONSOLE',
-    superadminOnly: true,
-    items: [
-      {
-        icon: Sparkles,
-        label: 'Direct Certificate',
-        path: '/superadmin/direct-certificate',
-        badge: '⚡ DIRECT'
-      },
-    ],
-  },
-  {
     key: 'overview',
     label: 'OVERVIEW',
     items: [
@@ -122,6 +109,19 @@ const NAV_SECTIONS = [
       { icon: HelpCircle,   label: 'Tickets',    path: '/tickets' },
       { icon: PenTool,      label: 'Signatures', path: '/signatures' },
       { icon: BarChart3,    label: 'Reports',    path: '/reports' },
+    ],
+  },
+  {
+    key: 'superadmin_section',
+    label: '👑 SUPERADMIN CONSOLE',
+    superadminOnly: true,
+    items: [
+      {
+        icon: Sparkles,
+        label: 'Direct Certificate',
+        path: '/superadmin/direct-certificate',
+        badge: '⚡ DIRECT'
+      },
     ],
   },
 ];

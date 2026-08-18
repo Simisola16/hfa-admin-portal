@@ -2,16 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, Check
 } from 'lucide-react';
 
 export default function AdminLogsheetWaitingSignature() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
+  const [filterTab, setFilterTab] = useState('all'); // 'all' | 'awaiting_mine' | 'signed_by_me'
   const [activeDropdown, setActiveDropdown] = useState(null);
   const navigate = useNavigate();
 
@@ -62,12 +67,34 @@ export default function AdminLogsheetWaitingSignature() {
     }
   };
 
+  const hasUserSigned = (l) => {
+    if (!currentUser) return false;
+    const myName = (currentUser.full_name || currentUser.name || currentUser.username || '').trim().toLowerCase();
+    const myRole = (currentUser.role || '').toLowerCase();
+    
+    const signedNames = [l.mufti_sign_name, l.ceo_sign_name, l.manager_sign_name, l.mufti2_sign_name]
+      .filter(Boolean)
+      .map(n => n.trim().toLowerCase());
+
+    if (myName && signedNames.some(n => n === myName || n.includes(myName) || myName.includes(n))) {
+      return true;
+    }
+
+    if (myRole === 'mufti' || myRole.includes('shariah')) {
+      if ((l.mufti_signature || l.mufti2_signature) && signedNames.some(n => n.includes('mufti') || (myName && n.includes(myName)))) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const getSignatoryProgress = (l) => {
     const signers = [
-      { role: 'Mufti', signed: !!l.mufti_signature },
-      { role: 'CEO', signed: !!l.ceo_signature },
-      { role: 'Manager', signed: !!l.manager_signature },
-      { role: 'Mufti 2', signed: !!l.mufti2_signature },
+      { role: 'Mufti', signed: !!l.mufti_signature, name: l.mufti_sign_name },
+      { role: 'CEO', signed: !!l.ceo_signature, name: l.ceo_sign_name },
+      { role: 'Manager', signed: !!l.manager_signature, name: l.manager_sign_name },
+      { role: 'Mufti 2', signed: !!l.mufti2_signature, name: l.mufti2_sign_name },
     ];
     const count = signers.filter(s => s.signed).length;
     return { count, total: 4, signers };
@@ -104,7 +131,13 @@ export default function AdminLogsheetWaitingSignature() {
     return id ? `/applications/${id}/processing` : '/applications';
   };
 
+  const awaitingMineCount = logsheets.filter(l => !hasUserSigned(l)).length;
+  const signedByMeCount = logsheets.filter(l => hasUserSigned(l)).length;
+
   const filteredLogsheets = logsheets.filter(l => {
+    if (filterTab === 'awaiting_mine' && hasUserSigned(l)) return false;
+    if (filterTab === 'signed_by_me' && !hasUserSigned(l)) return false;
+
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     
@@ -149,6 +182,41 @@ export default function AdminLogsheetWaitingSignature() {
         .action-drop-btn:hover {
           background: #f8fafc;
           border-color: #cbd5e1;
+          color: #0f172a;
+        }
+        .filter-tab-btn {
+          padding: 8px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid transparent;
+        }
+        .filter-tab-btn.active-all {
+          background: #0f172a;
+          color: #fff;
+        }
+        .filter-tab-btn.active-awaiting {
+          background: #ea580c;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+        }
+        .filter-tab-btn.active-signed {
+          background: #16a34a;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+        }
+        .filter-tab-btn.inactive {
+          background: #f1f5f9;
+          color: #475569;
+          border-color: #e2e8f0;
+        }
+        .filter-tab-btn.inactive:hover {
+          background: #e2e8f0;
           color: #0f172a;
         }
         .dropdown-menu-card {
@@ -205,12 +273,72 @@ export default function AdminLogsheetWaitingSignature() {
         </div>
       </div>
 
+      {/* TOP FILTER TABS: AWAITING YOUR SIGNATURE & SIGNED */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setFilterTab('awaiting_mine')}
+          className={`filter-tab-btn ${filterTab === 'awaiting_mine' ? 'active-awaiting' : 'inactive'}`}
+        >
+          <PenTool size={15} />
+          Awaiting Your Signature
+          <span style={{
+            background: filterTab === 'awaiting_mine' ? 'rgba(255,255,255,0.25)' : '#fed7aa',
+            color: filterTab === 'awaiting_mine' ? '#fff' : '#c2410c',
+            padding: '2px 8px',
+            borderRadius: 12,
+            fontSize: 11.5,
+            fontWeight: 800
+          }}>
+            {awaitingMineCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterTab('signed_by_me')}
+          className={`filter-tab-btn ${filterTab === 'signed_by_me' ? 'active-signed' : 'inactive'}`}
+        >
+          <CheckCircle2 size={15} />
+          Signed by You
+          <span style={{
+            background: filterTab === 'signed_by_me' ? 'rgba(255,255,255,0.25)' : '#bbf7d0',
+            color: filterTab === 'signed_by_me' ? '#fff' : '#15803d',
+            padding: '2px 8px',
+            borderRadius: 12,
+            fontSize: 11.5,
+            fontWeight: 800
+          }}>
+            {signedByMeCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterTab('all')}
+          className={`filter-tab-btn ${filterTab === 'all' ? 'active-all' : 'inactive'}`}
+        >
+          <Clock size={15} />
+          All Pending Logsheets
+          <span style={{
+            background: filterTab === 'all' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+            color: filterTab === 'all' ? '#fff' : '#334155',
+            padding: '2px 8px',
+            borderRadius: 12,
+            fontSize: 11.5,
+            fontWeight: 800
+          }}>
+            {logsheets.length}
+          </span>
+        </button>
+      </div>
+
       {/* FILTER & SEARCH BAR */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: 4, borderRadius: 12, border: '1px solid #fed7aa', background: '#fffbeb' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#9a3412', fontWeight: 600 }}>
             <Clock size={16} color="#ea580c" />
-            <span>{pendingCount} Logsheet(s) requiring signature</span>
+            <span>Showing {pendingCount} logsheet(s)</span>
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 320, flex: 1, maxWidth: 480 }}>
@@ -242,7 +370,6 @@ export default function AdminLogsheetWaitingSignature() {
           </div>
         </div>
       </div>
-
       <div className="table-wrap" style={{ overflowX: 'auto', minHeight: 280, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>
         {loading ? (
           <div className="loading-overlay" style={{ padding: 60, textAlign: 'center' }}>
@@ -277,6 +404,7 @@ export default function AdminLogsheetWaitingSignature() {
                   {filteredLogsheets.map(l => {
                     const { count, total, signers } = getSignatoryProgress(l);
                     const age = getAgeCue(l.created_at);
+                    const userSigned = hasUserSigned(l);
 
                     return (
                       <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -289,7 +417,7 @@ export default function AdminLogsheetWaitingSignature() {
                           </Link>
                           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 400, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <MapPin size={11} />
-                            {l.manufacturing_address || 'Main Site'}
+                            {l.site_name || l.site_id?.name || l.application_id?.site_name || l.manufacturing_address || 'Main Site'}
                           </div>
                         </td>
 
@@ -317,7 +445,7 @@ export default function AdminLogsheetWaitingSignature() {
                               {signers.map((s, idx) => (
                                 <span 
                                   key={idx}
-                                  title={`${s.role}: ${s.signed ? 'Signed' : 'Pending'}`}
+                                  title={`${s.role}: ${s.signed ? (s.name ? `Signed by ${s.name}` : 'Signed') : 'Pending'}`}
                                   style={{
                                     fontSize: 10,
                                     padding: '1px 6px',
@@ -367,23 +495,48 @@ export default function AdminLogsheetWaitingSignature() {
 
                         <td style={{ padding: '16px 20px', textAlign: 'right', position: 'relative' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <Link 
-                              to={getLogsheetLink(l)}
-                              className="btn btn-primary btn-sm"
-                              style={{
-                                padding: '6px 14px',
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                textDecoration: 'none'
-                              }}
-                            >
-                              <PenTool size={13} />
-                              Review & Sign
-                            </Link>
+                            {userSigned ? (
+                              <Link 
+                                to={getLogsheetLink(l)}
+                                className="btn btn-sm"
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  textDecoration: 'none',
+                                  color: '#15803d',
+                                  background: '#f0fdf4',
+                                  border: '1px solid #86efac'
+                                }}
+                              >
+                                <CheckCircle2 size={13} />
+                                Signed
+                              </Link>
+                            ) : (
+                              <Link 
+                                to={getLogsheetLink(l)}
+                                className="btn btn-primary btn-sm"
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  textDecoration: 'none',
+                                  background: '#ea580c',
+                                  borderColor: '#ea580c'
+                                }}
+                              >
+                                <PenTool size={13} />
+                                Awaiting Signature
+                              </Link>
+                            )}
 
                             <button 
                               className="btn btn-sm action-drop-btn"
@@ -451,6 +604,7 @@ export default function AdminLogsheetWaitingSignature() {
               {filteredLogsheets.map(l => {
                 const { count, total, signers } = getSignatoryProgress(l);
                 const age = getAgeCue(l.created_at);
+                const userSigned = hasUserSigned(l);
 
                 return (
                   <div 
@@ -489,6 +643,9 @@ export default function AdminLogsheetWaitingSignature() {
                       <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>
                         {l.company_name}
                       </h3>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                        {l.site_name || l.manufacturing_address || 'Main Site'}
+                      </div>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f3ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, marginTop: 4 }}>
                         <Tag size={10} />
                         {l.audit_type || 'New'} Logsheet
@@ -517,14 +674,15 @@ export default function AdminLogsheetWaitingSignature() {
                           gap: 6, 
                           padding: '10px', 
                           borderRadius: 8, 
-                          background: 'var(--primary)', 
+                          background: userSigned ? '#16a34a' : '#ea580c', 
                           color: 'white', 
                           textDecoration: 'none', 
                           fontSize: 13, 
-                          fontWeight: 600 
+                          fontWeight: 700 
                         }}
                       >
-                        <PenTool size={14} /> Review & Sign
+                        {userSigned ? <CheckCircle2 size={14} /> : <PenTool size={14} />} 
+                        {userSigned ? 'Signed' : 'Awaiting Signature'}
                       </Link>
 
                       <button 

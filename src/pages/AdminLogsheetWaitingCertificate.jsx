@@ -258,7 +258,10 @@ export default function AdminLogsheetWaitingCertificate() {
                     <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>{l.company_name || 'Company Facility'}</div>
-                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{l.manufacturing_address || 'Main Facility'}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <MapPin size={11} />
+                          {l.site_name || l.site_id?.name || l.application_id?.site_name || l.establishment_name || 'Main Site'}
+                        </div>
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
@@ -298,6 +301,15 @@ export default function AdminLogsheetWaitingCertificate() {
                             style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           >
                             <Eye size={13} /> View Logsheet
+                          </Link>
+                          <Link 
+                            to={l.source_type === 'addon_application' || l.addon_application_id
+                              ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/processing`
+                              : `/applications/${appId}/processing`}
+                            className="btn btn-primary btn-sm"
+                            style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            Go to Issue Certificate <ArrowRight size={13} />
                           </Link>
                           <button
                             className="btn btn-ghost btn-sm"

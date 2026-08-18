@@ -49,9 +49,13 @@ export default function AdminCreateLogsheet() {
     (s.username && user?.email && s.username.toLowerCase() === user.email.split('@')[0].toLowerCase()) ||
     (s.name && user?.full_name && s.name.toLowerCase() === user.full_name.toLowerCase())
   );
+  const userRole = (user?.role || '').toLowerCase();
+  const userUsername = (user?.username || '').toLowerCase();
+  const userFullName = (user?.full_name || '').toLowerCase();
+  const isMuftiUser = userRole === 'mufti' || userRole === 'shariah' || userUsername.includes('mufti') || userFullName.includes('mufti');
 
   const [form, setForm] = useState({
-    company_name: '', company_address: '', manufacturing_address: '',
+    site_name: '', company_name: '', company_address: '', manufacturing_address: '',
     contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
     nature_of_business: '', product_category: '', current_cycle_start: '',
     original_cycle_start: '', document_url: '', document_urls: [], audit_reports: [],
@@ -447,12 +451,18 @@ export default function AdminCreateLogsheet() {
       toast.error('Your authenticated user account does not have an uploaded digital signature. Please upload one under Signatures first.');
       return;
     }
+
+    if (isMuftiUser && (roleToPreselect === 'Ceo' || roleToPreselect === 'Manager')) {
+      toast.error('Mufti / Shariah Scholar signatories cannot sign for CEO or Technical Auditor / Manager roles.');
+      return;
+    }
+
     const unsignedRoles = [
       { key: 'Mufti', isSigned: !!currentLogsheet?.mufti_signature },
       { key: 'Ceo', isSigned: !!currentLogsheet?.ceo_signature },
       { key: 'Manager', isSigned: !!currentLogsheet?.manager_signature },
       { key: 'Mufti2', isSigned: !!currentLogsheet?.mufti2_signature },
-    ].filter(r => !r.isSigned).map(r => r.key);
+    ].filter(r => !r.isSigned && (!isMuftiUser || (r.key === 'Mufti' || r.key === 'Mufti2'))).map(r => r.key);
 
     if (roleToPreselect && unsignedRoles.includes(roleToPreselect)) {
       setSigRoles([roleToPreselect]);
@@ -480,12 +490,19 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
+    if (isMuftiUser && sigRoles.some(r => r === 'Ceo' || r === 'Manager')) {
+      toast.error('Mufti signatories cannot sign for CEO or Technical Auditor roles.');
+      return;
+    }
+
     setIsSigning(true);
     try {
+      const signerFullName = user?.full_name || userSignature?.name || user?.username || 'Authorized Signatory';
+
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         role: sigRoles,
         signature_url: userSignature.signature_url,
-        signature_name: userSignature.name,
+        signature_name: signerFullName,
         comment: sigComment
       });
       toast.success(`Logsheet signed successfully as ${sigRoles.join(', ')}!`);
@@ -970,17 +987,24 @@ export default function AdminCreateLogsheet() {
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <Building size={16} style={{ color: '#047857' }} />
-                1. Company &amp; Site Details
+                1. Site &amp; Company Details
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Site Name</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>
+                    {form.site_name || application?.site_id?.name || application?.site_name || 'Main Manufacturing Site'}
+                  </div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company Name</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>{form.company_name || '—'}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.company_name || '—'}</div>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Contact Person</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>{form.contact_person || '—'}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.contact_person || '—'}</div>
                   <div style={{ fontSize: 12, color: '#047857', fontWeight: 500, marginTop: 1 }}>{form.contact_email || '—'}</div>
                 </div>
 
@@ -1382,7 +1406,7 @@ export default function AdminCreateLogsheet() {
                               style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }} 
                             />
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{s.name || 'Authorised Signatory'}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{s.name || 'Authorised Signatory'}</div>
                           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
                             {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                           </div>
@@ -1397,7 +1421,17 @@ export default function AdminCreateLogsheet() {
 
                     {!s.signature && (
                       <div style={{ marginTop: 8 }}>
-                        {userSignature ? (
+                        {isMuftiUser && (s.roleKey === 'Ceo' || s.roleKey === 'Manager') ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', fontSize: 11, padding: '6px 10px', opacity: 0.5, cursor: 'not-allowed', background: '#fef2f2', color: '#991b1b', borderColor: '#fca5a5' }}
+                            title="Mufti signatories cannot sign for CEO or Technical Manager roles"
+                          >
+                            Restricted (Mufti)
+                          </button>
+                        ) : userSignature ? (
                           <button
                             type="button"
                             onClick={() => openSigningModal(s.roleKey)}
@@ -1483,17 +1517,59 @@ export default function AdminCreateLogsheet() {
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, gridColumn: '1 / -1', marginBottom: 4 }}>
                   <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
                   <div style={{ fontSize: 13, color: '#166534', fontWeight: 500 }}>
-                    <strong>Company &amp; Site Details Auto-Populated:</strong> Application data has been automatically loaded. All fields are required to fill before creation.
+                    <strong>Site &amp; Company Details Auto-Populated:</strong> Core business identifiers (Site Name, Company Name, Contact Person) are locked from the verified application record.
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} placeholder="Enter company name" />
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Site Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input 
+                    required 
+                    readOnly 
+                    type="text" 
+                    className="form-control" 
+                    value={form.site_name || application?.site_id?.name || application?.site_name || 'Main Manufacturing Site'} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                  />
                 </div>
+
                 <div className="form-group">
-                  <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} placeholder="Enter contact person" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input 
+                    required 
+                    readOnly 
+                    type="text" 
+                    className="form-control" 
+                    value={form.company_name} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input 
+                    required 
+                    readOnly 
+                    type="text" 
+                    className="form-control" 
+                    value={form.contact_person} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                  />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -1871,18 +1947,21 @@ export default function AdminCreateLogsheet() {
                   {[
                     { key: 'Mufti', label: 'Mufti', isSigned: Boolean(currentLogsheet?.mufti_signature) },
                     { key: 'Ceo', label: 'CEO', isSigned: Boolean(currentLogsheet?.ceo_signature) },
-                    { key: 'Manager', label: 'Manager', isSigned: Boolean(currentLogsheet?.manager_signature) },
+                    { key: 'Manager', label: 'Manager (Auditor)', isSigned: Boolean(currentLogsheet?.manager_signature) },
                     { key: 'Mufti2', label: 'Mufti 2', isSigned: Boolean(currentLogsheet?.mufti2_signature) },
                   ].map(r => {
                     const isSelected = sigRoles.includes(r.key);
                     const isAlreadySigned = r.isSigned;
+                    const isRestrictedForMufti = isMuftiUser && (r.key === 'Ceo' || r.key === 'Manager');
+                    const isDisabled = isAlreadySigned || isRestrictedForMufti;
+
                     return (
                       <button
                         key={r.key}
                         type="button"
-                        disabled={isAlreadySigned}
+                        disabled={isDisabled}
                         onClick={() => {
-                          if (isAlreadySigned) return;
+                          if (isDisabled) return;
                           if (isSelected) {
                             setSigRoles(sigRoles.filter(role => role !== r.key));
                           } else {
@@ -1892,23 +1971,24 @@ export default function AdminCreateLogsheet() {
                         style={{
                           padding: '10px 14px',
                           borderRadius: 8,
-                          border: `1.5px solid ${isAlreadySigned ? '#e2e8f0' : isSelected ? 'var(--primary)' : '#e2e8f0'}`,
-                          background: isAlreadySigned ? '#f1f5f9' : isSelected ? '#f0fdf4' : '#f8fafc',
-                          color: isAlreadySigned ? '#94a3b8' : isSelected ? 'var(--primary-dark)' : '#334155',
+                          border: `1.5px solid ${isDisabled ? '#e2e8f0' : isSelected ? 'var(--primary)' : '#e2e8f0'}`,
+                          background: isAlreadySigned ? '#f1f5f9' : isRestrictedForMufti ? '#fef2f2' : isSelected ? '#f0fdf4' : '#f8fafc',
+                          color: isAlreadySigned ? '#94a3b8' : isRestrictedForMufti ? '#991b1b' : isSelected ? 'var(--primary-dark)' : '#334155',
                           fontWeight: isSelected ? 700 : 500,
                           fontSize: 13,
-                          cursor: isAlreadySigned ? 'not-allowed' : 'pointer',
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          opacity: isAlreadySigned ? 0.7 : 1
+                          opacity: isDisabled ? 0.6 : 1
                         }}
                       >
                         <span>
                           {r.label}
                           {isAlreadySigned && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginLeft: 6 }}>(Signed)</span>}
+                          {isRestrictedForMufti && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700, marginLeft: 6 }}>(Mufti Restricted)</span>}
                         </span>
-                        {isSelected && !isAlreadySigned && <Check size={14} style={{ color: 'var(--primary)' }} />}
+                        {isSelected && !isDisabled && <Check size={14} style={{ color: 'var(--primary)' }} />}
                         {isAlreadySigned && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
                       </button>
                     );

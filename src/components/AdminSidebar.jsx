@@ -50,13 +50,6 @@ const NAV_SECTIONS = [
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
       { icon: PenTool,      label: 'Agreements',  path: '/agreements' },
       {
-        icon: Calendar, label: 'Audits', path: '/audits',
-        children: [
-          { label: 'Audit Schedule', path: '/audits' },
-          { label: 'Audit Reports',  path: '/audit-reports' },
-        ],
-      },
-      {
         icon: ClipboardList, label: 'Logsheets', path: '/logsheet/manage',
         children: [
           { label: 'Account Approval',      path: '/logsheet/accounts' },
@@ -97,7 +90,6 @@ const NAV_SECTIONS = [
     label: 'PEOPLE & SITES',
     items: [
       { icon: Shield,    label: 'HFA Staff',  path: '/staff' },
-      { icon: UserCheck, label: 'Auditors',   path: '/inspectors' },
       { icon: MapPin,    label: 'Sites',      path: '/sites' },
     ],
   },

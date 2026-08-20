@@ -6,7 +6,7 @@ import { Plus, X, FileBarChart, Eye, Download } from 'lucide-react';
 const getPdfUrl = (url) => {
   if (!url) return '#';
   if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.onrender.com';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
     return `${API_URL}${url}`;
   }
   return url;

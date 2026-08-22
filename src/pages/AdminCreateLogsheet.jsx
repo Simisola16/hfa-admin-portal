@@ -396,6 +396,7 @@ export default function AdminCreateLogsheet() {
 
           setForm(f => ({
             ...f,
+            site_name: autoSiteName,
             company_name: autoCompanyName,
             company_address: autoCompanyAddress,
             manufacturing_address: autoManufacturingAddress,
@@ -1555,87 +1556,84 @@ export default function AdminCreateLogsheet() {
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Site Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
-                      Auto-populated from Application (Editable)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
                     </span>
                   </div>
                   <input 
                     required 
+                    readOnly 
                     type="text" 
                     className="form-control" 
-                    value={form.site_name || ''} 
-                    onChange={e => setForm(f => ({ ...f, site_name: e.target.value }))}
-                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
-                    placeholder="Site Name"
+                    value={form.site_name || application?.site_id?.name || application?.site_name || application?.establishment_name || 'Main Manufacturing Site'} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
-                      Auto-populated from Client Profile (Editable)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
                     </span>
                   </div>
                   <input 
                     required 
+                    readOnly 
                     type="text" 
                     className="form-control" 
                     value={form.company_name || ''} 
-                    onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
-                    placeholder="Registered Company Name"
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
-                      Auto-populated (Editable)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
                     </span>
                   </div>
                   <input 
                     required 
+                    readOnly 
                     type="text" 
                     className="form-control" 
                     value={form.contact_person || ''} 
-                    onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
-                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
-                    placeholder="Contact Person Name"
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Company Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
-                      Auto-populated (Editable)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
                     </span>
                   </div>
                   <input
                     required
+                    readOnly
                     type="text"
                     className="form-control"
                     value={form.company_address || ''}
-                    onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
-                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 600 }}
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
                     placeholder="Registered company address"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
-                      Auto-populated (Editable)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
                     </span>
                   </div>
                   <input
                     required
+                    readOnly
                     type="text"
                     className="form-control"
                     value={form.manufacturing_address || ''}
-                    onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
-                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 600 }}
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
                     placeholder="Manufacturing site address"
                   />
                 </div>

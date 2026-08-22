@@ -303,9 +303,8 @@ export default function AdminApplications() {
               <tbody>
                 {filtered.map(app => (
                   <tr key={app._id}>
-                    <td style={{fontWeight:800,color:'#0f172a',fontSize:14}}>
-                      <div>{app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}</div>
-                      <div style={{fontSize:11.5,color:'var(--text-muted)',fontWeight:500}}>{app.reg_number ? `Reg: ${app.reg_number}` : (app.establishment_address || '—')}</div>
+                    <td style={{fontWeight: 700, color: '#0f172a', fontSize: 13.5}}>
+                      <div>{app.profiles?.company_name || app.company_name || app.establishment_name || 'Company Facility'}</div>
                     </td>
                     <td>
                       <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.full_name || app.managing_director || '—'}</div>

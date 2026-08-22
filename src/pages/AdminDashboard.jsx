@@ -263,7 +263,7 @@ export default function AdminDashboard() {
               <thead>
                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ width: '38%', padding: '10px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    COMPANY / APPLICANT
+                    SITE / COMPANY
                   </th>
                   <th style={{ width: '18%', padding: '10px 10px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     TYPE
@@ -289,34 +289,43 @@ export default function AdminDashboard() {
                       No applications yet
                     </td>
                   </tr>
-                ) : pipelineList.map((a, idx) => (
-                  <tr
-                    key={a._id || idx}
-                    onClick={() => navigate(`/applications/${a._id}/processing`)}
-                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                  >
-                    <td style={{ padding: '12px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.establishment_name || a.site_name || 'UNSPECIFIED FACILITY'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 10px' }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                        {a.application_type || 'New'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 10px' }}>
-                      <StatusBadge status={a.status} />
-                    </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>
-                        {formatDate(a.created_at)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                ) : pipelineList.map((a, idx) => {
+                  const siteName = a.establishment_name || a.site_name || 'Main Facility';
+                  const companyName = a.profiles?.company_name || a.company_name || a.client_id?.company_name || '';
+                  return (
+                    <tr
+                      key={a._id || idx}
+                      onClick={() => navigate(`/applications/${a._id}/processing`)}
+                      style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                    >
+                      <td style={{ padding: '10px 14px', overflow: 'hidden' }}>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {siteName}
+                        </div>
+                        {companyName && (
+                          <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                            {companyName}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                          {a.application_type || 'New'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <StatusBadge status={a.status} />
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>
+                          {formatDate(a.created_at)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

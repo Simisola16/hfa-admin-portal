@@ -141,22 +141,51 @@ export default function AdminCertificates() {
     } else if (filterStatus === 'active') {
       const isActive = c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now);
       if (!isActive) return false;
+    } else if (filterStatus === 'outdated') {
+      if (c.status !== 'outdated' && c.status !== 'superseded') return false;
     } else if (filterStatus === 'pending') {
       if (c.status !== 'pending') return false;
     }
 
+    const q = search.toLowerCase();
+    const siteName = (
+      c.site_name ||
+      c.site_id?.name ||
+      c.site_id?.est_name ||
+      c.establishment_name ||
+      c.application_id?.establishment_name ||
+      c.application_id?.site_name ||
+      ''
+    ).toLowerCase();
+
     return (
       !search || 
-      c.certificate_number?.toLowerCase().includes(search.toLowerCase()) || 
-      c.profiles?.company_name?.toLowerCase().includes(search.toLowerCase())
+      c.certificate_number?.toLowerCase().includes(q) || 
+      c.profiles?.company_name?.toLowerCase().includes(q) ||
+      c.certificate_type?.toLowerCase().includes(q) ||
+      siteName.includes(q)
     );
   });
 
-  const filteredSurv = survRequests.filter(r => 
-    !search || 
-    r.certificate_id?.certificate_number?.toLowerCase().includes(search.toLowerCase()) ||
-    r.certificate_id?.profiles?.company_name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredSurv = survRequests.filter(r => {
+    const q = search.toLowerCase();
+    const siteName = (
+      r.certificate_id?.site_name ||
+      r.certificate_id?.site_id?.name ||
+      r.certificate_id?.site_id?.est_name ||
+      r.certificate_id?.establishment_name ||
+      r.certificate_id?.application_id?.establishment_name ||
+      r.certificate_id?.application_id?.site_name ||
+      ''
+    ).toLowerCase();
+
+    return (
+      !search || 
+      r.certificate_id?.certificate_number?.toLowerCase().includes(q) ||
+      r.certificate_id?.profiles?.company_name?.toLowerCase().includes(q) ||
+      siteName.includes(q)
+    );
+  });
 
   return (
     <div>
@@ -182,7 +211,7 @@ export default function AdminCertificates() {
         <div className="search-box">
           <Search size={15} className="search-icon" />
           <input 
-            placeholder={activeTab === 'certs' ? "Search certificates..." : "Search surveillance..."} 
+            placeholder={activeTab === 'certs' ? "Search by cert no, company, site..." : "Search surveillance..."} 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -197,6 +226,7 @@ export default function AdminCertificates() {
             <option value="">All Statuses</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>
+            <option value="outdated">Outdated</option>
             <option value="expired">Expired</option>
           </select>
         )}
@@ -224,7 +254,7 @@ export default function AdminCertificates() {
                   <thead>
                     <tr>
                       <th>Certificate No.</th>
-                      <th>Company Name</th>
+                      <th>Company / Site</th>
                       <th>Type &amp; Standard</th>
                       <th>Issue Date</th>
                       <th>Expiry</th>
@@ -238,16 +268,36 @@ export default function AdminCertificates() {
                         c.status === 'active' && c.expiry_date && new Date(c.expiry_date) < new Date()
                           ? 'expired'
                           : c.status;
+                      const siteStr = c.site_name || c.site_id?.name || c.site_id?.est_name || c.establishment_name || c.application_id?.establishment_name || c.application_id?.site_name;
                       return (
                       <tr key={c.id || c._id}>
                         <td style={{ fontWeight: 800, color: 'var(--primary)' }}>{c.certificate_number}</td>
-                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{c.profiles?.company_name || c.application_id?.establishment_name || c.company_name || c.profiles?.full_name || '—'}</td>
+                        <td style={{ fontWeight: 700, color: '#0f172a' }}>
+                          <div>{c.profiles?.company_name || c.application_id?.establishment_name || c.company_name || c.profiles?.full_name || '—'}</div>
+                          {siteStr && (
+                            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginTop: 2 }}>
+                              Site: {siteStr}
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontSize: 13 }}>{c.certificate_type}</td>
                         <td style={{ fontSize: 12 }}>{c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td style={{ fontSize: 12 }}>{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td>
-                          <span className={`badge ${effectiveStatus === 'active' ? 'badge-green' : effectiveStatus === 'revoked' ? 'badge-red' : 'badge-gray'}`}>
-                            {effectiveStatus}
+                          <span className={`badge ${
+                            effectiveStatus === 'active' ? 'badge-green' :
+                            effectiveStatus === 'renewed' ? 'badge-blue' :
+                            effectiveStatus === 'outdated' || effectiveStatus === 'superseded' ? 'badge-orange' :
+                            effectiveStatus === 'revoked' ? 'badge-red' :
+                            'badge-gray'
+                          }`} style={{ textTransform: 'capitalize' }}>
+                            {effectiveStatus === 'outdated' ? 'Outdated' :
+                             effectiveStatus === 'superseded' ? 'Superseded' :
+                             effectiveStatus === 'renewed' ? 'Renewed' :
+                             effectiveStatus === 'active' ? 'Active' :
+                             effectiveStatus === 'expired' ? 'Expired' :
+                             effectiveStatus === 'revoked' ? 'Revoked' :
+                             (effectiveStatus ? effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1) : 'Active')}
                           </span>
                         </td>
                         <td style={{ display: 'flex', gap: 6 }}>

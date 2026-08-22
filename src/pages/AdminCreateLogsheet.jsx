@@ -246,22 +246,30 @@ export default function AdminCreateLogsheet() {
 
         // Automatic extraction of Company & Site details from application & audits & user profile
         let clientData = appData?.client_id;
-        if (typeof clientData === 'string' || (clientData && !clientData.company_name && !clientData.address)) {
+        const clientIdStr = (typeof clientData === 'object' && clientData?._id)
+          ? clientData._id
+          : (typeof clientData === 'string' ? clientData : (appData?.profiles?._id || null));
+
+        if (clientIdStr) {
           try {
-            const uId = clientData?._id || clientData || appData?.profiles?._id;
-            if (uId) {
-              const uRes = await api.get(`/api/users/${uId}`).catch(() => null);
-              if (uRes?.data?.data || uRes?.data) {
-                clientData = { ...(typeof clientData === 'object' ? clientData : {}), ...(uRes.data.data || uRes.data) };
-              }
+            const uRes = await api.get(`/api/users/${clientIdStr}`).catch(() => null);
+            if (uRes?.data?.data || uRes?.data) {
+              clientData = { ...(typeof clientData === 'object' ? clientData : {}), ...(uRes.data.data || uRes.data) };
             }
           } catch (e) { }
         }
 
-        let siteData = appData?.site || appData?.sites?.[0];
-        if (!siteData && appData?.site_id) {
+        let siteData = appData?.site
+          || (typeof appData?.site_id === 'object' && appData.site_id ? appData.site_id : null)
+          || appData?.sites?.[0]
+          || null;
+
+        const siteIdStr = siteData?._id
+          || (typeof appData?.site_id === 'string' ? appData.site_id : null);
+
+        if (!siteData && siteIdStr) {
           try {
-            const sRes = await api.get(`/api/sites/${appData.site_id}`).catch(() => null);
+            const sRes = await api.get(`/api/sites/${siteIdStr}`).catch(() => null);
             if (sRes?.data?.data || sRes?.data) {
               siteData = sRes.data.data || sRes.data;
             }
@@ -269,14 +277,14 @@ export default function AdminCreateLogsheet() {
         }
 
         const clientFullAddr = [
-          clientData?.address || appData?.profiles?.address,
+          clientData?.address || appData?.profiles?.address || clientData?.registered_address || clientData?.head_office_address || clientData?.street,
           clientData?.city || appData?.profiles?.city,
           clientData?.postcode || appData?.profiles?.postcode,
           clientData?.country || appData?.profiles?.country
         ].filter(Boolean).join(', ');
 
         const siteFullAddr = siteData ? [
-          siteData.address_1,
+          siteData.address_1 || siteData.address,
           siteData.address_2,
           siteData.city,
           siteData.state,
@@ -284,7 +292,7 @@ export default function AdminCreateLogsheet() {
           siteData.country
         ].filter(Boolean).join(', ') : (siteData?.address || '');
 
-        const siteHeadOffice = siteData?.head_office_address || '';
+        const siteHeadOffice = siteData?.head_office_address || siteData?.head_office || '';
 
         const autoSiteName = siteData?.name
           || appData?.site_name
@@ -301,24 +309,28 @@ export default function AdminCreateLogsheet() {
           || appData?.profiles?.full_name
           || '';
 
-        let autoCompanyAddress = clientFullAddr
-          || siteHeadOffice
-          || clientData?.address
-          || appData?.profiles?.address
-          || appData?.establishment_address
-          || siteFullAddr
-          || '';
-
         let autoManufacturingAddress = appData?.manufacturer_address
           || siteFullAddr
           || appData?.establishment_address
-          || autoCompanyAddress;
+          || '';
 
-        const fallbackCompanyAddr = `${autoCompanyName || 'Company'} Head Office, United Kingdom`;
-        const fallbackMfgAddr = `${autoCompanyName || 'Company'} Manufacturing Facility, United Kingdom`;
+        let autoCompanyAddress = clientFullAddr
+          || siteHeadOffice
+          || clientData?.address
+          || clientData?.registered_address
+          || appData?.establishment_address
+          || appData?.profiles?.address
+          || autoManufacturingAddress
+          || siteFullAddr
+          || '';
 
-        if (!autoCompanyAddress) autoCompanyAddress = autoManufacturingAddress || fallbackCompanyAddr;
-        if (!autoManufacturingAddress) autoManufacturingAddress = autoCompanyAddress || fallbackMfgAddr;
+        if (!autoManufacturingAddress) {
+          autoManufacturingAddress = siteFullAddr || autoCompanyAddress || appData?.establishment_address || 'United Kingdom';
+        }
+
+        if (!autoCompanyAddress) {
+          autoCompanyAddress = autoManufacturingAddress || (autoCompanyName ? `${autoCompanyName}, United Kingdom` : 'United Kingdom');
+        }
 
         // 3. See if logsheet exists
         let logsheetObj = null;
@@ -340,10 +352,10 @@ export default function AdminCreateLogsheet() {
           setForm(f => ({
             ...f,
             ...logsheetObj,
-            site_name: logsheetObj.site_name || autoSiteName,
-            company_name: resolvedCompanyName || autoCompanyName,
-            company_address: logsheetObj.company_address || autoCompanyAddress,
-            manufacturing_address: logsheetObj.manufacturing_address || autoManufacturingAddress,
+            site_name: (logsheetObj.site_name && logsheetObj.site_name.trim()) ? logsheetObj.site_name : autoSiteName,
+            company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
+            company_address: (logsheetObj.company_address && logsheetObj.company_address.trim()) ? logsheetObj.company_address : autoCompanyAddress,
+            manufacturing_address: (logsheetObj.manufacturing_address && logsheetObj.manufacturing_address.trim()) ? logsheetObj.manufacturing_address : autoManufacturingAddress,
             confirmed: false
           }));
         } else {

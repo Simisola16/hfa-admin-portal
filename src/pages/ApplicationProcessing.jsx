@@ -1068,7 +1068,7 @@ export default function ApplicationProcessing() {
 
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowRejectModal(false)} disabled={actionSubmitting}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleReject} disabled={actionSubmitting || !rejectReason.trim()}>
+              <button className="btn btn-danger" onClick={() => !rejectReason.trim() ? toast.error('Please provide a rejection reason') : handleReject()} disabled={actionSubmitting}>
                 {actionSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
@@ -1125,10 +1125,10 @@ export default function ApplicationProcessing() {
         onSuccess={() => fetchApp(true)}
       />
 
-      {/* Flag / Review NC Modal */}
+      {/* NC Management Modal (Flag, Review, Reply & Close) */}
       {showNcModal && (
-        <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowNcModal(false)}>
-          <div className="modal" style={{ maxWidth: 700, width: '92%', maxHeight: '88vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => setShowNcModal(false)}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
@@ -1136,10 +1136,10 @@ export default function ApplicationProcessing() {
                 </div>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Non-Conformity (NC) Management' : 'Flag Non-Conformity (NC)'}
+                    {hasActiveNc ? '⚠️ Review & Manage Non-Conformity (NC)' : 'Flag Non-Conformity (NC)'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                    {app.nc_reports?.length > 0 || status === 'nc_flagged' ? 'Review client corrections, submit feedback, or close the NC to proceed.' : 'Specify audit non-conformities and attach report documents for client correction.'}
+                    {hasActiveNc ? 'Review client resolution documents, reply, or close the NC' : 'Specify audit issues requiring client corrective action before approval'}
                   </div>
                 </div>
               </div>
@@ -1291,7 +1291,7 @@ export default function ApplicationProcessing() {
                       className="btn btn-primary btn-sm"
                       style={{ background: '#0284c7', borderColor: '#0284c7' }}
                       onClick={handleReplyNc}
-                      disabled={replyingNc || !ncReplyText.trim()}
+                      disabled={replyingNc}
                     >
                       {replyingNc ? 'Sending Reply...' : 'Send Admin Reply'}
                     </button>
@@ -1343,7 +1343,7 @@ export default function ApplicationProcessing() {
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
               <button className="btn btn-ghost" onClick={() => setShowNcModal(false)} disabled={flaggingNc || replyingNc}>Close</button>
               {(!app.nc_reports || app.nc_reports.length === 0 || ncModalTab === 'flag_new') ? (
-                <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc || !ncText.trim()}>
+                <button className="btn btn-danger" onClick={handleFlagNc} disabled={flaggingNc}>
                   {flaggingNc ? 'Flagging Report...' : 'Flag NC'}
                 </button>
               ) : (

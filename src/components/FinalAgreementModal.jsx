@@ -126,7 +126,7 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
             className="btn btn-primary"
             style={{ background: '#2563eb' }}
             onClick={handleSubmit}
-            disabled={submitting || !file}
+            disabled={submitting}
           >
             {submitting ? 'Uploading...' : 'Send Final Signed Copy'}
           </button>

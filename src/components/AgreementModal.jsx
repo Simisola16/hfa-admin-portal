@@ -225,7 +225,7 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !agreementForm.title || (agreementForm.type === 'upload' ? !agreementForm.file : !agreementForm.details.trim())}
+            disabled={submitting}
           >
             {submitting ? 'Uploading...' : (propAgreement ? 'Re-upload & Send to Client' : 'Send Agreement')}
           </button>

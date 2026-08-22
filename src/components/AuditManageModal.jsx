@@ -406,7 +406,7 @@ export default function AuditManageModal({
                 <div style={{ flex: 1 }} />
                 <button
                   className="btn btn-primary"
-                  disabled={auditSubmitting || (isDualStage && activeStage === 2 ? false : auditForm.dates.some(d => !d))}
+                  disabled={auditSubmitting}
                   onClick={handleProposeDates}
                 >
                   {auditSubmitting ? 'Submitting...' : (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d) ? 'Skip & Close' : 'Propose Dates')}
@@ -444,7 +444,7 @@ export default function AuditManageModal({
               <div style={{ textAlign: 'right' }}>
                 <button
                   className="btn btn-primary"
-                  disabled={auditSubmitting || !auditForm.finalized_date}
+                  disabled={auditSubmitting}
                   onClick={handleFinalizeDate}
                 >
                   {auditSubmitting ? 'Finalizing...' : 'Finalize Audit Date'}
@@ -597,7 +597,7 @@ export default function AuditManageModal({
               <div style={{ textAlign: 'right' }}>
                 <button
                   className="btn btn-primary"
-                  disabled={auditSubmitting || auditForm.auditors.some(a => !a.name || !a.email)}
+                  disabled={auditSubmitting}
                   onClick={handleAssignAuditors}
                 >
                   {auditSubmitting ? 'Assigning...' : 'Assign Auditors'}

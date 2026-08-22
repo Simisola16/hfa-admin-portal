@@ -249,7 +249,7 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !proposalForm.title || (proposalForm.type === 'upload' ? !proposalForm.file : !proposalForm.details.trim())}
+            disabled={submitting}
           >
             {submitting ? 'Sending...' : 'Send Proposal'}
           </button>

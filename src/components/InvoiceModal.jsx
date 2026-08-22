@@ -202,7 +202,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !invoiceForm.title || !invoiceForm.amount || (!invoiceForm.file && !invoice?.invoice_url)}
+            disabled={submitting}
           >
             {submitting ? 'Sending...' : 'Send Invoice'}
           </button>

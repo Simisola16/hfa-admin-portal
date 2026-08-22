@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { 
-  UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare, 
-  Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck, 
+import {
+  UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare,
+  Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck,
   X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package, Lock
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
@@ -24,7 +24,7 @@ export default function AdminCreateLogsheet() {
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
   const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
-  
+
   const [signatures, setSignatures] = useState([]);
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
   const [sigRoles, setSigRoles] = useState([]);
@@ -44,7 +44,7 @@ export default function AdminCreateLogsheet() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [modalConfirmed, setModalConfirmed] = useState(false);
 
-  const userSignature = signatures.find(s => 
+  const userSignature = signatures.find(s =>
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
     (s.username && user?.email && s.username.toLowerCase() === user.email.split('@')[0].toLowerCase()) ||
     (s.name && user?.full_name && s.name.toLowerCase() === user.full_name.toLowerCase())
@@ -59,14 +59,14 @@ export default function AdminCreateLogsheet() {
     contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
     nature_of_business: '', product_category: '', current_cycle_start: '',
     original_cycle_start: '', document_url: '', document_urls: [], audit_reports: [],
-    
+
     audit_type: 'New', audit_date: '', auditors: '', ncs_close: '',
     docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
     reviewer_name: '', review_date: '',
-    
+
     annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
     new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
-    
+
     comment: '', confirmed: false
   });
 
@@ -106,7 +106,7 @@ export default function AdminCreateLogsheet() {
                 addonClient = { ...(typeof addonClient === 'object' ? addonClient : {}), ...(uRes.data.data || uRes.data) };
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const addonClientAddr = [
@@ -126,31 +126,31 @@ export default function AdminCreateLogsheet() {
           addonSite.country
         ].filter(Boolean).join(', ') || addonSite.address || '' : '';
 
-        const autoSiteName = addonSite?.name 
-          || addonData?.site_name 
-          || addonData?.site_id?.name 
-          || addonData?.establishment_name 
-          || addonSite?.est_name 
+        const autoSiteName = addonSite?.name
+          || addonData?.site_name
+          || addonData?.site_id?.name
+          || addonData?.establishment_name
+          || addonSite?.est_name
           || 'Main Manufacturing Site';
 
-        const autoCompanyName = addonClient?.company_name 
-          || addonData?.profiles?.company_name 
-          || addonData?.company_name 
-          || addonClient?.business_name 
-          || addonClient?.full_name 
+        const autoCompanyName = addonClient?.company_name
+          || addonData?.profiles?.company_name
+          || addonData?.company_name
+          || addonClient?.business_name
+          || addonClient?.full_name
           || '';
         const autoContactPerson = addonData.contact_name || addonClient?.full_name || '';
         const autoContactEmail = addonData.contact_email || addonClient?.email || '';
-        
-        let autoCompanyAddress = addonClientAddr 
-          || addonSite?.head_office_address 
-          || addonData.establishment_address 
-          || addonData.application_id?.establishment_address 
+
+        let autoCompanyAddress = addonClientAddr
+          || addonSite?.head_office_address
+          || addonData.establishment_address
+          || addonData.application_id?.establishment_address
           || '';
 
-        let autoManufacturingAddress = addonData.manufacturer_address 
-          || addonSiteAddr 
-          || addonData.application_id?.manufacturer_address 
+        let autoManufacturingAddress = addonData.manufacturer_address
+          || addonSiteAddr
+          || addonData.application_id?.manufacturer_address
           || autoCompanyAddress;
 
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
@@ -165,7 +165,7 @@ export default function AdminCreateLogsheet() {
 
         if (addonLogsheet && addonLogsheet._id) {
           setCurrentLogsheet(addonLogsheet);
-          
+
           let resolvedCompanyName = addonLogsheet.company_name;
           if (!resolvedCompanyName || (resolvedCompanyName === autoSiteName && autoCompanyName && autoCompanyName !== autoSiteName)) {
             resolvedCompanyName = autoCompanyName;
@@ -195,7 +195,7 @@ export default function AdminCreateLogsheet() {
             expiry_date: oneYearLater,
             current_cycle_start: todayStr,
             original_cycle_start: addonData.created_at ? new Date(addonData.created_at).toISOString().split('T')[0] : todayStr,
-            
+
             audit_type: 'Add-on Products Certification',
             audit_date: todayStr,
             review_date: todayStr,
@@ -240,7 +240,7 @@ export default function AdminCreateLogsheet() {
             const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : []);
             setClientProducts(pList);
           }
-        } catch (pErr) {}
+        } catch (pErr) { }
 
         // Automatic extraction of Company & Site details from application & audits & user profile
         let clientData = appData?.client_id;
@@ -253,7 +253,7 @@ export default function AdminCreateLogsheet() {
                 clientData = { ...(typeof clientData === 'object' ? clientData : {}), ...(uRes.data.data || uRes.data) };
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         let siteData = appData?.site || appData?.sites?.[0];
@@ -263,7 +263,7 @@ export default function AdminCreateLogsheet() {
             if (sRes?.data?.data || sRes?.data) {
               siteData = sRes.data.data || sRes.data;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const clientFullAddr = [
@@ -284,32 +284,32 @@ export default function AdminCreateLogsheet() {
 
         const siteHeadOffice = siteData?.head_office_address || '';
 
-        const autoSiteName = siteData?.name 
-          || appData?.site_name 
-          || appData?.site_id?.name 
-          || appData?.establishment_name 
-          || appData?.site_id?.est_name 
+        const autoSiteName = siteData?.name
+          || appData?.site_name
+          || appData?.site_id?.name
+          || appData?.establishment_name
+          || appData?.site_id?.est_name
           || 'Main Manufacturing Site';
 
-        const autoCompanyName = clientData?.company_name 
-          || appData?.profiles?.company_name 
-          || appData?.company_name 
-          || clientData?.business_name 
-          || clientData?.full_name 
-          || appData?.profiles?.full_name 
-          || '';
-        
-        let autoCompanyAddress = clientFullAddr 
-          || siteHeadOffice 
-          || clientData?.address 
-          || appData?.profiles?.address 
-          || appData?.establishment_address 
-          || siteFullAddr 
+        const autoCompanyName = clientData?.company_name
+          || appData?.profiles?.company_name
+          || appData?.company_name
+          || clientData?.business_name
+          || clientData?.full_name
+          || appData?.profiles?.full_name
           || '';
 
-        let autoManufacturingAddress = appData?.manufacturer_address 
-          || siteFullAddr 
-          || appData?.establishment_address 
+        let autoCompanyAddress = clientFullAddr
+          || siteHeadOffice
+          || clientData?.address
+          || appData?.profiles?.address
+          || appData?.establishment_address
+          || siteFullAddr
+          || '';
+
+        let autoManufacturingAddress = appData?.manufacturer_address
+          || siteFullAddr
+          || appData?.establishment_address
           || autoCompanyAddress;
 
         const fallbackCompanyAddr = `${autoCompanyName || 'Company'} Head Office, United Kingdom`;
@@ -329,7 +329,7 @@ export default function AdminCreateLogsheet() {
 
         if (logsheetObj && logsheetObj._id) {
           setCurrentLogsheet(logsheetObj);
-          
+
           let resolvedCompanyName = logsheetObj.company_name;
           if (!resolvedCompanyName || (resolvedCompanyName === autoSiteName && autoCompanyName && autoCompanyName !== autoSiteName)) {
             resolvedCompanyName = autoCompanyName;
@@ -408,7 +408,7 @@ export default function AdminCreateLogsheet() {
             expiry_date: oneYearLater,
             current_cycle_start: autoAuditDate || todayStr,
             original_cycle_start: appData?.created_at ? new Date(appData.created_at).toISOString().split('T')[0] : todayStr,
-            
+
             audit_type: autoAuditType,
             audit_date: autoAuditDate || todayStr,
             auditors: autoAuditors || (user?.full_name ? `${user.full_name} (Lead Auditor)` : 'Lead Auditor'),
@@ -418,7 +418,7 @@ export default function AdminCreateLogsheet() {
             reviewed_by: user?.full_name || 'HFA Technical Committee',
             reviewer_name: user?.full_name || 'Technical Reviewer',
             review_date: todayStr,
-            
+
             annual_certificate: 'Yes',
             batch_certificate: 'No',
             new_products_only: 'No',
@@ -426,10 +426,10 @@ export default function AdminCreateLogsheet() {
             new_client: (autoAuditType === 'New' || autoAuditType === 'Initial') ? 'Yes' : 'No',
             agreement_signed: 'Yes',
             status_date: todayStr,
-            
+
             comment: 'Recommended for Halal certification approval following successful audit and compliance review.',
             confirmed: false,
-            
+
             document_urls: existingReports,
             audit_reports: existingReports,
             document_url: existingReports[0]?.url || ''
@@ -516,7 +516,7 @@ export default function AdminCreateLogsheet() {
       toast.error('Please check the confirmation box before applying signature');
       return;
     }
-    
+
     if (!userSignature) {
       toast.error('No authenticated digital signature available.');
       return;
@@ -876,8 +876,8 @@ export default function AdminCreateLogsheet() {
                   {isFullySigned ? 'Fully Executed Halal Certification Logsheet' : 'Logsheet Sign-Off Review in Progress'}
                 </h3>
                 <p style={{ margin: '2px 0 0', fontSize: 13, color: isFullySigned ? '#166534' : '#c2410c' }}>
-                  {isFullySigned 
-                    ? 'All committee signatures have been verified and sealed on this decision record.' 
+                  {isFullySigned
+                    ? 'All committee signatures have been verified and sealed on this decision record.'
                     : `${totalSignedCount} of 4 committee signatories have signed this document.`}
                 </p>
               </div>
@@ -886,7 +886,7 @@ export default function AdminCreateLogsheet() {
             {/* Header Signing Action if pending */}
             {!isFullySigned && (
               <div style={{ display: 'flex', gap: 10 }}>
-                <button 
+                <button
                   onClick={() => openSigningModal()}
                   className="btn btn-primary btn-sm"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, padding: '8px 16px', boxShadow: '0 2px 4px rgba(21,128,61,0.2)' }}
@@ -944,7 +944,7 @@ export default function AdminCreateLogsheet() {
 
       {/* DOCUMENT-STYLE PRESENTATION CARD */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
-        
+
         {/* Official Document Header - Bright Modern HFA Emerald Theme */}
         <div style={{ background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', padding: '24px 30px', borderBottom: '1px solid #0f766e' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
@@ -1014,7 +1014,7 @@ export default function AdminCreateLogsheet() {
         {/* UNIFIED READ-ONLY DOCUMENT VIEW */}
         {isReadOnly ? (
           <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 28 }}>
-            
+
             {/* Section 1: Company & Site Details */}
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -1387,7 +1387,7 @@ export default function AdminCreateLogsheet() {
                   </p>
                 </div>
                 {totalSignedCount < 4 && (
-                  <button 
+                  <button
                     onClick={() => openSigningModal()}
                     className="btn btn-outline btn-sm"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
@@ -1400,12 +1400,12 @@ export default function AdminCreateLogsheet() {
               {/* 4-Role Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                 {signatories.map((s, idx) => (
-                  <div 
-                    key={idx} 
-                    style={{ 
+                  <div
+                    key={idx}
+                    style={{
                       border: `1.5px solid ${s.signature ? '#86efac' : '#e2e8f0'}`,
-                      borderRadius: 10, 
-                      padding: 16, 
+                      borderRadius: 10,
+                      padding: 16,
                       background: s.signature ? '#f0fdf4' : '#fafafa',
                       display: 'flex',
                       flexDirection: 'column',
@@ -1432,10 +1432,10 @@ export default function AdminCreateLogsheet() {
                       {s.signature ? (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 50, marginBottom: 8 }}>
-                            <img 
-                              src={getPdfUrl(s.signature)} 
-                              alt={`${s.label} Signature`} 
-                              style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }} 
+                            <img
+                              src={getPdfUrl(s.signature)}
+                              alt={`${s.label} Signature`}
+                              style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }}
                             />
                           </div>
                           <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{s.name || 'Authorised Signatory'}</div>
@@ -1491,18 +1491,18 @@ export default function AdminCreateLogsheet() {
 
               {/* Mark as Done Action Block */}
               {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && (
-                <div 
-                  style={{ 
-                    marginTop: 24, 
-                    padding: 16, 
-                    background: totalSignedCount >= 3 ? '#f0fdf4' : '#fffbeb', 
-                    borderRadius: 10, 
-                    border: `1.5px solid ${totalSignedCount >= 3 ? '#bbf7d0' : '#fde68a'}`, 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    flexWrap: 'wrap', 
-                    gap: 12 
+                <div
+                  style={{
+                    marginTop: 24,
+                    padding: 16,
+                    background: totalSignedCount >= 3 ? '#f0fdf4' : '#fffbeb',
+                    borderRadius: 10,
+                    border: `1.5px solid ${totalSignedCount >= 3 ? '#bbf7d0' : '#fde68a'}`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12
                   }}
                 >
                   <div>
@@ -1510,24 +1510,24 @@ export default function AdminCreateLogsheet() {
                       {totalSignedCount >= 3 ? 'Committee Review & Signatures Ready' : 'Signature Threshold Pending'}
                     </div>
                     <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
-                      {totalSignedCount >= 3 
-                        ? `${totalSignedCount} of 4 committee signatures collected. Click Approve Product to select verified client products and send to client dashboard.` 
+                      {totalSignedCount >= 3
+                        ? `${totalSignedCount} of 4 committee signatures collected. Click Approve Product to select verified client products and send to client dashboard.`
                         : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleOpenApproveProductsModal}
                     disabled={isFinalizing || totalSignedCount < 3}
                     className="btn btn-primary"
-                    style={{ 
-                      background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1', 
-                      borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1', 
+                    style={{
+                      background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                      borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
                       color: totalSignedCount >= 3 ? '#fff' : '#64748b',
-                      fontWeight: 800, 
-                      padding: '10px 22px', 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
+                      fontWeight: 800,
+                      padding: '10px 22px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
                       gap: 8,
                       borderRadius: 10,
                       boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
@@ -1557,15 +1557,15 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Site Name <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  <input 
-                    required 
-                    readOnly 
-                    type="text" 
-                    className="form-control" 
-                    value={form.site_name || application?.site_id?.name || application?.site_name || application?.establishment_name || 'Main Manufacturing Site'} 
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.site_name || application?.site_id?.name || application?.site_name || application?.establishment_name || 'Main Manufacturing Site'}
                     style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
@@ -1574,15 +1574,15 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Company Name <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  <input 
-                    required 
-                    readOnly 
-                    type="text" 
-                    className="form-control" 
-                    value={form.company_name || ''} 
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.company_name || ''}
                     style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
@@ -1591,15 +1591,15 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  <input 
-                    required 
-                    readOnly 
-                    type="text" 
-                    className="form-control" 
-                    value={form.contact_person || ''} 
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.contact_person || ''}
                     style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                   />
                 </div>
@@ -1607,7 +1607,7 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Company Address <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
                   <input
@@ -1624,7 +1624,7 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
                   <input
@@ -1641,41 +1641,41 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  <input 
-                    required 
-                    readOnly 
-                    type="email" 
-                    className="form-control" 
-                    value={form.contact_email || ''} 
+                  <input
+                    required
+                    readOnly
+                    type="email"
+                    className="form-control"
+                    value={form.contact_email || ''}
                     style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
-                    placeholder="name@company.com" 
+                    placeholder="name@company.com"
                   />
                 </div>
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Nature of the business <span style={{ color: '#dc2626' }}>*</span></label>
                     <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                      <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  <input 
-                    required 
-                    readOnly 
-                    type="text" 
-                    className="form-control" 
-                    value={form.nature_of_business || ''} 
+                  <input
+                    required
+                    readOnly
+                    type="text"
+                    className="form-control"
+                    value={form.nature_of_business || ''}
                     style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
-                    placeholder="e.g. Halal Food Production" 
+                    placeholder="e.g. Halal Food Production"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Product Category <span style={{ color: '#dc2626' }}>*</span></label>
                   <input required type="text" className="form-control" value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} placeholder="e.g. Category C - Food Manufacturing" />
                 </div>
-                
+
                 <div className="form-group">
                   <label className="form-label">Issue date of certificate <span style={{ color: '#dc2626' }}>*</span></label>
                   <input required type="date" className="form-control" value={form.issue_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, issue_date: e.target.value })} />
@@ -1916,14 +1916,14 @@ export default function AdminCreateLogsheet() {
             {activeTab === 4 && (
               <div className="form-group">
                 <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
-                <textarea 
+                <textarea
                   required
-                  className="form-control" 
+                  className="form-control"
                   rows={8}
                   style={{ fontSize: 14, padding: 14 }}
                   placeholder="Enter final review comments, conditions, or recommendations..."
-                  value={form.comment} 
-                  onChange={e => setForm({ ...form, comment: e.target.value })} 
+                  value={form.comment}
+                  onChange={e => setForm({ ...form, comment: e.target.value })}
                 />
               </div>
             )}
@@ -1931,8 +1931,8 @@ export default function AdminCreateLogsheet() {
             {/* Bottom Footer Submit */}
             <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={form.confirmed}
                   onChange={e => setForm({ ...form, confirmed: e.target.checked })}
                   style={{ width: 18, height: 18, cursor: 'pointer' }}
@@ -1943,10 +1943,10 @@ export default function AdminCreateLogsheet() {
               </label>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={submitting || !form.confirmed} 
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting || !form.confirmed}
                   style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700 }}
                 >
                   {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
@@ -1985,8 +1985,8 @@ export default function AdminCreateLogsheet() {
                 <PenTool size={20} style={{ color: '#ffffff' }} />
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Apply Committee Electronic Signature</h3>
               </div>
-              <button 
-                onClick={() => setShowSignModal(false)} 
+              <button
+                onClick={() => setShowSignModal(false)}
                 style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}
               >
                 <X size={20} />
@@ -1995,7 +1995,7 @@ export default function AdminCreateLogsheet() {
 
             {/* Modal Body */}
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-              
+
               {/* Step 1: Select Role */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
@@ -2065,10 +2065,10 @@ export default function AdminCreateLogsheet() {
                       <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>AUTHENTICATED USER</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{userSignature.name}</div>
                     </div>
-                    <img 
-                      src={getPdfUrl(userSignature.signature_url)} 
-                      alt="Digital Signature" 
-                      style={{ maxHeight: 42, maxWidth: 140, objectFit: 'contain', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }} 
+                    <img
+                      src={getPdfUrl(userSignature.signature_url)}
+                      alt="Digital Signature"
+                      style={{ maxHeight: 42, maxWidth: 140, objectFit: 'contain', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }}
                     />
                   </div>
                 ) : (
@@ -2083,7 +2083,7 @@ export default function AdminCreateLogsheet() {
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'block' }}>
                   3. Signature Comment / Note (Optional)
                 </label>
-                <textarea 
+                <textarea
                   className="form-control"
                   rows={2}
                   placeholder="Enter comments or conditions regarding this signature..."
@@ -2096,7 +2096,7 @@ export default function AdminCreateLogsheet() {
               {/* Step 4: EXPLICIT DOUBLE CONFIRMATION CHECKBOX */}
               <div style={{ padding: '12px 14px', background: modalConfirmed ? '#f0fdf4' : '#fffbeb', border: `1px solid ${modalConfirmed ? '#86efac' : '#fed7aa'}`, borderRadius: 8 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: 0 }}>
-                  <input 
+                  <input
                     type="checkbox"
                     checked={modalConfirmed}
                     onChange={e => setModalConfirmed(e.target.checked)}
@@ -2111,16 +2111,16 @@ export default function AdminCreateLogsheet() {
 
             {/* Modal Footer Actions */}
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-              <button 
-                type="button" 
-                className="btn btn-ghost" 
+              <button
+                type="button"
+                className="btn btn-ghost"
                 onClick={() => setShowSignModal(false)}
                 style={{ fontWeight: 600 }}
               >
                 Cancel
               </button>
-              
-              <button 
+
+              <button
                 type="button"
                 onClick={handleConfirmApplySignature}
                 disabled={isSigning || sigRoles.length === 0 || !modalConfirmed || !userSignature}
@@ -2268,7 +2268,7 @@ export default function AdminCreateLogsheet() {
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => {}} // handled by row onClick
+                          onChange={() => { }} // handled by row onClick
                           style={{
                             width: 18,
                             height: 18,

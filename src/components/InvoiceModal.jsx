@@ -79,8 +79,12 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       toast.error('Please enter an invoice title.');
       return;
     }
-    if (!invoiceForm.amount) {
-      toast.error('Please enter the invoice amount.');
+    if (!invoiceForm.amount || String(invoiceForm.amount).trim() === '') {
+      toast.error('Please fill in the Amount Due (£).');
+      return;
+    }
+    if (isNaN(Number(invoiceForm.amount)) || Number(invoiceForm.amount) < 0) {
+      toast.error('Please enter a valid Amount Due (£).');
       return;
     }
     if (!invoiceForm.file && !invoice?.invoice_url) {
@@ -91,7 +95,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('title', invoiceForm.title);
+      formData.append('title', invoiceForm.title.trim());
       formData.append('amount', invoiceForm.amount);
       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
@@ -145,6 +149,9 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
             <label className="form-label">Amount Due (£) <span>*</span></label>
             <input
               type="number"
+              min="0"
+              step="0.01"
+              required
               className="form-control"
               value={invoiceForm.amount}
               onChange={e => setInvoiceForm(f => ({ ...f, amount: e.target.value }))}

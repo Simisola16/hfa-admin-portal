@@ -1315,10 +1315,12 @@ export default function AdminApplications() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
-                  <label className="form-label">Amount (£) <span>*</span></label>
+                  <label className="form-label">Amount Due (£) <span>*</span></label>
                   <input
                     type="number"
+                    min="0"
                     step="0.01"
+                    required
                     className="form-control"
                     value={invoiceForm.amount}
                     onChange={e => setInvoiceForm(f => ({ ...f, amount: e.target.value }))}

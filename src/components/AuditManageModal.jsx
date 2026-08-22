@@ -205,6 +205,27 @@ export default function AuditManageModal({
         : 'Please enter all 3 proposed dates.');
       return;
     }
+
+    // Validation 1: Prevent past dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hasPastDate = auditForm.dates.some(d => {
+      const dateObj = new Date(d);
+      dateObj.setHours(0, 0, 0, 0);
+      return dateObj < today;
+    });
+    if (hasPastDate) {
+      toast.error('Proposed audit dates cannot be in the past. Please select future dates.');
+      return;
+    }
+
+    // Validation 2: Ensure 3 unique/distinct dates
+    const uniqueDates = new Set(auditForm.dates.map(d => String(d).trim()));
+    if (uniqueDates.size !== 3) {
+      toast.error('Please select 3 distinct and different dates. You cannot choose the same date twice.');
+      return;
+    }
+
     setAuditSubmitting(true);
     try {
       const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
@@ -377,6 +398,7 @@ export default function AuditManageModal({
                     <label className="form-label">Proposed Date Option {i + 1} <span>*</span></label>
                     <input
                       type="date"
+                      min={new Date().toISOString().split('T')[0]}
                       className="form-control"
                       value={auditForm.dates[i]}
                       onChange={e => {

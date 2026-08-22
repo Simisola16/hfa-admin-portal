@@ -79,6 +79,14 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       toast.error('Please enter a proposal title.');
       return;
     }
+    if (!proposalForm.estimated_cost || String(proposalForm.estimated_cost).trim() === '') {
+      toast.error('Please fill in the Estimated Cost (£).');
+      return;
+    }
+    if (isNaN(Number(proposalForm.estimated_cost)) || Number(proposalForm.estimated_cost) < 0) {
+      toast.error('Please enter a valid Estimated Cost (£).');
+      return;
+    }
     if (proposalForm.type === 'upload' && !proposalForm.file && !proposal?.proposal_url) {
       toast.error('Please select a proposal document.');
       return;
@@ -91,8 +99,8 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('title', proposalForm.title);
-      formData.append('estimated_cost', proposalForm.estimated_cost || '0');
+      formData.append('title', proposalForm.title.trim());
+      formData.append('estimated_cost', proposalForm.estimated_cost);
       formData.append('admin_comment', proposalForm.admin_comment);
       if (proposalForm.type === 'upload' && proposalForm.file) {
         formData.append('proposal_file', proposalForm.file);
@@ -175,6 +183,9 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
             <label className="form-label">Estimated Cost (£) <span>*</span></label>
             <input
               type="number"
+              min="0"
+              step="0.01"
+              required
               className="form-control"
               value={proposalForm.estimated_cost}
               onChange={e => setProposalForm(f => ({ ...f, estimated_cost: e.target.value }))}

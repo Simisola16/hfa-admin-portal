@@ -36,6 +36,7 @@ import AdminAddOnApprovalForm from './pages/AdminAddOnApprovalForm';
 import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
 import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
+import AdminReviewCertificate from './pages/AdminReviewCertificate';
 
 export default function App() {
   return (
@@ -57,6 +58,8 @@ export default function App() {
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />
+            <Route path="/certificates/review" element={<AdminCertificates defaultTab="review" />} />
+            <Route path="/certificates/:id/review" element={<AdminReviewCertificate />} />
             <Route path="/clients" element={<AdminClients />} />
             <Route path="/staff" element={<AdminStaff />} />
             <Route path="/inspectors" element={<Navigate to="/dashboard" replace />} />

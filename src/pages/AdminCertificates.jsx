@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3 } from 'lucide-react';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
   if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
     return `${API_URL}${url}`;
   }
   return url;
 };
 
-export default function AdminCertificates() {
+export default function AdminCertificates({ defaultTab }) {
+  const navigate = useNavigate();
   const [certs, setCerts] = useState([]);
   const [survRequests, setSurvRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('certs'); // 'certs' | 'surveillance'
+  const [activeTab, setActiveTab] = useState(defaultTab || 'certs'); // 'review' | 'certs' | 'surveillance'
   const [showModal, setShowModal] = useState(false);
   const [showFulfillModal, setShowFulfillModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -30,7 +31,10 @@ export default function AdminCertificates() {
 
   useEffect(() => {
     const statusParam = searchParams.get('status') || searchParams.get('filter');
-    if (statusParam) {
+    if (statusParam === 'under_review' || statusParam === 'review') {
+      setActiveTab('review');
+      setFilterStatus('under_review');
+    } else if (statusParam) {
       setFilterStatus(statusParam);
     }
   }, [searchParams]);
@@ -38,7 +42,7 @@ export default function AdminCertificates() {
   const [form, setForm] = useState({ 
     client_id: '', 
     application_id: '', 
-    certificate_type: 'Annual Halal Certificate', 
+    certificate_type: 'Halal Certification', 
     issue_date: '', 
     expiry_date: '', 
     products_covered: '' 
@@ -62,7 +66,7 @@ export default function AdminCertificates() {
       const rawSurv = Array.isArray(survRes) ? survRes : (Array.isArray(survRes?.data?.data) ? survRes.data.data : (Array.isArray(survRes?.data) ? survRes.data : []));
 
       setCerts(rawCerts);
-      setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'certificate_issued')));
+      setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'ready_for_certificate' || a.status === 'certificate_issued')));
       setSurvRequests(rawSurv);
     } catch (err) {
       toast.error('Failed to load certificates & requests.');
@@ -80,14 +84,26 @@ export default function AdminCertificates() {
     setSubmitting(true);
     const app = apps.find(a => a.id === form.application_id || a._id === form.application_id);
     const clientId = app?.client_id || app?.profiles?._id || app?.profiles?.id;
-    const payload = { ...form, client_id: clientId };
+    const payload = { 
+      ...form, 
+      client_id: clientId,
+      company_name: app?.establishment_name || app?.profiles?.company_name || '',
+      company_address: app?.establishment_address || app?.profiles?.address || '',
+      manufacturing_address: app?.manufacturer_address || app?.establishment_address || '',
+      scope: app?.scope || 'Halal Food Certification',
+      status: 'under_review'
+    };
     try { 
-      await api.post('/api/certificates', payload); 
-      toast.success('Certificate issued & email sent!'); 
+      const res = await api.post('/api/certificates', payload); 
+      const created = res.data?.data || res.data;
+      toast.success('Certificate created! Opening review page...'); 
       setShowModal(false); 
-      fetchAllData(); 
+      fetchAllData();
+      if (created?._id) {
+        navigate(`/certificates/${created._id}/review`);
+      }
     } catch (err) {
-      toast.error(err.message || 'Failed to issue certificate.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
     } finally {
       setSubmitting(false);
     }
@@ -122,85 +138,112 @@ export default function AdminCertificates() {
   };
 
   const handleRevoke = async (id) => {
-    const reason = prompt('Reason for revocation:');
+    const reason = window.prompt('Please enter the reason for certificate revocation:');
     if (!reason) return;
-    try { 
-      await api.put(`/api/certificates/${id}/revoke`, { reason }); 
-      toast.success('Certificate revoked'); 
-      fetchAllData(); 
+    try {
+      await api.put(`/api/certificates/${id}/revoke`, { reason });
+      toast.success('Certificate revoked.');
+      fetchAllData();
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || 'Failed to revoke certificate.');
     }
   };
 
+  const underReviewCerts = certs.filter(c => c.status === 'under_review' || c.status === 'draft');
+
   const filteredCerts = certs.filter(c => {
-    const now = new Date();
-    if (filterStatus === 'expired') {
-      const isExpired = c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now);
-      if (!isExpired) return false;
-    } else if (filterStatus === 'active') {
-      const isActive = c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now);
-      if (!isActive) return false;
-    } else if (filterStatus === 'outdated') {
-      if (c.status !== 'outdated' && c.status !== 'superseded') return false;
-    } else if (filterStatus === 'pending') {
-      if (c.status !== 'pending') return false;
+    if (activeTab === 'review') {
+      if (c.status !== 'under_review' && c.status !== 'draft') return false;
+    } else if (activeTab === 'certs') {
+      if (filterStatus) {
+        if (filterStatus === 'under_review') {
+          if (c.status !== 'under_review' && c.status !== 'draft') return false;
+        } else if (c.status !== filterStatus) {
+          return false;
+        }
+      }
     }
-
     const q = search.toLowerCase();
-    const siteName = (
-      c.site_name ||
-      c.site_id?.name ||
-      c.site_id?.est_name ||
-      c.establishment_name ||
-      c.application_id?.establishment_name ||
-      c.application_id?.site_name ||
-      ''
-    ).toLowerCase();
-
-    return (
-      !search || 
-      c.certificate_number?.toLowerCase().includes(q) || 
-      c.profiles?.company_name?.toLowerCase().includes(q) ||
-      c.certificate_type?.toLowerCase().includes(q) ||
-      siteName.includes(q)
-    );
+    const certNo = (c.certificate_number || '').toLowerCase();
+    const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
+    const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
+    return certNo.includes(q) || comp.includes(q) || site.includes(q);
   });
 
   const filteredSurv = survRequests.filter(r => {
     const q = search.toLowerCase();
-    const siteName = (
-      r.certificate_id?.site_name ||
-      r.certificate_id?.site_id?.name ||
-      r.certificate_id?.site_id?.est_name ||
-      r.certificate_id?.establishment_name ||
-      r.certificate_id?.application_id?.establishment_name ||
-      r.certificate_id?.application_id?.site_name ||
-      ''
-    ).toLowerCase();
-
-    return (
-      !search || 
-      r.certificate_id?.certificate_number?.toLowerCase().includes(q) ||
-      r.certificate_id?.profiles?.company_name?.toLowerCase().includes(q) ||
-      siteName.includes(q)
-    );
+    const certNo = (r.certificate_id?.certificate_number || '').toLowerCase();
+    const comp = (r.certificate_id?.profiles?.company_name || '').toLowerCase();
+    return certNo.includes(q) || comp.includes(q);
   });
 
   return (
-    <div>
-      {/* Page Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: 20 }}>
+    <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
+      
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', borderBottom: '1.5px solid #e2e8f0', marginBottom: 20, gap: 8 }}>
         <button
           type="button"
-          style={{ padding: '12px 24px', border: 'none', background: 'none', borderBottom: activeTab === 'certs' ? '2.5px solid var(--primary)' : 'none', color: activeTab === 'certs' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'review' ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'review' ? '#047857' : '#64748b',
+            fontWeight: 800,
+            cursor: 'pointer',
+            fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}
+          onClick={() => setActiveTab('review')}
+        >
+          <ShieldCheck size={16} /> 
+          Pending Review 
+          {underReviewCerts.length > 0 && (
+            <span style={{
+              background: '#f97316',
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: 12
+            }}>
+              {underReviewCerts.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'certs' ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'certs' ? '#047857' : '#64748b',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: 14
+          }}
           onClick={() => setActiveTab('certs')}
         >
-          🏆 Issued Certificates
+          🏅 All Certificates ({certs.length})
         </button>
+
         <button
           type="button"
-          style={{ padding: '12px 24px', border: 'none', background: 'none', borderBottom: activeTab === 'surveillance' ? '2.5px solid var(--primary)' : 'none', color: activeTab === 'surveillance' ? 'var(--primary)' : '#64748b', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'surveillance' ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'surveillance' ? '#047857' : '#64748b',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: 14
+          }}
           onClick={() => setActiveTab('surveillance')}
         >
           🗓️ Surveillance Requests
@@ -211,7 +254,7 @@ export default function AdminCertificates() {
         <div className="search-box">
           <Search size={15} className="search-icon" />
           <input 
-            placeholder={activeTab === 'certs' ? "Search by cert no, company, site..." : "Search surveillance..."} 
+            placeholder={activeTab === 'surveillance' ? "Search surveillance..." : "Search by cert no, company, site..."} 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -224,30 +267,34 @@ export default function AdminCertificates() {
             onChange={e => setFilterStatus(e.target.value)}
           >
             <option value="">All Statuses</option>
+            <option value="under_review">Under Review</option>
             <option value="active">Active</option>
-            <option value="pending">Pending</option>
             <option value="outdated">Outdated</option>
             <option value="expired">Expired</option>
           </select>
         )}
-        {activeTab === 'certs' && (
-          <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginLeft: 'auto' }}>
-            <Plus size={15} /> Issue Certificate
+        {activeTab !== 'surveillance' && (
+          <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginLeft: 'auto', background: '#047857', borderColor: '#047857' }}>
+            <Plus size={15} /> Create &amp; Review Certificate
           </button>
         )}
       </div>
 
-      {activeTab === 'certs' ? (
+      {activeTab === 'review' || activeTab === 'certs' ? (
         <div className="card">
           <div className="card-header">
-            <div className="card-title">All Certificates ({filteredCerts.length})</div>
+            <div className="card-title">
+              {activeTab === 'review' ? `Certificates Awaiting Review & QA (${filteredCerts.length})` : `All Certificates (${filteredCerts.length})`}
+            </div>
           </div>
           <div className="table-wrap">
             {loading ? <div className="loading-overlay"><div className="spinner" /></div> :
               filteredCerts.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon"><Award /></div>
-                  <div className="empty-state-title">No Certificates</div>
+                  <div className="empty-state-title">
+                    {activeTab === 'review' ? 'No Certificates Awaiting Review' : 'No Certificates Found'}
+                  </div>
                 </div>
               ) : (
                 <table>
@@ -255,11 +302,11 @@ export default function AdminCertificates() {
                     <tr>
                       <th>Certificate No.</th>
                       <th>Company / Site</th>
-                      <th>Type &amp; Standard</th>
+                      <th>Type &amp; Scheme</th>
                       <th>Issue Date</th>
                       <th>Expiry</th>
                       <th>Status</th>
-                      <th>Actions</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -269,52 +316,77 @@ export default function AdminCertificates() {
                           ? 'expired'
                           : c.status;
                       const siteStr = c.site_name || c.site_id?.name || c.site_id?.est_name || c.establishment_name || c.application_id?.establishment_name || c.application_id?.site_name;
+                      const isReview = effectiveStatus === 'under_review' || effectiveStatus === 'draft';
+                      
                       return (
-                      <tr key={c.id || c._id}>
-                        <td style={{ fontWeight: 800, color: 'var(--primary)' }}>{c.certificate_number}</td>
+                      <tr key={c.id || c._id} style={isReview ? { background: '#fffbeb' } : {}}>
+                        <td style={{ fontWeight: 800, color: '#047857' }}>{c.certificate_number}</td>
                         <td style={{ fontWeight: 700, color: '#0f172a' }}>
-                          <div>{c.profiles?.company_name || c.application_id?.establishment_name || c.company_name || c.profiles?.full_name || '—'}</div>
+                          <div>{c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || c.profiles?.full_name || '—'}</div>
                           {siteStr && (
                             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginTop: 2 }}>
                               Site: {siteStr}
                             </div>
                           )}
                         </td>
-                        <td style={{ fontSize: 13 }}>{c.certificate_type}</td>
+                        <td style={{ fontSize: 13 }}>{c.certificate_type || 'Halal Certification'}</td>
                         <td style={{ fontSize: 12 }}>{c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td style={{ fontSize: 12 }}>{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td>
                           <span className={`badge ${
+                            isReview ? 'badge-orange' :
                             effectiveStatus === 'active' ? 'badge-green' :
                             effectiveStatus === 'renewed' ? 'badge-blue' :
-                            effectiveStatus === 'outdated' || effectiveStatus === 'superseded' ? 'badge-orange' :
+                            effectiveStatus === 'outdated' || effectiveStatus === 'superseded' ? 'badge-gray' :
                             effectiveStatus === 'revoked' ? 'badge-red' :
                             'badge-gray'
                           }`} style={{ textTransform: 'capitalize' }}>
-                            {effectiveStatus === 'outdated' ? 'Outdated' :
+                            {isReview ? '⏳ Under Review' :
+                             effectiveStatus === 'outdated' ? 'Outdated' :
                              effectiveStatus === 'superseded' ? 'Superseded' :
                              effectiveStatus === 'renewed' ? 'Renewed' :
                              effectiveStatus === 'active' ? 'Active' :
                              effectiveStatus === 'expired' ? 'Expired' :
                              effectiveStatus === 'revoked' ? 'Revoked' :
-                             (effectiveStatus ? effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1) : 'Active')}
+                             effectiveStatus}
                           </span>
                         </td>
-                        <td style={{ display: 'flex', gap: 6 }}>
-                          {effectiveStatus === 'active' && (
-                            <button 
-                              className="btn btn-ghost btn-sm" 
-                              style={{ color: 'var(--danger)', fontSize: 12 }} 
-                              onClick={() => handleRevoke(c.id || c._id)}
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              onClick={() => navigate(`/certificates/${c.id || c._id}/review`)}
+                              style={{
+                                background: isReview ? '#047857' : '#f1f5f9',
+                                color: isReview ? '#ffffff' : '#334155',
+                                borderColor: isReview ? '#047857' : '#cbd5e1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontWeight: 700,
+                                fontSize: 12
+                              }}
                             >
-                              Revoke
+                              <Edit3 size={13} /> {isReview ? 'Review & Send' : 'Review / Edit'}
                             </button>
-                          )}
-                          {c.certificate_url && (
-                            <a href={getPdfUrl(c.certificate_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" onClick={e => e.stopPropagation()}>
-                              <Download size={13} />
-                            </a>
-                          )}
+
+                            {effectiveStatus === 'active' && (
+                              <button 
+                                className="btn btn-ghost btn-sm" 
+                                style={{ color: 'var(--danger)', fontSize: 12 }} 
+                                onClick={() => handleRevoke(c.id || c._id)}
+                              >
+                                Revoke
+                              </button>
+                            )}
+
+                            {c.certificate_url && (
+                              <a href={getPdfUrl(c.certificate_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" title="Download PDF">
+                                <Download size={13} />
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                       );

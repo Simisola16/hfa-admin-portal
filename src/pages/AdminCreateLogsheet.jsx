@@ -126,13 +126,25 @@ export default function AdminCreateLogsheet() {
           addonSite.country
         ].filter(Boolean).join(', ') || addonSite.address || '' : '';
 
-        const autoCompanyName = addonClient?.company_name || addonData.establishment_name || addonClient?.full_name || '';
+        const autoSiteName = addonSite?.name 
+          || addonData?.site_name 
+          || addonData?.site_id?.name 
+          || addonData?.establishment_name 
+          || addonSite?.est_name 
+          || 'Main Manufacturing Site';
+
+        const autoCompanyName = addonClient?.company_name 
+          || addonData?.profiles?.company_name 
+          || addonData?.company_name 
+          || addonClient?.business_name 
+          || addonClient?.full_name 
+          || '';
         const autoContactPerson = addonData.contact_name || addonClient?.full_name || '';
         const autoContactEmail = addonData.contact_email || addonClient?.email || '';
         
-        let autoCompanyAddress = addonData.establishment_address 
+        let autoCompanyAddress = addonClientAddr 
           || addonSite?.head_office_address 
-          || addonClientAddr 
+          || addonData.establishment_address 
           || addonData.application_id?.establishment_address 
           || '';
 
@@ -140,12 +152,6 @@ export default function AdminCreateLogsheet() {
           || addonSiteAddr 
           || addonData.application_id?.manufacturer_address 
           || autoCompanyAddress;
-
-        const fallbackCompanyAddr = `${autoCompanyName || 'Company'} Head Office, United Kingdom`;
-        const fallbackMfgAddr = `${autoCompanyName || 'Company'} Manufacturing Facility, United Kingdom`;
-
-        if (!autoCompanyAddress) autoCompanyAddress = autoManufacturingAddress || fallbackCompanyAddr;
-        if (!autoManufacturingAddress) autoManufacturingAddress = autoCompanyAddress || fallbackMfgAddr;
 
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
         const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
@@ -159,9 +165,17 @@ export default function AdminCreateLogsheet() {
 
         if (addonLogsheet && addonLogsheet._id) {
           setCurrentLogsheet(addonLogsheet);
+          
+          let resolvedCompanyName = addonLogsheet.company_name;
+          if (!resolvedCompanyName || (resolvedCompanyName === autoSiteName && autoCompanyName && autoCompanyName !== autoSiteName)) {
+            resolvedCompanyName = autoCompanyName;
+          }
+
           setForm(f => ({
             ...f,
             ...addonLogsheet,
+            site_name: addonLogsheet.site_name || autoSiteName,
+            company_name: resolvedCompanyName || autoCompanyName,
             company_address: addonLogsheet.company_address || autoCompanyAddress,
             manufacturing_address: addonLogsheet.manufacturing_address || autoManufacturingAddress,
             confirmed: false
@@ -169,6 +183,7 @@ export default function AdminCreateLogsheet() {
         } else {
           setForm(f => ({
             ...f,
+            site_name: autoSiteName,
             company_name: autoCompanyName,
             company_address: autoCompanyAddress,
             manufacturing_address: autoManufacturingAddress,
@@ -180,14 +195,9 @@ export default function AdminCreateLogsheet() {
             expiry_date: oneYearLater,
             current_cycle_start: todayStr,
             original_cycle_start: addonData.created_at ? new Date(addonData.created_at).toISOString().split('T')[0] : todayStr,
-            audit_type: 'Add-on Product Review',
+            
+            audit_type: 'Add-on Products Certification',
             audit_date: todayStr,
-            auditors: user?.full_name || 'HFA Technical Committee',
-            ncs_close: 'No NCs flagged',
-            docs_satisfactory: 'Satisfactory - all product specifications verified',
-            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
-            reviewed_by: user?.full_name || 'HFA Technical Committee',
-            reviewer_name: user?.full_name || 'Technical Reviewer',
             review_date: todayStr,
             annual_certificate: 'No',
             batch_certificate: 'No',
@@ -234,7 +244,7 @@ export default function AdminCreateLogsheet() {
 
         // Automatic extraction of Company & Site details from application & audits & user profile
         let clientData = appData?.client_id;
-        if (typeof clientData === 'string' || (clientData && !clientData.address)) {
+        if (typeof clientData === 'string' || (clientData && !clientData.company_name && !clientData.address)) {
           try {
             const uId = clientData?._id || clientData || appData?.profiles?._id;
             if (uId) {
@@ -274,13 +284,26 @@ export default function AdminCreateLogsheet() {
 
         const siteHeadOffice = siteData?.head_office_address || '';
 
-        const autoCompanyName = appData?.establishment_name || appData?.site_name || clientData?.company_name || appData?.profiles?.company_name || '';
+        const autoSiteName = siteData?.name 
+          || appData?.site_name 
+          || appData?.site_id?.name 
+          || appData?.establishment_name 
+          || appData?.site_id?.est_name 
+          || 'Main Manufacturing Site';
+
+        const autoCompanyName = clientData?.company_name 
+          || appData?.profiles?.company_name 
+          || appData?.company_name 
+          || clientData?.business_name 
+          || clientData?.full_name 
+          || appData?.profiles?.full_name 
+          || '';
         
-        let autoCompanyAddress = appData?.establishment_address 
+        let autoCompanyAddress = clientFullAddr 
           || siteHeadOffice 
-          || clientFullAddr 
           || clientData?.address 
           || appData?.profiles?.address 
+          || appData?.establishment_address 
           || siteFullAddr 
           || '';
 
@@ -306,9 +329,17 @@ export default function AdminCreateLogsheet() {
 
         if (logsheetObj && logsheetObj._id) {
           setCurrentLogsheet(logsheetObj);
+          
+          let resolvedCompanyName = logsheetObj.company_name;
+          if (!resolvedCompanyName || (resolvedCompanyName === autoSiteName && autoCompanyName && autoCompanyName !== autoSiteName)) {
+            resolvedCompanyName = autoCompanyName;
+          }
+
           setForm(f => ({
             ...f,
             ...logsheetObj,
+            site_name: logsheetObj.site_name || autoSiteName,
+            company_name: resolvedCompanyName || autoCompanyName,
             company_address: logsheetObj.company_address || autoCompanyAddress,
             manufacturing_address: logsheetObj.manufacturing_address || autoManufacturingAddress,
             confirmed: false
@@ -1524,84 +1555,87 @@ export default function AdminCreateLogsheet() {
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Site Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
+                      Auto-populated from Application (Editable)
                     </span>
                   </div>
                   <input 
                     required 
-                    readOnly 
                     type="text" 
                     className="form-control" 
-                    value={form.site_name || application?.site_id?.name || application?.site_name || 'Main Manufacturing Site'} 
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    value={form.site_name || ''} 
+                    onChange={e => setForm(f => ({ ...f, site_name: e.target.value }))}
+                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
+                    placeholder="Site Name"
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
+                      Auto-populated from Client Profile (Editable)
                     </span>
                   </div>
                   <input 
                     required 
-                    readOnly 
                     type="text" 
                     className="form-control" 
-                    value={form.company_name} 
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    value={form.company_name || ''} 
+                    onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
+                    placeholder="Registered Company Name"
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
+                      Auto-populated (Editable)
                     </span>
                   </div>
                   <input 
                     required 
-                    readOnly 
                     type="text" 
                     className="form-control" 
-                    value={form.contact_person} 
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    value={form.contact_person || ''} 
+                    onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
+                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 700 }}
+                    placeholder="Contact Person Name"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Company Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
+                      Auto-populated (Editable)
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
-                    value={form.company_address}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    value={form.company_address || ''}
+                    onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
+                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 600 }}
                     placeholder="Registered company address"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated (Locked)
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 600 }}>
+                      Auto-populated (Editable)
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
-                    value={form.manufacturing_address}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    value={form.manufacturing_address || ''}
+                    onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
+                    style={{ backgroundColor: '#fff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 600 }}
                     placeholder="Manufacturing site address"
                   />
                 </div>

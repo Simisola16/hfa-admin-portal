@@ -336,6 +336,8 @@ export default function ApplicationProcessing() {
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
   const isRenewal = app.application_type === 'renewal';
+  const activeAudit = (Array.isArray(audits) ? audits[0] : audits?.data?.[0]) || null;
+  const hasActiveNc = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0) || (activeAudit?.nc_reports && activeAudit.nc_reports.length > 0) || Boolean(activeAudit?.nc_text && !activeAudit?.nc_closed);
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';

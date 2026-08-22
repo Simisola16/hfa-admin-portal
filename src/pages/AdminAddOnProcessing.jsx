@@ -21,7 +21,7 @@ const STATUS_LABELS = {
   all_forms_received: 'All Product Approval Form Received',
   logsheet_created: 'Create Logsheet',
   waiting_sharia_signature: 'Waiting For Committee Signature',
-  product_form_approved: 'Product Form Approved',
+  product_form_approved: 'Product Approved',
   ready_for_certificate: 'Ready For Certificate',
   completed: 'Certificate'
 };
@@ -48,7 +48,7 @@ const FLOW_STEPS = [
   { id: 'all_forms_received', label: 'Product Form Received' },
   { id: 'logsheet_created', label: 'Create Logsheet' },
   { id: 'waiting_sharia_signature', label: 'Committee Signature' },
-  { id: 'product_form_approved', label: 'Product Form Approved' },
+  { id: 'product_form_approved', label: 'Product Approved' },
   { id: 'ready_for_certificate', label: 'Ready for Cert' },
   { id: 'completed', label: 'Certificate' }
 ];
@@ -176,7 +176,7 @@ export default function AdminAddOnProcessing() {
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${app._id}/approve-form`);
-      toast.success('Product Form approved! Application is Ready for Certificate.');
+      toast.success('Products approved! Application is Ready for Certificate.');
       setActionType(null);
       fetchApp(true);
     } catch (err) {
@@ -1236,12 +1236,12 @@ export default function AdminAddOnProcessing() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }}>
             <div className="modal-header">
-              <span className="modal-title">Approve Product Form</span>
+              <span className="modal-title">Approve Products</span>
               <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ padding: 24 }}>
               <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>
-                Are you sure you want to approve the Product Form for this application? This will transition the application status to <strong>Product Form Approved & Ready for Certificate</strong>.
+                Are you sure you want to approve the products for this application? This will transition the application status to <strong>Product Approved &amp; Ready for Certificate</strong>.
               </p>
             </div>
             <div className="modal-footer">

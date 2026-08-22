@@ -21,7 +21,7 @@ const STATUS_LABELS = {
   all_forms_received: 'Product Form Received',
   logsheet_created: 'Logsheet Created',
   waiting_sharia_signature: "Committee Signature",
-  product_form_approved: 'Product Form Approved',
+  product_form_approved: 'Product Approved',
   ready_for_certificate: 'Ready for Cert',
   completed: 'Completed'
 };
@@ -35,7 +35,7 @@ const STATUS_CONFIG = {
   all_forms_received: { label: 'Product Form Received', bg: '#ccfbf1', color: '#115e59', border: '#99f6e4', dot: '#14b8a6' },
   logsheet_created: { label: 'Logsheet Created', bg: '#e0f2fe', color: '#075985', border: '#bae6fd', dot: '#0ea5e9' },
   waiting_sharia_signature: { label: "Committee Signature", bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
-  product_form_approved: { label: 'Product Form Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
+  product_form_approved: { label: 'Product Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
   ready_for_certificate: { label: 'Ready for Cert', bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', dot: '#6366f1' },
   completed: { label: 'Completed', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' }
 };
@@ -809,7 +809,7 @@ export default function AdminAddOnApplications() {
             <div className="modal-body" style={{ padding: 24 }}>
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14, color: '#166534', fontSize: 13, lineHeight: 1.6 }}>
                 <Check size={16} style={{ display: 'inline', marginRight: 6 }} />
-                Approving the Product Form will advance this application to <strong>Product Form Approved</strong> then to <strong>Ready For Certificate</strong>.
+                Approving the products will advance this application to <strong>Product Approved</strong> then to <strong>Ready For Certificate</strong>.
               </div>
               <div style={{ marginTop: 16, fontSize: 13, color: '#475569' }}>
                 <strong>Client:</strong> {activeApp.client_id?.company_name || activeApp.client_id?.full_name}<br />
@@ -819,7 +819,7 @@ export default function AdminAddOnApplications() {
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
               <button className="btn btn-primary" onClick={handleApproveForm} disabled={submitting} style={{ background: '#16a34a', borderColor: '#16a34a' }}>
-                {submitting ? 'Approving...' : 'Approve Product Form'}
+                {submitting ? 'Approving...' : 'Approve Products'}
               </button>
             </div>
           </div>

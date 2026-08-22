@@ -70,6 +70,8 @@ export default function AdminCreateLogsheet() {
     comment: '', confirmed: false
   });
 
+  const [uploadingReport, setUploadingReport] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, [entityId]);
@@ -455,26 +457,37 @@ export default function AdminCreateLogsheet() {
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
+    setUploadingReport(true);
+    const toastId = toast.loading(`Uploading ${files.length} document(s)...`);
     try {
-      toast.loading(`Uploading ${files.length} audit report file(s)...`, { id: 'upload' });
       const uploadedDocs = [];
       for (const file of files) {
-        const url = await api.uploadPdf(file, 'logsheets');
+        const url = await api.uploadPdf(file, 'audit_reports');
+        if (!url) throw new Error(`Upload failed for file "${file.name}"`);
         uploadedDocs.push({
           name: file.name,
           url,
           uploaded_at: new Date()
         });
       }
-      setForm(prev => ({
-        ...prev,
-        document_url: prev.document_url || uploadedDocs[0]?.url || '',
-        document_urls: [...(prev.document_urls || []), ...uploadedDocs],
-        audit_reports: [...(prev.audit_reports || []), ...uploadedDocs]
-      }));
-      toast.success(`${files.length} audit report document(s) uploaded!`, { id: 'upload' });
+      setForm(prev => {
+        const existing = Array.isArray(prev.document_urls) ? prev.document_urls : [];
+        const combined = [...existing, ...uploadedDocs];
+        return {
+          ...prev,
+          document_url: combined[0]?.url || '',
+          document_urls: combined,
+          audit_reports: combined
+        };
+      });
+      toast.success(`${files.length} audit report document(s) uploaded successfully!`, { id: toastId });
     } catch (err) {
-      toast.error('Upload failed', { id: 'upload' });
+      console.error('Audit report upload error:', err);
+      toast.error(err.message || 'Upload failed. Please try again.', { id: toastId });
+    } finally {
+      setUploadingReport(false);
+      e.target.value = '';
     }
   };
 
@@ -1765,9 +1778,9 @@ export default function AdminCreateLogsheet() {
                         <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', margin: 0 }}>
                           Upload Audit Reports <span style={{ color: '#dc2626' }}>*</span>
                         </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>
-                          <UploadCloud size={14} /> Add Audit Reports
-                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: uploadingReport ? '#94a3b8' : 'var(--primary)', fontWeight: 600, cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
+                          <UploadCloud size={14} /> {uploadingReport ? 'Uploading...' : 'Add Audit Reports'}
+                          <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
                         </label>
                       </div>
 
@@ -1799,6 +1812,11 @@ export default function AdminCreateLogsheet() {
                               </button>
                             </div>
                           ))}
+                          
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', marginTop: 4 }}>
+                            <UploadCloud size={14} /> + Upload another document
+                            <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                          </label>
                         </div>
                       ) : form.document_url ? (
                         <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
@@ -1809,11 +1827,13 @@ export default function AdminCreateLogsheet() {
                           <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => setForm({ ...form, document_url: '', document_urls: [], audit_reports: [] })}>Remove</button>
                         </div>
                       ) : (
-                        <label style={{ display: 'flex', flexDirection: 'column', padding: 22, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: 'pointer', background: '#fff' }}>
+                        <label style={{ display: 'flex', flexDirection: 'column', padding: 22, alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: 10, cursor: uploadingReport ? 'not-allowed' : 'pointer', background: '#fff' }}>
                           <UploadCloud size={26} color="#0d9488" style={{ marginBottom: 6 }} />
-                          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>Click or Drag to Upload Audit Reports (Required)</div>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                            {uploadingReport ? 'Uploading Documents...' : 'Click or Drag to Upload Audit Reports (Required)'}
+                          </div>
                           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Select 1 or more files (PDF, DOCX, PNG)</div>
-                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                          <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
                         </label>
                       )}
                     </div>

@@ -158,6 +158,14 @@ export default function AdminCreateLogsheet() {
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
         const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
 
+        // FT Assignment extraction for Product Logsheet
+        const assignedFTsList = Array.isArray(addonData.assigned_food_techs) && addonData.assigned_food_techs.length > 0
+          ? addonData.assigned_food_techs.map(ft => ft.full_name || ft.name || ft.email).filter(Boolean).join(', ')
+          : (addonData.assigned_food_tech?.full_name || addonData.assigned_food_tech?.name || '');
+
+        const autoFTs = assignedFTsList || (user?.full_name ? `${user.full_name} (Food Technologist)` : 'Food Technologist');
+        const autoAuditType = addonData.application_type || 'Add-on Products Certification';
+
         // Check if logsheet already exists
         let addonLogsheet = null;
         try {
@@ -176,10 +184,13 @@ export default function AdminCreateLogsheet() {
           setForm(f => ({
             ...f,
             ...addonLogsheet,
-            site_name: addonLogsheet.site_name || autoSiteName,
-            company_name: resolvedCompanyName || autoCompanyName,
-            company_address: addonLogsheet.company_address || autoCompanyAddress,
-            manufacturing_address: addonLogsheet.manufacturing_address || autoManufacturingAddress,
+            site_name: (addonLogsheet.site_name && addonLogsheet.site_name.trim()) ? addonLogsheet.site_name : autoSiteName,
+            company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
+            company_address: (addonLogsheet.company_address && addonLogsheet.company_address.trim()) ? addonLogsheet.company_address : autoCompanyAddress,
+            manufacturing_address: (addonLogsheet.manufacturing_address && addonLogsheet.manufacturing_address.trim()) ? addonLogsheet.manufacturing_address : autoManufacturingAddress,
+            audit_type: addonLogsheet.audit_type || autoAuditType,
+            auditors: addonLogsheet.auditors || autoFTs,
+            ncs_close: addonLogsheet.ncs_close || 'N/A - Product Evaluation',
             confirmed: false
           }));
         } else {
@@ -198,8 +209,14 @@ export default function AdminCreateLogsheet() {
             current_cycle_start: todayStr,
             original_cycle_start: addonData.created_at ? new Date(addonData.created_at).toISOString().split('T')[0] : todayStr,
 
-            audit_type: 'Add-on Products Certification',
+            audit_type: autoAuditType,
             audit_date: todayStr,
+            auditors: autoFTs,
+            ncs_close: 'N/A - Product Evaluation',
+            docs_satisfactory: 'Satisfactory - all product specifications and formulations verified',
+            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
+            reviewed_by: user?.full_name || 'HFA Food Technology Dept',
+            reviewer_name: user?.full_name || 'Food Technologist Reviewer',
             review_date: todayStr,
             annual_certificate: 'No',
             batch_certificate: 'No',
@@ -757,11 +774,11 @@ export default function AdminCreateLogsheet() {
       return;
     }
     if (!form.auditors?.trim()) {
-      toast.error('Auditor(s) are required (Tab 2)');
+      toast.error(isAddon ? 'Assigned FT is required (Tab 2)' : 'Auditor(s) are required (Tab 2)');
       setActiveTab(2);
       return;
     }
-    if (!form.ncs_close?.trim()) {
+    if (!isAddon && !form.ncs_close?.trim()) {
       toast.error('NCS Close status is required (Tab 2)');
       setActiveTab(2);
       return;
@@ -1134,14 +1151,14 @@ export default function AdminCreateLogsheet() {
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Auditor(s) Assigned</div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{isAddon ? 'FT(s) Assigned' : 'Auditor(s) Assigned'}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.auditors || '—'}</div>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Non-Conformances (NCS Close)</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: form.ncs_close?.toLowerCase().includes('closed') || form.ncs_close?.toLowerCase().includes('no') ? '#15803d' : '#b45309', marginTop: 3 }}>
-                    {form.ncs_close || 'No NCs Flagged'}
+                    {form.ncs_close || (isAddon ? 'N/A - Product Evaluation' : 'No NCs Flagged')}
                   </div>
                 </div>
 
@@ -1857,25 +1874,66 @@ export default function AdminCreateLogsheet() {
             {activeTab === 2 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 <div className="form-group">
-                  <label className="form-label">Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
-                    <option value="New">New</option>
-                    <option value="Surveillance">Surveillance</option>
-                    <option value="Re-audit">Re-audit</option>
-                    <option value="Add-on Product Review">Add-on Product Review</option>
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated
+                    </span>
+                  </div>
+                  {isAddon ? (
+                    <input
+                      required
+                      readOnly
+                      type="text"
+                      className="form-control"
+                      value={form.audit_type || 'Add-on Products Certification'}
+                      style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    />
+                  ) : (
+                    <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
+                      <option value="New">New</option>
+                      <option value="Surveillance">Surveillance</option>
+                      <option value="Re-audit">Re-audit</option>
+                      <option value="Add-on Product Review">Add-on Product Review</option>
+                    </select>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Audit Date <span style={{ color: '#dc2626' }}>*</span></label>
                   <input required type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Auditors <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" placeholder="e.g. John Doe, Jane Smith" value={form.auditors} onChange={e => setForm({ ...form, auditors: e.target.value })} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isAddon ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
+                    {isAddon && (
+                      <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Lock size={12} /> Assigned FT
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    required
+                    readOnly={isAddon}
+                    type="text"
+                    className="form-control"
+                    placeholder={isAddon ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
+                    value={form.auditors || ''}
+                    onChange={e => setForm({ ...form, auditors: e.target.value })}
+                    style={isAddon ? { backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 } : {}}
+                  />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">NCS Close (if any) <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.ncs_close} onChange={e => setForm({ ...form, ncs_close: e.target.value })} placeholder="e.g. No NCs flagged / All NCs closed" />
+                  <label className="form-label">
+                    NCS Close (if any) {!isAddon && <span style={{ color: '#dc2626' }}>*</span>}
+                  </label>
+                  <input
+                    required={!isAddon}
+                    type="text"
+                    className="form-control"
+                    value={form.ncs_close || ''}
+                    onChange={e => setForm({ ...form, ncs_close: e.target.value })}
+                    placeholder={isAddon ? 'e.g. N/A - Product Evaluation (Optional)' : 'e.g. No NCs flagged / All NCs closed'}
+                  />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Audit Documentation reviewed and found satisfactory <span style={{ color: '#dc2626' }}>*</span></label>

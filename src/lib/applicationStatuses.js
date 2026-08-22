@@ -110,4 +110,4 @@ export const STATUS_BADGE = {
  */
 export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];
 
-// HFA yjj, h
+

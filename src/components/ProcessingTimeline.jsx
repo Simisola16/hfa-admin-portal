@@ -147,8 +147,23 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   if (normStatus === 'dates_rejected') effectiveStatus = 'dates_proposed';
   if (normStatus === 'audit_report_submitted') effectiveStatus = 'nc_closed';
 
+  let mappedStatus = effectiveStatus;
+  if (isRenewal) {
+    if (mappedStatus === 'logsheet_created') {
+      mappedStatus = 'audit_successful';
+    } else if (mappedStatus === 'logsheet_signed' || mappedStatus === 'application_successful') {
+      mappedStatus = 'ready_for_certificate';
+    }
+  } else {
+    if (mappedStatus === 'logsheet_created') {
+      mappedStatus = 'audit_successful';
+    } else if (mappedStatus === 'logsheet_signed') {
+      mappedStatus = 'application_successful';
+    }
+  }
+
   const currentOrderIdx = STATUS_ORDER.indexOf(normStatus);
-  const currentIndex = stepsToShow.indexOf(effectiveStatus);
+  const currentIndex = stepsToShow.indexOf(mappedStatus);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;

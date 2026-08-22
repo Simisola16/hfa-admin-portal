@@ -1638,12 +1638,38 @@ export default function AdminCreateLogsheet() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="email" className="form-control" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="name@company.com" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input 
+                    required 
+                    readOnly 
+                    type="email" 
+                    className="form-control" 
+                    value={form.contact_email || ''} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    placeholder="name@company.com" 
+                  />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nature of the business <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.nature_of_business} onChange={e => setForm({ ...form, nature_of_business: e.target.value })} placeholder="e.g. Halal Food Production" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Nature of the business <span style={{ color: '#dc2626' }}>*</span></label>
+                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Lock size={12} /> Auto-populated (Locked)
+                    </span>
+                  </div>
+                  <input 
+                    required 
+                    readOnly 
+                    type="text" 
+                    className="form-control" 
+                    value={form.nature_of_business || ''} 
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    placeholder="e.g. Halal Food Production" 
+                  />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Product Category <span style={{ color: '#dc2626' }}>*</span></label>

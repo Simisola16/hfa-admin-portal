@@ -18,6 +18,8 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const auditNcReports = (Array.isArray(audits) ? audits : []).flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
   const allNcReports = appNcReports.length > 0 ? appNcReports : auditNcReports;
   const hasNc = allNcReports.length > 0;
+  const isNcFlagged = normStatus === 'nc_flagged';
+  const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
 
   const isFastTrack = app?.application_type === 'renewal' || app?.application_type === 'surveillance';
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);

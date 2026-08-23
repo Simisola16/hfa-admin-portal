@@ -359,7 +359,7 @@ export default function AuditManageModal({
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           
           {/* Audit Target Overview */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', marginBottom: 18 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company &amp; Site</div>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
@@ -369,11 +369,6 @@ export default function AuditManageModal({
                 Site: <strong>{currentApp?.site?.name || currentApp?.site_name || currentApp?.establishment_name || 'Main Facility'}</strong>
               </div>
             </div>
-            {currentApp?.application_number && (
-              <span style={{ fontSize: 11.5, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: 6 }}>
-                Ref: {currentApp.application_number}
-              </span>
-            )}
           </div>
 
           {isDualStage && (

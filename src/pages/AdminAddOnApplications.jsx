@@ -68,6 +68,9 @@ export default function AdminAddOnApplications() {
   const [notes, setNotes] = useState('');
 
   const [selectedFtIds, setSelectedFtIds] = useState([]);
+  const [customFtName, setCustomFtName] = useState('');
+  const [customFtEmail, setCustomFtEmail] = useState('');
+  const [customFtNotes, setCustomFtNotes] = useState('');
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
 
@@ -99,6 +102,9 @@ export default function AdminAddOnApplications() {
     setNotes('');
     const preSelected = (app.assigned_food_techs || []).map(ft => (ft._id || ft).toString());
     setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
+    setCustomFtName(app.assigned_ft_custom?.name || app.assigned_ft_details || '');
+    setCustomFtEmail(app.assigned_ft_custom?.email || '');
+    setCustomFtNotes(app.assigned_ft_custom?.notes || '');
   };
 
   const toggleFt = (ftId) => {
@@ -123,12 +129,24 @@ export default function AdminAddOnApplications() {
   };
 
   const handleAssignFt = async () => {
-    if (selectedFtIds.length === 0) return toast.error('Please select at least one Food Technologies staff member.');
+    if (selectedFtIds.length === 0 && !customFtName.trim()) {
+      return toast.error('Please select at least one FT staff member or type FT staff details.');
+    }
     setSubmitting(true);
     try {
-      await api.put(`/api/add-on-applications/${activeApp._id}/assign-ft`, { assigned_food_techs: selectedFtIds });
-      toast.success(`${selectedFtIds.length} FT staff member(s) assigned successfully!`);
-      closeModal(); fetchApps();
+      await api.put(`/api/add-on-applications/${activeApp._id}/assign-ft`, {
+        assigned_food_techs: selectedFtIds,
+        custom_ft_name: customFtName.trim(),
+        custom_ft_email: customFtEmail.trim(),
+        custom_ft_notes: customFtNotes.trim(),
+        assigned_ft_details: customFtName.trim()
+      });
+      toast.success('Food Technologies staff details assigned successfully!');
+      closeModal();
+      setCustomFtName('');
+      setCustomFtEmail('');
+      setCustomFtNotes('');
+      fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally { setSubmitting(false); }
@@ -225,9 +243,11 @@ export default function AdminAddOnApplications() {
   const meta = getViewMeta();
 
   const getAssignedFtNames = (app) => {
-    const arr = app.assigned_food_techs || [];
-    if (arr.length > 0) return arr.map(ft => ft.full_name || ft).join(', ');
-    if (app.assigned_food_tech?.full_name) return app.assigned_food_tech.full_name;
+    const arr = (app.assigned_food_techs || []).map(ft => ft.full_name || ft.name || (typeof ft === 'string' ? ft : null)).filter(Boolean);
+    if (app.assigned_ft_custom?.name) arr.push(app.assigned_ft_custom.name);
+    else if (app.assigned_ft_details) arr.push(app.assigned_ft_details);
+    else if (app.assigned_food_tech?.full_name) arr.push(app.assigned_food_tech.full_name);
+    if (arr.length > 0) return arr.join(', ');
     return null;
   };
 
@@ -728,40 +748,41 @@ export default function AdminAddOnApplications() {
         </div>
       )}
 
-      {/* Assign FT — Multi-Select */}
+      {/* Assign FT — Select Registered or Type Custom Details */}
       {activeApp && actionType === 'assign_ft' && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 500 }}>
+          <div className="modal" style={{ maxWidth: 540 }}>
             <div className="modal-header">
               <span className="modal-title">Assign Food Technologies Staff</span>
               <button className="modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            <div className="modal-body" style={{ padding: 24 }}>
-              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 12, fontSize: 13, color: '#0369a1', marginBottom: 20 }}>
+            <div className="modal-body" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 12, fontSize: 13, color: '#0369a1' }}>
                 <strong>{activeApp.client_id?.company_name || activeApp.client_id?.full_name}</strong><br />
                 <span style={{ fontSize: 12 }}>Cert: {activeApp.certificate_id?.certificate_number} · {(activeApp.products || []).length} product(s)</span>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">
-                  Select FT Staff Members <span>*</span>
+              {/* Option 1: Select Registered FT Staff */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 8 }}>
+                  1. Select Registered FT Staff
                   <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
-                    {selectedFtIds.length > 0 ? `${selectedFtIds.length} selected` : '— select one or more'}
+                    {selectedFtIds.length > 0 ? `(${selectedFtIds.length} selected)` : '— select one or more'}
                   </span>
                 </label>
 
                 {ftUsers.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#ef4444', padding: 12, background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>
-                    No Food Technologies staff found. Create a user with role "food_tech" first.
+                  <div style={{ fontSize: 12, color: '#64748b', padding: '10px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    No registered food_tech user accounts in system. You can type FT details below.
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                     {ftUsers.map(ft => {
                       const isSelected = selectedFtIds.includes(String(ft._id));
                       return (
                         <label key={ft._id} style={{
-                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                          borderRadius: 10, border: `2px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                          display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                          borderRadius: 8, border: `1.5px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
                           background: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', transition: 'all 0.15s'
                         }}>
                           <input
@@ -770,28 +791,86 @@ export default function AdminAddOnApplications() {
                             onChange={() => toggleFt(ft._id)}
                             style={{ width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }}
                           />
-                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: isSelected ? '#2563eb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: isSelected ? 'white' : '#64748b' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: isSelected ? '#2563eb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: isSelected ? 'white' : '#64748b' }}>
                               {(ft.full_name || ft.email || '?').charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#1d4ed8' : '#0f172a' }}>{ft.full_name}</div>
                             <div style={{ fontSize: 11, color: '#64748b' }}>{ft.email}</div>
                           </div>
-                          {isSelected && <Check size={14} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
+                          {isSelected && <Check size={14} style={{ marginLeft: 'auto', color: '#2563eb', flexShrink: 0 }} />}
                         </label>
                       );
                     })}
                   </div>
                 )}
               </div>
+
+              {/* Option 2: Type FT Details Directly */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 8 }}>
+                  2. Or Type FT Staff Details Directly
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
+                    (Enter name, email, or notes to assign)
+                  </span>
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                      FT Staff Name
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Dr. Lasun Adebayo"
+                      value={customFtName}
+                      onChange={e => setCustomFtName(e.target.value)}
+                      style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                      FT Staff Email
+                    </label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      placeholder="e.g. lasun@hfa.org"
+                      value={customFtEmail}
+                      onChange={e => setCustomFtEmail(e.target.value)}
+                      style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                    Specialization / Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Lead Food Tech / Product Formulation Review"
+                    value={customFtNotes}
+                    onChange={e => setCustomFtNotes(e.target.value)}
+                    style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                  />
+                </div>
+              </div>
+
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAssignFt} disabled={submitting || selectedFtIds.length === 0}
-                style={{ background: '#2563eb', borderColor: '#2563eb' }}>
-                {submitting ? 'Assigning...' : `Assign ${selectedFtIds.length > 0 ? selectedFtIds.length : ''} FT Staff`}
+              <button
+                className="btn btn-primary"
+                onClick={handleAssignFt}
+                disabled={submitting || (selectedFtIds.length === 0 && !customFtName.trim())}
+                style={{ background: '#2563eb', borderColor: '#2563eb' }}
+              >
+                {submitting ? 'Assigning...' : `Assign FT Staff`}
               </button>
             </div>
           </div>

@@ -55,7 +55,7 @@ const NAV_SECTIONS = [
           { label: 'Upcoming Schedule',   path: '/audits?filter=upcoming' },
           { label: 'Dates Pending',       path: '/audits?filter=pending' },
           { label: 'NC Management',       path: '/audits?filter=ncs' },
-          { label: 'Audit Reports Repo',  path: '/audit-reports' },
+          { label: 'Audit Reports',       path: '/audit-reports' },
         ],
       },
       { icon: PenTool,      label: 'Agreements',  path: '/agreements' },

@@ -14,8 +14,9 @@ import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
  */
 export default function ProcessingTimeline({ status, statusHistory = [], category = '', applicationType = '' }) {
   const isRejected = status === 'rejected';
-  const isRenewal = (applicationType || '').toLowerCase() === 'renewal';
-  const isGSO = category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const isSurveillance = (applicationType || '').toLowerCase() === 'surveillance';
+  const isRenewal = (applicationType || '').toLowerCase() === 'renewal' || isSurveillance;
+  const isGSO = category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurveillance;
 
   // Build a lookup from statusHistory entries for quick timestamp/note access
   const historyMap = {};
@@ -41,7 +42,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   // If application is not rejected, we can show subsequent stages
   if (!appRejectedInHistory) {
     if (isRenewal) {
-      // Renewal & GSO Renewal Flow:
+      // Renewal & GSO Surveillance Flow:
       // Direct to Audit Scheduling after Application Accepted (No Proposal, No Pre-Audit Invoice, No Agreement)
       stepsToShow.push(
         'dates_proposed',
@@ -62,7 +63,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
         stepsToShow.push('nc_closed');
       }
 
-      // Downstream renewal steps (Invoice -> Payment -> Logsheet -> Certificate)
+      // Downstream renewal/surveillance steps (Invoice -> Payment -> Logsheet -> Certificate / Letter)
       if (status !== 'on_hold') {
         stepsToShow.push(
           'invoice_sent',
@@ -132,6 +133,14 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   }
 
   const getStepLabel = (stepKey) => {
+    if (isSurveillance) {
+      if (stepKey === 'submitted') return 'Surveillance Application Submitted';
+      if (stepKey === 'approved') return 'Surveillance Application Accepted';
+      if (stepKey === 'invoice_sent') return 'Surveillance Invoice Sent';
+      if (stepKey === 'payment_received') return 'Surveillance Payment Received';
+      if (stepKey === 'ready_for_certificate') return 'Ready for Surveillance Letter';
+      if (stepKey === 'certificate_issued') return 'Surveillance Letter Issued';
+    }
     if (isRenewal) {
       if (stepKey === 'submitted') return 'Renewal Application Submitted';
       if (stepKey === 'approved') return 'Renewal Application Accepted';

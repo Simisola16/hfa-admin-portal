@@ -48,6 +48,16 @@ const NAV_SECTIONS = [
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
+      {
+        icon: Calendar, label: 'Audits & NCs', path: '/audits',
+        children: [
+          { label: 'All Audits',          path: '/audits' },
+          { label: 'Upcoming Schedule',   path: '/audits?filter=upcoming' },
+          { label: 'Dates Pending',       path: '/audits?filter=pending' },
+          { label: 'NC Management',       path: '/audits?filter=ncs' },
+          { label: 'Audit Reports Repo',  path: '/audit-reports' },
+        ],
+      },
       { icon: PenTool,      label: 'Agreements',  path: '/agreements' },
       {
         icon: ClipboardList, label: 'Logsheets', path: '/logsheet/manage',

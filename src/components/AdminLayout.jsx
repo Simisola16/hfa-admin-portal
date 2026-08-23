@@ -25,6 +25,8 @@ const pageMeta = {
   '/clients':                     { title: 'Companies',           sub: 'Manage client accounts',         section: 'Applications' },
   '/proposals':                   { title: 'Proposals',           sub: 'Manage client proposals',        section: 'Certification' },
   '/invoices':                    { title: 'Invoices',            sub: 'Manage client invoices',         section: 'Certification' },
+  '/audits':                      { title: 'Audit & NC Management', sub: 'Track audit schedules, teams & non-conformities', section: 'Certification' },
+  '/audit-reports':               { title: 'Audit Reports Repository', sub: 'Inspection reports & NC action sheets', section: 'Certification' },
   '/agreements':                  { title: 'Agreements',          sub: 'Manage certification agreements', section: 'Certification' },
   '/logsheet/accounts':           { title: 'Logsheets',           sub: 'Account approval queue',         section: 'Certification' },
   '/logsheet/products':           { title: 'Logsheets',           sub: 'Product review queue',           section: 'Certification' },

@@ -62,9 +62,9 @@ export default function App() {
             <Route path="/certificates/:id/review" element={<AdminReviewCertificate />} />
             <Route path="/clients" element={<AdminClients />} />
             <Route path="/staff" element={<AdminStaff />} />
-            <Route path="/inspectors" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/audits" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/audit-reports" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/inspectors" element={<Navigate to="/audits" replace />} />
+            <Route path="/audits" element={<AdminAudits />} />
+            <Route path="/audit-reports" element={<AdminAuditReports />} />
             <Route path="/invoices" element={<AdminInvoices />} />
             <Route path="/messages" element={<AdminMessages />} />
             <Route path="/sites" element={<AdminSites />} />

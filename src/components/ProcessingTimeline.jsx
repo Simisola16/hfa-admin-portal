@@ -63,14 +63,14 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
         stepsToShow.push('nc_closed');
       }
 
-      // Downstream renewal/surveillance steps (Invoice -> Payment -> Logsheet -> Certificate / Letter)
+      // Downstream renewal/surveillance steps (Invoice -> Payment -> Logsheet -> Application Successful -> Certificate / Letter)
       if (status !== 'on_hold') {
         stepsToShow.push(
           'invoice_sent',
           'payment_received',
           'logsheet_created',
           'logsheet_signed',
-          'ready_for_certificate',
+          'application_successful',
           'certificate_issued'
         );
       }
@@ -138,7 +138,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
       if (stepKey === 'approved') return 'Surveillance Application Accepted';
       if (stepKey === 'invoice_sent') return 'Surveillance Invoice Sent';
       if (stepKey === 'payment_received') return 'Surveillance Payment Received';
-      if (stepKey === 'ready_for_certificate') return 'Ready for Surveillance Letter';
+      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'certificate_issued') return 'Surveillance Letter Issued';
     }
     if (isRenewal) {
@@ -146,6 +146,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
       if (stepKey === 'approved') return 'Renewal Application Accepted';
       if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
+      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
+      if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
     return STATUS_LABELS[stepKey] || stepKey.replace(/_/g, ' ');
   };
@@ -162,6 +164,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     if (s === 'audit_completed') s = 'audit_successful';
     if (s === 'dates_rejected') s = 'dates_proposed';
     if (s === 'audit_report_submitted') s = 'nc_closed';
+    if (s === 'ready_for_certificate' && stepsToShow.includes('application_successful')) s = 'application_successful';
+    if (s === 'application_successful' && stepsToShow.includes('ready_for_certificate')) s = 'ready_for_certificate';
     return stepsToShow.indexOf(s);
   };
 

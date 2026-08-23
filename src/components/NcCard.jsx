@@ -19,48 +19,34 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const allNcReports = appNcReports.length > 0 ? appNcReports : auditNcReports;
   const hasNc = allNcReports.length > 0;
 
-  const isNcFlagged = normStatus === 'nc_flagged';
-  const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
-  const isNcClosed = !hasActiveNc && (
+  const isFastTrack = app?.application_type === 'renewal' || app?.application_type === 'surveillance';
+  const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
+  const hasCompletedAudit = auditsArr.some(a => ['audit_completed', 'completed', 'audit_successful'].includes(a.status));
+  const isAuditCompletedStatus = ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted'].includes(normStatus);
+
+  const isPostAuditStage = isFastTrack
+    ? ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
+    : (isAuditCompletedStatus || hasCompletedAudit || [
+        'logsheet_created',
+        'logsheet_signed',
+        'application_successful',
+        'agreement_sent',
+        'agreement_signed',
+        'agreement_finalised',
+        'final_invoice_sent',
+        'final_invoice_paid',
+        'ready_for_certificate',
+        'certificate_issued'
+      ].includes(normStatus));
+
+  const isNcClosed = isPostAuditStage && !hasActiveNc && (
     normStatus === 'nc_closed' ||
     normStatus === 'audit_report_submitted' ||
     (allNcReports.length > 0 && allNcReports.every(r => r.status === 'closed')) ||
-    [
-      'invoice_sent',
-      'payment_received',
-      'logsheet_created',
-      'logsheet_signed',
-      'application_successful',
-      'agreement_sent',
-      'agreement_signed',
-      'agreement_finalised',
-      'final_invoice_sent',
-      'final_invoice_paid',
-      'ready_for_certificate',
-      'certificate_issued'
-    ].includes(normStatus)
+    (isFastTrack
+      ? ['invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
+      : ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
   );
-
-  const isPostAuditStage = [
-    'audit_successful',
-    'audit_completed',
-    'nc_flagged',
-    'nc_closed',
-    'audit_report_submitted',
-    'on_hold',
-    'invoice_sent',
-    'payment_received',
-    'logsheet_created',
-    'logsheet_signed',
-    'application_successful',
-    'agreement_sent',
-    'agreement_signed',
-    'agreement_finalised',
-    'final_invoice_sent',
-    'final_invoice_paid',
-    'ready_for_certificate',
-    'certificate_issued'
-  ].includes(normStatus);
 
   const hasClientCorrection = allNcReports.some(r => r.status === 'corrected' || r.client_response || r.correction_document_url || r.client_response_url);
 
@@ -69,8 +55,8 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
     return (
       <div style={{ background: '#f8fafc', opacity: 0.7, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
         <AlertTriangle size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Non-Conformity (NC) &amp; Findings (Pending)</div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Available once audit sessions have commenced or completed</div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Non-Conformity (NC) &amp; Findings (Locked)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Available once audit inspection has commenced or completed</div>
       </div>
     );
   }

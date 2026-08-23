@@ -147,23 +147,39 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   if (normStatus === 'dates_rejected') effectiveStatus = 'dates_proposed';
   if (normStatus === 'audit_report_submitted') effectiveStatus = 'nc_closed';
 
-  let mappedStatus = effectiveStatus;
-  if (isRenewal) {
-    if (mappedStatus === 'logsheet_created') {
-      mappedStatus = 'audit_successful';
-    } else if (mappedStatus === 'logsheet_signed' || mappedStatus === 'application_successful') {
-      mappedStatus = 'ready_for_certificate';
+  // Find the furthest milestone reached across current status and statusHistory
+  let furthestStatus = effectiveStatus;
+  let maxOrder = STATUS_ORDER.indexOf(effectiveStatus);
+
+  (statusHistory || []).forEach(h => {
+    let hStatus = (h.status || '').toLowerCase().replace(/ /g, '_');
+    if (hStatus === 'audit_completed') hStatus = 'audit_successful';
+    if (hStatus === 'dates_rejected') hStatus = 'dates_proposed';
+    if (hStatus === 'audit_report_submitted') hStatus = 'nc_closed';
+
+    const order = STATUS_ORDER.indexOf(hStatus);
+    if (order > maxOrder) {
+      maxOrder = order;
+      furthestStatus = hStatus;
     }
-  } else {
-    if (mappedStatus === 'logsheet_created') {
-      mappedStatus = 'audit_successful';
-    } else if (mappedStatus === 'logsheet_signed') {
-      mappedStatus = 'application_successful';
+  });
+
+  let mappedStatus = furthestStatus;
+  let currentIndex = stepsToShow.indexOf(mappedStatus);
+
+  // If furthestStatus is not explicitly in stepsToShow, find the closest matching step in stepsToShow
+  if (currentIndex === -1) {
+    const currentOrderIdx = STATUS_ORDER.indexOf(mappedStatus);
+    if (currentOrderIdx !== -1) {
+      for (let i = stepsToShow.length - 1; i >= 0; i--) {
+        const stepOrder = STATUS_ORDER.indexOf(stepsToShow[i]);
+        if (stepOrder !== -1 && stepOrder <= currentOrderIdx) {
+          currentIndex = i;
+          break;
+        }
+      }
     }
   }
-
-  const currentOrderIdx = STATUS_ORDER.indexOf(normStatus);
-  const currentIndex = stepsToShow.indexOf(mappedStatus);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
@@ -180,7 +196,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
       {stepsToShow.map((s, idx) => {
         const histEntry = historyMap[s] || 
           (s === 'dates_proposed' ? (historyMap['dates_rejected'] || historyMap['dates_proposed']) : null) ||
-          (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful'] || historyMap['logsheet_created']) : null);
+          (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful']) : null) ||
+          (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null);
         
         let isComplete = false;
         let isCurrent = false;

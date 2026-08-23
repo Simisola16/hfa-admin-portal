@@ -26,12 +26,14 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const isSurveillance = app?.application_type === 'surveillance';
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
   const initForm = (loadedApp) => {
     if (!loadedApp) return;
-    const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-    const yearsToAdd = isThreeYear ? 3 : 1;
+    const isSurv = loadedApp.application_type === 'surveillance';
+    const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurv;
+    const yearsToAdd = isSurv ? 1 : (isThreeYear ? 3 : 1);
     const expiryDate = new Date();
     expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
     const companyName = loadedApp.establishment_name || loadedApp.client_id?.company_name || loadedApp.client_id?.full_name || 'HFA';
@@ -43,8 +45,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
 
     setCertificateForm({
-      certificate_number: generateHfaId(companyName),
-      certificate_type: isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification',
+      certificate_number: isSurv ? `HFA-SURV-${Date.now().toString().slice(-6)}` : generateHfaId(companyName),
+      certificate_type: isSurv ? 'UAE/GSO Halal Surveillance Letter' : (isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification'),
       issue_date: new Date().toISOString().split('T')[0],
       expiry_date: expiryDate.toISOString().split('T')[0],
       products_covered: prods,
@@ -84,7 +86,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
   const handleSubmit = async () => {
     if (!certificateForm.certificate_number.trim()) {
-      toast.error('Please enter a certificate number.');
+      toast.error(isSurveillance ? 'Please enter a Surveillance Letter reference number.' : 'Please enter a certificate number.');
       return;
     }
     if (!certificateForm.issue_date) {
@@ -92,12 +94,30 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       return;
     }
     if (!certificateForm.expiry_date) {
-      toast.error('Please enter the expiry date.');
+      toast.error(isSurveillance ? 'Please enter the next audit / milestone date.' : 'Please enter the expiry date.');
       return;
     }
 
     setSubmitting(true);
     try {
+      const appId = getCleanId(app._id || app.id || app);
+
+      if (isSurveillance) {
+        const formData = new FormData();
+        formData.append('letter_number', certificateForm.certificate_number);
+        formData.append('issue_date', certificateForm.issue_date);
+        formData.append('next_due_date', certificateForm.expiry_date);
+        if (certificateForm.file) {
+          formData.append('letter_file', certificateForm.file);
+        }
+
+        await api.post(`/api/applications/${appId}/issue-surveillance-letter`, formData, true);
+        toast.success('🎉 Official Surveillance Letter issued successfully!');
+        if (onSuccess) onSuccess();
+        onClose();
+        return;
+      }
+
       const formData = new FormData();
       formData.append('certificate_number', certificateForm.certificate_number);
       formData.append('certificate_type', certificateForm.certificate_type);
@@ -114,7 +134,6 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       if (!clientId) {
         throw new Error('Could not identify client ID for this application.');
       }
-      const appId = getCleanId(app._id || app.id || app);
       formData.append('application_id', appId);
       formData.append('client_id', clientId);
       if (app.site_id) {
@@ -139,7 +158,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         navigate('/certificates');
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
+      toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to create certificate.'));
     } finally {
       setSubmitting(false);
     }
@@ -147,54 +166,79 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 520, borderRadius: 14 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ padding: '18px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+      <div className="modal" style={{ maxWidth: 540, borderRadius: 14 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ padding: '18px 24px', background: isSurveillance ? '#f0f9ff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Award size={20} style={{ color: '#047857' }} />
+            {isSurveillance ? (
+              <FileText size={22} style={{ color: '#0284c7' }} />
+            ) : (
+              <Award size={20} style={{ color: '#047857' }} />
+            )}
             <div>
-              <div className="modal-title" style={{ fontSize: 16, fontWeight: 800 }}>Create Certificate for Review</div>
+              <div className="modal-title" style={{ fontSize: 16, fontWeight: 800, color: isSurveillance ? '#0369a1' : '#0f172a' }}>
+                {isSurveillance ? 'Issue Official Surveillance Letter' : 'Create Certificate for Review'}
+              </div>
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                {app.profiles?.company_name || app.establishment_name}
+                {app.profiles?.company_name || app.establishment_name} &bull; {isSurveillance ? 'UAE/GSO 3-Year Halal Scheme' : (app.category || 'Halal Certification')}
               </div>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="modal-body" style={{ maxHeight: '72vh', overflowY: 'auto', padding: 24 }}>
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12, marginBottom: 18, color: '#166534', fontSize: 12.5, lineHeight: 1.5 }}>
+          <div style={{
+            background: isSurveillance ? '#f0f9ff' : '#f0fdf4',
+            border: `1px solid ${isSurveillance ? '#bae6fd' : '#bbf7d0'}`,
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 18,
+            color: isSurveillance ? '#0369a1' : '#166534',
+            fontSize: 12.5,
+            lineHeight: 1.5
+          }}>
             <ShieldCheck size={16} style={{ display: 'inline', marginRight: 6 }} />
-            Creating this certificate will generate an official draft and take you directly to the <strong>Review Certificate Page</strong>, where you can verify all details, edit any field, regenerate the PDF, and send to the client.
+            {isSurveillance ? (
+              <span><strong>Notice:</strong> GSO Surveillance applications do not issue new certificates. Issuing this letter confirms the audit was successful and publishes the official <strong>Surveillance Letter</strong> to the client portal.</span>
+            ) : (
+              <span>Creating this certificate will generate an official draft and take you directly to the <strong>Review Certificate Page</strong>, where you can verify all details, edit any field, regenerate the PDF, and send to the client.</span>
+            )}
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
+            <label className="form-label" style={{ fontWeight: 700 }}>
+              {isSurveillance ? 'Surveillance Letter Ref #' : 'Certificate Number'} <span style={{ color: '#dc2626' }}>*</span>
+            </label>
             <input
               type="text"
               className="form-control"
               value={certificateForm.certificate_number}
               onChange={e => setCertificateForm(f => ({ ...f, certificate_number: e.target.value }))}
-              placeholder="e.g. HFA-CERT-2026-001"
+              placeholder={isSurveillance ? 'e.g. HFA-SURV-2026-001' : 'e.g. HFA-CERT-2026-001'}
               style={{ fontWeight: 700 }}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type / Scheme <span style={{ color: '#dc2626' }}>*</span></label>
-            <select
-              className="form-control"
-              value={certificateForm.certificate_type}
-              onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}
-            >
-              <option value="Halal Certification">Halal Certification (Standard Annual)</option>
-              <option value="UAE/GSO Halal Certification">UAE/GSO Halal Certification (3-Year Scheme)</option>
-              <option value="Add-on Products Certification">Add-on Products Certification</option>
-              <option value="Export Halal Certificate">Export Halal Certificate</option>
-            </select>
-          </div>
+          {!isSurveillance && (
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type / Scheme <span style={{ color: '#dc2626' }}>*</span></label>
+              <select
+                className="form-control"
+                value={certificateForm.certificate_type}
+                onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}
+              >
+                <option value="Halal Certification">Halal Certification (Standard Annual)</option>
+                <option value="UAE/GSO Halal Certification">UAE/GSO Halal Certification (3-Year Scheme)</option>
+                <option value="Add-on Products Certification">Add-on Products Certification</option>
+                <option value="Export Halal Certificate">Export Halal Certificate</option>
+              </select>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+              <label className="form-label" style={{ fontWeight: 700 }}>
+                {isSurveillance ? 'Letter Date' : 'Issue Date'} <span style={{ color: '#dc2626' }}>*</span>
+              </label>
               <input
                 type="date"
                 className="form-control"
@@ -203,7 +247,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+              <label className="form-label" style={{ fontWeight: 700 }}>
+                {isSurveillance ? 'Next Audit / Renewal Date' : 'Expiry Date'} <span style={{ color: '#dc2626' }}>*</span>
+              </label>
               <input
                 type="date"
                 className="form-control"
@@ -214,7 +260,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>Products Covered (Comma-separated)</label>
+            <label className="form-label" style={{ fontWeight: 700 }}>Products / Facility Scope</label>
             <textarea
               className="form-control"
               rows={2}
@@ -225,7 +271,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>Custom PDF Upload (Optional)</label>
+            <label className="form-label" style={{ fontWeight: 700 }}>
+              {isSurveillance ? 'Surveillance Letter PDF Document' : 'Custom PDF Upload (Optional)'}
+            </label>
             <div
               onClick={() => document.getElementById('certificate-file-shared').click()}
               style={{
@@ -234,11 +282,13 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                 background: certificateForm.file ? '#f0fdf4' : '#f8fafc'
               }}
             >
-              <FileText size={30} style={{ color: certificateForm.file ? '#16a34a' : '#94a3b8', margin: '0 auto 8px' }} />
+              <FileText size={30} style={{ color: certificateForm.file ? (isSurveillance ? '#0284c7' : '#16a34a') : '#94a3b8', margin: '0 auto 8px' }} />
               <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
-                {certificateForm.file ? certificateForm.file.name : 'Upload custom PDF or leave empty to auto-generate'}
+                {certificateForm.file ? certificateForm.file.name : (isSurveillance ? 'Upload official Surveillance Letter PDF' : 'Upload custom PDF or leave empty to auto-generate')}
               </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>System will automatically render the official certificate template if empty</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                {isSurveillance ? 'PDF format accepted' : 'System will automatically render the official certificate template if empty'}
+              </div>
               <input
                 id="certificate-file-shared"
                 type="file"
@@ -255,10 +305,17 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             className="btn btn-primary"
             onClick={handleSubmit}
             disabled={submitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, background: '#047857', borderColor: '#047857' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontWeight: 800,
+              background: isSurveillance ? '#0284c7' : '#047857',
+              borderColor: isSurveillance ? '#0284c7' : '#047857'
+            }}
           >
-            <ShieldCheck size={16} />
-            {submitting ? 'Creating Certificate...' : 'Create & Proceed to Review'}
+            {isSurveillance ? <FileText size={16} /> : <ShieldCheck size={16} />}
+            {submitting ? (isSurveillance ? 'Issuing Letter...' : 'Creating Certificate...') : (isSurveillance ? 'Issue Surveillance Letter' : 'Create & Proceed to Review')}
           </button>
         </div>
       </div>

@@ -148,8 +148,12 @@ export default function ApplicationProcessing() {
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
+      const categoryToSet = isSurveillance
+        ? 'UAE/GSO Approved Halal Certification For Exporters To UAE'
+        : (approveCategory || app.category);
+
       const res = await api.put(`/api/applications/${appId}/approve`, {
-        category: approveCategory || app.category
+        category: categoryToSet
       });
       setApp(res.data?.data || res.data || { ...app, status: 'approved' });
       setShowApproveModal(false);
@@ -336,6 +340,9 @@ export default function ApplicationProcessing() {
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
   const isRenewal = app.application_type === 'renewal';
+  const isSurveillance = app.application_type === 'surveillance';
+  const isFastTrack = isRenewal || isSurveillance;
+  const isGSO = app.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurveillance;
   const activeAudit = (Array.isArray(audits) ? audits[0] : audits?.data?.[0]) || null;
   const hasActiveNc = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0) || (activeAudit?.nc_reports && activeAudit.nc_reports.length > 0) || Boolean(activeAudit?.nc_text && !activeAudit?.nc_closed);
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
@@ -437,15 +444,15 @@ export default function ApplicationProcessing() {
     }
 
     // =========================================================================
-    // RENEWAL APPLICATION WORKFLOW
+    // RENEWAL & SURVEILLANCE APPLICATION WORKFLOW (FAST-TRACK)
     // 1. Review (Accept, Reject, Put on Hold)
-    // 2. Audit (Manage Audit, Propose Dates, Conduct Audit, NC Flag & Close)
-    // 3. Invoice (Send Renewal Invoice, Client Pays, Admin Confirms Payment)
+    // 2. Audit (Manage Audit, Propose Dates, Conduct 2-Stage Audit, NC Flag & Close)
+    // 3. Invoice (Send Post-Audit Invoice, Client Pays, Admin Confirms Payment)
     // 4. Logsheet (Create / Sign LogSheet, Mark Logsheet Done)
-    // 5. Waiting for Certificate (Issue Certificate)
-    // 6. Certificate (Issued)
+    // 5. Waiting for Certificate / Letter (Issue Certificate / Surveillance Letter)
+    // 6. Complete (Certificate / Letter Issued)
     // =========================================================================
-    const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+    const isDualStage = isGSO;
     const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
     const stage2 = audits?.find(a => a.stage === 2);
     const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
@@ -453,8 +460,8 @@ export default function ApplicationProcessing() {
       ? (stage1?.status === 'audit_completed' && isStage2Ready)
       : (status === 'audit_assigned' || stage1?.status === 'auditors_assigned');
 
-    if (isRenewal) {
-      // 2. Audit Scheduling & Execution (Directly after Accept)
+    if (isFastTrack) {
+      // 2. Audit Scheduling & Execution (Directly after Accept — No Proposal, No Pre-Audit Invoice, No Agreement)
       if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
         if (canCompleteAudit) {
           return (
@@ -464,7 +471,7 @@ export default function ApplicationProcessing() {
                 style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
                 onClick={() => setShowAuditModal(true)}
               >
-                <Calendar size={16} /> Manage Audit
+                <Calendar size={16} /> Manage Audit {isDualStage ? '(2 Stages)' : ''}
               </button>
               <button
                 className="btn btn-primary"
@@ -484,7 +491,7 @@ export default function ApplicationProcessing() {
             style={{ gap: 8, background: '#ea580c' }}
             onClick={() => setShowAuditModal(true)}
           >
-            <Calendar size={16} /> Manage Audit
+            <Calendar size={16} /> Manage Audit {isDualStage ? '(2 Stages)' : ''}
           </button>
         );
       }
@@ -514,29 +521,29 @@ export default function ApplicationProcessing() {
       }
 
       // 3. Invoice Stage (Post-Audit / NC Closed)
-      const renewalInvoice = initialInvoice || invoice;
-      const isRenewalInvoicePaid = renewalInvoice?.status === 'paid' || status === 'payment_received';
+      const fastTrackInvoice = initialInvoice || invoice;
+      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received';
 
-      if (['nc_closed', 'audit_report_submitted'].includes(status) && !renewalInvoice) {
+      if (['nc_closed', 'audit_report_submitted'].includes(status) && !fastTrackInvoice) {
         return (
           <button
             className="btn btn-primary"
             style={{ gap: 8, background: '#854d0e' }}
             onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
           >
-            <Receipt size={16} /> Send Renewal Invoice
+            <Receipt size={16} /> {isSurveillance ? 'Send Surveillance Invoice' : 'Send Renewal Invoice'}
           </button>
         );
       }
 
-      if (status === 'invoice_sent' && !isRenewalInvoicePaid) {
+      if (status === 'invoice_sent' && !isFastTrackInvoicePaid) {
         return (
           <button
             className="btn btn-primary"
             style={{ gap: 8, background: '#854d0e' }}
             onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
           >
-            <Receipt size={16} /> Resend Renewal Invoice
+            <Receipt size={16} /> {isSurveillance ? 'Resend Surveillance Invoice' : 'Resend Renewal Invoice'}
           </button>
         );
       }
@@ -544,7 +551,7 @@ export default function ApplicationProcessing() {
       // 4. LogSheet Stage (Post-Invoice Payment)
       const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-      if (isRenewalInvoicePaid || ['payment_received', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
+      if (isFastTrackInvoicePaid || ['payment_received', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
         if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
           const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
           return (
@@ -560,8 +567,19 @@ export default function ApplicationProcessing() {
         }
       }
 
-      // 5. Waiting for Certificate Stage
+      // 5. Waiting for Letter / Certificate Stage
       if (status === 'ready_for_certificate' || status === 'Waiting For Certificate' || (isLogsheetSigned && status !== 'certificate_issued')) {
+        if (isSurveillance) {
+          return (
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => setShowCertificateModal(true)}
+            >
+              <FileText size={16} /> Issue Surveillance Letter
+            </button>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -573,8 +591,15 @@ export default function ApplicationProcessing() {
         );
       }
 
-      // 6. Certificate Issued
+      // 6. Complete
       if (status === 'certificate_issued') {
+        if (isSurveillance) {
+          return (
+            <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
+              <CheckCircle size={15} /> ✓ Surveillance Letter Issued
+            </span>
+          );
+        }
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
             <CheckCircle size={15} /> ✓ Certificate Issued
@@ -855,10 +880,10 @@ export default function ApplicationProcessing() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
         {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* For non-renewal, show proposal card and initial invoice */}
-          {!isRenewal && <ProposalCard app={app} proposal={proposal} />}
+          {/* For non-fast-track, show proposal card and initial invoice */}
+          {!isFastTrack && <ProposalCard app={app} proposal={proposal} />}
 
-          {!isRenewal && (
+          {!isFastTrack && (
             <InvoiceCard
               app={app}
               invoice={initialInvoice}
@@ -882,8 +907,8 @@ export default function ApplicationProcessing() {
             actionSubmitting={actionSubmitting}
           />
 
-          {/* 3. Renewal Invoice Card (Post-Audit for Renewal) */}
-          {isRenewal && (
+          {/* 3. Renewal / Surveillance Invoice Card (Post-Audit) */}
+          {isFastTrack && (
             <InvoiceCard
               app={app}
               invoice={initialInvoice || invoice}
@@ -904,8 +929,8 @@ export default function ApplicationProcessing() {
             markingDone={markingLogsheetDone}
           />
 
-          {/* For non-renewal: Agreement Card and Final Invoice Card */}
-          {!isRenewal && (
+          {/* For standard only: Agreement Card and Final Invoice Card */}
+          {!isFastTrack && (
             <AgreementCard 
               app={app} 
               agreement={agreement} 
@@ -917,7 +942,7 @@ export default function ApplicationProcessing() {
             />
           )}
 
-          {!isRenewal && (finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {!isFastTrack && (finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}
@@ -1012,16 +1037,27 @@ export default function ApplicationProcessing() {
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
                   Selected Certification Category
                 </label>
-                <select 
-                  className="form-control" 
-                  value={approveCategory || app?.category} 
-                  onChange={e => setApproveCategory(e.target.value)}
-                  disabled={actionSubmitting}
-                >
-                  <option value="Annual Certification – Food and General processing">Annual Certification – Food and General processing</option>
-                  <option value="Annual Certification – Meat Processing">Annual Certification – Meat Processing</option>
-                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">UAE/GSO Approved Halal Certification For Exporters To UAE</option>
-                </select>
+                {isSurveillance ? (
+                  <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 8 }}>
+                    <div style={{ fontWeight: 800, color: '#0369a1', fontSize: 13 }}>
+                      UAE/GSO Approved Halal Certification For Exporters To UAE
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#0284c7', marginTop: 4 }}>
+                      🔒 Category locked: Surveillance applications are exclusively applicable to the UAE/GSO 3-Year Certification Scheme.
+                    </div>
+                  </div>
+                ) : (
+                  <select 
+                    className="form-control" 
+                    value={approveCategory || app?.category} 
+                    onChange={e => setApproveCategory(e.target.value)}
+                    disabled={actionSubmitting}
+                  >
+                    <option value="Annual Certification – Food and General processing">Annual Certification – Food and General processing</option>
+                    <option value="Annual Certification – Meat Processing">Annual Certification – Meat Processing</option>
+                    <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">UAE/GSO Approved Halal Certification For Exporters To UAE</option>
+                  </select>
+                )}
               </div>
             </div>
 

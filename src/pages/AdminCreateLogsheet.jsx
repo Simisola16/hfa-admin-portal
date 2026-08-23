@@ -27,7 +27,7 @@ export default function AdminCreateLogsheet() {
 
   const [signatures, setSignatures] = useState([]);
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
-  const [sigRoles, setSigRoles] = useState([]);
+  const [sigRole, setSigRole] = useState('');
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
@@ -533,19 +533,19 @@ export default function AdminCreateLogsheet() {
     ].filter(r => !r.isSigned && (!isMuftiUser || (r.key === 'Mufti' || r.key === 'Mufti2'))).map(r => r.key);
 
     if (roleToPreselect && unsignedRoles.includes(roleToPreselect)) {
-      setSigRoles([roleToPreselect]);
+      setSigRole(roleToPreselect);
     } else if (unsignedRoles.length > 0) {
-      setSigRoles([unsignedRoles[0]]);
+      setSigRole(unsignedRoles[0]);
     } else {
-      setSigRoles([]);
+      setSigRole('');
     }
     setModalConfirmed(false);
     setShowSignModal(true);
   };
 
   const handleConfirmApplySignature = async () => {
-    if (sigRoles.length === 0) {
-      toast.error('Please select at least one role to sign');
+    if (!sigRole) {
+      toast.error('Please select a single signatory role to sign');
       return;
     }
     if (!modalConfirmed) {
@@ -558,7 +558,7 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    if (isMuftiUser && sigRoles.some(r => r === 'Ceo' || r === 'Manager')) {
+    if (isMuftiUser && (sigRole === 'Ceo' || sigRole === 'Manager')) {
       toast.error('Mufti signatories cannot sign for CEO or Technical Auditor roles.');
       return;
     }
@@ -568,16 +568,16 @@ export default function AdminCreateLogsheet() {
       const signerFullName = user?.full_name || userSignature?.name || user?.username || 'Authorized Signatory';
 
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
-        role: sigRoles,
+        role: sigRole,
         signature_url: userSignature.signature_url,
         signature_name: signerFullName,
         comment: sigComment
       });
-      toast.success(`Logsheet signed successfully as ${sigRoles.join(', ')}!`);
+      toast.success(`Logsheet signed successfully as ${sigRole}!`);
       setShowSignModal(false);
       setModalConfirmed(false);
       fetchData();
-      setSigRoles([]);
+      setSigRole('');
       setSigComment('');
     } catch (err) {
       toast.error(err.message || 'Failed to apply signature');
@@ -2019,19 +2019,24 @@ export default function AdminCreateLogsheet() {
             {/* Modal Body */}
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              {/* Step 1: Select Role */}
+              {/* Step 1: Select Single Role */}
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
-                  1. Select Signatory Role(s) to Execute
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                    1. Select Signatory Role to Execute (Sign One by One)
+                  </label>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: 6, border: '1px solid #a7f3d0' }}>
+                    Single Role Sign
+                  </span>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {[
-                    { key: 'Mufti', label: 'Mufti', isSigned: Boolean(currentLogsheet?.mufti_signature) },
-                    { key: 'Ceo', label: 'CEO', isSigned: Boolean(currentLogsheet?.ceo_signature) },
-                    { key: 'Manager', label: 'Manager (Auditor)', isSigned: Boolean(currentLogsheet?.manager_signature) },
-                    { key: 'Mufti2', label: 'Mufti 2', isSigned: Boolean(currentLogsheet?.mufti2_signature) },
+                    { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(currentLogsheet?.mufti_signature) },
+                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(currentLogsheet?.ceo_signature) },
+                    { key: 'Manager', label: 'Manager (Technical Auditor)', isSigned: Boolean(currentLogsheet?.manager_signature) },
+                    { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(currentLogsheet?.mufti2_signature) },
                   ].map(r => {
-                    const isSelected = sigRoles.includes(r.key);
+                    const isSelected = sigRole === r.key;
                     const isAlreadySigned = r.isSigned;
                     const isRestrictedForMufti = isMuftiUser && (r.key === 'Ceo' || r.key === 'Manager');
                     const isDisabled = isAlreadySigned || isRestrictedForMufti;
@@ -2043,15 +2048,11 @@ export default function AdminCreateLogsheet() {
                         disabled={isDisabled}
                         onClick={() => {
                           if (isDisabled) return;
-                          if (isSelected) {
-                            setSigRoles(sigRoles.filter(role => role !== r.key));
-                          } else {
-                            setSigRoles([...sigRoles, r.key]);
-                          }
+                          setSigRole(r.key);
                         }}
                         style={{
-                          padding: '10px 14px',
-                          borderRadius: 8,
+                          padding: '12px 14px',
+                          borderRadius: 10,
                           border: `1.5px solid ${isDisabled ? '#e2e8f0' : isSelected ? 'var(--primary)' : '#e2e8f0'}`,
                           background: isAlreadySigned ? '#f1f5f9' : isRestrictedForMufti ? '#fef2f2' : isSelected ? '#f0fdf4' : '#f8fafc',
                           color: isAlreadySigned ? '#94a3b8' : isRestrictedForMufti ? '#991b1b' : isSelected ? 'var(--primary-dark)' : '#334155',
@@ -2061,16 +2062,21 @@ export default function AdminCreateLogsheet() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          opacity: isDisabled ? 0.6 : 1
+                          opacity: isDisabled ? 0.6 : 1,
+                          textAlign: 'left'
                         }}
                       >
-                        <span>
-                          {r.label}
-                          {isAlreadySigned && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginLeft: 6 }}>(Signed)</span>}
-                          {isRestrictedForMufti && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700, marginLeft: 6 }}>(Mufti Restricted)</span>}
-                        </span>
-                        {isSelected && !isDisabled && <Check size={14} style={{ color: 'var(--primary)' }} />}
-                        {isAlreadySigned && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
+                        <div>
+                          <div style={{ fontWeight: isSelected ? 800 : 600 }}>{r.label}</div>
+                          {isAlreadySigned && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>(Already Signed)</span>}
+                          {isRestrictedForMufti && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>(Mufti Restricted)</span>}
+                        </div>
+                        {isSelected && !isDisabled && (
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Check size={12} />
+                          </div>
+                        )}
+                        {isAlreadySigned && <CheckCircle size={16} style={{ color: '#16a34a', flexShrink: 0 }} />}
                       </button>
                     );
                   })}
@@ -2146,7 +2152,7 @@ export default function AdminCreateLogsheet() {
               <button
                 type="button"
                 onClick={handleConfirmApplySignature}
-                disabled={isSigning || sigRoles.length === 0 || !modalConfirmed || !userSignature}
+                disabled={isSigning || !sigRole || !modalConfirmed || !userSignature}
                 className="btn btn-primary"
                 style={{
                   padding: '9px 24px',
@@ -2154,7 +2160,7 @@ export default function AdminCreateLogsheet() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  opacity: (!modalConfirmed || isSigning || sigRoles.length === 0 || !userSignature) ? 0.6 : 1
+                  opacity: (!modalConfirmed || isSigning || !sigRole || !userSignature) ? 0.6 : 1
                 }}
               >
                 {isSigning ? 'Applying Signature...' : 'Confirm & Apply Signature'}

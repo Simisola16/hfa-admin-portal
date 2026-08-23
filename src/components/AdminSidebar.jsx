@@ -6,7 +6,7 @@ import {
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
-  Sparkles, ShieldCheck
+  Sparkles, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -49,13 +49,20 @@ const NAV_SECTIONS = [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
       {
-        icon: Calendar, label: 'Audits & NCs', path: '/audits',
+        icon: Calendar, label: 'Audits', path: '/audits',
         children: [
           { label: 'All Audits',          path: '/audits' },
           { label: 'Upcoming Schedule',   path: '/audits?filter=upcoming' },
           { label: 'Dates Pending',       path: '/audits?filter=pending' },
-          { label: 'NC Management',       path: '/audits?filter=ncs' },
           { label: 'Audit Reports',       path: '/audit-reports' },
+        ],
+      },
+      {
+        icon: AlertTriangle, label: 'NCs', path: '/audits?filter=ncs',
+        children: [
+          { label: 'All NCs',             path: '/audits?filter=ncs' },
+          { label: 'Active NCs',          path: '/audits?filter=ncs&status=active' },
+          { label: 'Resolved NCs',        path: '/audits?filter=ncs&status=resolved' },
         ],
       },
       { icon: PenTool,      label: 'Agreements',  path: '/agreements' },
@@ -182,7 +189,7 @@ function getUnreadNavCount(notifications, pathStr, children = []) {
   return count;
 }
 
-/* ─── Component ─────────────────────────────────────────────────── */
+/* ─── Component─────────────────────────────────────────────────── */
 export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onClose, notifications = [] }) {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();

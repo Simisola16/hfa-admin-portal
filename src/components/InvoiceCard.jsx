@@ -10,16 +10,33 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function InvoiceCard({ invoice, status, isInitial, isFinal, isRenewal, onConfirmPayment, confirmingPayment }) {
+export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
-  const isAvailable = isRenewal
+  const isSurv = isSurveillance || app?.application_type === 'surveillance';
+  const isRen = !isSurv && (isRenewal || app?.application_type === 'renewal');
+  const isFastTrack = isSurv || isRen;
+
+  const isAvailable = isFastTrack
     ? ['nc_closed', 'audit_report_submitted', 'audit_successful', 'audit_completed', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
     : isFinal 
       ? ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
       : ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
 
-  const cardTitle = isRenewal ? 'Renewal Certification Invoice' : isFinal ? '2. Final Halal Certificate Fee Invoice' : '1. Initial Certification Invoice';
-  const cardSubtitle = isRenewal ? 'Renewal Certification Fee' : isFinal ? 'Final Halal Certification Fee' : 'Stage 1 Application & Audit Fee';
+  const cardTitle = isSurv
+    ? 'Surveillance Certification Invoice'
+    : isRen
+    ? 'Renewal Certification Invoice'
+    : isFinal
+    ? '2. Final Halal Certificate Fee Invoice'
+    : '1. Initial Certification Invoice';
+
+  const cardSubtitle = isSurv
+    ? 'Surveillance Audit & Certification Fee'
+    : isRen
+    ? 'Renewal Certification Fee'
+    : isFinal
+    ? 'Final Halal Certification Fee'
+    : 'Stage 1 Application & Audit Fee';
 
   if (!isAvailable) {
     return (
@@ -27,7 +44,7 @@ export default function InvoiceCard({ invoice, status, isInitial, isFinal, isRen
         <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
         <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>{cardTitle} (Locked)</div>
         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-          {isRenewal ? 'Available once audit and NC are completed' : isFinal ? 'Available once final agreement is signed' : 'Available once proposal is accepted'}
+          {isFastTrack ? 'Available once audit and NC are completed' : isFinal ? 'Available once final agreement is signed' : 'Available once proposal is accepted'}
         </div>
       </div>
     );
@@ -39,7 +56,7 @@ export default function InvoiceCard({ invoice, status, isInitial, isFinal, isRen
         <Receipt size={28} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
         <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>{cardTitle} Pending</div>
         <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
-          {isRenewal ? 'Renewal invoice will be generated once audit/NC is closed.' : isFinal ? 'Final certificate invoice will be sent after agreement is finalized.' : 'Initial invoice will be generated once proposal is accepted.'}
+          {isSurv ? 'Surveillance invoice will be generated once audit/NC is closed.' : isRen ? 'Renewal invoice will be generated once audit/NC is closed.' : isFinal ? 'Final certificate invoice will be sent after agreement is finalized.' : 'Initial invoice will be generated once proposal is accepted.'}
         </div>
       </div>
     );

@@ -20,18 +20,26 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const hasNc = allNcReports.length > 0;
 
   const isNcFlagged = normStatus === 'nc_flagged';
-  const isNcClosed = normStatus === 'nc_closed' || normStatus === 'audit_report_submitted' || [
-    'logsheet_created',
-    'logsheet_signed',
-    'application_successful',
-    'agreement_sent',
-    'agreement_signed',
-    'agreement_finalised',
-    'final_invoice_sent',
-    'final_invoice_paid',
-    'ready_for_certificate',
-    'certificate_issued'
-  ].includes(normStatus);
+  const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
+  const isNcClosed = !hasActiveNc && (
+    normStatus === 'nc_closed' ||
+    normStatus === 'audit_report_submitted' ||
+    (allNcReports.length > 0 && allNcReports.every(r => r.status === 'closed')) ||
+    [
+      'invoice_sent',
+      'payment_received',
+      'logsheet_created',
+      'logsheet_signed',
+      'application_successful',
+      'agreement_sent',
+      'agreement_signed',
+      'agreement_finalised',
+      'final_invoice_sent',
+      'final_invoice_paid',
+      'ready_for_certificate',
+      'certificate_issued'
+    ].includes(normStatus)
+  );
 
   const isPostAuditStage = [
     'audit_successful',
@@ -40,6 +48,8 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
     'nc_closed',
     'audit_report_submitted',
     'on_hold',
+    'invoice_sent',
+    'payment_received',
     'logsheet_created',
     'logsheet_signed',
     'application_successful',
@@ -120,22 +130,22 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
         {hasNc ? (
           <div style={{ display: 'grid', gap: 12, marginBottom: 18 }}>
             {allNcReports.map((nc, idx) => {
-              const isCorrected = nc.status === 'corrected' || !!nc.client_response || !!nc.correction_document_url;
+              const isClosedOrRectified = isNcClosed || nc.status === 'closed' || nc.status === 'corrected' || !!nc.client_response || !!nc.correction_document_url;
               return (
                 <div
                   key={idx}
                   style={{
                     padding: '14px 16px',
                     borderRadius: 12,
-                    background: isCorrected ? '#f0fdf4' : '#fef2f2',
-                    border: `1.5px solid ${isCorrected ? '#bbf7d0' : '#fecaca'}`
+                    background: isClosedOrRectified ? '#f0fdf4' : '#fef2f2',
+                    border: `1.5px solid ${isClosedOrRectified ? '#bbf7d0' : '#fecaca'}`
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {isCorrected ? <CheckCircle size={14} style={{ color: '#16a34a' }} /> : <AlertTriangle size={14} style={{ color: '#dc2626' }} />}
-                      <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', color: isCorrected ? '#166534' : '#b91c1c' }}>
-                        Observation #{idx + 1} &middot; {isCorrected ? '✓ Rectification Submitted' : '⚠️ Pending Client Action'}
+                      {isClosedOrRectified ? <CheckCircle size={14} style={{ color: '#16a34a' }} /> : <AlertTriangle size={14} style={{ color: '#dc2626' }} />}
+                      <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', color: isClosedOrRectified ? '#166534' : '#b91c1c' }}>
+                        Observation #{idx + 1} &middot; {isClosedOrRectified ? '✓ Rectification Submitted & Closed' : '⚠️ Pending Client Action'}
                       </span>
                     </div>
                     <span style={{ fontSize: 11, color: '#64748b' }}>
@@ -147,7 +157,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
                     <strong>Finding:</strong> {nc.text || 'Audit Non-Conformity observation.'}
                   </div>
 
-                  {/* Auditor Report Document */}
+                  {/* Auditor Report Document (Green if closed / rectified) */}
                   {(nc.document_url || nc.url) && (nc.document_url !== '#' || nc.url !== '#') && (
                     <div style={{ marginBottom: 8 }}>
                       <a
@@ -155,9 +165,18 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
                         target="_blank"
                         rel="noreferrer"
                         className="btn btn-outline btn-sm"
-                        style={{ fontSize: 11.5, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, color: '#dc2626', borderColor: '#fecaca', background: '#fff' }}
+                        style={{
+                          fontSize: 11.5,
+                          padding: '4px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: isClosedOrRectified ? '#16a34a' : '#dc2626',
+                          borderColor: isClosedOrRectified ? '#bbf7d0' : '#fecaca',
+                          background: isClosedOrRectified ? '#f0fdf4' : '#fff'
+                        }}
                       >
-                        <Download size={12} /> View Auditor NC Document
+                        <Download size={12} style={{ color: isClosedOrRectified ? '#16a34a' : '#dc2626' }} /> View Auditor NC Document
                       </a>
                     </div>
                   )}

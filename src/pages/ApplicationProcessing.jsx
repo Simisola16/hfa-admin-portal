@@ -914,7 +914,8 @@ export default function ApplicationProcessing() {
               invoice={initialInvoice || invoice}
               status={app?.status}
               isInitial={true}
-              isRenewal={true}
+              isRenewal={isRenewal}
+              isSurveillance={isSurveillance}
               onConfirmPayment={(initialInvoice || invoice)?.status === 'client_paid' ? handleConfirmPayment : undefined}
               confirmingPayment={confirmingPayment}
             />

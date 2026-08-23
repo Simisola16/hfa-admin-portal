@@ -156,29 +156,29 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
   if (normStatus === 'dates_rejected') effectiveStatus = 'dates_proposed';
   if (normStatus === 'audit_report_submitted') effectiveStatus = 'nc_closed';
 
-  // Find the furthest milestone reached across current status and statusHistory
-  let furthestStatus = effectiveStatus;
-  let maxOrder = STATUS_ORDER.indexOf(effectiveStatus);
+  // Helper to map status to step index in stepsToShow
+  const getStepIndex = (st) => {
+    let s = (st || '').toLowerCase().replace(/ /g, '_');
+    if (s === 'audit_completed') s = 'audit_successful';
+    if (s === 'dates_rejected') s = 'dates_proposed';
+    if (s === 'audit_report_submitted') s = 'nc_closed';
+    return stepsToShow.indexOf(s);
+  };
+
+  let maxStepIdx = getStepIndex(effectiveStatus);
 
   (statusHistory || []).forEach(h => {
-    let hStatus = (h.status || '').toLowerCase().replace(/ /g, '_');
-    if (hStatus === 'audit_completed') hStatus = 'audit_successful';
-    if (hStatus === 'dates_rejected') hStatus = 'dates_proposed';
-    if (hStatus === 'audit_report_submitted') hStatus = 'nc_closed';
-
-    const order = STATUS_ORDER.indexOf(hStatus);
-    if (order > maxOrder) {
-      maxOrder = order;
-      furthestStatus = hStatus;
+    const idx = getStepIndex(h.status);
+    if (idx > maxStepIdx) {
+      maxStepIdx = idx;
     }
   });
 
-  let mappedStatus = furthestStatus;
-  let currentIndex = stepsToShow.indexOf(mappedStatus);
+  let currentIndex = maxStepIdx;
 
-  // If furthestStatus is not explicitly in stepsToShow, find the closest matching step in stepsToShow
+  // Fallback if status is not in stepsToShow: find nearest preceding step in STATUS_ORDER
   if (currentIndex === -1) {
-    const currentOrderIdx = STATUS_ORDER.indexOf(mappedStatus);
+    const currentOrderIdx = STATUS_ORDER.indexOf(effectiveStatus);
     if (currentOrderIdx !== -1) {
       for (let i = stepsToShow.length - 1; i >= 0; i--) {
         const stepOrder = STATUS_ORDER.indexOf(stepsToShow[i]);

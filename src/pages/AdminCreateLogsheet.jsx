@@ -32,12 +32,6 @@ export default function AdminCreateLogsheet() {
   const [isSigning, setIsSigning] = useState(false);
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
-
-  // Product Approval Modal States
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [availableProducts, setAvailableProducts] = useState([]);
-  const [selectedProductIndexes, setSelectedProductIndexes] = useState([]);
   const [clientProducts, setClientProducts] = useState([]);
 
   // Signing Modal State
@@ -609,87 +603,26 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const handleOpenApproveProductsModal = (e) => {
-    e?.preventDefault();
+  const handleFinalizeApplicationSuccessful = async () => {
     if (totalSignedCount < 3) {
       toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
       return;
     }
 
-    let prods = [];
-    if (application?.products && Array.isArray(application.products) && application.products.length > 0) {
-      prods = application.products.map((p, idx) => ({
-        sn: p.sn || idx + 1,
-        name: p.new_name || p.name,
-        code: p.new_code || p.code || '—',
-        type: p.type || 'Add product',
-        original_name: p.name || p.new_name
-      }));
-    } else if (clientProducts && clientProducts.length > 0) {
-      prods = clientProducts.map((p, idx) => ({
-        sn: idx + 1,
-        name: p.name,
-        code: p.code || p.barcode || '—',
-        type: p.product_type || 'Halal Certified',
-        original_name: p.name
-      }));
-    } else if (application?.product_category) {
-      prods = application.product_category.split(',').map((name, i) => ({
-        sn: i + 1,
-        name: name.trim(),
-        code: `SKU-${i + 1}`,
-        type: 'Halal Certified',
-        original_name: name.trim()
-      })).filter(p => p.name);
-    }
+    const isConfirmed = window.confirm('Are you sure you want to mark this application as Successful and complete committee sign-off?');
+    if (!isConfirmed) return;
 
-    if (prods.length === 0) {
-      prods = [{ sn: 1, name: form.company_name || 'Standard Halal Product Item', code: 'HALAL-01', type: 'Add product', original_name: 'Product 1' }];
-    }
-
-    setAvailableProducts(prods);
-    setSelectedProductIndexes(prods.map((_, idx) => idx));
-    setShowProductModal(true);
-  };
-
-  const toggleProductSelect = (idx) => {
-    setSelectedProductIndexes(prev =>
-      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-    );
-  };
-
-  const selectAllProducts = () => {
-    setSelectedProductIndexes(availableProducts.map((_, idx) => idx));
-  };
-
-  const deselectAllProducts = () => {
-    setSelectedProductIndexes([]);
-  };
-
-  const handleProceedToConfirmation = () => {
-    if (selectedProductIndexes.length === 0) {
-      toast.error('Please highlight / select at least 1 product to approve.');
-      return;
-    }
-    setShowConfirmModal(true);
-  };
-
-  const handleConfirmApproveAndSend = async () => {
     setIsFinalizing(true);
     try {
-      const approvedProductsList = availableProducts.filter((_, idx) => selectedProductIndexes.includes(idx));
-
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
-        finalizeSignOff: true,
-        approved_products: approvedProductsList
+        finalizeSignOff: true
       });
 
-      toast.success(`🎉 ${approvedProductsList.length} product(s) approved and sent to client dashboard!`);
-      setShowConfirmModal(false);
-      setShowProductModal(false);
+      toast.success('🎉 Application marked Successful! Committee Signatures finalized and ready for Certificate.');
       fetchData();
+      navigate('/logsheet/waiting-certificate');
     } catch (err) {
-      toast.error(err.message || 'Failed to approve products');
+      toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
     } finally {
       setIsFinalizing(false);
     }
@@ -1553,13 +1486,13 @@ export default function AdminCreateLogsheet() {
                     </div>
                     <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
                       {totalSignedCount >= 3
-                        ? `${totalSignedCount} of 4 committee signatures collected. Click Approve Product to select verified client products and send to client dashboard.`
+                        ? `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`
                         : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
                     </div>
                   </div>
 
                   <button
-                    onClick={handleOpenApproveProductsModal}
+                    onClick={handleFinalizeApplicationSuccessful}
                     disabled={isFinalizing || totalSignedCount < 3}
                     className="btn btn-primary"
                     style={{
@@ -1576,7 +1509,7 @@ export default function AdminCreateLogsheet() {
                       cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
                     }}
                   >
-                    <Check size={16} strokeWidth={2.5} /> Approve Product
+                    {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Application Successful</>}
                   </button>
                 </div>
               )}
@@ -2226,344 +2159,6 @@ export default function AdminCreateLogsheet() {
               >
                 {isSigning ? 'Applying Signature...' : 'Confirm & Apply Signature'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Modal 1: Select Products for Halal Approval ──────────────────── */}
-      {showProductModal && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => setShowProductModal(false)}>
-          <div
-            className="modal"
-            style={{
-              maxWidth: 760,
-              width: '95%',
-              maxHeight: '90vh',
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              borderRadius: 16,
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div style={{
-              padding: '20px 24px',
-              background: 'linear-gradient(135deg, #065f46 0%, #0d9488 100%)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 42, height: 42, borderRadius: 10, background: 'rgba(255,255,255,0.18)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <Package size={22} color="#fff" />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#fff' }}>
-                    Approve Client Products
-                  </h3>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '3px 0 0' }}>
-                    Select the verified products to approve and send to client dashboard
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowProductModal(false)}
-                style={{
-                  background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8,
-                  width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', color: 'white'
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Selection Toolbar */}
-            <div style={{
-              padding: '12px 24px',
-              background: '#f8fafc',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 10
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-                Highlighted for Approval:{' '}
-                <span style={{
-                  background: selectedProductIndexes.length > 0 ? '#dcfce7' : '#fee2e2',
-                  color: selectedProductIndexes.length > 0 ? '#166534' : '#991b1b',
-                  padding: '2px 8px',
-                  borderRadius: 20,
-                  fontSize: 12
-                }}>
-                  {selectedProductIndexes.length} of {availableProducts.length} Selected
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={selectAllProducts}
-                  className="btn btn-sm"
-                  style={{ fontSize: 11.5, fontWeight: 600, background: '#fff', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6 }}
-                >
-                  Select All
-                </button>
-                <button
-                  type="button"
-                  onClick={deselectAllProducts}
-                  className="btn btn-sm"
-                  style={{ fontSize: 11.5, fontWeight: 600, background: '#fff', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6 }}
-                >
-                  Deselect All
-                </button>
-              </div>
-            </div>
-
-            {/* Products List Body */}
-            <div style={{ padding: 24, overflowY: 'auto', flex: 1, maxHeight: '50vh' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {availableProducts.map((p, idx) => {
-                  const isSelected = selectedProductIndexes.includes(idx);
-
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => toggleProductSelect(idx)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderRadius: 10,
-                        border: isSelected ? '1.5px solid #16a34a' : '1px solid #e2e8f0',
-                        background: isSelected ? '#f0fdf4' : '#ffffff',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        boxShadow: isSelected ? '0 2px 4px rgba(22, 163, 74, 0.08)' : 'none'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => { }} // handled by row onClick
-                          style={{
-                            width: 18,
-                            height: 18,
-                            cursor: 'pointer',
-                            accentColor: '#16a34a'
-                          }}
-                        />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{
-                            fontSize: 14,
-                            fontWeight: isSelected ? 800 : 600,
-                            color: isSelected ? '#14532d' : '#0f172a',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {p.sn || idx + 1}. {p.name || p.new_name}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                            Code / SKU: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{p.code || p.new_code || '—'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <span style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          fontWeight: 700,
-                          background: p.type === 'Add product' ? '#e0f2fe' : p.type === 'Remove product' ? '#fee2e2' : '#f1f5f9',
-                          color: p.type === 'Add product' ? '#0369a1' : p.type === 'Remove product' ? '#991b1b' : '#475569'
-                        }}>
-                          {p.type || 'Product'}
-                        </span>
-                        <span style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          fontWeight: 700,
-                          background: isSelected ? '#bbf7d0' : '#f1f5f9',
-                          color: isSelected ? '#166534' : '#94a3b8'
-                        }}>
-                          {isSelected ? '✓ APPROVED' : 'EXCLUDED'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Footer with exactly the 2 buttons requested */}
-            <div style={{
-              padding: '16px 24px',
-              background: '#f8fafc',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 12,
-              flexShrink: 0
-            }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setShowProductModal(false)}
-                style={{ fontWeight: 600 }}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleProceedToConfirmation}
-                disabled={selectedProductIndexes.length === 0}
-                style={{
-                  background: selectedProductIndexes.length > 0 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
-                  borderColor: selectedProductIndexes.length > 0 ? '#15803d' : '#cbd5e1',
-                  fontWeight: 700,
-                  padding: '9px 20px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: selectedProductIndexes.length > 0 ? 'pointer' : 'not-allowed'
-                }}
-              >
-                <CheckCircle size={16} /> Send Highlighted Products to Client Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Modal 2: Final Confirmation Pop-up ────────────────────────────── */}
-      {showConfirmModal && (
-        <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowConfirmModal(false)}>
-          <div
-            className="modal"
-            style={{
-              maxWidth: 520,
-              width: '95%',
-              padding: 0,
-              borderRadius: 16,
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ padding: '24px 28px', textAlign: 'center' }}>
-              <div style={{
-                width: 60, height: 60, borderRadius: '50%', background: '#ecfdf5',
-                border: '2px solid #bbf7d0', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', margin: '0 auto 16px', color: '#16a34a'
-              }}>
-                <CheckCircle size={32} />
-              </div>
-
-              <h3 style={{ fontSize: 19, fontWeight: 800, color: '#0f172a', margin: '0 0 8px' }}>
-                Confirm Product Approval
-              </h3>
-
-              <p style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.6, margin: '0 auto 20px', maxWidth: 440 }}>
-                Are you sure you want to approve the <strong>{selectedProductIndexes.length} highlighted product(s)</strong> and send them to the client dashboard?
-              </p>
-
-              {/* Selected products pill summary */}
-              <div style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: 10,
-                padding: '12px 14px',
-                maxHeight: 140,
-                overflowY: 'auto',
-                textAlign: 'left',
-                marginBottom: 20
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Products to be Sent ({selectedProductIndexes.length}):
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {availableProducts.filter((_, idx) => selectedProductIndexes.includes(idx)).map((p, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        background: '#dcfce7',
-                        color: '#166534',
-                        border: '1px solid #bbf7d0',
-                        padding: '3px 8px',
-                        borderRadius: 6
-                      }}
-                    >
-                      ✓ {p.name || p.new_name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{
-                fontSize: 12,
-                color: '#166534',
-                background: '#f0fdf4',
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid #bbf7d0',
-                marginBottom: 24,
-                textAlign: 'left'
-              }}>
-                ✓ Committee signature step will be officially recorded as complete and the approved products will be published to the client dashboard.
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setShowConfirmModal(false)}
-                  disabled={isFinalizing}
-                  style={{ padding: '10px 16px', fontWeight: 600 }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleConfirmApproveAndSend}
-                  disabled={isFinalizing}
-                  style={{
-                    background: 'linear-gradient(135deg, #15803d, #16a34a)',
-                    borderColor: '#15803d',
-                    fontWeight: 700,
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6
-                  }}
-                >
-                  {isFinalizing ? <span className="spinner-white" /> : <><Check size={16} /> Yes, Approve & Send</>}
-                </button>
-              </div>
             </div>
           </div>
         </div>

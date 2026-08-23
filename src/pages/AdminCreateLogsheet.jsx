@@ -38,6 +38,10 @@ export default function AdminCreateLogsheet() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [modalConfirmed, setModalConfirmed] = useState(false);
 
+  // Approve Products Modal State (Add-on Logsheet Only)
+  const [showApproveProductsModal, setShowApproveProductsModal] = useState(false);
+  const [selectedApproveProducts, setSelectedApproveProducts] = useState([]);
+
   const userSignature = signatures.find(s =>
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
     (s.username && user?.email && s.username.toLowerCase() === user.email.split('@')[0].toLowerCase()) ||
@@ -623,6 +627,65 @@ export default function AdminCreateLogsheet() {
       navigate('/logsheet/waiting-certificate');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const openApproveProductsModal = () => {
+    if (totalSignedCount < 3) {
+      toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
+      return;
+    }
+    const productsList = application?.products || clientProducts || [];
+    // Default all products selected
+    setSelectedApproveProducts(productsList.map((_, idx) => idx));
+    setShowApproveProductsModal(true);
+  };
+
+  const handleSendHighlightedProductsToClient = async () => {
+    const productsList = application?.products || clientProducts || [];
+    if (productsList.length > 0 && selectedApproveProducts.length === 0) {
+      toast.error('Please select at least one product to approve.');
+      return;
+    }
+
+    const countToApprove = selectedApproveProducts.length > 0 ? selectedApproveProducts.length : productsList.length;
+    const isConfirmed = window.confirm(
+      `Are you sure you want to approve and send ${countToApprove} highlighted product(s) to the client dashboard?`
+    );
+    if (!isConfirmed) return;
+
+    setIsFinalizing(true);
+    try {
+      const approvedProductsList = productsList.length > 0 && selectedApproveProducts.length > 0
+        ? productsList.filter((_, idx) => selectedApproveProducts.includes(idx))
+        : productsList;
+
+      // 1. Finalize logsheet sign-off with approved products
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        finalizeSignOff: true,
+        approved_products: approvedProductsList
+      });
+
+      // 2. Also call add-on approve-form if linked
+      const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+      if (targetAddonId) {
+        try {
+          await api.put(`/api/add-on-applications/${targetAddonId}/approve-form`, {
+            approved_products: approvedProductsList
+          });
+        } catch (e) {
+          console.warn('Add-on approve-form sync note:', e.message);
+        }
+      }
+
+      toast.success(`🎉 ${approvedProductsList.length} highlighted product(s) approved and sent to client dashboard!`);
+      setShowApproveProductsModal(false);
+      fetchData();
+      navigate('/logsheet/waiting-certificate');
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to approve products');
     } finally {
       setIsFinalizing(false);
     }
@@ -1486,31 +1549,56 @@ export default function AdminCreateLogsheet() {
                     </div>
                     <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
                       {totalSignedCount >= 3
-                        ? `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`
+                        ? ((isAddon || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
+                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to select and approve products for client dashboard.`
+                            : `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`)
                         : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleFinalizeApplicationSuccessful}
-                    disabled={isFinalizing || totalSignedCount < 3}
-                    className="btn btn-primary"
-                    style={{
-                      background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
-                      borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
-                      color: totalSignedCount >= 3 ? '#fff' : '#64748b',
-                      fontWeight: 800,
-                      padding: '10px 22px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 10,
-                      boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
-                      cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
-                    }}
-                  >
-                    {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Application Successful</>}
-                  </button>
+                  {(isAddon || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
+                    <button
+                      onClick={openApproveProductsModal}
+                      disabled={isFinalizing || totalSignedCount < 3}
+                      className="btn btn-primary"
+                      style={{
+                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                        borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
+                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        fontWeight: 800,
+                        padding: '10px 22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        borderRadius: 10,
+                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Approve Product</>}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleFinalizeApplicationSuccessful}
+                      disabled={isFinalizing || totalSignedCount < 3}
+                      className="btn btn-primary"
+                      style={{
+                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                        borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
+                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        fontWeight: 800,
+                        padding: '10px 22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        borderRadius: 10,
+                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Application Successful</>}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -2164,6 +2252,220 @@ export default function AdminCreateLogsheet() {
                 }}
               >
                 {isSigning ? 'Applying Signature...' : 'Confirm & Apply Signature'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ADD-ON ONLY: APPROVE CLIENT PRODUCTS MODAL ─── */}
+      {showApproveProductsModal && (
+        <div className="modal-overlay" style={{ zIndex: 1260 }} onClick={() => setShowApproveProductsModal(false)}>
+          <div
+            className="modal"
+            style={{ maxWidth: 720, width: '95%', maxHeight: '90vh', padding: 0, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={20} style={{ color: '#16a34a' }} />
+                </div>
+                <div>
+                  <div className="modal-title" style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
+                    Approve Add-on Products
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {application?.profiles?.company_name || form.company_name} &bull; Site: {form.site_name || 'Main Site'}
+                  </div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowApproveProductsModal(false)} style={{ padding: 6 }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, background: '#fafafa' }}>
+              {/* Guidance Notice */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <div style={{ fontSize: 13, color: '#166534' }}>
+                  Select the verified products to approve. Highlighted products will be pushed to the client dashboard and approved for certification.
+                </div>
+              </div>
+
+              {/* Selection Summary & Select All Toolbar */}
+              {(() => {
+                const productsList = application?.products || clientProducts || [];
+                const allSelected = productsList.length > 0 && selectedApproveProducts.length === productsList.length;
+
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Products to Approve ({selectedApproveProducts.length} of {productsList.length} highlighted)
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          if (allSelected) {
+                            setSelectedApproveProducts([]);
+                          } else {
+                            setSelectedApproveProducts(productsList.map((_, i) => i));
+                          }
+                        }}
+                        style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', padding: '2px 8px' }}
+                      >
+                        {allSelected ? 'Deselect All' : 'Select All Products'}
+                      </button>
+                    </div>
+
+                    {/* Products Checklist */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {productsList.map((p, idx) => {
+                        const isSelected = selectedApproveProducts.includes(idx);
+                        const resp = application?.product_approval_form?.product_responses?.find(r => r.product_index === idx);
+                        const formData = resp?.form_data || {};
+                        const isSaved = resp?.is_saved || Boolean(resp?.response_url) || Object.keys(formData).length > 0;
+
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedApproveProducts(prev =>
+                                prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+                              );
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 14,
+                              padding: '14px 16px',
+                              borderRadius: 12,
+                              border: `2px solid ${isSelected ? '#16a34a' : '#e2e8f0'}`,
+                              background: isSelected ? '#f0fdf4' : '#fff',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              boxShadow: isSelected ? '0 2px 8px rgba(22, 163, 74, 0.12)' : 'none'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}} // Handled by parent onClick
+                                style={{ width: 18, height: 18, accentColor: '#16a34a', cursor: 'pointer', flexShrink: 0 }}
+                              />
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 8,
+                                  background: isSelected ? '#16a34a' : '#f1f5f9',
+                                  color: isSelected ? '#fff' : '#475569',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 800,
+                                  fontSize: 12,
+                                  flexShrink: 0
+                                }}
+                              >
+                                #{idx + 1}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 800, fontSize: 13.5, color: isSelected ? '#14532d' : '#0f172a' }}>
+                                  {p.name || p.title} {p.code ? `(${p.code})` : ''}
+                                </div>
+                                <div style={{ fontSize: 11.5, color: isSelected ? '#15803d' : '#64748b', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
+                                    {p.type || 'Add product'}
+                                  </span>
+                                  {isSaved ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#16a34a', fontWeight: 600 }}>
+                                      <CheckCircle2 size={12} /> Form Signed
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8' }}>Awaiting Signatory</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* View Filled Form Link */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewProductModal({
+                                  isOpen: true,
+                                  formData: formData && Object.keys(formData).length > 0 ? formData : {
+                                    product_name: p.name,
+                                    product_code: p.code,
+                                    company_name_address: form.company_name
+                                  },
+                                  product: p,
+                                  company: application?.client_id
+                                });
+                              }}
+                              style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', padding: '4px 8px', flexShrink: 0 }}
+                            >
+                              <Eye size={13} style={{ marginRight: 4 }} /> View Form
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowApproveProductsModal(false)}
+                disabled={isFinalizing}
+                style={{ fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendHighlightedProductsToClient}
+                disabled={isFinalizing || selectedApproveProducts.length === 0}
+                className="btn btn-primary"
+                style={{
+                  background: 'linear-gradient(135deg, #15803d, #16a34a)',
+                  borderColor: '#15803d',
+                  color: '#fff',
+                  fontWeight: 800,
+                  padding: '10px 20px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderRadius: 10,
+                  opacity: (isFinalizing || selectedApproveProducts.length === 0) ? 0.6 : 1
+                }}
+              >
+                {isFinalizing ? (
+                  <>
+                    <span className="spinner-white" /> Sending to Client Dashboard...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} strokeWidth={2.5} />
+                    Send highlighted products to client dashboard
+                  </>
+                )}
               </button>
             </div>
           </div>

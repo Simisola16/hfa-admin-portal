@@ -99,6 +99,10 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       toast.error(isSurveillance ? 'Please enter the next audit / milestone date.' : 'Please enter the expiry date.');
       return;
     }
+    if (isSurveillance && !certificateForm.file) {
+      toast.error('Please upload the official Surveillance Letter PDF document.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -263,35 +267,42 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>Products / Facility Scope</label>
-            <textarea
-              className="form-control"
-              rows={2}
-              value={certificateForm.products_covered}
-              onChange={e => setCertificateForm(f => ({ ...f, products_covered: e.target.value }))}
-              placeholder="e.g. Fresh Beef, Poultry, Spices"
-            />
-          </div>
+          {!isSurveillance && (
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700 }}>Products / Facility Scope</label>
+              <textarea
+                className="form-control"
+                rows={2}
+                value={certificateForm.products_covered}
+                onChange={e => setCertificateForm(f => ({ ...f, products_covered: e.target.value }))}
+                placeholder="e.g. Fresh Beef, Poultry, Spices"
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 700 }}>
-              {isSurveillance ? 'Surveillance Letter PDF Document' : 'Custom PDF Upload (Optional)'}
+              {isSurveillance ? (
+                <span>Surveillance Letter PDF Document <span style={{ color: '#dc2626' }}>*</span></span>
+              ) : (
+                'Custom PDF Upload (Optional)'
+              )}
             </label>
             <div
               onClick={() => document.getElementById('certificate-file-shared').click()}
               style={{
-                border: '1.5px dashed #cbd5e1', padding: '24px 16px', borderRadius: '10px',
+                border: certificateForm.file ? '1.5px solid #10b981' : (isSurveillance ? '1.5px dashed #0284c7' : '1.5px dashed #cbd5e1'),
+                padding: '24px 16px', borderRadius: '10px',
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
-                background: certificateForm.file ? '#f0fdf4' : '#f8fafc'
+                background: certificateForm.file ? '#f0fdf4' : (isSurveillance ? '#f0f9ff' : '#f8fafc')
               }}
             >
-              <FileText size={30} style={{ color: certificateForm.file ? (isSurveillance ? '#0284c7' : '#16a34a') : '#94a3b8', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
-                {certificateForm.file ? certificateForm.file.name : (isSurveillance ? 'Upload official Surveillance Letter PDF' : 'Upload custom PDF or leave empty to auto-generate')}
+              <FileText size={30} style={{ color: certificateForm.file ? '#16a34a' : (isSurveillance ? '#0284c7' : '#94a3b8'), margin: '0 auto 8px' }} />
+              <div style={{ fontSize: 13, fontWeight: 700, color: certificateForm.file ? '#15803d' : (isSurveillance ? '#0369a1' : '#334155') }}>
+                {certificateForm.file ? certificateForm.file.name : (isSurveillance ? 'Upload official Surveillance Letter PDF *' : 'Upload custom PDF or leave empty to auto-generate')}
               </div>
               <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                {isSurveillance ? 'PDF format accepted' : 'System will automatically render the official certificate template if empty'}
+                {isSurveillance ? 'Required — PDF format accepted' : 'System will automatically render the official certificate template if empty'}
               </div>
               <input
                 id="certificate-file-shared"
@@ -308,7 +319,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date}
+            disabled={submitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date || (isSurveillance && !certificateForm.file)}
             style={{
               display: 'flex',
               alignItems: 'center',

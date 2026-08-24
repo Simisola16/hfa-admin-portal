@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import { 
   FileText, Search, Trash2, Eye, CheckSquare, RefreshCw, ChevronDown, 
   MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool 
@@ -13,6 +14,8 @@ export default function AdminLogsheetManage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [selectedLogsheetForEmail, setSelectedLogsheetForEmail] = useState(null);
+  const [showResendModal, setShowResendModal] = useState(false);
   const navigate = useNavigate();
 
   const fetchLogsheets = async () => {
@@ -60,16 +63,11 @@ export default function AdminLogsheetManage() {
     }
   };
 
-  const handleResendEmails = async (id, e) => {
-    e.stopPropagation();
+  const handleResendEmails = (logsheetItem, e) => {
+    if (e) e.stopPropagation();
     setActiveDropdown(null);
-    try {
-      const res = await api.post(`/api/application-logsheets/${id}/resend-emails`);
-      toast.success(res.data?.message || 'Signatory emails resent successfully');
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Failed to resend emails';
-      toast.error(msg);
-    }
+    setSelectedLogsheetForEmail(logsheetItem);
+    setShowResendModal(true);
   };
 
   const filteredLogsheets = logsheets.filter(l => {
@@ -356,7 +354,7 @@ export default function AdminLogsheetManage() {
                                 <Trash2 size={14} /> Delete
                               </button>
                               <button 
-                                onClick={(e) => handleResendEmails(l._id, e)}
+                                onClick={(e) => handleResendEmails(l, e)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#0e7490', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
                                 className="dropdown-item"
                               >
@@ -497,6 +495,13 @@ export default function AdminLogsheetManage() {
           )}
         </div>
       </div>
+
+      {/* Resend Signatory Email Modal */}
+      <ResendLogsheetEmailModal
+        isOpen={showResendModal}
+        onClose={() => setShowResendModal(false)}
+        logsheet={selectedLogsheetForEmail}
+      />
     </div>
   );
 }

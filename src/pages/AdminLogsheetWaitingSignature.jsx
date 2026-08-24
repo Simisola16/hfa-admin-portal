@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
   MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, Check
@@ -18,6 +19,8 @@ export default function AdminLogsheetWaitingSignature() {
   const [searchField, setSearchField] = useState('company_name');
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'awaiting_mine' | 'signed_by_me'
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [selectedLogsheetForEmail, setSelectedLogsheetForEmail] = useState(null);
+  const [showResendModal, setShowResendModal] = useState(false);
   const navigate = useNavigate();
 
   const fetchLogsheets = async () => {
@@ -55,16 +58,11 @@ export default function AdminLogsheetWaitingSignature() {
     }
   };
 
-  const handleResendEmails = async (id, e) => {
-    e.stopPropagation();
+  const handleResendEmails = (logsheetItem, e) => {
+    if (e) e.stopPropagation();
     setActiveDropdown(null);
-    try {
-      const res = await api.post(`/api/application-logsheets/${id}/resend-emails`);
-      toast.success(res.data?.message || 'Signatory emails resent successfully');
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Failed to resend emails';
-      toast.error(msg);
-    }
+    setSelectedLogsheetForEmail(logsheetItem);
+    setShowResendModal(true);
   };
 
   const hasUserSigned = (l) => {
@@ -575,7 +573,7 @@ export default function AdminLogsheetWaitingSignature() {
                                   <Eye size={14} /> View Details
                                 </Link>
                                 <button 
-                                  onClick={(e) => handleResendEmails(l._id, e)}
+                                  onClick={(e) => handleResendEmails(l, e)}
                                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', textAlign: 'left', padding: '8px 10px', fontSize: 13, color: '#0e7490', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontWeight: 500 }}
                                   className="dropdown-item"
                                 >
@@ -709,6 +707,13 @@ export default function AdminLogsheetWaitingSignature() {
           </>
         )}
       </div>
+
+      {/* Resend Signatory Email Modal */}
+      <ResendLogsheetEmailModal
+        isOpen={showResendModal}
+        onClose={() => setShowResendModal(false)}
+        logsheet={selectedLogsheetForEmail}
+      />
     </div>
   );
 }

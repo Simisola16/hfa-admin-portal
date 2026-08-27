@@ -117,7 +117,10 @@ export default function AdminStaff() {
     setLoading(true);
     try {
       const res = await api.get('/api/users');
-      setUsers(res.data || []);
+      const loaded = Array.isArray(res.data)
+        ? res.data
+        : (Array.isArray(res.data?.data) ? res.data.data : []);
+      setUsers(loaded);
     } catch {
       toast.error('Failed to load HFA staff accounts');
     } finally {
@@ -260,16 +263,32 @@ export default function AdminStaff() {
       return toast.error('A staff member must have at least one assigned role.');
     }
     setRolesSaving(true);
+    const targetId = editRolesModal._id || editRolesModal.id;
+    const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
     try {
-      const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
-      await api.put(`/api/users/${editRolesModal._id}/role`, {
+      await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
         role: editRolesList[0],
         can_issue_direct_certificate: grantVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
+      
+      // Immediate local state update for instant UI feedback:
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => {
+        const uId = u._id || u.id;
+        if (uId === targetId) {
+          return {
+            ...u,
+            roles: editRolesList,
+            role: editRolesList[0],
+            can_issue_direct_certificate: grantVal
+          };
+        }
+        return u;
+      }));
+
       setEditRolesModal(null);
-      fetchUsers();
+      await fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update roles');
     } finally {

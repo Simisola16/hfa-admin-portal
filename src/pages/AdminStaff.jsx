@@ -102,6 +102,7 @@ export default function AdminStaff() {
   // Edit Roles Modal State
   const [editRolesModal, setEditRolesModal] = useState(null); // target user
   const [editRolesList, setEditRolesList] = useState([]);
+  const [editSpecialGrant, setEditSpecialGrant] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Suspension Modal State
@@ -243,6 +244,7 @@ export default function AdminStaff() {
   const openEditRoles = (user) => {
     setEditRolesModal(user);
     setEditRolesList(getUserRoles(user));
+    setEditSpecialGrant(Boolean(user.can_issue_direct_certificate || user.role === 'superadmin' || (user.roles && user.roles.includes('superadmin'))));
   };
 
   // Save Edit Roles
@@ -253,11 +255,13 @@ export default function AdminStaff() {
     }
     setRolesSaving(true);
     try {
+      const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
       await api.put(`/api/users/${editRolesModal._id}/role`, {
         roles: editRolesList,
-        role: editRolesList[0]
+        role: editRolesList[0],
+        can_issue_direct_certificate: grantVal
       });
-      toast.success(`Updated roles for ${editRolesModal.full_name || editRolesModal.email}`);
+      toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       setEditRolesModal(null);
       fetchUsers();
     } catch (err) {
@@ -800,7 +804,7 @@ export default function AdminStaff() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {showStaffModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowStaffModal(false)}>
-          <div className="modal" style={{ maxWidth: 640, width: '92%', borderRadius: 16, overflow: 'hidden', padding: 0 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 640, width: '92%', borderRadius: 16, overflow: 'hidden', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
             <div style={{
               padding: '20px 24px',
@@ -808,7 +812,8 @@ export default function AdminStaff() {
               background: '#f8fafc',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              flexShrink: 0
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{
@@ -833,8 +838,8 @@ export default function AdminStaff() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleCreateStaff}>
-              <div className="modal-body" style={{ padding: '24px', display: 'grid', gap: 20, maxHeight: '72vh', overflowY: 'auto' }}>
+            <form onSubmit={handleCreateStaff} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div className="modal-body" style={{ padding: '24px', display: 'grid', gap: 20, overflowY: 'auto', flex: 1 }}>
                 {/* 1. Account Details */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div className="form-group" style={{ margin: 0 }}>
@@ -991,7 +996,8 @@ export default function AdminStaff() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
-                gap: 12
+                gap: 12,
+                flexShrink: 0
               }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setShowStaffModal(false)} disabled={staffSubmitting}>
                   Cancel
@@ -1016,18 +1022,19 @@ export default function AdminStaff() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* EDIT STAFF ROLES MODAL (Multi-Role Ticking)                        */}
+      {/* EDIT STAFF ROLES & SPECIAL GRANTS MODAL (Scrollable & Integrated)   */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {editRolesModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setEditRolesModal(null)}>
-          <div className="modal" style={{ maxWidth: 580, width: '92%', borderRadius: 16, overflow: 'hidden', padding: 0 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 620, width: '92%', borderRadius: 16, overflow: 'hidden', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{
               padding: '20px 24px',
               borderBottom: '1px solid #e2e8f0',
               background: '#f8fafc',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              flexShrink: 0
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
@@ -1043,64 +1050,104 @@ export default function AdminStaff() {
               <button className="modal-close" onClick={() => setEditRolesModal(null)}><X size={18} /></button>
             </div>
 
-            <div style={{ padding: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Select Active Roles for this Staff Member
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'grid', gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  Select Active Roles for this Staff Member
+                </div>
+                <p style={{ fontSize: 12, color: '#64748b', marginTop: 0, marginBottom: 12 }}>
+                  Tick or untick roles to update privileges. A staff member can have multiple assigned roles.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
+                  {ALL_STAFF_ROLE_KEYS.map(roleKey => {
+                    const cfg = STAFF_ROLE_CONFIG[roleKey];
+                    const isSelected = editRolesList.includes(roleKey);
+                    const RoleIcon = cfg.icon;
+
+                    return (
+                      <div
+                        key={roleKey}
+                        onClick={() => toggleEditRole(roleKey)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '12px 16px',
+                          borderRadius: 12,
+                          border: `1.5px solid ${isSelected ? cfg.color : '#e2e8f0'}`,
+                          background: isSelected ? cfg.bg : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 6,
+                          border: `2px solid ${isSelected ? cfg.color : '#cbd5e1'}`,
+                          background: isSelected ? cfg.color : 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          flexShrink: 0
+                        }}>
+                          {isSelected && <Check size={15} strokeWidth={3} />}
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: isSelected ? cfg.color : '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <RoleIcon size={15} />
+                            {cfg.label}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                            {cfg.desc}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <p style={{ fontSize: 12, color: '#64748b', marginTop: 0, marginBottom: 14 }}>
-                Tick or untick roles to update privileges. A staff member can have multiple assigned roles.
-              </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-                {ALL_STAFF_ROLE_KEYS.map(roleKey => {
-                  const cfg = STAFF_ROLE_CONFIG[roleKey];
-                  const isSelected = editRolesList.includes(roleKey);
-                  const RoleIcon = cfg.icon;
+              {/* Special Grants Section */}
+              <div style={{
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: 14,
+                padding: '16px 18px'
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Sparkles size={16} style={{ color: '#d97706' }} /> Special Grants &amp; Privileges
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
+                  Special elevated operational privileges for direct certificate issuance and product approvals.
+                </div>
 
-                  return (
-                    <div
-                      key={roleKey}
-                      onClick={() => toggleEditRole(roleKey)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '12px 16px',
-                        borderRadius: 12,
-                        border: `1.5px solid ${isSelected ? cfg.color : '#e2e8f0'}`,
-                        background: isSelected ? cfg.bg : '#ffffff',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        userSelect: 'none'
-                      }}
-                    >
-                      <div style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 6,
-                        border: `2px solid ${isSelected ? cfg.color : '#cbd5e1'}`,
-                        background: isSelected ? cfg.color : 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        flexShrink: 0
-                      }}>
-                        {isSelected && <Check size={15} strokeWidth={3} />}
-                      </div>
-
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 700, color: isSelected ? cfg.color : '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <RoleIcon size={15} />
-                          {cfg.label}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                          {cfg.desc}
-                        </div>
-                      </div>
+                {editRolesList.includes('superadmin') ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12.5, color: '#92400e', fontWeight: 700 }}>
+                    👑 Superadmin accounts automatically possess all Special Grants.
+                  </div>
+                ) : (
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={editSpecialGrant}
+                      onChange={e => setEditSpecialGrant(e.target.checked)}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#10b981' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Direct Certificate Studio Privilege
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff account to directly generate certificates and certify products outside standard client application flows.
+                      </span>
                     </div>
-                  );
-                })}
+                  </label>
+                )}
               </div>
             </div>
 
@@ -1111,7 +1158,8 @@ export default function AdminStaff() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
-              gap: 12
+              gap: 12,
+              flexShrink: 0
             }}>
               <button type="button" className="btn btn-ghost" onClick={() => setEditRolesModal(null)} disabled={rolesSaving}>
                 Cancel

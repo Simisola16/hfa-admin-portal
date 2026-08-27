@@ -194,6 +194,8 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     }
   }
 
+  const isCompletedFinal = effectiveStatus === 'certificate_issued' || normStatus === 'certificate_issued' || (statusHistory || []).some(h => (h.status || '').toLowerCase().replace(/ /g, '_') === 'certificate_issued');
+
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
@@ -216,7 +218,11 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
         let isCurrent = false;
         let isPending = false;
 
-        if (currentIndex !== -1) {
+        if (isCompletedFinal) {
+          isComplete = true;
+          isCurrent = false;
+          isPending = false;
+        } else if (currentIndex !== -1) {
           isComplete = currentIndex > idx;
           isCurrent = currentIndex === idx;
           isPending = currentIndex < idx;

@@ -94,7 +94,7 @@ export default function AuditManageModal({
 
         // Filter ONLY staff with role 'inspector' or 'auditor'
         const auditorStaff = rawUsers.filter(u =>
-          u && ['inspector', 'auditor'].includes(u.role)
+          u && (['inspector', 'auditor'].includes(u.role) || (Array.isArray(u.roles) && (u.roles.includes('inspector') || u.roles.includes('auditor'))))
         ).map(u => ({
           _id: u._id || u.id,
           id: u._id || u.id,

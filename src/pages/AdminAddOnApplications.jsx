@@ -83,7 +83,7 @@ export default function AdminAddOnApplications() {
       if (isManagerOrAdmin) {
         const usersRes = await api.get('/api/users').catch(() => ({ data: [] }));
         const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
-        setFtUsers(rawUsers.filter(u => u && u.role === 'food_tech'));
+        setFtUsers(rawUsers.filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech')))));
       }
     } catch {
       toast.error('Failed to load add-on applications.');

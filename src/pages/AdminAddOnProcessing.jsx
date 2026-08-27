@@ -96,7 +96,7 @@ export default function AdminAddOnProcessing() {
 
       if (isManagerOrAdmin) {
         const usersRes = await api.get('/api/users');
-        const ft = (usersRes.data || []).filter(u => u.role === 'food_tech');
+        const ft = (usersRes.data || []).filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech'))));
         setFtUsers(ft);
       }
     } catch (err) {

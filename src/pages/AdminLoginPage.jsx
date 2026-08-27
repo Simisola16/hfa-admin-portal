@@ -67,11 +67,11 @@ export default function AdminLoginPage() {
 
             <form onSubmit={handleSubmit}>
               <div className="auth-input-group">
-                <label>Username <span style={{ color: '#ef4444' }}>*</span></label>
+                <label>Email Address or Username <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   className="auth-input"
-                  placeholder="admin"
+                  placeholder="e.g. staff@halalfoodauthority.com"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   autoComplete="username"

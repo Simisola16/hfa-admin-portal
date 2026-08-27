@@ -88,10 +88,11 @@ export default function AdminStaff() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'audit' | 'food_tech' | 'special_grants'
 
-  // Staff Creation Modal State (Username removed)
+  // Staff Creation Modal State
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffForm, setStaffForm] = useState({
     email: '',
+    username: '',
     password: '',
     full_name: '',
     roles: ['food_tech'],
@@ -143,8 +144,9 @@ export default function AdminStaff() {
   const filtered = staffMembers.filter(s => {
     const userRoles = getUserRoles(s);
 
-    // Role Tab Filter
-    if (roleFilter === 'admin' && !userRoles.some(r => ['admin', 'superadmin'].includes(r))) return false;
+    // Role Tab Filter (Admins only shows admin, Superadmins shows superadmin)
+    if (roleFilter === 'admin' && !userRoles.includes('admin')) return false;
+    if (roleFilter === 'superadmin' && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
     if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !userRoles.includes('superadmin')) return false;
@@ -154,17 +156,19 @@ export default function AdminStaff() {
     const query = search.toLowerCase();
     const matchesName = s.full_name?.toLowerCase().includes(query);
     const matchesEmail = s.email?.toLowerCase().includes(query);
+    const matchesUsername = s.username?.toLowerCase().includes(query);
     const matchesRole = userRoles.some(r => {
       const cfg = STAFF_ROLE_CONFIG[r];
       return cfg?.label.toLowerCase().includes(query) || r.toLowerCase().includes(query);
     });
-    return matchesName || matchesEmail || matchesRole;
+    return matchesName || matchesEmail || matchesUsername || matchesRole;
   });
 
   // Calculate Stat Summary
   const stats = {
     total: staffMembers.length,
-    admins: staffMembers.filter(s => getUserRoles(s).some(r => ['admin', 'superadmin'].includes(r))).length,
+    admins: staffMembers.filter(s => getUserRoles(s).includes('admin')).length,
+    superadmins: staffMembers.filter(s => getUserRoles(s).includes('superadmin')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
     specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
@@ -204,7 +208,7 @@ export default function AdminStaff() {
     });
   };
 
-  // Handle Create Staff (Username removed)
+  // Handle Create Staff (Username supported)
   const handleCreateStaff = async (e) => {
     e.preventDefault();
     if (!isSuperAdmin) return toast.error('Only Superadmin can create staff accounts.');
@@ -217,6 +221,7 @@ export default function AdminStaff() {
     try {
       await api.post('/api/users', {
         email: staffForm.email.trim(),
+        username: staffForm.username?.trim() || undefined,
         password: staffForm.password.trim(),
         full_name: staffForm.full_name.trim(),
         roles: staffForm.roles,
@@ -227,6 +232,7 @@ export default function AdminStaff() {
       setShowStaffModal(false);
       setStaffForm({
         email: '',
+        username: '',
         password: '',
         full_name: '',
         roles: ['food_tech'],
@@ -417,7 +423,7 @@ export default function AdminStaff() {
       {/* KPI Stats Overview */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: 16,
         marginBottom: 24
       }}>
@@ -440,7 +446,18 @@ export default function AdminStaff() {
             </div>
           </div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.admins}</div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Superadmins & Admins</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Operational Admins</div>
+        </div>
+
+        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Superadmins</span>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+              <Crown size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.superadmins}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Full Master Access</div>
         </div>
 
         <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -479,14 +496,14 @@ export default function AdminStaff() {
         flexWrap: 'wrap',
         gap: 16
       }}>
-        {/* Search Bar (Search by name, email, or role) */}
+        {/* Search Bar (Search by name, email, username, or role) */}
         <div style={{ position: 'relative', minWidth: 320, flex: '1 1 320px', maxWidth: 460 }}>
           <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
             type="text"
             className="form-control"
             style={{ paddingLeft: 40, height: 42, fontSize: 13, borderRadius: 10, border: '1.5px solid #e2e8f0' }}
-            placeholder="Search staff by full name, email, or role..."
+            placeholder="Search staff by name, email, username, or role..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -505,6 +522,7 @@ export default function AdminStaff() {
           {[
             { id: 'all', label: 'All Staff' },
             { id: 'admin', label: 'Admins' },
+            { id: 'superadmin', label: 'Superadmins' },
             { id: 'audit', label: 'Audit Team' },
             { id: 'food_tech', label: 'Food Tech Team' },
             { id: 'special_grants', label: 'Special Grants' },
@@ -857,6 +875,20 @@ export default function AdminStaff() {
 
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                      Username <span style={{ color: '#64748b', fontSize: 11, fontWeight: 500 }}>(Optional)</span>
+                    </label>
+                    <input
+                      className="form-control"
+                      value={staffForm.username}
+                      onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))}
+                      placeholder="e.g. alex_johnson"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
                       Email Address <span style={{ color: '#ef4444' }}>*</span>
                     </label>
                     <input
@@ -868,23 +900,20 @@ export default function AdminStaff() {
                       required
                     />
                   </div>
-                </div>
 
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
-                    Initial Password <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={staffForm.password}
-                    onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="Set a secure initial password"
-                    required
-                  />
-                  <p style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
-                    The staff member will sign in with their email and this password.
-                  </p>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                      Initial Password <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={staffForm.password}
+                      onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="Set initial password"
+                      required
+                    />
+                  </div>
                 </div>
 
                 {/* 2. Multi-Role Ticking Selector */}

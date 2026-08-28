@@ -33,6 +33,8 @@ import ApplicationProcessing from './pages/ApplicationProcessing';
 import AdminAddOnApplications from './pages/AdminAddOnApplications';
 import AdminAddOnProcessing from './pages/AdminAddOnProcessing';
 import AdminAddOnApprovalForm from './pages/AdminAddOnApprovalForm';
+import AdminInitialProducts from './pages/AdminInitialProducts';
+import AdminInitialProductProcessing from './pages/AdminInitialProductProcessing';
 import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
 import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
@@ -51,6 +53,10 @@ export default function App() {
             <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
+            <Route path="/initial-products" element={<AdminInitialProducts />} />
+            <Route path="/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
+            <Route path="/admin/initial-products" element={<AdminInitialProducts />} />
+            <Route path="/admin/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
             <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />

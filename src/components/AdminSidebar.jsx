@@ -95,8 +95,10 @@ const NAV_SECTIONS = [
       {
         icon: Package, label: 'Products', path: '/products',
         children: [
+          { label: 'Initial Products', path: '/initial-products' },
+          { label: 'In-Progress Initial Products', path: '/initial-products?view=inprogress' },
           { label: 'Add-on Request', path: '/addon-applications?view=request' },
-          { label: 'InProgress',     path: '/addon-applications?view=inprogress' },
+          { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
         ],

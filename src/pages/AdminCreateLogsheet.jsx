@@ -1035,16 +1035,30 @@ export default function AdminCreateLogsheet() {
         toast.success('Logsheet created for add-on application!');
         navigate('/addon-applications');
       } else {
-        await api.post('/api/application-logsheets', {
+        const targetAppId = appId || application?._id || application?.id;
+        const postRes = await api.post('/api/application-logsheets', {
           ...form,
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
-          application_id: application.id || application._id,
-          client_id: application.client_id?._id || application.client_id,
-          site_id: application.site_id?._id || application.site_id
+          application_id: targetAppId,
+          client_id: application?.client_id?._id || application?.client_id,
+          site_id: application?.site_id?._id || application?.site_id
         });
+
+        // Explicitly update application status in DB to logsheet_created
+        await api.put(`/api/applications/${targetAppId}/status`, {
+          status: 'logsheet_created',
+          note: 'LogSheet created. Awaiting signatory signatures.'
+        }).catch(() => {});
+
+        const savedLogsheetId = postRes.data?.data?._id || postRes.data?._id;
+        if (savedLogsheetId) {
+          await api.put(`/api/applications/${targetAppId}`, {
+            logsheet_id: savedLogsheetId
+          }).catch(() => {});
+        }
+
         toast.success('LogSheet saved and status updated successfully!');
-        const targetAppId = application.id || application._id;
         navigate(`/applications/${targetAppId}/processing`);
       }
     } catch (err) {

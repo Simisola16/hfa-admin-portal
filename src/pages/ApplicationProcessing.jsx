@@ -88,44 +88,46 @@ export default function ApplicationProcessing() {
         api.get(`/api/invoices/application/${appId}/all`).catch(() => ({ data: { data: [] } })),
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null })),
-        api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null })),
+        api.get(`/api/application-logsheets/application/${appId}`)
+          .catch(() => api.get(`/api/application-logsheets?application_id=${appId}`))
+          .catch(() => ({ data: null })),
         api.get(`/api/initial-products`, { params: { application_id: appId } }).catch(() => ({ data: { data: [] } }))
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
-      const rawLogsheet = logsheetRes.data?.data || (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
+      const rawLogsheet = logsheetRes.data?.data || (Array.isArray(logsheetRes.data) ? logsheetRes.data.find(l => l.source_type !== 'initial_product_application' && l.audit_type !== 'Initial Product Evaluation') : (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null)) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
       const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id) || rawLogsheet.audit_type === 'Initial Product Evaluation');
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
       const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
 
-      // Sanitize status if application was falsely jumped to application_successful or logsheet_created without a main logsheet
-      if (fetchedApp && !fetchedLogsheet && ['application_successful', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate'].includes(fetchedApp.status)) {
+      // Sanitize status ONLY if application was falsely jumped to application_successful or ready_for_certificate without a main logsheet
+      if (fetchedApp && !fetchedLogsheet && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
         if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
           const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
           fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
           if (Array.isArray(fetchedApp.statusHistory)) {
-            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate'].includes(h.status));
+            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'ready_for_certificate'].includes(h.status));
           }
         }
       }
 
-      // If a valid main facility logsheet is present, ensure the application status is at least logsheet_created
-      if (fetchedApp && fetchedLogsheet) {
-        const isSigned = fetchedLogsheet.mufti_signature && fetchedLogsheet.ceo_signature && fetchedLogsheet.manager_signature && fetchedLogsheet.mufti2_signature;
-        if (['audit_completed', 'audit_successful', 'nc_flagged', 'nc_closed'].includes(fetchedApp.status)) {
-          fetchedApp.status = isSigned ? 'logsheet_signed' : 'logsheet_created';
-        }
-      } else {
-        // If all NC observations are closed or nc_closed is in statusHistory, ensure status reflects nc_closed
-        const appNcReports = fetchedApp?.nc_reports || [];
-        const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
-        const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
-        const hasClosedAllNc = allNc.length > 0 && allNc.every(r => r.status === 'closed');
-        const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
-
-        if (fetchedApp && (fetchedApp.status === 'audit_completed' || fetchedApp.status === 'audit_successful' || fetchedApp.status === 'nc_flagged')) {
+      // If a valid main facility logsheet is present, or if application is in logsheet stage:
+      if (fetchedApp) {
+        if (fetchedLogsheet) {
+          const isSigned = fetchedLogsheet.mufti_signature && fetchedLogsheet.ceo_signature && fetchedLogsheet.manager_signature && fetchedLogsheet.mufti2_signature;
+          if (['audit_completed', 'audit_successful', 'nc_flagged', 'nc_closed', 'logsheet_created'].includes(fetchedApp.status)) {
+            fetchedApp.status = isSigned ? 'logsheet_signed' : 'logsheet_created';
+          }
+        } else if (fetchedApp.status === 'logsheet_created' || fetchedApp.status === 'logsheet_signed') {
+          // Keep logsheet_created / logsheet_signed as valid current status
+        } else if (['audit_completed', 'audit_successful', 'nc_flagged'].includes(fetchedApp.status)) {
+          const appNcReports = fetchedApp?.nc_reports || [];
+          const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
+          const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
+          const hasClosedAllNc = allNc.length > 0 && allNc.every(r => r.status === 'closed');
+          const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
           if (hasClosedAllNc || hasNcClosedInHistory) {
             fetchedApp.status = 'nc_closed';
           }

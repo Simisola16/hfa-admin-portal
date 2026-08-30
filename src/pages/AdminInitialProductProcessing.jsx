@@ -74,7 +74,13 @@ export default function AdminInitialProductProcessing() {
       const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
       setFtUsers(rawUsers.filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech')))));
 
-      const loadedLogs = logsheetsRes.data?.data || (Array.isArray(logsheetsRes.data) ? logsheetsRes.data : []);
+      const rawLogs = logsheetsRes.data?.data || (Array.isArray(logsheetsRes.data) ? logsheetsRes.data : []);
+      const loadedLogs = rawLogs.filter(ls => {
+        const ipAppId = ls.initial_product_application_id?._id || ls.initial_product_application_id;
+        const matchesThisApp = String(ipAppId) === String(id);
+        const matchesLogsheetId = loadedApp?.logsheet_id && String(ls._id) === String(loadedApp.logsheet_id?._id || loadedApp.logsheet_id);
+        return matchesThisApp || matchesLogsheetId;
+      });
       setLogsheets(loadedLogs);
 
       // Pre-fill FT modal state
@@ -594,17 +600,6 @@ export default function AdminInitialProductProcessing() {
                 >
                   <Plus size={14} /> Create Logsheet
                 </button>
-                {!isApproved && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={handleApproveForm}
-                    disabled={approving}
-                    style={{ background: '#166534', borderColor: '#166534', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <Sparkles size={14} /> Approve Initial Product
-                  </button>
-                )}
               </div>
             </div>
 

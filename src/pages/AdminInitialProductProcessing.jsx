@@ -55,6 +55,7 @@ export default function AdminInitialProductProcessing() {
 
   // Direct Approve Form
   const [approving, setApproving] = useState(false);
+  const [markingReceived, setMarkingReceived] = useState(false);
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
 
@@ -141,6 +142,23 @@ export default function AdminInitialProductProcessing() {
       toast.error(err.response?.data?.error || err.message || 'Failed to enable form');
     } finally {
       setSavingEnableForm(false);
+    }
+  };
+
+  // Handler: Confirm / Mark Product Approval Form as Received
+  const handleMarkFormReceived = async () => {
+    if (!window.confirm('Confirm that the Product Approval Form response has been received and verified?')) {
+      return;
+    }
+    setMarkingReceived(true);
+    try {
+      await api.put(`/api/initial-products/${id}/mark-form-received`);
+      toast.success('✓ Product Approval Form marked as received!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark form as received');
+    } finally {
+      setMarkingReceived(false);
     }
   };
 
@@ -337,23 +355,43 @@ export default function AdminInitialProductProcessing() {
               )}
 
               {app.status === 'product_approval_form_enabled' && (
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setShowEnableFormModal(true)}
-                  style={{
-                    color: '#6b21a8',
-                    borderColor: '#d8b4fe',
-                    background: '#faf5ff',
-                    fontWeight: 800,
-                    padding: '10px 18px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8
-                  }}
-                >
-                  <Clock size={16} /> Awaiting Client Form Submission
-                </button>
+                <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleMarkFormReceived}
+                    disabled={markingReceived}
+                    style={{
+                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      borderColor: '#047857',
+                      fontWeight: 800,
+                      padding: '10px 20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                    }}
+                  >
+                    <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Product Form Received →'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setShowEnableFormModal(true)}
+                    style={{
+                      color: '#6b21a8',
+                      borderColor: '#d8b4fe',
+                      background: '#faf5ff',
+                      fontWeight: 700,
+                      padding: '10px 14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <Edit size={14} /> Form Settings
+                  </button>
+                </div>
               )}
 
               {app.status === 'all_forms_received' && (
@@ -512,7 +550,7 @@ export default function AdminInitialProductProcessing() {
                 3. Product Approval Form &amp; Technical Formulation
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {!isFormEnabled && (
                   <button
                     type="button"
@@ -521,6 +559,18 @@ export default function AdminInitialProductProcessing() {
                     style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
                     <Send size={14} /> Enable Form for Client
+                  </button>
+                )}
+
+                {isFormEnabled && !isFormReceived && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleMarkFormReceived}
+                    disabled={markingReceived}
+                    style={{ background: '#059669', borderColor: '#059669', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <CheckCircle size={14} /> {markingReceived ? 'Marking...' : 'Product Form Received'}
                   </button>
                 )}
 
@@ -546,26 +596,40 @@ export default function AdminInitialProductProcessing() {
                   </div>
                 </div>
 
-                {productResp?.is_saved && (
-                  <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {isFormEnabled && !isFormReceived && (
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => setShowFormModal(true)}
-                      style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      className="btn btn-primary btn-sm"
+                      onClick={handleMarkFormReceived}
+                      disabled={markingReceived}
+                      style={{ background: '#059669', borderColor: '#059669', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                     >
-                      <Eye size={14} /> View Form Response
+                      <CheckCircle size={14} /> {markingReceived ? 'Confirming...' : 'Product Form Received'}
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => setShowInfoModal(true)}
-                      style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                    >
-                      <AlertCircle size={14} /> Request More Info
-                    </button>
-                  </div>
-                )}
+                  )}
+
+                  {productResp?.is_saved && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowFormModal(true)}
+                        style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <Eye size={14} /> View Form Response
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowInfoModal(true)}
+                        style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <AlertCircle size={14} /> Request More Info
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {app.product_approval_form?.form_file_url && (

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertTriangle, ClipboardList, Download, Award, PenTool, Receipt, ExternalLink, Clock
+  ChevronRight, AlertTriangle, ClipboardList, Download, Award, PenTool, Receipt, ExternalLink, Clock,
+  Lock, Package
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -43,6 +44,7 @@ export default function ApplicationProcessing() {
   const [agreement, setAgreement] = useState(null);
   const [audits, setAudits] = useState([]);
   const [logsheet, setLogsheet] = useState(null);
+  const [initialProduct, setInitialProduct] = useState(null);
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -79,14 +81,15 @@ export default function ApplicationProcessing() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes] = await Promise.all([
+      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes, ipRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/proposals/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}/all`).catch(() => ({ data: { data: [] } })),
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null })),
-        api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null }))
+        api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null })),
+        api.get(`/api/initial-products/by-application/${appId}`).catch(() => ({ data: null }))
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
@@ -115,6 +118,7 @@ export default function ApplicationProcessing() {
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
       setAudits(loadedAudits);
       setLogsheet(fetchedLogsheet);
+      setInitialProduct(ipRes.data?.data || null);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {
@@ -469,6 +473,7 @@ export default function ApplicationProcessing() {
     // 6. Complete (Certificate / Letter Issued)
     // =========================================================================
     const isDualStage = isGSO;
+    const isInitialProductApproved = isFastTrack ? true : Boolean(initialProduct && initialProduct.status === 'initial_product_approved');
     const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
     const stage2 = audits?.find(a => a.stage === 2);
     const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
@@ -656,6 +661,60 @@ export default function ApplicationProcessing() {
 
     // 4. Audit Scheduling & Execution Stage
     if (['payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+      // If Initial Product is not approved yet, lock audit actions for standard applications
+      if (!isFastTrack && !isInitialProductApproved) {
+        if (!initialProduct) {
+          return (
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled
+              style={{
+                gap: 8,
+                opacity: 0.65,
+                cursor: 'not-allowed',
+                background: '#f8fafc',
+                borderColor: '#cbd5e1',
+                color: '#64748b',
+                fontWeight: 700
+              }}
+              title="Awaiting client to submit an Initial Product. Facility audit cannot be scheduled until Initial Product is approved."
+            >
+              <Lock size={15} /> Awaiting Initial Product Submission
+            </button>
+          );
+        }
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled
+              style={{
+                gap: 8,
+                opacity: 0.85,
+                cursor: 'not-allowed',
+                background: '#fefce8',
+                borderColor: '#fde047',
+                color: '#854d0e',
+                fontWeight: 700
+              }}
+              title={`Initial Product "${initialProduct.product?.name || 'Product'}" is currently under review (${initialProduct.status?.replace(/_/g, ' ')}). It must be approved before facility audit can be scheduled.`}
+            >
+              <Clock size={15} /> Initial Product Review in Progress
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate('/initial-products')}
+              style={{ gap: 6, fontSize: 13, padding: '8px 14px', background: '#059669', borderColor: '#059669', fontWeight: 700 }}
+            >
+              <Package size={15} /> Process Initial Product &rarr;
+            </button>
+          </div>
+        );
+      }
+
       if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -911,7 +970,15 @@ export default function ApplicationProcessing() {
           )}
 
           {/* 1. Audit Card */}
-          <AuditCard app={app} audits={audits} onManage={() => setShowAuditModal(true)} />
+          <AuditCard 
+            app={app} 
+            audits={audits} 
+            status={status}
+            initialProduct={initialProduct}
+            isInitialProductApproved={isFastTrack ? true : Boolean(initialProduct && initialProduct.status === 'initial_product_approved')}
+            isFastTrack={isFastTrack}
+            onManage={(!isFastTrack && !(initialProduct && initialProduct.status === 'initial_product_approved')) ? undefined : () => setShowAuditModal(true)} 
+          />
 
           {/* 2. Non-Conformity (NC) & Findings Card */}
           <NcCard

@@ -10,7 +10,7 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function AuditCard({ audits, status, app, onManage }) {
+export default function AuditCard({ audits, status, app, initialProduct, isInitialProductApproved = true, isFastTrack = false, onManage }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
   const hasAudits = audits && audits.length > 0;
   const isAvailable = ['invoice_sent', 'payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'audit_successful', 'on_hold', 'final_invoice_sent', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || hasAudits;
@@ -65,16 +65,62 @@ export default function AuditCard({ audits, status, app, onManage }) {
   }
 
   if (!hasAudits) {
+    const isAuditLockedByProduct = !isFastTrack && !isInitialProductApproved;
+
     return (
       <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', padding: 24, textAlign: 'center' }}>
-        <Calendar size={28} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>No Audit Scheduled</div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Audit dates have not been proposed or scheduled yet.</div>
-        {onManage && (
+        <Calendar size={28} style={{ color: isAuditLockedByProduct ? '#d97706' : '#94a3b8', margin: '0 auto 10px' }} />
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>
+          {isAuditLockedByProduct ? 'Facility Audit (Locked)' : 'No Audit Scheduled'}
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+          {isAuditLockedByProduct
+            ? 'Facility audit scheduling is locked until the Initial Product is approved.'
+            : 'Audit dates have not been proposed or scheduled yet.'}
+        </div>
+
+        {isAuditLockedByProduct && (
+          <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 14, padding: '16px 20px', textAlign: 'left', marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <AlertCircle size={20} style={{ color: '#d97706', flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: '#92400e' }}>
+                  Initial Product Approval Required Before Facility Audit
+                </div>
+                <div style={{ fontSize: 12.5, color: '#b45309', marginTop: 4, lineHeight: 1.45 }}>
+                  {initialProduct
+                    ? `Initial Product "${initialProduct.product?.name || 'Product'}" is currently under review (${initialProduct.status?.replace(/_/g, ' ')}). The facility audit can be scheduled once the Initial Product is approved.`
+                    : 'The client has not yet added their Initial Product. Facility audit cannot be scheduled until the Initial Product is submitted and marked as Initial Product Approved.'}
+                </div>
+              </div>
+            </div>
+            {initialProduct && (
+              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                <a
+                  href={`/initial-products`}
+                  className="btn btn-outline btn-sm"
+                  style={{ borderColor: '#f59e0b', color: '#b45309', background: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
+                >
+                  Go to Initial Product Processing &rarr;
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {onManage && !isAuditLockedByProduct ? (
           <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={onManage}>
             Schedule Audit
           </button>
-        )}
+        ) : isAuditLockedByProduct ? (
+          <button
+            className="btn btn-outline btn-sm"
+            disabled
+            style={{ marginTop: 16, opacity: 0.6, cursor: 'not-allowed', background: '#f8fafc', borderColor: '#cbd5e1', color: '#64748b' }}
+          >
+            <Lock size={14} style={{ marginRight: 6 }} /> Schedule Audit (Locked)
+          </button>
+        ) : null}
       </div>
     );
   }

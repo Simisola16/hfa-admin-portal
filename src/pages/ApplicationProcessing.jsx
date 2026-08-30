@@ -89,9 +89,7 @@ export default function ApplicationProcessing() {
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null })),
-        api.get(`/api/initial-products/by-application/${appId}`)
-          .catch(() => api.get(`/api/initial-products?application_id=${appId}`))
-          .catch(() => ({ data: null }))
+        api.get(`/api/initial-products`, { params: { application_id: appId } }).catch(() => ({ data: { data: [] } }))
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
@@ -114,7 +112,15 @@ export default function ApplicationProcessing() {
       }
 
       const rawIp = ipRes.data?.data;
-      const initialProductItem = Array.isArray(rawIp) ? (rawIp[0] || null) : (rawIp || null);
+      let initialProductItem = null;
+      if (Array.isArray(rawIp)) {
+        initialProductItem = rawIp.find(ip => {
+          const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
+          return String(ipAppId) === String(appId);
+        }) || rawIp[0] || null;
+      } else if (rawIp && typeof rawIp === 'object') {
+        initialProductItem = rawIp;
+      }
 
       setApp(fetchedApp);
       setProposal(propRes.data?.data || propRes.data || null);

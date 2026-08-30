@@ -89,7 +89,9 @@ export default function ApplicationProcessing() {
         api.get(`/api/agreements/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/audits/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/application-logsheets/application/${appId}`).catch(() => ({ data: null })),
-        api.get(`/api/initial-products/by-application/${appId}`).catch(() => ({ data: null }))
+        api.get(`/api/initial-products/by-application/${appId}`)
+          .catch(() => api.get(`/api/initial-products?application_id=${appId}`))
+          .catch(() => ({ data: null }))
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
@@ -111,6 +113,9 @@ export default function ApplicationProcessing() {
         }
       }
 
+      const rawIp = ipRes.data?.data;
+      const initialProductItem = Array.isArray(rawIp) ? (rawIp[0] || null) : (rawIp || null);
+
       setApp(fetchedApp);
       setProposal(propRes.data?.data || propRes.data || null);
       setInvoice(invRes.data?.data || invRes.data || null);
@@ -118,7 +123,7 @@ export default function ApplicationProcessing() {
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
       setAudits(loadedAudits);
       setLogsheet(fetchedLogsheet);
-      setInitialProduct(ipRes.data?.data || null);
+      setInitialProduct(initialProductItem);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {

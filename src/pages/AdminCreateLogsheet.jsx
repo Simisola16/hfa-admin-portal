@@ -305,11 +305,21 @@ export default function AdminCreateLogsheet() {
         const autoAuditType = 'Initial Product Evaluation';
 
         // Check if logsheet already exists
-        let ipLogsheet = null;
-        try {
-          const logRes = await api.get(`/api/initial-products/${resolvedInitialProductId}/logsheet`);
-          ipLogsheet = logRes.data?.data || logRes.data;
-        } catch (e) { /* No logsheet yet */ }
+        let ipLogsheet = (ipData.logsheet_id && typeof ipData.logsheet_id === 'object' && ipData.logsheet_id._id) ? ipData.logsheet_id : null;
+        if (!ipLogsheet) {
+          try {
+            const logRes = await api.get(`/api/application-logsheets?initial_product_application_id=${resolvedInitialProductId}`);
+            const list = Array.isArray(logRes.data?.data) ? logRes.data.data : (Array.isArray(logRes.data) ? logRes.data : []);
+            ipLogsheet = list[0] || null;
+          } catch (e) { /* No logsheet yet */ }
+        }
+        if (!ipLogsheet && ipData.logsheet_id) {
+          try {
+            const logsheetId = ipData.logsheet_id._id || ipData.logsheet_id;
+            const logRes = await api.get(`/api/application-logsheets/${logsheetId}`);
+            ipLogsheet = logRes.data?.data || logRes.data;
+          } catch (e) { /* fallback */ }
+        }
 
         if (ipLogsheet && ipLogsheet._id) {
           setCurrentLogsheet(ipLogsheet);

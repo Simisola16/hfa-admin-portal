@@ -286,6 +286,27 @@ export default function AdminInitialProductProcessing() {
               </div>
             </div>
           </div>
+
+          {/* Quick Action button: Assign FT */}
+          {isManagerOrAdmin && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowFtModal(true)}
+              style={{
+                background: '#2563eb',
+                borderColor: '#2563eb',
+                fontWeight: 800,
+                padding: '10px 20px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+              }}
+            >
+              <User size={16} /> {ftNames.length > 0 ? 'Edit FT Assignment' : 'Assign FT'}
+            </button>
+          )}
         </div>
       </div>
 

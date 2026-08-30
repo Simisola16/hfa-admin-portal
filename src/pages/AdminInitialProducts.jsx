@@ -369,26 +369,6 @@ export default function AdminInitialProducts() {
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          {needsFt && isManagerOrAdmin && (
-                            <button
-                              type="button"
-                              className="btn btn-sm"
-                              onClick={() => openAssignModal(item)}
-                              style={{
-                                background: '#eff6ff',
-                                color: '#1d4ed8',
-                                border: '1px solid #bfdbfe',
-                                fontWeight: 800,
-                                fontSize: 12,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4
-                              }}
-                            >
-                              <User size={13} /> Assign FT
-                            </button>
-                          )}
-
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"

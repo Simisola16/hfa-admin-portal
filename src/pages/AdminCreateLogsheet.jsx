@@ -497,11 +497,23 @@ export default function AdminCreateLogsheet() {
           autoCompanyAddress = autoManufacturingAddress || (autoCompanyName ? `${autoCompanyName}, United Kingdom` : 'United Kingdom');
         }
 
-        // 3. See if logsheet exists
+        // 3. See if main facility logsheet exists
         let logsheetObj = null;
         try {
           const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
-          logsheetObj = logRes.data?.data || logRes.data;
+          const raw = logRes.data?.data || logRes.data;
+          if (
+            raw &&
+            !raw.error &&
+            raw._id &&
+            raw.source_type !== 'initial_product_application' &&
+            raw.source_type !== 'addon_application' &&
+            !raw.initial_product_application_id &&
+            !raw.addon_application_id &&
+            raw.audit_type !== 'Initial Product Evaluation'
+          ) {
+            logsheetObj = raw;
+          }
         } catch (e) {
           // Not found yet
         }

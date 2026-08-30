@@ -16,6 +16,7 @@ export default function AdminCreateLogsheet() {
   const isInitialProduct = !!initialProductId || window.location.pathname.includes('/initial-products/');
   const resolvedInitialProductId = initialProductId || (isInitialProduct ? (id || appId) : null);
   const isAddon = !!addonId;
+  const isProductLogsheet = isAddon || isInitialProduct;
   const entityId = isInitialProduct ? resolvedInitialProductId : (isAddon ? addonId : appId);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -776,14 +777,18 @@ export default function AdminCreateLogsheet() {
       toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
       return;
     }
-    const productsList = application?.products || clientProducts || [];
+    const productsList = isInitialProduct
+      ? (application?.product ? [application.product] : [])
+      : (application?.products || clientProducts || []);
     // Default all products selected
     setSelectedApproveProducts(productsList.map((_, idx) => idx));
     setShowApproveProductsModal(true);
   };
 
   const handleSendHighlightedProductsToClient = async () => {
-    const productsList = application?.products || clientProducts || [];
+    const productsList = isInitialProduct
+      ? (application?.product ? [application.product] : [])
+      : (application?.products || clientProducts || []);
     if (productsList.length > 0 && selectedApproveProducts.length === 0) {
       toast.error('Please select at least one product to approve.');
       return;
@@ -807,7 +812,19 @@ export default function AdminCreateLogsheet() {
         approved_products: approvedProductsList
       });
 
-      // 2. Also call add-on approve-form if linked
+      // 2. If Initial Product, call initial-products approve-form
+      if (isInitialProduct) {
+        const targetIpId = resolvedInitialProductId || currentLogsheet?.initial_product_application_id?._id || currentLogsheet?.initial_product_application_id;
+        if (targetIpId) {
+          try {
+            await api.put(`/api/initial-products/${targetIpId}/approve-form`);
+          } catch (e) {
+            console.warn('Initial product approve-form sync note:', e.message);
+          }
+        }
+      }
+
+      // 3. Also call add-on approve-form if linked
       const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
       if (targetAddonId) {
         try {
@@ -819,10 +836,14 @@ export default function AdminCreateLogsheet() {
         }
       }
 
-      toast.success(`🎉 ${approvedProductsList.length} highlighted product(s) approved and sent to client dashboard!`);
+      toast.success(`🎉 ${approvedProductsList.length} product(s) approved successfully!`);
       setShowApproveProductsModal(false);
       fetchData();
-      navigate('/logsheet/waiting-certificate');
+      if (isInitialProduct) {
+        navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else {
+        navigate('/logsheet/waiting-certificate');
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to approve products');
     } finally {
@@ -1023,12 +1044,12 @@ export default function AdminCreateLogsheet() {
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
       {/* Navigation Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-          <ChevronLeft size={16} /> Back
+        <button className="btn btn-ghost btn-sm" onClick={() => isInitialProduct ? navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`) : navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+          <ChevronLeft size={16} /> {isInitialProduct ? 'Back to Initial Product' : 'Back'}
         </button>
 
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          Application Ref: <strong style={{ color: '#0f172a' }}>#{application?.application_number || 'N/A'}</strong>
+          {isInitialProduct ? 'Initial Product Ref:' : 'Application Ref:'} <strong style={{ color: '#0f172a' }}>#{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}</strong>
         </div>
       </div>
 
@@ -1077,25 +1098,17 @@ export default function AdminCreateLogsheet() {
                   className="btn btn-primary btn-sm"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, padding: '8px 16px', boxShadow: '0 2px 4px rgba(21,128,61,0.2)' }}
                 >
-                  <PenTool size={14} />
-                  Apply Signature
+                  <PenTool size={14} /> Apply My Signature
                 </button>
               </div>
             )}
           </div>
 
-          {/* Progress Bar & Role Badges */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ height: 8, background: isFullySigned ? '#dcfce7' : '#fed7aa', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{
-                width: `${(totalSignedCount / 4) * 100}%`,
-                height: '100%',
-                background: isFullySigned ? '#16a34a' : 'linear-gradient(90deg, #f59e0b, #d97706)',
-                borderRadius: 10,
-                transition: 'width 0.4s ease'
-              }} />
+          {/* Quick 4-step signatory status line */}
+          <div style={{ borderTop: `1px solid ${isFullySigned ? '#dcfce7' : '#fed7aa'}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: isFullySigned ? '#15803d' : '#9a3412', letterSpacing: '0.05em', marginBottom: 6 }}>
+              Committee Signatory Roster (Minimum 3 Signatures to Complete Review)
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 4 }}>
               {signatories.map((s, idx) => (
                 <div key={idx} style={{
@@ -1139,7 +1152,7 @@ export default function AdminCreateLogsheet() {
                 <CheckSquare size={12} /> OFFICIAL CERTIFICATION DECISION RECORD
               </div>
               <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                Halal Certification Audit Logsheet
+                {isProductLogsheet ? 'Halal Product Certification Logsheet' : 'Halal Certification Audit Logsheet'}
               </h2>
               <p style={{ fontSize: 13, color: '#d1fae5', margin: '4px 0 0' }}>
                 Halal Food Authority — Technical &amp; Shariah Committee Decision File
@@ -1147,12 +1160,12 @@ export default function AdminCreateLogsheet() {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Application Reference</div>
+              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{isInitialProduct ? 'Product Reference' : 'Application Reference'}</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
-                #{application?.application_number || 'N/A'}
+                #{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}
               </div>
               <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
-                Audit Type: <strong>{form.audit_type || 'New'}</strong>
+                {isProductLogsheet ? 'Evaluation Type:' : 'Audit Type:'} <strong>{form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'New')}</strong>
               </div>
             </div>
           </div>
@@ -1396,19 +1409,21 @@ export default function AdminCreateLogsheet() {
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <FileText size={16} style={{ color: '#047857' }} />
-                {isAddon ? '6. Filled Product Approval Request Forms & Declarations' : '6. Attached Audit Reports'}
+                {isProductLogsheet ? '6. Filled Product Approval Request Forms & Declarations' : '6. Attached Audit Reports'}
               </h4>
 
-              {isAddon ? (
+              {isProductLogsheet ? (
                 <div>
                   <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14 }}>
                     Official client-submitted 3-page Halal Certification Product Approval Request Forms with full ingredient declarations, porcine segregation checks, and technical sign-offs:
                   </div>
 
                   <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                    {(application?.products || []).map((p, pIdx) => {
-                      const resp = (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
-                      const isSaved = resp?.is_saved;
+                    {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                      const resp = isInitialProduct
+                        ? (application?.product_approval_form?.product_response || {})
+                        : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
+                      const isSaved = resp?.is_saved || Boolean(resp?.response_url) || (resp?.form_data && Object.keys(resp.form_data).length > 0);
                       const formData = resp?.form_data || {};
 
                       return (
@@ -1697,14 +1712,14 @@ export default function AdminCreateLogsheet() {
                     </div>
                     <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
                       {totalSignedCount >= 3
-                        ? ((isAddon || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
-                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to select and approve products for client dashboard.`
+                        ? ((isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
+                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to complete review and approve product for client.`
                             : `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`)
                         : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
                     </div>
                   </div>
 
-                  {(isAddon || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
+                  {(isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
                     <button
                       onClick={openApproveProductsModal}
                       disabled={isFinalizing || totalSignedCount < 3}
@@ -1905,14 +1920,14 @@ export default function AdminCreateLogsheet() {
                 </div>
 
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  {isAddon ? (
+                  {isProductLogsheet ? (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', margin: 0 }}>
                           Client Product Approval Request Forms &amp; Specifications
                         </label>
                         <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700 }}>
-                          {application?.products?.length || 0} PRODUCTS IN ADD-ON
+                          {isInitialProduct ? '1 PRODUCT IN INITIAL EVALUATION' : `${application?.products?.length || 0} PRODUCTS IN ADD-ON`}
                         </span>
                       </div>
                       <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
@@ -1920,9 +1935,11 @@ export default function AdminCreateLogsheet() {
                       </div>
 
                       <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-                        {(application?.products || []).map((p, pIdx) => {
-                          const resp = (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
-                          const isSaved = resp?.is_saved;
+                        {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                          const resp = isInitialProduct
+                            ? (application?.product_approval_form?.product_response || {})
+                            : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
+                          const isSaved = resp?.is_saved || Boolean(resp?.response_url) || (resp?.form_data && Object.keys(resp.form_data).length > 0);
                           const formData = resp?.form_data || {};
 
                           return (
@@ -2049,13 +2066,13 @@ export default function AdminCreateLogsheet() {
                       <Lock size={12} /> Auto-populated
                     </span>
                   </div>
-                  {isAddon ? (
+                  {isProductLogsheet ? (
                     <input
                       required
                       readOnly
                       type="text"
                       className="form-control"
-                      value={form.audit_type || 'Add-on Products Certification'}
+                      value={form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'Add-on Products Certification')}
                       style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
                     />
                   ) : (
@@ -2073,8 +2090,8 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isAddon ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
-                    {isAddon && (
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isProductLogsheet ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
+                    {isProductLogsheet && (
                       <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <Lock size={12} /> Assigned FT
                       </span>
@@ -2082,26 +2099,26 @@ export default function AdminCreateLogsheet() {
                   </div>
                   <input
                     required
-                    readOnly={isAddon}
+                    readOnly={isProductLogsheet}
                     type="text"
                     className="form-control"
-                    placeholder={isAddon ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
+                    placeholder={isProductLogsheet ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
                     value={form.auditors || ''}
                     onChange={e => setForm({ ...form, auditors: e.target.value })}
-                    style={isAddon ? { backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 } : {}}
+                    style={isProductLogsheet ? { backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 } : {}}
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">
-                    NCS Close (if any) {!isAddon && <span style={{ color: '#dc2626' }}>*</span>}
+                    NCS Close (if any) {!isProductLogsheet && <span style={{ color: '#dc2626' }}>*</span>}
                   </label>
                   <input
-                    required={!isAddon}
+                    required={!isProductLogsheet}
                     type="text"
                     className="form-control"
                     value={form.ncs_close || ''}
                     onChange={e => setForm({ ...form, ncs_close: e.target.value })}
-                    placeholder={isAddon ? 'e.g. N/A - Product Evaluation (Optional)' : 'e.g. No NCs flagged / All NCs closed'}
+                    placeholder={isProductLogsheet ? 'e.g. N/A - Product Evaluation (Optional)' : 'e.g. No NCs flagged / All NCs closed'}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -2422,7 +2439,7 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div>
                   <div className="modal-title" style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
-                    Approve Add-on Products
+                    {isInitialProduct ? 'Approve Initial Product' : 'Approve Add-on Products'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                     {application?.profiles?.company_name || form.company_name} &bull; Site: {form.site_name || 'Main Site'}
@@ -2446,7 +2463,9 @@ export default function AdminCreateLogsheet() {
 
               {/* Selection Summary & Select All Toolbar */}
               {(() => {
-                const productsList = application?.products || clientProducts || [];
+                const productsList = isInitialProduct
+                  ? (application?.product ? [application.product] : [])
+                  : (application?.products || clientProducts || []);
                 const allSelected = productsList.length > 0 && selectedApproveProducts.length === productsList.length;
 
                 return (
@@ -2475,7 +2494,9 @@ export default function AdminCreateLogsheet() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {productsList.map((p, idx) => {
                         const isSelected = selectedApproveProducts.includes(idx);
-                        const resp = application?.product_approval_form?.product_responses?.find(r => r.product_index === idx);
+                        const resp = isInitialProduct
+                          ? (application?.product_approval_form?.product_response || {})
+                          : application?.product_approval_form?.product_responses?.find(r => r.product_index === idx);
                         const formData = resp?.form_data || {};
                         const isSaved = resp?.is_saved || Boolean(resp?.response_url) || Object.keys(formData).length > 0;
 

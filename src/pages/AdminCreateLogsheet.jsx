@@ -1040,11 +1040,12 @@ export default function AdminCreateLogsheet() {
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           application_id: application.id || application._id,
-          client_id: application.client_id,
-          site_id: application.site_id
+          client_id: application.client_id?._id || application.client_id,
+          site_id: application.site_id?._id || application.site_id
         });
-        toast.success('Logsheet saved and status updated successfully');
-        navigate('/applications');
+        toast.success('LogSheet saved and status updated successfully!');
+        const targetAppId = application.id || application._id;
+        navigate(`/applications/${targetAppId}/processing`);
       }
     } catch (err) {
       toast.error(err.message || 'Failed to save logsheet');

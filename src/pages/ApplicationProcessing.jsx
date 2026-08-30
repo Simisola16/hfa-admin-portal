@@ -94,7 +94,7 @@ export default function ApplicationProcessing() {
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
       const rawLogsheet = logsheetRes.data?.data || (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
-      const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id));
+      const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id) || rawLogsheet.audit_type === 'Initial Product Evaluation');
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
@@ -111,16 +111,24 @@ export default function ApplicationProcessing() {
         }
       }
 
-      // If all NC observations are closed or nc_closed is in statusHistory, ensure status reflects nc_closed
-      const appNcReports = fetchedApp?.nc_reports || [];
-      const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
-      const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
-      const hasClosedAllNc = allNc.length > 0 && allNc.every(r => r.status === 'closed');
-      const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
+      // If a valid main facility logsheet is present, ensure the application status is at least logsheet_created
+      if (fetchedApp && fetchedLogsheet) {
+        const isSigned = fetchedLogsheet.mufti_signature && fetchedLogsheet.ceo_signature && fetchedLogsheet.manager_signature && fetchedLogsheet.mufti2_signature;
+        if (['audit_completed', 'audit_successful', 'nc_flagged', 'nc_closed'].includes(fetchedApp.status)) {
+          fetchedApp.status = isSigned ? 'logsheet_signed' : 'logsheet_created';
+        }
+      } else {
+        // If all NC observations are closed or nc_closed is in statusHistory, ensure status reflects nc_closed
+        const appNcReports = fetchedApp?.nc_reports || [];
+        const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
+        const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
+        const hasClosedAllNc = allNc.length > 0 && allNc.every(r => r.status === 'closed');
+        const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
 
-      if (fetchedApp && (fetchedApp.status === 'audit_completed' || fetchedApp.status === 'audit_successful' || fetchedApp.status === 'nc_flagged')) {
-        if (hasClosedAllNc || hasNcClosedInHistory) {
-          fetchedApp.status = 'nc_closed';
+        if (fetchedApp && (fetchedApp.status === 'audit_completed' || fetchedApp.status === 'audit_successful' || fetchedApp.status === 'nc_flagged')) {
+          if (hasClosedAllNc || hasNcClosedInHistory) {
+            fetchedApp.status = 'nc_closed';
+          }
         }
       }
 

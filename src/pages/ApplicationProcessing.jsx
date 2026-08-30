@@ -94,12 +94,26 @@ export default function ApplicationProcessing() {
       const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id));
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
+      const loadedAudits = auditRes.data?.data || auditRes.data || [];
+      const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
+
+      // Sanitize status if application was falsely jumped to application_successful or logsheet_created without a main logsheet
+      if (fetchedApp && !fetchedLogsheet && ['application_successful', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate'].includes(fetchedApp.status)) {
+        if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
+          const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
+          fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
+          if (Array.isArray(fetchedApp.statusHistory)) {
+            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate'].includes(h.status));
+          }
+        }
+      }
+
       setApp(fetchedApp);
       setProposal(propRes.data?.data || propRes.data || null);
       setInvoice(invRes.data?.data || invRes.data || null);
       setAllInvoices(allInvRes.data?.data || allInvRes.data || []);
       setAgreement(agreementRes.data?.data || agreementRes.data || null);
-      setAudits(auditRes.data?.data || auditRes.data || []);
+      setAudits(loadedAudits);
       setLogsheet(fetchedLogsheet);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');

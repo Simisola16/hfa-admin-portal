@@ -171,16 +171,7 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     return stepsToShow.indexOf(s);
   };
 
-  let maxStepIdx = getStepIndex(effectiveStatus);
-
-  (statusHistory || []).forEach(h => {
-    const idx = getStepIndex(h.status);
-    if (idx > maxStepIdx) {
-      maxStepIdx = idx;
-    }
-  });
-
-  let currentIndex = maxStepIdx;
+  let currentIndex = getStepIndex(effectiveStatus);
   const currentOrderIdx = STATUS_ORDER.indexOf(effectiveStatus);
 
   // Fallback if status is not in stepsToShow: find nearest preceding step in STATUS_ORDER

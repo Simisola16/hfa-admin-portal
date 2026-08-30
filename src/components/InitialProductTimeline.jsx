@@ -7,7 +7,7 @@ export const INITIAL_PRODUCT_STAGES = [
   { id: 'all_forms_received', label: 'Product Form Received' },
   { id: 'logsheet_created', label: 'Create Logsheet' },
   { id: 'waiting_sharia_signature', label: 'Committee Signature' },
-  { id: 'initial_product_approved', label: 'Product Approved' }
+  { id: 'initial_product_approved', label: 'Initial Product Approved' }
 ];
 
 export const INITIAL_PRODUCT_ORDER = [

@@ -796,7 +796,9 @@ export default function AdminCreateLogsheet() {
 
     const countToApprove = selectedApproveProducts.length > 0 ? selectedApproveProducts.length : productsList.length;
     const isConfirmed = window.confirm(
-      `Are you sure you want to approve and send ${countToApprove} highlighted product(s) to the client dashboard?`
+      isInitialProduct
+        ? 'Are you sure you want to approve this Initial Product and send for facility audit?'
+        : `Are you sure you want to approve and send ${countToApprove} highlighted product(s) to the client dashboard?`
     );
     if (!isConfirmed) return;
 
@@ -836,7 +838,11 @@ export default function AdminCreateLogsheet() {
         }
       }
 
-      toast.success(`🎉 ${approvedProductsList.length} product(s) approved successfully!`);
+      toast.success(
+        isInitialProduct
+          ? '🎉 Initial Product Approved! Main Application is now ready for Audit.'
+          : `🎉 ${approvedProductsList.length} product(s) approved successfully!`
+      );
       setShowApproveProductsModal(false);
       fetchData();
       if (isInitialProduct) {
@@ -1738,7 +1744,7 @@ export default function AdminCreateLogsheet() {
                         cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
                       }}
                     >
-                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Approve Product</>}
+                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> {isInitialProduct ? 'Approve Initial Product' : 'Approve Product'}</>}
                     </button>
                   ) : (
                     <button
@@ -2439,10 +2445,12 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div>
                   <div className="modal-title" style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
-                    {isInitialProduct ? 'Approve Initial Product' : 'Approve Add-on Products'}
+                    {isInitialProduct ? 'Initial Product Approved' : 'Approve Add-on Products'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                    {application?.profiles?.company_name || form.company_name} &bull; Site: {form.site_name || 'Main Site'}
+                    {isInitialProduct
+                      ? (application?.product?.name ? `${application.product.name} • Initial Product Halal Evaluation` : 'Initial Product Halal Evaluation')
+                      : `${application?.profiles?.company_name || form.company_name} • Site: ${form.site_name || 'Main Site'}`}
                   </div>
                 </div>
               </div>
@@ -2457,7 +2465,9 @@ export default function AdminCreateLogsheet() {
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
                 <div style={{ fontSize: 13, color: '#166534' }}>
-                  Select the verified products to approve. Highlighted products will be pushed to the client dashboard and approved for certification.
+                  {isInitialProduct
+                    ? 'Confirm committee approval for this Initial Product. Once approved and sent for audit, the Initial Product status will be marked as Initial Product Approved and the main facility application will unlock audit scheduling.'
+                    : 'Select the verified products to approve. Highlighted products will be pushed to the client dashboard and approved for certification.'}
                 </div>
               </div>
 
@@ -2552,7 +2562,7 @@ export default function AdminCreateLogsheet() {
                                 </div>
                                 <div style={{ fontSize: 11.5, color: isSelected ? '#15803d' : '#64748b', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                   <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
-                                    {p.type || 'Add product'}
+                                    {p.type || 'Initial product'}
                                   </span>
                                   {isSaved ? (
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#16a34a', fontWeight: 600 }}>
@@ -2617,22 +2627,23 @@ export default function AdminCreateLogsheet() {
                   borderColor: '#15803d',
                   color: '#fff',
                   fontWeight: 800,
-                  padding: '10px 20px',
+                  padding: '10px 22px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
                   borderRadius: 10,
+                  boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
                   opacity: (isFinalizing || selectedApproveProducts.length === 0) ? 0.6 : 1
                 }}
               >
                 {isFinalizing ? (
                   <>
-                    <span className="spinner-white" /> Sending to Client Dashboard...
+                    <span className="spinner-white" /> {isInitialProduct ? 'Sending for Audit...' : 'Sending to Client Dashboard...'}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 size={16} strokeWidth={2.5} />
-                    Send highlighted products to client dashboard
+                    {isInitialProduct ? 'Send for Audit' : 'Send highlighted products to client dashboard'}
                   </>
                 )}
               </button>

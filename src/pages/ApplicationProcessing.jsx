@@ -90,7 +90,9 @@ export default function ApplicationProcessing() {
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
-      const fetchedLogsheet = logsheetRes.data?.data || (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
+      const rawLogsheet = logsheetRes.data?.data || (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
+      const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id));
+      const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       setApp(fetchedApp);
       setProposal(propRes.data?.data || propRes.data || null);

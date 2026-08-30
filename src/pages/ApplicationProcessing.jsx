@@ -942,6 +942,8 @@ export default function ApplicationProcessing() {
             logsheet={logsheet} 
             status={status} 
             appId={appId} 
+            isRenewal={isRenewal}
+            isSurveillance={isSurveillance}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

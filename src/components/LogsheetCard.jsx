@@ -2,10 +2,8 @@ import React from 'react';
 import { ClipboardList, Lock, ChevronRight, CheckCircle, Clock, FilePlus, PenTool } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const POST_AUDIT_STATUSES = [
-  'audit_successful',
-  'audit_completed',
-  'on_hold',
+const POST_NC_STATUSES = [
+  'nc_closed',
   'audit_report_submitted',
   'logsheet_created',
   'logsheet_sign_requested',
@@ -20,7 +18,7 @@ const POST_AUDIT_STATUSES = [
   'certificate_issued'
 ];
 
-export default function LogsheetCard({ logsheet, status, appId, onMarkDone, markingDone = false }) {
+export default function LogsheetCard({ logsheet, status, appId, isRenewal = false, isSurveillance = false, onMarkDone, markingDone = false }) {
   const navigate = useNavigate();
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
 
@@ -30,7 +28,10 @@ export default function LogsheetCard({ logsheet, status, appId, onMarkDone, mark
     (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
   );
 
-  const isAvailable = POST_AUDIT_STATUSES.includes(normalizedStatus) || hasLogsheet;
+  const isAvailable = (isRenewal || isSurveillance)
+    ? (['audit_successful', 'audit_completed', 'invoice_sent', 'payment_received', ...POST_NC_STATUSES].includes(normalizedStatus) || hasLogsheet)
+    : (POST_NC_STATUSES.includes(normalizedStatus) || hasLogsheet);
+
   const isAdvancedPastLogsheet = [
     'application_successful',
     'agreement_sent',
@@ -42,18 +43,18 @@ export default function LogsheetCard({ logsheet, status, appId, onMarkDone, mark
     'certificate_issued'
   ].includes(normalizedStatus);
 
-  // Case 1: Before audit stage and no logsheet created yet -> Locked
+  // Case 1: Before NC is closed and no logsheet created yet -> Locked
   if (!isAvailable && !hasLogsheet) {
     return (
       <div style={{ background: '#f8fafc', opacity: 0.75, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
         <Lock size={22} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
         <div style={{ fontWeight: 700, fontSize: 13.5, color: '#64748b' }}>Halal LogSheet (Locked)</div>
-        <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 3 }}>Available once audit report is submitted or audit completed</div>
+        <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 3 }}>Available once NC is closed and audit findings are cleared</div>
       </div>
     );
   }
 
-  // Case 2: Audit completed / ready, but logsheet not created yet -> Provide Create LogSheet CTA
+  // Case 2: NC closed / audit findings verified, but logsheet not created yet -> Provide Create LogSheet CTA
   if (!hasLogsheet) {
     return (
       <div style={{ background: '#ffffff', borderRadius: 20, border: '1.5px dashed #99f6e4', padding: '24px 24px', textAlign: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
@@ -62,7 +63,7 @@ export default function LogsheetCard({ logsheet, status, appId, onMarkDone, mark
         </div>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Halal LogSheet Ready</div>
         <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4, maxWidth: 380, margin: '4px auto 16px', lineHeight: 1.45 }}>
-          Audit stage is complete. You can now generate the official LogSheet for Shariah and Executive committee review.
+          NC is closed. You can now generate the official LogSheet for Shariah and Executive committee review.
         </div>
         <button
           className="btn btn-primary"

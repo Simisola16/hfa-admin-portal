@@ -11,7 +11,7 @@ const getCleanId = (val) => {
 };
 
 export default function FinalAgreementModal({ isOpen, onClose, app: propApp, appId: propAppId, agreement: propAgreement, onSuccess }) {
-  const [app, setApp] = useState(p                  /ropApp || null);
+  const [app, setApp] = useState(propApp || null);
   const [agreement, setAgreement] = useState(propAgreement || null);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);

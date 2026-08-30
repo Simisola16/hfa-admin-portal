@@ -286,19 +286,6 @@ export default function AdminInitialProductProcessing() {
               </div>
             </div>
           </div>
-
-          {/* Quick Action button */}
-          {!isApproved && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleApproveForm}
-              disabled={approving}
-              style={{ background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)', borderColor: '#166534', fontWeight: 800, padding: '10px 20px', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 12px rgba(22,101,52,0.25)' }}
-            >
-              {approving ? <span className="spinner-white" /> : <><Sparkles size={16} /> Approve Initial Product</>}
-            </button>
-          )}
         </div>
       </div>
 

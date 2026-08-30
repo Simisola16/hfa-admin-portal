@@ -5,7 +5,7 @@ import {
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Download, Eye, ClipboardList,
   Award, Users, Check, ExternalLink, Sparkles, Send, Upload, Edit, FileSpreadsheet, Plus, X,
-  Phone, Mail, MapPin
+  Phone, Mail, MapPin, FileCheck
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -287,25 +287,109 @@ export default function AdminInitialProductProcessing() {
             </div>
           </div>
 
-          {/* Quick Action button: Assign FT */}
-          {isManagerOrAdmin && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setShowFtModal(true)}
-              style={{
-                background: '#2563eb',
-                borderColor: '#2563eb',
-                fontWeight: 800,
-                padding: '10px 20px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
-              }}
-            >
-              <User size={16} /> {ftNames.length > 0 ? 'Edit FT Assignment' : 'Assign FT'}
-            </button>
+          {/* ── Dynamic Next Action Button in Header ── */}
+          {isManagerOrAdmin && !isApproved && (
+            <div>
+              {app.status === 'submitted' && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowFtModal(true)}
+                  style={{
+                    background: '#2563eb',
+                    borderColor: '#2563eb',
+                    fontWeight: 800,
+                    padding: '10px 20px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+                  }}
+                >
+                  <User size={16} /> Assign FT &rarr;
+                </button>
+              )}
+
+              {app.status === 'ft_assigned' && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowEnableFormModal(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                    borderColor: '#6d28d9',
+                    fontWeight: 800,
+                    padding: '10px 20px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 12px rgba(124,58,237,0.25)'
+                  }}
+                >
+                  <Send size={16} /> Enable Product Form &rarr;
+                </button>
+              )}
+
+              {app.status === 'product_approval_form_enabled' && (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowEnableFormModal(true)}
+                  style={{
+                    color: '#6b21a8',
+                    borderColor: '#d8b4fe',
+                    background: '#faf5ff',
+                    fontWeight: 800,
+                    padding: '10px 18px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                >
+                  <Clock size={16} /> Awaiting Client Form Submission
+                </button>
+              )}
+
+              {app.status === 'all_forms_received' && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowLogsheetModal(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    borderColor: '#047857',
+                    fontWeight: 800,
+                    padding: '10px 20px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                  }}
+                >
+                  <FileSpreadsheet size={16} /> Create Logsheet &rarr;
+                </button>
+              )}
+
+              {(app.status === 'logsheet_created' || app.status === 'waiting_sharia_signature') && (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => navigate('/admin/application-logsheets')}
+                  style={{
+                    color: '#075985',
+                    borderColor: '#bae6fd',
+                    background: '#f0f9ff',
+                    fontWeight: 800,
+                    padding: '10px 18px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                >
+                  <FileCheck size={16} /> Awaiting Committee Signatures
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

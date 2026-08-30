@@ -4,36 +4,15 @@ import {
   ArrowLeft, CheckCircle, XCircle, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Download, Eye, ClipboardList,
-  Award, Users, Check, ExternalLink, Sparkles, Send, Upload, Edit, FileSpreadsheet, Plus, X
+  Award, Users, Check, ExternalLink, Sparkles, Send, Upload, Edit, FileSpreadsheet, Plus, X,
+  Phone, Mail, MapPin
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalRequestForm from '../components/ProductApprovalRequestForm';
-
-const STAGES = [
-  { key: 'submitted', label: '1. Initial Product Submitted' },
-  { key: 'ft_assigned', label: '2. Assign FT' },
-  { key: 'product_approval_form_enabled', label: '3. Product Form Enabled' },
-  { key: 'all_forms_received', label: '4. Product Form Received' },
-  { key: 'initial_product_approved', label: '5. Initial Product Approved' }
-];
-
-const ORDER = [
-  'submitted',
-  'ft_assigned',
-  'product_approval_form_enabled',
-  'all_forms_received',
-  'initial_product_approved'
-];
-
-const getStepIdx = (status) => {
-  if (['logsheet_created', 'waiting_sharia_signature'].includes(status)) {
-    return ORDER.indexOf('all_forms_received');
-  }
-  return ORDER.indexOf(status);
-};
+import InitialProductTimeline, { INITIAL_PRODUCT_STAGES, INITIAL_PRODUCT_ORDER } from '../components/InitialProductTimeline';
 
 export default function AdminInitialProductProcessing() {
   const { id } = useParams();
@@ -341,276 +320,284 @@ export default function AdminInitialProductProcessing() {
         </div>
       )}
 
-      {/* Progress Stage Bar */}
-      <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: '24px 28px', marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: 20 }}>
-          Initial Product Lifecycle Stages
-        </div>
+      {/* ─── Main 2-Column Grid Layout (1fr 380px) ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+        
+        {/* ── LEFT COLUMN: Workflow Processing Cards Stack ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* SECTION 1: Product Information */}
+          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Package size={18} style={{ color: '#059669' }} />
+              1. Registered Initial Product (Single Item)
+            </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-          {STAGES.map((st, idx) => {
-            const isDone = currentStepIdx > idx || (currentStepIdx === idx && isApproved);
-            const isCur = currentStepIdx === idx && !isApproved;
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+              <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Product Name</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>{app.product?.name}</div>
+                {app.product?.code && (
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Code: <code>{app.product.code}</code></div>
+                )}
+                {app.product?.category && (
+                  <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4, fontWeight: 600 }}>Category: {app.product.category}</div>
+                )}
+              </div>
 
-            return (
-              <div
-                key={st.key}
-                style={{
-                  background: isDone ? '#f0fdf4' : isCur ? '#eff6ff' : '#f8fafc',
-                  border: isDone ? '1.5px solid #86efac' : isCur ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                  borderRadius: 12,
-                  padding: '14px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    background: isDone ? '#16a34a' : isCur ? '#2563eb' : '#cbd5e1',
-                    color: '#fff',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    {isDone ? <Check size={14} strokeWidth={3} /> : idx + 1}
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: isDone ? '#16a34a' : isCur ? '#2563eb' : '#94a3b8', textTransform: 'uppercase' }}>
-                    {isDone ? 'Done' : isCur ? 'Active' : 'Pending'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: isDone ? '#166534' : isCur ? '#1e3a8a' : '#64748b' }}>
-                  {st.label}
+              <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Ingredients &amp; Sourcing</div>
+                <div style={{ fontSize: 12.5, color: '#334155', marginTop: 4, lineHeight: 1.45 }}>
+                  {app.product?.ingredients || 'No ingredients summary provided.'}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ─── STAGE SECTIONS & WORKFLOW ACTIONS ─── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* SECTION 1: Product Information */}
-        <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px' }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Package size={18} style={{ color: '#059669' }} />
-            1. Registered Initial Product (Single Item)
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-            <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Product Name</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>{app.product?.name}</div>
-              {app.product?.code && (
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Code: <code>{app.product.code}</code></div>
-              )}
-              {app.product?.category && (
-                <div style={{ fontSize: 12, color: '#0284c7', marginTop: 4, fontWeight: 600 }}>Category: {app.product.category}</div>
-              )}
             </div>
 
-            <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Ingredients &amp; Sourcing</div>
-              <div style={{ fontSize: 12.5, color: '#334155', marginTop: 4, lineHeight: 1.45 }}>
-                {app.product?.ingredients || 'No ingredients summary provided.'}
+            {app.product?.description && (
+              <div style={{ marginTop: 12, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12.5, color: '#475569' }}>
+                <strong>Description / Notes:</strong> {app.product.description}
               </div>
-            </div>
-          </div>
-
-          {app.product?.description && (
-            <div style={{ marginTop: 12, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12.5, color: '#475569' }}>
-              <strong>Description / Notes:</strong> {app.product.description}
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 2: Food Technologist Direct Assignment (NO ACCEPT/REJECT) */}
-        <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <User size={18} style={{ color: '#2563eb' }} />
-              2. Food Technologist Assignment (Direct Assignment)
-            </div>
-
-            {isManagerOrAdmin && (
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => setShowFtModal(true)}
-                style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-              >
-                <User size={14} /> {ftNames.length > 0 ? 'Edit FT Assignment' : 'Assign FT'}
-              </button>
             )}
           </div>
 
-          <div style={{ padding: '16px 20px', background: ftNames.length > 0 ? '#f0f9ff' : '#fffbeb', borderRadius: 12, border: `1px solid ${ftNames.length > 0 ? '#bae6fd' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: ftNames.length > 0 ? '#0369a1' : '#92400e' }}>
-                Assigned Specialist(s)
+          {/* SECTION 2: Food Technologist Direct Assignment (NO ACCEPT/REJECT) */}
+          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <User size={18} style={{ color: '#2563eb' }} />
+                2. Food Technologist Assignment (Direct Assignment)
               </div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: ftNames.length > 0 ? '#0c4a6e' : '#78350f', marginTop: 3 }}>
-                {ftNames.length > 0 ? ftNames.join(', ') : 'No Food Technologist assigned yet.'}
-              </div>
-              {app.assigned_ft_custom?.notes && (
-                <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
-                  Notes: {app.assigned_ft_custom.notes}
-                </div>
-              )}
-            </div>
 
-            {ftNames.length === 0 && isManagerOrAdmin && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowFtModal(true)}
-                style={{ background: '#2563eb', borderColor: '#2563eb', fontWeight: 800 }}
-              >
-                Assign FT Now &rarr;
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* SECTION 3: Product Approval Form */}
-        <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <FileText size={18} style={{ color: '#7c3aed' }} />
-              3. Product Approval Form &amp; Technical Formulation
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              {!isFormEnabled && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowEnableFormModal(true)}
-                  style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  <Send size={14} /> Enable Form for Client
-                </button>
-              )}
-
-              {isFormEnabled && (
+              {isManagerOrAdmin && (
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
-                  onClick={() => setShowEnableFormModal(true)}
-                  style={{ fontSize: 12, fontWeight: 700 }}
+                  onClick={() => setShowFtModal(true)}
+                  style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
-                  Edit Form Settings
+                  <User size={14} /> {ftNames.length > 0 ? 'Edit FT Assignment' : 'Assign FT'}
+                </button>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 20px', background: ftNames.length > 0 ? '#f0f9ff' : '#fffbeb', borderRadius: 12, border: `1px solid ${ftNames.length > 0 ? '#bae6fd' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: ftNames.length > 0 ? '#0369a1' : '#92400e' }}>
+                  Assigned Specialist(s)
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: ftNames.length > 0 ? '#0c4a6e' : '#78350f', marginTop: 3 }}>
+                  {ftNames.length > 0 ? ftNames.join(', ') : 'No Food Technologist assigned yet.'}
+                </div>
+                {app.assigned_ft_custom?.notes && (
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                    Notes: {app.assigned_ft_custom.notes}
+                  </div>
+                )}
+              </div>
+
+              {ftNames.length === 0 && isManagerOrAdmin && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowFtModal(true)}
+                  style={{ background: '#2563eb', borderColor: '#2563eb', fontWeight: 800 }}
+                >
+                  Assign FT Now &rarr;
                 </button>
               )}
             </div>
           </div>
 
-          <div style={{ padding: '16px 20px', background: '#fafafa', borderRadius: 12, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Status</div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: isFormReceived ? '#166534' : isFormEnabled ? '#6b21a8' : '#64748b', marginTop: 2 }}>
-                  {isFormReceived ? '✓ Client Form Response Received' : isFormEnabled ? 'Form Enabled — Awaiting Client Response' : 'Not Enabled Yet'}
-                </div>
+          {/* SECTION 3: Product Approval Form */}
+          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileText size={18} style={{ color: '#7c3aed' }} />
+                3. Product Approval Form &amp; Technical Formulation
               </div>
 
-              {productResp?.is_saved && (
-                <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {!isFormEnabled && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setShowEnableFormModal(true)}
+                    style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Send size={14} /> Enable Form for Client
+                  </button>
+                )}
+
+                {isFormEnabled && (
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={() => setShowFormModal(true)}
-                    style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    onClick={() => setShowEnableFormModal(true)}
+                    style={{ fontSize: 12, fontWeight: 700 }}
                   >
-                    <Eye size={14} /> View Form Response
+                    Edit Form Settings
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowInfoModal(true)}
-                    style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 20px', background: '#fafafa', borderRadius: 12, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Status</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: isFormReceived ? '#166534' : isFormEnabled ? '#6b21a8' : '#64748b', marginTop: 2 }}>
+                    {isFormReceived ? '✓ Client Form Response Received' : isFormEnabled ? 'Form Enabled — Awaiting Client Response' : 'Not Enabled Yet'}
+                  </div>
+                </div>
+
+                {productResp?.is_saved && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowFormModal(true)}
+                      style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <Eye size={14} /> View Form Response
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowInfoModal(true)}
+                      style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <AlertCircle size={14} /> Request More Info
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {app.product_approval_form?.form_file_url && (
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
+                  <a
+                    href={getPdfUrl(app.product_approval_form.form_file_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#0284c7' }}
                   >
-                    <AlertCircle size={14} /> Request More Info
-                  </button>
+                    <Download size={14} /> Download Uploaded Reference Document
+                  </a>
                 </div>
               )}
             </div>
+          </div>
 
-            {app.product_approval_form?.form_file_url && (
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-                <a
-                  href={getPdfUrl(app.product_approval_form.form_file_url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#0284c7' }}
+          {/* SECTION 4: Committee Logsheet & Final Approval */}
+          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileSpreadsheet size={18} style={{ color: '#059669' }} />
+                4. Committee Logsheet &amp; Final Approval
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setShowLogsheetModal(true)}
+                  style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
-                  <Download size={14} /> Download Uploaded Reference Document
-                </a>
+                  <Plus size={14} /> Create Logsheet
+                </button>
+                {!isApproved && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleApproveForm}
+                    disabled={approving}
+                    style={{ background: '#166534', borderColor: '#166534', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Sparkles size={14} /> Approve Initial Product
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {logsheets.length === 0 ? (
+              <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
+                No logsheet created for this Initial Product yet. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {logsheets.map(ls => (
+                  <div key={ls._id} style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>
+                        Logsheet #{ls._id.slice(-6).toUpperCase()} &bull; Status: {ls.status}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#334155', marginTop: 2 }}>
+                        Committee Signatures: <strong>{ls.committee_signatures?.length || 0} / 4</strong>
+                      </div>
+                    </div>
+                    <Link to={`/admin/logsheets/${ls._id}`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
+                      Open Logsheet &rarr;
+                    </Link>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* SECTION 4: Committee Logsheet & Final Approval */}
-        <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '22px 26px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <FileSpreadsheet size={18} style={{ color: '#059669' }} />
-              4. Committee Logsheet &amp; Final Approval
+        {/* ── RIGHT COLUMN: Sidebar (Initial Product Lifecycle Stages Timeline & Facility Info) ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          
+          {/* Card: Initial Product Lifecycle Stages */}
+          <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: '24px 22px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+              Initial Product Lifecycle Stages
             </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => setShowLogsheetModal(true)}
-                style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-              >
-                <Plus size={14} /> Create Logsheet
-              </button>
-              {!isApproved && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleApproveForm}
-                  disabled={approving}
-                  style={{ background: '#166534', borderColor: '#166534', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  <Sparkles size={14} /> Approve Initial Product
-                </button>
+            <InitialProductTimeline
+              status={app.status}
+              statusHistory={app.statusHistory}
+              app={app}
+            />
+          </div>
+
+          {/* Card: Facility & Contact Information */}
+          <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: 14 }}>
+              Application &amp; Facility
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Client Organization</div>
+                <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{compName}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Production Facility / Site</div>
+                <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Building2 size={14} style={{ color: '#059669' }} /> {siteName}
+                </div>
+                {app.site_id?.address && (
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.site_id.address}</div>
+                )}
+              </div>
+
+              {app.contact_name && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Contact Person</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{app.contact_name}</div>
+                  {app.contact_email && (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{app.contact_email}</div>
+                  )}
+                  {app.contact_phone && (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{app.contact_phone}</div>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
-          {logsheets.length === 0 ? (
-            <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
-              No logsheet created for this Initial Product yet. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {logsheets.map(ls => (
-                <div key={ls._id} style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>
-                      Logsheet #{ls._id.slice(-6).toUpperCase()} &bull; Status: {ls.status}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#334155', marginTop: 2 }}>
-                      Committee Signatures: <strong>{ls.committee_signatures?.length || 0} / 4</strong>
-                    </div>
-                  </div>
-                  <Link to={`/admin/logsheets/${ls._id}`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
-                    Open Logsheet &rarr;
-                  </Link>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+
       </div>
 
       {/* ─── MODAL: DIRECT ASSIGN FT ─── */}

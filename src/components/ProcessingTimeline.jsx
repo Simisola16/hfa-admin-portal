@@ -164,8 +164,10 @@ export default function ProcessingTimeline({ status, statusHistory = [], categor
     if (s === 'audit_completed') s = 'audit_successful';
     if (s === 'dates_rejected') s = 'dates_proposed';
     if (s === 'audit_report_submitted') s = 'nc_closed';
-    if (s === 'ready_for_certificate' && stepsToShow.includes('application_successful')) s = 'application_successful';
-    if (s === 'application_successful' && stepsToShow.includes('ready_for_certificate')) s = 'ready_for_certificate';
+    if (isRenewal || isSurveillance) {
+      if (s === 'ready_for_certificate' && stepsToShow.includes('application_successful') && !stepsToShow.includes('ready_for_certificate')) s = 'application_successful';
+      if (s === 'application_successful' && stepsToShow.includes('ready_for_certificate') && !stepsToShow.includes('application_successful')) s = 'ready_for_certificate';
+    }
     return stepsToShow.indexOf(s);
   };
 

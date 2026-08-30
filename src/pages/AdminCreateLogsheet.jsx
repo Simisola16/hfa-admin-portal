@@ -12,10 +12,11 @@ import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 
 export default function AdminCreateLogsheet() {
-  const { appId, addonId } = useParams();
-  // isAddon = true when this component is rendering for an add-on application
+  const { appId, addonId, initialProductId, id } = useParams();
+  const isInitialProduct = !!initialProductId || window.location.pathname.includes('/initial-products/');
+  const resolvedInitialProductId = initialProductId || (isInitialProduct ? (id || appId) : null);
   const isAddon = !!addonId;
-  const entityId = isAddon ? addonId : appId;
+  const entityId = isInitialProduct ? resolvedInitialProductId : (isAddon ? addonId : appId);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -224,6 +225,144 @@ export default function AdminCreateLogsheet() {
             agreement_signed: 'Yes',
             status_date: todayStr,
             comment: 'Recommended for add-on product certification endorsement.',
+            confirmed: false
+          }));
+        }
+      } else if (isInitialProduct) {
+        if (!resolvedInitialProductId || resolvedInitialProductId === 'undefined') {
+          toast.error('Invalid Initial Product reference.');
+          setLoading(false);
+          return;
+        }
+
+        const ipRes = await api.get(`/api/initial-products/${resolvedInitialProductId}`);
+        const ipData = ipRes.data?.data || ipRes.data;
+        setApplication(ipData);
+
+        let ipClient = ipData.client_id;
+        if (typeof ipClient === 'string' || (ipClient && !ipClient.address)) {
+          try {
+            const uId = ipClient?._id || ipClient;
+            if (uId) {
+              const uRes = await api.get(`/api/users/${uId}`).catch(() => null);
+              if (uRes?.data?.data || uRes?.data) {
+                ipClient = { ...(typeof ipClient === 'object' ? ipClient : {}), ...(uRes.data.data || uRes.data) };
+              }
+            }
+          } catch (e) { }
+        }
+
+        const ipClientAddr = [
+          ipClient?.address,
+          ipClient?.city,
+          ipClient?.postcode,
+          ipClient?.country
+        ].filter(Boolean).join(', ') || ipClient?.address || '';
+
+        const ipSite = ipData.site_id;
+        const ipSiteAddr = ipSite ? [
+          ipSite.address_1,
+          ipSite.address_2,
+          ipSite.city,
+          ipSite.state,
+          ipSite.postcode || ipSite.postal_code,
+          ipSite.country
+        ].filter(Boolean).join(', ') || ipSite.address || '' : '';
+
+        const autoSiteName = ipSite?.name
+          || ipData?.site_name
+          || ipData?.application_id?.site_name
+          || ipData?.application_id?.establishment_name
+          || 'Main Manufacturing Site';
+
+        const autoCompanyName = ipClient?.company_name
+          || ipData?.company_name
+          || ipClient?.business_name
+          || ipClient?.full_name
+          || '';
+        const autoContactPerson = ipData.contact_name || ipClient?.full_name || '';
+        const autoContactEmail = ipData.contact_email || ipClient?.email || '';
+
+        let autoCompanyAddress = ipClientAddr
+          || ipSite?.head_office_address
+          || ipData.application_id?.establishment_address
+          || '';
+
+        let autoManufacturingAddress = ipSiteAddr
+          || ipData.application_id?.manufacturer_address
+          || autoCompanyAddress;
+
+        const autoNature = ipData.product?.category || ipData.application_id?.category || 'Initial Product Certification';
+        const autoProductCat = ipData.product?.name ? `${ipData.product.name}${ipData.product.code ? ` (${ipData.product.code})` : ''}` : 'Initial Product';
+
+        // FT Assignment extraction for Product Logsheet
+        const assignedFTsList = Array.isArray(ipData.assigned_food_techs) && ipData.assigned_food_techs.length > 0
+          ? ipData.assigned_food_techs.map(ft => ft.full_name || ft.name || ft.email).filter(Boolean).join(', ')
+          : (ipData.assigned_food_tech?.full_name || ipData.assigned_food_tech?.name || ipData.assigned_ft_custom?.name || ipData.assigned_ft_details || '');
+
+        const autoFTs = assignedFTsList || (user?.full_name ? `${user.full_name} (Food Technologist)` : 'Food Technologist');
+        const autoAuditType = 'Initial Product Evaluation';
+
+        // Check if logsheet already exists
+        let ipLogsheet = null;
+        try {
+          const logRes = await api.get(`/api/initial-products/${resolvedInitialProductId}/logsheet`);
+          ipLogsheet = logRes.data?.data || logRes.data;
+        } catch (e) { /* No logsheet yet */ }
+
+        if (ipLogsheet && ipLogsheet._id) {
+          setCurrentLogsheet(ipLogsheet);
+
+          let resolvedCompanyName = ipLogsheet.company_name;
+          if (!resolvedCompanyName || (resolvedCompanyName === autoSiteName && autoCompanyName && autoCompanyName !== autoSiteName)) {
+            resolvedCompanyName = autoCompanyName;
+          }
+
+          setForm(f => ({
+            ...f,
+            ...ipLogsheet,
+            site_name: (ipLogsheet.site_name && ipLogsheet.site_name.trim()) ? ipLogsheet.site_name : autoSiteName,
+            company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
+            company_address: (ipLogsheet.company_address && ipLogsheet.company_address.trim()) ? ipLogsheet.company_address : autoCompanyAddress,
+            manufacturing_address: (ipLogsheet.manufacturing_address && ipLogsheet.manufacturing_address.trim()) ? ipLogsheet.manufacturing_address : autoManufacturingAddress,
+            audit_type: ipLogsheet.audit_type || autoAuditType,
+            auditors: ipLogsheet.auditors || autoFTs,
+            ncs_close: ipLogsheet.ncs_close || 'N/A - Initial Product Evaluation',
+            confirmed: false
+          }));
+        } else {
+          setForm(f => ({
+            ...f,
+            site_name: autoSiteName,
+            company_name: autoCompanyName,
+            company_address: autoCompanyAddress,
+            manufacturing_address: autoManufacturingAddress,
+            contact_person: autoContactPerson,
+            contact_email: autoContactEmail,
+            nature_of_business: autoNature,
+            product_category: autoProductCat,
+            issue_date: todayStr,
+            expiry_date: oneYearLater,
+            current_cycle_start: todayStr,
+            original_cycle_start: ipData.createdAt ? new Date(ipData.createdAt).toISOString().split('T')[0] : todayStr,
+
+            audit_type: autoAuditType,
+            audit_date: todayStr,
+            auditors: autoFTs,
+            ncs_close: 'N/A - Initial Product Evaluation',
+            docs_satisfactory: 'Satisfactory - all product specifications and formulations verified',
+            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
+            reviewed_by: user?.full_name || 'HFA Food Technology Dept',
+            reviewer_name: user?.full_name || 'Food Technologist Reviewer',
+            review_date: todayStr,
+            annual_certificate: 'No',
+            batch_certificate: 'No',
+            new_products_only: 'Yes',
+            new_site_line: 'No',
+            new_client: 'No',
+            agreement_signed: 'Yes',
+            status_date: todayStr,
+            comment: 'Recommended for initial product approval endorsement.',
             confirmed: false
           }));
         }
@@ -752,7 +891,7 @@ export default function AdminCreateLogsheet() {
     }
 
     const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
-    if (!isAddon && !hasAuditReports) {
+    if (!isAddon && !isInitialProduct && !hasAuditReports) {
       toast.error('Please upload at least 1 Audit Report document before creating the logsheet (Tab 1).');
       setActiveTab(1);
       return;
@@ -770,11 +909,11 @@ export default function AdminCreateLogsheet() {
       return;
     }
     if (!form.auditors?.trim()) {
-      toast.error(isAddon ? 'Assigned FT is required (Tab 2)' : 'Auditor(s) are required (Tab 2)');
+      toast.error((isAddon || isInitialProduct) ? 'Assigned FT is required (Tab 2)' : 'Auditor(s) are required (Tab 2)');
       setActiveTab(2);
       return;
     }
-    if (!isAddon && !form.ncs_close?.trim()) {
+    if (!isAddon && !isInitialProduct && !form.ncs_close?.trim()) {
       toast.error('NCS Close status is required (Tab 2)');
       setActiveTab(2);
       return;
@@ -827,7 +966,16 @@ export default function AdminCreateLogsheet() {
 
     setSubmitting(true);
     try {
-      if (isAddon) {
+      if (isInitialProduct) {
+        await api.post(`/api/initial-products/${resolvedInitialProductId}/create-logsheet`, {
+          ...form,
+          document_urls: form.document_urls || [],
+          audit_reports: form.audit_reports || form.document_urls || [],
+          client_id: application?.client_id?._id || application?.client_id,
+        });
+        toast.success('Logsheet created for Initial Product!');
+        navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else if (isAddon) {
         // For add-on applications — use the dedicated add-on logsheet route
         await api.post(`/api/add-on-applications/${addonId}/create-logsheet`, {
           ...form,

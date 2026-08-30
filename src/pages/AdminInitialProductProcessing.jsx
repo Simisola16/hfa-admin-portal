@@ -48,11 +48,6 @@ export default function AdminInitialProductProcessing() {
   // View Submitted Form Modal
   const [showFormModal, setShowFormModal] = useState(false);
 
-  // Create Logsheet Modal
-  const [showLogsheetModal, setShowLogsheetModal] = useState(false);
-  const [logsheetRemarks, setLogsheetRemarks] = useState('');
-  const [savingLogsheet, setSavingLogsheet] = useState(false);
-
   // Direct Approve Form
   const [approving, setApproving] = useState(false);
   const [markingReceived, setMarkingReceived] = useState(false);
@@ -181,23 +176,6 @@ export default function AdminInitialProductProcessing() {
       toast.error(err.response?.data?.error || err.message || 'Failed to request info');
     } finally {
       setSavingInfo(false);
-    }
-  };
-
-  // Handler: Create Logsheet
-  const handleCreateLogsheet = async () => {
-    setSavingLogsheet(true);
-    try {
-      await api.post(`/api/initial-products/${id}/create-logsheet`, {
-        remarks: logsheetRemarks
-      });
-      toast.success('Logsheet created for Committee Review!');
-      setShowLogsheetModal(false);
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to create logsheet');
-    } finally {
-      setSavingLogsheet(false);
     }
   };
 
@@ -398,7 +376,7 @@ export default function AdminInitialProductProcessing() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => setShowLogsheetModal(true)}
+                  onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
                   style={{
                     background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                     borderColor: '#047857',
@@ -418,7 +396,7 @@ export default function AdminInitialProductProcessing() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => navigate('/admin/application-logsheets')}
+                  onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
                   style={{
                     color: '#075985',
                     borderColor: '#bae6fd',
@@ -430,7 +408,7 @@ export default function AdminInitialProductProcessing() {
                     gap: 8
                   }}
                 >
-                  <FileCheck size={16} /> Awaiting Committee Signatures
+                  <FileCheck size={16} /> Awaiting Committee Signatures &rarr;
                 </button>
               )}
             </div>
@@ -659,7 +637,7 @@ export default function AdminInitialProductProcessing() {
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
-                  onClick={() => setShowLogsheetModal(true)}
+                  onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
                   style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
                   <Plus size={14} /> Create Logsheet
@@ -683,7 +661,7 @@ export default function AdminInitialProductProcessing() {
                         Committee Signatures: <strong>{ls.committee_signatures?.length || 0} / 4</strong>
                       </div>
                     </div>
-                    <Link to={`/admin/logsheets/${ls._id}`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
+                    <Link to={`/admin/initial-products/${id}/logsheet`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
                       Open Logsheet &rarr;
                     </Link>
                   </div>
@@ -865,37 +843,6 @@ export default function AdminInitialProductProcessing() {
               <button type="button" className="btn btn-ghost" onClick={() => setShowInfoModal(false)}>Cancel</button>
               <button type="button" className="btn btn-primary" disabled={savingInfo || !infoMessage.trim()} onClick={handleRequestInfo} style={{ background: '#d97706', borderColor: '#d97706', fontWeight: 800 }}>
                 {savingInfo ? <span className="spinner-white" /> : 'Send Request'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── MODAL: CREATE LOGSHEET ─── */}
-      {showLogsheetModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowLogsheetModal(false)} style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 520, width: '95%', padding: 0, borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', padding: '20px 24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <FileSpreadsheet size={22} />
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#fff' }}>Create Committee Logsheet</h3>
-              </div>
-              <button onClick={() => setShowLogsheetModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ padding: '22px 24px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: 12.5, fontWeight: 800 }}>Technical Remarks for Committee:</label>
-                <textarea className="form-control" rows={3} placeholder="e.g. All raw ingredients and cleaning validations reviewed and verified." value={logsheetRemarks} onChange={e => setLogsheetRemarks(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowLogsheetModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" disabled={savingLogsheet} onClick={handleCreateLogsheet} style={{ background: '#059669', borderColor: '#059669', fontWeight: 800 }}>
-                {savingLogsheet ? <span className="spinner-white" /> : 'Generate Logsheet'}
               </button>
             </div>
           </div>

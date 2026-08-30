@@ -55,8 +55,10 @@ export default function App() {
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/initial-products" element={<AdminInitialProducts />} />
             <Route path="/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
+            <Route path="/initial-products/:initialProductId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/admin/initial-products" element={<AdminInitialProducts />} />
             <Route path="/admin/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
+            <Route path="/admin/initial-products/:initialProductId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
             <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />

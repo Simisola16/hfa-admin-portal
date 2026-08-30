@@ -320,13 +320,13 @@ export default function ApplicationProcessing() {
     try {
       const auditObj = audits?.[0] || audits?.data?.[0];
       const auditId = auditObj?._id || auditObj?.id;
-      if (auditId) {
-        await api.post('/api/audits/complete-clean', { audit_id: auditId }).catch(() => {});
+      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
+      if (res.data?.data) {
+        setApp(prev => ({ ...prev, ...res.data.data, status: 'nc_closed' }));
       }
-      await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
       toast.success('NC Closed successfully! You can now create the LogSheet.');
       setShowNcModal(false);
-      fetchApp(true);
+      await fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Failed to close NC.');
     } finally {

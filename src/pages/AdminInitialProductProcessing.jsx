@@ -215,7 +215,6 @@ export default function AdminInitialProductProcessing() {
     );
   }
 
-  const currentStepIdx = getStepIdx(app.status);
   const isApproved = app.status === 'initial_product_approved';
   const siteName = app.site_id?.name || app.application_id?.site_name || app.application_id?.establishment_name || 'Main Facility';
   const compName = app.client_id?.company_name || app.client_id?.full_name || 'Client';

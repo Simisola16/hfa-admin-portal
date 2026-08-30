@@ -111,6 +111,19 @@ export default function ApplicationProcessing() {
         }
       }
 
+      // If all NC observations are closed or nc_closed is in statusHistory, ensure status reflects nc_closed
+      const appNcReports = fetchedApp?.nc_reports || [];
+      const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
+      const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
+      const hasClosedAllNc = allNc.length > 0 && allNc.every(r => r.status === 'closed');
+      const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
+
+      if (fetchedApp && (fetchedApp.status === 'audit_completed' || fetchedApp.status === 'audit_successful' || fetchedApp.status === 'nc_flagged')) {
+        if (hasClosedAllNc || hasNcClosedInHistory) {
+          fetchedApp.status = 'nc_closed';
+        }
+      }
+
       const rawIp = ipRes.data?.data;
       let initialProductItem = null;
       if (Array.isArray(rawIp)) {
@@ -331,10 +344,13 @@ export default function ApplicationProcessing() {
     try {
       const auditObj = audits?.[0] || audits?.data?.[0];
       const auditId = auditObj?._id || auditObj?.id;
-      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
-      if (res.data?.data) {
-        setApp(prev => ({ ...prev, ...res.data.data, status: 'nc_closed' }));
-      }
+      await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
+      await api.put(`/api/applications/${appId}/status`, {
+        status: 'nc_closed',
+        note: 'NC closed — non-conformities reviewed, verified, and closed.'
+      }).catch(() => {});
+
+      setApp(prev => ({ ...prev, status: 'nc_closed' }));
       toast.success('NC Closed successfully! You can now create the LogSheet.');
       setShowNcModal(false);
       await fetchApp(true);

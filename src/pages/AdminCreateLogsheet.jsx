@@ -1034,10 +1034,11 @@ export default function AdminCreateLogsheet() {
         });
         toast.success('Logsheet created for add-on application!');
         navigate('/addon-applications');
-      } else {
         const targetAppId = appId || application?._id || application?.id;
+        const { _id, id, initial_product_application_id, addon_application_id, source_type, ...cleanForm } = form;
         const postRes = await api.post('/api/application-logsheets', {
-          ...form,
+          ...cleanForm,
+          source_type: 'application',
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           application_id: targetAppId,

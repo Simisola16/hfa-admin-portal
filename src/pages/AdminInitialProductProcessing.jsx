@@ -651,21 +651,46 @@ export default function AdminInitialProductProcessing() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {logsheets.map(ls => (
-                  <div key={ls._id} style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>
-                        Logsheet #{ls._id.slice(-6).toUpperCase()} &bull; Status: {ls.status}
+                {logsheets.map(ls => {
+                  let sigCount = 0;
+                  if (ls.mufti_signature) sigCount++;
+                  if (ls.ceo_signature) sigCount++;
+                  if (ls.manager_signature) sigCount++;
+                  if (ls.mufti2_signature) sigCount++;
+                  if (Array.isArray(ls.committee_signatures) && ls.committee_signatures.length > sigCount) {
+                    sigCount = ls.committee_signatures.length;
+                  }
+                  const isComplete = sigCount >= 4 || ls.status === 'Signed' || ls.status === 'Completed' || ls.status === 'Waiting For Certificate';
+
+                  return (
+                    <div key={ls._id} style={{ background: isComplete ? '#f0fdf4' : '#fffbeb', borderRadius: 12, border: `1px solid ${isComplete ? '#bbf7d0' : '#fde68a'}`, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: isComplete ? '#166534' : '#92400e' }}>
+                          Logsheet #{ls._id.slice(-6).toUpperCase()} &bull; Status: {ls.status}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#334155', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>Committee Signatures: <strong style={{ color: isComplete ? '#15803d' : '#0f172a' }}>{sigCount} / 4</strong></span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: '1px 7px',
+                              borderRadius: 10,
+                              background: isComplete ? '#dcfce7' : '#fef3c7',
+                              color: isComplete ? '#15803d' : '#b45309',
+                              border: `1px solid ${isComplete ? '#86efac' : '#fde68a'}`
+                            }}
+                          >
+                            {isComplete ? 'All 4 Signed' : `${sigCount} of 4 Signed`}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: '#334155', marginTop: 2 }}>
-                        Committee Signatures: <strong>{ls.committee_signatures?.length || 0} / 4</strong>
-                      </div>
+                      <Link to={`/admin/initial-products/${id}/logsheet`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
+                        Open Logsheet &rarr;
+                      </Link>
                     </div>
-                    <Link to={`/admin/initial-products/${id}/logsheet`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
-                      Open Logsheet &rarr;
-                    </Link>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

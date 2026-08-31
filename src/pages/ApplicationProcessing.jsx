@@ -91,11 +91,26 @@ export default function ApplicationProcessing() {
         api.get(`/api/application-logsheets/application/${appId}`)
           .catch(() => api.get(`/api/application-logsheets?application_id=${appId}`))
           .catch(() => ({ data: null })),
-        api.get(`/api/initial-products`, { params: { application_id: appId } }).catch(() => ({ data: { data: [] } }))
+        api.get(`/api/initial-products/by-application/${appId}`)
+          .catch(() => api.get(`/api/initial-products?application_id=${appId}`))
+          .catch(() => ({ data: null }))
       ]);
 
-      const fetchedApp = appRes.data?.data || appRes.data || null;
-      const rawLogsheet = logsheetRes.data?.data || (Array.isArray(logsheetRes.data) ? logsheetRes.data.find(l => l.source_type !== 'initial_product_application' && l.audit_type !== 'Initial Product Evaluation') : (logsheetRes.data && !logsheetRes.data.error ? logsheetRes.data : null)) || fetchedApp?.logsheet_id || fetchedApp?.logsheet || null;
+      let rawLogsheet = null;
+      if (logsheetRes) {
+        if (logsheetRes.data && !logsheetRes.data.error) {
+          rawLogsheet = Array.isArray(logsheetRes.data)
+            ? logsheetRes.data.find(l => l.source_type !== 'initial_product_application' && l.audit_type !== 'Initial Product Evaluation')
+            : logsheetRes.data;
+        } else if (Array.isArray(logsheetRes)) {
+          rawLogsheet = logsheetRes.find(l => l.source_type !== 'initial_product_application' && l.audit_type !== 'Initial Product Evaluation');
+        } else if (logsheetRes._id) {
+          rawLogsheet = logsheetRes;
+        }
+      }
+      if (!rawLogsheet && fetchedApp?.logsheet_id && typeof fetchedApp.logsheet_id === 'object') {
+        rawLogsheet = fetchedApp.logsheet_id;
+      }
       const isExternalProductLogsheet = rawLogsheet && (rawLogsheet.source_type === 'initial_product_application' || Boolean(rawLogsheet.initial_product_application_id) || rawLogsheet.source_type === 'addon_application' || Boolean(rawLogsheet.addon_application_id) || rawLogsheet.audit_type === 'Initial Product Evaluation');
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
@@ -134,15 +149,25 @@ export default function ApplicationProcessing() {
         }
       }
 
-      const rawIp = ipRes.data?.data;
       let initialProductItem = null;
-      if (Array.isArray(rawIp)) {
-        initialProductItem = rawIp.find(ip => {
-          const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
-          return String(ipAppId) === String(appId);
-        }) || rawIp[0] || null;
-      } else if (rawIp && typeof rawIp === 'object') {
-        initialProductItem = rawIp;
+      if (ipRes) {
+        if (ipRes.data) {
+          if (Array.isArray(ipRes.data)) {
+            initialProductItem = ipRes.data.find(ip => {
+              const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
+              return String(ipAppId) === String(appId);
+            }) || ipRes.data[0] || null;
+          } else if (typeof ipRes.data === 'object') {
+            initialProductItem = ipRes.data;
+          }
+        } else if (Array.isArray(ipRes)) {
+          initialProductItem = ipRes.find(ip => {
+            const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
+            return String(ipAppId) === String(appId);
+          }) || ipRes[0] || null;
+        } else if (ipRes._id) {
+          initialProductItem = ipRes;
+        }
       }
 
       setApp(fetchedApp);

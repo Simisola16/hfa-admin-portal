@@ -96,6 +96,8 @@ export default function ApplicationProcessing() {
           .catch(() => ({ data: null }))
       ]);
 
+      const fetchedApp = appRes.data?.data || appRes.data || null;
+
       let rawLogsheet = null;
       if (logsheetRes) {
         if (logsheetRes.data && !logsheetRes.data.error) {

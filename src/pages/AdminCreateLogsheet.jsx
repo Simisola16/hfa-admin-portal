@@ -1034,6 +1034,7 @@ export default function AdminCreateLogsheet() {
         });
         toast.success('Logsheet created for add-on application!');
         navigate('/addon-applications');
+      } else {
         const targetAppId = appId || application?._id || application?.id;
         const { _id, id, initial_product_application_id, addon_application_id, source_type, ...cleanForm } = form;
         const postRes = await api.post('/api/application-logsheets', {
@@ -1812,7 +1813,7 @@ export default function AdminCreateLogsheet() {
           </div>
         ) : (
           /* FORM VIEW FOR CREATING NEW LOGSHEET */
-          <form onSubmit={handleSubmit} style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <form onSubmit={handleSubmit} noValidate style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
             {activeTab === 1 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Auto-populated Indicator Banner */}

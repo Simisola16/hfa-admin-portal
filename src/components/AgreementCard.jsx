@@ -149,8 +149,8 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
             </button>
           )}
 
-          {/* STEP 2: ONLY AFTER Admin has sent their own signed agreement -> Show 'Mark Agreement Done' button */}
-          {hasAdminSentSignedCopy && onMarkDone && !['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
+          {/* STEP 2: ONLY AFTER Admin has sent their own signed agreement -> Show 'Mark Agreement Done' button (until finalized) */}
+          {hasAdminSentSignedCopy && onMarkDone && agreement?.status !== 'finalized' && !['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
             <button
               type="button"
               className="btn btn-primary btn-sm"

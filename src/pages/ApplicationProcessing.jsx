@@ -1112,7 +1112,14 @@ export default function ApplicationProcessing() {
               <div className="card-title">Processing Timeline</div>
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
-              <ProcessingTimeline status={status} statusHistory={app.statusHistory || app.status_history || []} category={app.category || ''} applicationType={app.application_type || ''} />
+              <ProcessingTimeline
+                status={status}
+                statusHistory={app.statusHistory || app.status_history || []}
+                category={app.category || ''}
+                applicationType={app.application_type || ''}
+                initialProduct={initialProduct}
+                appId={appId}
+              />
             </div>
           </div>
 

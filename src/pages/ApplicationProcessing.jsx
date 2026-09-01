@@ -766,33 +766,23 @@ export default function ApplicationProcessing() {
           );
         }
         return (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <button
-              type="button"
-              className="btn btn-outline"
-              disabled
-              style={{
-                gap: 8,
-                opacity: 0.85,
-                cursor: 'not-allowed',
-                background: '#fefce8',
-                borderColor: '#fde047',
-                color: '#854d0e',
-                fontWeight: 700
-              }}
-              title={`Initial Product "${initialProduct.product?.name || 'Product'}" is currently under review (${initialProduct.status?.replace(/_/g, ' ')}). It must be approved before facility audit can be scheduled.`}
-            >
-              <Clock size={15} /> Initial Product Review in Progress
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => navigate('/initial-products')}
-              style={{ gap: 6, fontSize: 13, padding: '8px 14px', background: '#059669', borderColor: '#059669', fontWeight: 700 }}
-            >
-              <Package size={15} /> Process Initial Product &rarr;
-            </button>
-          </div>
+          <button
+            type="button"
+            className="btn btn-outline"
+            disabled
+            style={{
+              gap: 8,
+              opacity: 0.85,
+              cursor: 'not-allowed',
+              background: '#fefce8',
+              borderColor: '#fde047',
+              color: '#854d0e',
+              fontWeight: 700
+            }}
+            title={`Initial Product "${initialProduct.product?.name || 'Product'}" is currently under review (${(initialProduct.status || '').replace(/_/g, ' ')}). It must be approved before facility audit can be scheduled.`}
+          >
+            <Clock size={15} /> Initial Product Review in Progress
+          </button>
         );
       }
 

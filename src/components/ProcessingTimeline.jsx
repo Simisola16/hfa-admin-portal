@@ -460,27 +460,6 @@ export default function ProcessingTimeline({
                           Status: {(initialProduct.status || '').replace(/_/g, ' ')}
                         </div>
                       </div>
-
-                      {!isComplete && (
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => navigate(`/initial-products/${initialProduct._id || initialProduct.id}/processing`)}
-                          style={{
-                            borderColor: '#0284c7',
-                            color: '#0284c7',
-                            fontWeight: 700,
-                            fontSize: 11.5,
-                            padding: '4px 10px',
-                            borderRadius: 6,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4
-                          }}
-                        >
-                          <Package size={12} /> Process Initial Product <ChevronRight size={12} />
-                        </button>
-                      )}
                     </div>
                   )}
                 </div>

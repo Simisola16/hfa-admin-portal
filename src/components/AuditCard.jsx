@@ -94,17 +94,6 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
                 </div>
               </div>
             </div>
-            {initialProduct && (
-              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-                <a
-                  href={`/initial-products`}
-                  className="btn btn-outline btn-sm"
-                  style={{ borderColor: '#f59e0b', color: '#b45309', background: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
-                >
-                  Go to Initial Product Processing &rarr;
-                </a>
-              </div>
-            )}
           </div>
         )}
 

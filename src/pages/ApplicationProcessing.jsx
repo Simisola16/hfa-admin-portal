@@ -172,18 +172,12 @@ export default function ApplicationProcessing() {
         }
       }
 
-      // If initial product was not found via separate route, fallback to application's registered product
+      // If initial product was not found via separate route, check application's explicit products array
       if (!initialProductItem && fetchedApp) {
-        if (Array.isArray(fetchedApp.products) && fetchedApp.products.length > 0) {
+        if (Array.isArray(fetchedApp.products) && fetchedApp.products.length > 0 && fetchedApp.products[0]?.name) {
           initialProductItem = {
             application_id: fetchedApp._id,
             product: fetchedApp.products[0],
-            status: 'submitted'
-          };
-        } else if (fetchedApp.scope) {
-          initialProductItem = {
-            application_id: fetchedApp._id,
-            product: { name: fetchedApp.scope, category: fetchedApp.category },
             status: 'submitted'
           };
         }

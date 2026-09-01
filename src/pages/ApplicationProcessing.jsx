@@ -153,13 +153,13 @@ export default function ApplicationProcessing() {
 
       let initialProductItem = null;
       if (ipRes) {
-        if (ipRes.data) {
+        if (ipRes.data !== undefined) {
           if (Array.isArray(ipRes.data)) {
             initialProductItem = ipRes.data.find(ip => {
               const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
               return String(ipAppId) === String(appId);
             }) || ipRes.data[0] || null;
-          } else if (typeof ipRes.data === 'object') {
+          } else if (ipRes.data && typeof ipRes.data === 'object') {
             initialProductItem = ipRes.data;
           }
         } else if (Array.isArray(ipRes)) {
@@ -169,6 +169,23 @@ export default function ApplicationProcessing() {
           }) || ipRes[0] || null;
         } else if (ipRes._id) {
           initialProductItem = ipRes;
+        }
+      }
+
+      // If initial product was not found via separate route, fallback to application's registered product
+      if (!initialProductItem && fetchedApp) {
+        if (Array.isArray(fetchedApp.products) && fetchedApp.products.length > 0) {
+          initialProductItem = {
+            application_id: fetchedApp._id,
+            product: fetchedApp.products[0],
+            status: 'submitted'
+          };
+        } else if (fetchedApp.scope) {
+          initialProductItem = {
+            application_id: fetchedApp._id,
+            product: { name: fetchedApp.scope, category: fetchedApp.category },
+            status: 'submitted'
+          };
         }
       }
 

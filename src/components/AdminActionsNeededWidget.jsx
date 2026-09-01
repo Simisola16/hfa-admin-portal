@@ -123,7 +123,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             } else {
               actionList.push({
                 id: `app-prop-${appId}`,
-                category: 'applications',
+                category: 'proposals',
                 app,
                 type: 'send_proposal',
                 title: 'Application Accepted: Send Proposal',
@@ -140,7 +140,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
           case 'proposal_rejected':
             actionList.push({
               id: `app-proprej-${appId}`,
-              category: 'applications',
+              category: 'proposals',
               app,
               type: 'send_proposal',
               title: 'Proposal Rejected: Send Revision',
@@ -157,11 +157,11 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
           case 'proposal_accepted':
             actionList.push({
               id: `app-inv-${appId}`,
-              category: 'applications',
+              category: 'invoices',
               app,
               type: 'send_initial_invoice',
               title: 'Proposal Accepted: Issue Initial Invoice',
-              tag: 'Invoice',
+              tag: 'Initial Invoice',
               desc: `Issue initial certification fee invoice to ${estName}`,
               buttonText: 'Send Invoice',
               buttonBg: '#854d0e',
@@ -694,6 +694,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
     return {
       all: items.length,
       applications: items.filter(i => i.category === 'applications').length,
+      proposals: items.filter(i => i.category === 'proposals').length,
       invoices: items.filter(i => i.category === 'invoices').length,
       initial_products: items.filter(i => i.category === 'initial_products').length,
       addons: items.filter(i => i.category === 'addons').length,
@@ -823,6 +824,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                 {[
                   { id: 'all', label: 'All Tasks', count: categoryCounts.all },
                   { id: 'applications', label: 'Applications', count: categoryCounts.applications },
+                  { id: 'proposals', label: 'Proposals', count: categoryCounts.proposals },
                   { id: 'invoices', label: 'Payments / Invoices', count: categoryCounts.invoices },
                   { id: 'initial_products', label: 'Initial Products', count: categoryCounts.initial_products },
                   { id: 'addons', label: 'Add-Ons', count: categoryCounts.addons },

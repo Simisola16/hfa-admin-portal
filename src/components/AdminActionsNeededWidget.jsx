@@ -32,22 +32,24 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasInitializedAutoOpen, setHasInitializedAutoOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'applications' | 'invoices' | 'addons'
+  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'applications' | 'invoices' | 'initial_products' | 'addons'
 
   // Active modal target
   const [activeModal, setActiveModal] = useState(null); // { type, app, invoice }
 
   const fetchAdminActions = useCallback(async () => {
     try {
-      const [appRes, invRes, addOnRes] = await Promise.all([
+      const [appRes, invRes, addOnRes, initProdRes] = await Promise.all([
         api.get('/api/applications').catch(() => ({ data: [] })),
         api.get('/api/invoices').catch(() => ({ data: [] })),
-        api.get('/api/add-on-applications').catch(() => ({ data: [] }))
+        api.get('/api/add-on-applications').catch(() => ({ data: [] })),
+        api.get('/api/initial-products').catch(() => ({ data: [] }))
       ]);
 
-      const allApps = appRes.data?.data || appRes.data || [];
-      const allInvoices = invRes.data?.data || invRes.data || [];
-      const allAddOns = addOnRes.data?.data || addOnRes.data || [];
+      const allApps = appRes.data?.data || (Array.isArray(appRes.data) ? appRes.data : []);
+      const allInvoices = invRes.data?.data || (Array.isArray(invRes.data) ? invRes.data : []);
+      const allAddOns = addOnRes.data?.data || (Array.isArray(addOnRes.data) ? addOnRes.data : []);
+      const allInitProds = initProdRes.data?.data || (Array.isArray(initProdRes.data) ? initProdRes.data : []);
 
       const actionList = [];
 
@@ -439,56 +441,189 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       }
 
       // ─────────────────────────────────────────────────────────────
-      // 3. ADD-ON APPLICATIONS: Actionable Stages
+      // 3. INITIAL PRODUCTS: Actionable Stages
+      // ─────────────────────────────────────────────────────────────
+      for (const ip of allInitProds) {
+        const ipId = ip._id || ip.id;
+        const prodName = ip.product?.name || 'Initial Product';
+        const clientName = ip.client_id?.company_name || ip.client_id?.full_name || ip.contact_name || 'Client';
+        const appNum = ip.application_id?.application_number || `APP-${String(ip.application_id?._id || ip.application_id || '').slice(-6).toUpperCase()}`;
+
+        if (ip.status === 'submitted') {
+          actionList.push({
+            id: `initprod-sub-${ipId}`,
+            category: 'initial_products',
+            app: { _id: ipId, application_number: appNum, establishment_name: clientName },
+            type: 'review_init_prod',
+            title: 'New Initial Product: Assign FT Staff',
+            tag: 'Assign FT',
+            desc: `Assign Food Tech staff to review "${prodName}" for ${clientName}`,
+            buttonText: 'Assign FT',
+            buttonBg: '#0284c7',
+            isFullPage: true,
+            link: `/initial-products/${ipId}/processing`,
+            icon: <Layers size={16} />
+          });
+        } else if (ip.status === 'ft_assigned') {
+          actionList.push({
+            id: `initprod-ft-${ipId}`,
+            category: 'initial_products',
+            app: { _id: ipId, application_number: appNum, establishment_name: clientName },
+            type: 'enable_init_prod_form',
+            title: 'Initial Product: Enable Approval Form',
+            tag: 'Enable Form',
+            desc: `Enable Product Approval Form for "${prodName}" (${clientName})`,
+            buttonText: 'Enable Form',
+            buttonBg: '#2563eb',
+            isFullPage: true,
+            link: `/initial-products/${ipId}/processing`,
+            icon: <ClipboardList size={16} />
+          });
+        } else if (ip.status === 'all_forms_received') {
+          actionList.push({
+            id: `initprod-forms-${ipId}`,
+            category: 'initial_products',
+            app: { _id: ipId, application_number: appNum, establishment_name: clientName },
+            type: 'create_init_prod_logsheet',
+            title: 'Initial Product Form Received: Create Logsheet',
+            tag: 'Logsheet',
+            desc: `Review product specs & create logsheet for "${prodName}" (${clientName})`,
+            buttonText: 'Create Logsheet',
+            buttonBg: '#0e7490',
+            isFullPage: true,
+            link: `/initial-products/${ipId}/logsheet`,
+            icon: <ClipboardList size={16} />
+          });
+        } else if (ip.status === 'client_replied') {
+          actionList.push({
+            id: `initprod-reply-${ipId}`,
+            category: 'initial_products',
+            app: { _id: ipId, application_number: appNum, establishment_name: clientName },
+            type: 'review_init_prod_reply',
+            title: 'Initial Product: Client Replied to Questions',
+            tag: 'Review Reply',
+            desc: `Client provided clarification for "${prodName}" (${clientName})`,
+            buttonText: 'Review Reply',
+            buttonBg: '#d97706',
+            isFullPage: true,
+            link: `/initial-products/${ipId}/processing`,
+            icon: <FileText size={16} />
+          });
+        } else if (ip.status === 'logsheet_created' || ip.status === 'waiting_sharia_signature') {
+          actionList.push({
+            id: `initprod-sig-${ipId}`,
+            category: 'initial_products',
+            app: { _id: ipId, application_number: appNum, establishment_name: clientName },
+            type: 'manage_init_prod_logsheet',
+            title: 'Initial Product Logsheet: Awaiting Signatures',
+            tag: 'Signatures',
+            desc: `Logsheet for "${prodName}" is awaiting Shari'a committee sign-off`,
+            buttonText: 'Manage Logsheet',
+            buttonBg: '#0e7490',
+            isFullPage: true,
+            link: `/initial-products/${ipId}/logsheet`,
+            icon: <ClipboardList size={16} />
+          });
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // 4. ADD-ON APPLICATIONS: Actionable Stages
       // ─────────────────────────────────────────────────────────────
       for (const addon of allAddOns) {
         const addonId = addon._id || addon.id;
         const clientName = addon.client_id?.company_name || addon.client_id?.full_name || 'Client';
         const productCount = addon.products?.length || 1;
+        const addonNum = `ADDON-${String(addonId).slice(-6).toUpperCase()}`;
 
         if (addon.status === 'submitted') {
           actionList.push({
             id: `addon-sub-${addonId}`,
             category: 'addons',
-            app: { _id: addonId, application_number: `ADDON-${String(addonId).slice(-6).toUpperCase()}`, establishment_name: clientName },
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
             type: 'review_addon',
-            title: 'New Add-on Application Submitted',
+            title: 'New Add-on Application: Assign FT',
             tag: 'Add-on Review',
             desc: `Review ${productCount} product addition(s) from ${clientName}`,
             buttonText: 'Review Add-on',
             buttonBg: '#2563eb',
             isFullPage: true,
-            link: `/addon-applications?view=list`,
+            link: `/addon-applications/${addonId}/processing`,
             icon: <Layers size={16} />
+          });
+        } else if (addon.status === 'ft_assigned') {
+          actionList.push({
+            id: `addon-ft-${addonId}`,
+            category: 'addons',
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
+            type: 'enable_addon_form',
+            title: 'Add-on: Enable Product Approval Form',
+            tag: 'Enable Form',
+            desc: `Enable approval form for ${productCount} product(s) from ${clientName}`,
+            buttonText: 'Enable Form',
+            buttonBg: '#0284c7',
+            isFullPage: true,
+            link: `/addon-applications/${addonId}/approval-form`,
+            icon: <ClipboardList size={16} />
           });
         } else if (addon.status === 'all_forms_received') {
           actionList.push({
             id: `addon-forms-${addonId}`,
             category: 'addons',
-            app: { _id: addonId, application_number: `ADDON-${String(addonId).slice(-6).toUpperCase()}`, establishment_name: clientName },
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
             type: 'create_addon_logsheet',
             title: 'Add-on Forms Received: Create Logsheet',
             tag: 'Add-on Logsheet',
-            desc: `Client submitted product specifications for ${productCount} item(s)`,
+            desc: `Client submitted specifications for ${productCount} item(s)`,
             buttonText: 'Create Logsheet',
             buttonBg: '#0e7490',
             isFullPage: true,
-            link: `/addon-applications?view=list`,
+            link: `/addon-applications/${addonId}/logsheet`,
+            icon: <ClipboardList size={16} />
+          });
+        } else if (addon.status === 'client_replied') {
+          actionList.push({
+            id: `addon-reply-${addonId}`,
+            category: 'addons',
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
+            type: 'review_addon_reply',
+            title: 'Add-on: Client Replied to Info Request',
+            tag: 'Review Reply',
+            desc: `Client provided answers regarding ${productCount} product addition(s)`,
+            buttonText: 'Review Reply',
+            buttonBg: '#d97706',
+            isFullPage: true,
+            link: `/addon-applications/${addonId}/processing`,
+            icon: <FileText size={16} />
+          });
+        } else if (addon.status === 'waiting_sharia_signature' || addon.status === 'logsheet_created') {
+          actionList.push({
+            id: `addon-sig-${addonId}`,
+            category: 'addons',
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
+            type: 'manage_addon_logsheet',
+            title: 'Add-on Logsheet: Awaiting Signatures',
+            tag: 'Signatures',
+            desc: `Add-on logsheet is awaiting Shari'a committee sign-off`,
+            buttonText: 'Manage Logsheet',
+            buttonBg: '#0e7490',
+            isFullPage: true,
+            link: `/addon-applications/${addonId}/logsheet`,
             icon: <ClipboardList size={16} />
           });
         } else if (addon.status === 'ready_for_certificate') {
           actionList.push({
             id: `addon-cert-${addonId}`,
             category: 'addons',
-            app: { _id: addonId, application_number: `ADDON-${String(addonId).slice(-6).toUpperCase()}`, establishment_name: clientName },
+            app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
             type: 'update_addon_certificate',
             title: 'Add-on Approved: Update Certificate',
             tag: 'Update Cert',
-            desc: `Add approved product(s) to Halal Certificate for ${clientName}`,
+            desc: `Add ${productCount} approved product(s) to Halal Certificate for ${clientName}`,
             buttonText: 'Update Certificate',
             buttonBg: '#16a34a',
             isFullPage: true,
-            link: `/addon-applications?view=list`,
+            link: `/addon-applications/${addonId}/processing`,
             icon: <Award size={16} />
           });
         }
@@ -560,6 +695,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       all: items.length,
       applications: items.filter(i => i.category === 'applications').length,
       invoices: items.filter(i => i.category === 'invoices').length,
+      initial_products: items.filter(i => i.category === 'initial_products').length,
       addons: items.filter(i => i.category === 'addons').length,
     };
   }, [items]);
@@ -688,6 +824,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                   { id: 'all', label: 'All Tasks', count: categoryCounts.all },
                   { id: 'applications', label: 'Applications', count: categoryCounts.applications },
                   { id: 'invoices', label: 'Payments / Invoices', count: categoryCounts.invoices },
+                  { id: 'initial_products', label: 'Initial Products', count: categoryCounts.initial_products },
                   { id: 'addons', label: 'Add-Ons', count: categoryCounts.addons },
                 ].map(cat => (
                   <button

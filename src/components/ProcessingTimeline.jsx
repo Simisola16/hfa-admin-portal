@@ -163,7 +163,11 @@ export default function ProcessingTimeline({
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
     if (stepKey === 'initial_product') {
-      return isInitialProductApproved ? 'Initial Product Approved' : 'Initial Product In Progress';
+      const isPastPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
+      if (isPastPayment && isInitialProductApproved) {
+        return 'Initial Product Approved';
+      }
+      return isPastPayment && initialProduct ? 'Initial Product In Progress' : 'Initial Product';
     }
     return STATUS_LABELS[stepKey] || stepKey.replace(/_/g, ' ');
   };
@@ -257,7 +261,7 @@ export default function ProcessingTimeline({
           const hasPassedPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
           const hasPassedInitialProduct = currentOrderIdx > STATUS_ORDER.indexOf('initial_product') && normStatus !== 'payment_received';
 
-          if (hasPassedInitialProduct || isInitialProductApproved) {
+          if (hasPassedInitialProduct || (hasPassedPayment && isInitialProductApproved)) {
             isComplete = true;
             isCurrent = false;
             isPending = false;
@@ -271,7 +275,7 @@ export default function ProcessingTimeline({
             isCurrent = false;
           }
 
-          if (initialProduct) {
+          if (initialProduct && (isCurrent || isComplete)) {
             histEntry = {
               changedAt: initialProduct.updated_at || initialProduct.created_at,
               note: isComplete ? 'Initial product specifications approved by HFA.' : (initialProduct.status === 'product_approval_form_enabled' ? 'Product Approval Form enabled. Awaiting client submission.' : `Initial Product "${initialProduct.product?.name}" submitted.`)

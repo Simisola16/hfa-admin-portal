@@ -153,33 +153,17 @@ export default function ApplicationProcessing() {
 
       let initialProductItem = null;
       if (ipRes) {
-        if (ipRes.data !== undefined) {
-          if (Array.isArray(ipRes.data)) {
-            initialProductItem = ipRes.data.find(ip => {
-              const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
-              return String(ipAppId) === String(appId);
-            }) || ipRes.data[0] || null;
-          } else if (ipRes.data && typeof ipRes.data === 'object') {
-            initialProductItem = ipRes.data;
+        const rawIp = ipRes.data?.data !== undefined ? ipRes.data.data : (ipRes.data !== undefined ? ipRes.data : ipRes);
+        if (rawIp && !Array.isArray(rawIp) && (rawIp._id || rawIp.id)) {
+          const ipAppId = rawIp.application_id?._id || rawIp.application_id?.id || rawIp.application_id;
+          if (String(ipAppId) === String(appId)) {
+            initialProductItem = rawIp;
           }
-        } else if (Array.isArray(ipRes)) {
-          initialProductItem = ipRes.find(ip => {
+        } else if (Array.isArray(rawIp)) {
+          initialProductItem = rawIp.find(ip => {
             const ipAppId = ip.application_id?._id || ip.application_id?.id || ip.application_id;
             return String(ipAppId) === String(appId);
-          }) || ipRes[0] || null;
-        } else if (ipRes._id) {
-          initialProductItem = ipRes;
-        }
-      }
-
-      // If initial product was not found via separate route, check application's explicit products array
-      if (!initialProductItem && fetchedApp) {
-        if (Array.isArray(fetchedApp.products) && fetchedApp.products.length > 0 && fetchedApp.products[0]?.name) {
-          initialProductItem = {
-            application_id: fetchedApp._id,
-            product: fetchedApp.products[0],
-            status: 'submitted'
-          };
+          }) || null;
         }
       }
 

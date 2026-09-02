@@ -44,6 +44,11 @@ export default function AdminCreateLogsheet() {
   const [showApproveProductsModal, setShowApproveProductsModal] = useState(false);
   const [selectedApproveProducts, setSelectedApproveProducts] = useState([]);
 
+  // Initial Product Editable Name & Code State
+  const [initialProductName, setInitialProductName] = useState('');
+  const [initialProductCode, setInitialProductCode] = useState('');
+  const [savingProductDetails, setSavingProductDetails] = useState(false);
+
   const userSignature = signatures.find(s =>
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
     (s.username && user?.email && s.username.toLowerCase() === user.email.split('@')[0].toLowerCase()) ||
@@ -329,6 +334,11 @@ export default function AdminCreateLogsheet() {
             resolvedCompanyName = autoCompanyName;
           }
 
+          const loadedProdName = ipLogsheet.product_name || ipData.product?.name || '';
+          const loadedProdCode = ipLogsheet.product_code !== undefined ? ipLogsheet.product_code : (ipData.product?.code || '');
+          setInitialProductName(loadedProdName);
+          setInitialProductCode(loadedProdCode);
+
           setForm(f => ({
             ...f,
             ...ipLogsheet,
@@ -342,6 +352,11 @@ export default function AdminCreateLogsheet() {
             confirmed: false
           }));
         } else {
+          const loadedProdName = ipData.product?.name || '';
+          const loadedProdCode = ipData.product?.code || '';
+          setInitialProductName(loadedProdName);
+          setInitialProductCode(loadedProdCode);
+
           setForm(f => ({
             ...f,
             site_name: autoSiteName,
@@ -879,6 +894,36 @@ export default function AdminCreateLogsheet() {
     }
   };
 
+  const handleSaveInitialProductDetails = async () => {
+    if (!initialProductName.trim()) {
+      return toast.error('Initial Product Name is required.');
+    }
+    setSavingProductDetails(true);
+    try {
+      await api.put(`/api/initial-products/${resolvedInitialProductId}/product-info`, {
+        name: initialProductName.trim(),
+        code: initialProductCode.trim()
+      });
+      toast.success('Initial Product name & code updated successfully!');
+      setApplication(prev => prev ? ({
+        ...prev,
+        product: {
+          ...(prev.product || {}),
+          name: initialProductName.trim(),
+          code: initialProductCode.trim()
+        }
+      }) : prev);
+      setForm(prev => ({
+        ...prev,
+        product_category: `${initialProductName.trim()}${initialProductCode.trim() ? ` (${initialProductCode.trim()})` : ''}`
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update product details');
+    } finally {
+      setSavingProductDetails(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -1018,6 +1063,8 @@ export default function AdminCreateLogsheet() {
       if (isInitialProduct) {
         await api.post(`/api/initial-products/${resolvedInitialProductId}/create-logsheet`, {
           ...form,
+          product_name: initialProductName.trim(),
+          product_code: initialProductCode.trim(),
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           client_id: application?.client_id?._id || application?.client_id,
@@ -1498,7 +1545,7 @@ export default function AdminCreateLogsheet() {
                             </div>
                             <div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                                {p.name} {p.code ? `(${p.code})` : ''}
+                                {isInitialProduct ? (initialProductName || p.name) : p.name} {(isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code) ? `(${isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code})` : ''}
                               </div>
                               <div style={{ fontSize: 11.5, color: isSaved ? '#15803d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                 {isSaved ? (
@@ -1526,16 +1573,20 @@ export default function AdminCreateLogsheet() {
                                 fontSize: 12,
                                 fontWeight: 700
                               }}
-                              onClick={() => setViewProductModal({
-                                isOpen: true,
-                                formData: formData && Object.keys(formData).length > 0 ? formData : {
-                                  product_name: p.name,
-                                  product_code: p.code,
-                                  company_name_address: form.company_name
-                                },
-                                product: p,
-                                company: application?.client_id
-                              })}
+                              onClick={() => {
+                                const displayName = isInitialProduct ? (initialProductName || p.name) : p.name;
+                                const displayCode = isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code;
+                                setViewProductModal({
+                                  isOpen: true,
+                                  formData: formData && Object.keys(formData).length > 0 ? formData : {
+                                    product_name: displayName,
+                                    product_code: displayCode,
+                                    company_name_address: form.company_name
+                                  },
+                                  product: { ...p, name: displayName, code: displayCode },
+                                  company: application?.client_id
+                                });
+                              }}
                             >
                               <Eye size={14} /> View Filled Product Form
                             </button>
@@ -1967,6 +2018,80 @@ export default function AdminCreateLogsheet() {
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
                   {isProductLogsheet ? (
                     <div>
+                      {/* Initial Product Editable Name & Code Card */}
+                      {isInitialProduct && (
+                        <div style={{ background: '#fff', border: '1.5px solid #cbd5e1', borderRadius: 12, padding: '18px 20px', marginBottom: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Package size={18} style={{ color: '#059669' }} />
+                              <div>
+                                <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
+                                  Initial Product Details
+                                </span>
+                                <div style={{ fontSize: 12, color: '#64748b' }}>
+                                  You can edit the Product Name and Code here before Shari'a Committee review.
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              disabled={savingProductDetails || !initialProductName.trim()}
+                              onClick={handleSaveInitialProductDetails}
+                              style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', borderColor: '#a7f3d0', background: '#ecfdf5' }}
+                            >
+                              {savingProductDetails ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Check size={14} />}
+                              Save Product Details
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                                Product Name <span style={{ color: '#dc2626' }}>*</span>
+                              </label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={initialProductName}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setInitialProductName(val);
+                                  setForm(prev => ({
+                                    ...prev,
+                                    product_category: `${val}${initialProductCode ? ` (${initialProductCode})` : ''}`
+                                  }));
+                                }}
+                                placeholder="e.g. Organic Black Tea"
+                                required
+                                style={{ fontSize: 13, fontWeight: 600 }}
+                              />
+                            </div>
+
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                                Product Code / SKU
+                              </label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={initialProductCode}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setInitialProductCode(val);
+                                  setForm(prev => ({
+                                    ...prev,
+                                    product_category: `${initialProductName}${val ? ` (${val})` : ''}`
+                                  }));
+                                }}
+                                placeholder="e.g. OBT-2024-01"
+                                style={{ fontSize: 13, fontWeight: 600 }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', margin: 0 }}>
                           Client Product Approval Request Forms &amp; Specifications
@@ -1986,6 +2111,8 @@ export default function AdminCreateLogsheet() {
                             : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
                           const isSaved = resp?.is_saved || Boolean(resp?.response_url) || (resp?.form_data && Object.keys(resp.form_data).length > 0);
                           const formData = resp?.form_data || {};
+                          const displayName = isInitialProduct ? (initialProductName || p.name) : p.name;
+                          const displayCode = isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code;
 
                           return (
                             <div key={pIdx} style={{ background: '#fff', border: `1.5px solid ${isSaved ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -1995,7 +2122,7 @@ export default function AdminCreateLogsheet() {
                                 </div>
                                 <div>
                                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                                    {p.name} {p.code ? `(${p.code})` : ''}
+                                    {displayName} {displayCode ? `(${displayCode})` : ''}
                                   </div>
                                   <div style={{ fontSize: 11, color: isSaved ? '#16a34a' : '#94a3b8' }}>
                                     {isSaved ? '✓ Form Filled & Signed by Client' : 'Awaiting Client Form Completion'}
@@ -2010,11 +2137,11 @@ export default function AdminCreateLogsheet() {
                                 onClick={() => setViewProductModal({
                                   isOpen: true,
                                   formData: formData && Object.keys(formData).length > 0 ? formData : {
-                                    product_name: p.name,
-                                    product_code: p.code,
+                                    product_name: displayName,
+                                    product_code: displayCode,
                                     company_name_address: form.company_name
                                   },
-                                  product: p,
+                                  product: { ...p, name: displayName, code: displayCode },
                                   company: application?.client_id
                                 })}
                               >

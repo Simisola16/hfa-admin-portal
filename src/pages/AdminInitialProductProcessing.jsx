@@ -123,6 +123,12 @@ export default function AdminInitialProductProcessing() {
 
   // Handler: Enable Form
   const handleEnableForm = async () => {
+    if (!hasFtAssigned) {
+      toast.error('A Food Technologist (FT) must be assigned before enabling the Product Approval Form.');
+      setShowEnableFormModal(false);
+      setShowFtModal(true);
+      return;
+    }
     setSavingEnableForm(true);
     try {
       const fd = new FormData();
@@ -228,6 +234,20 @@ export default function AdminInitialProductProcessing() {
   const productResp = app.product_approval_form?.product_response;
   const isFormEnabled = ['product_approval_form_enabled', 'all_forms_received', 'logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(app.status);
   const isFormReceived = ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(app.status);
+  const hasFtAssigned = Boolean(
+    ftNames.length > 0 ||
+    app.assigned_food_tech ||
+    (app.assigned_food_techs && app.assigned_food_techs.length > 0) ||
+    app.assigned_ft_custom?.name ||
+    app.assigned_ft_details ||
+    app.status !== 'submitted'
+  );
+  const isClientSubmitted = Boolean(
+    app.product_approval_form?.submitted_at ||
+    app.product_approval_form?.product_response?.is_saved ||
+    Boolean(app.product_approval_form?.product_response?.response_url) ||
+    (app.product_approval_form?.product_response?.form_data && Object.keys(app.product_approval_form?.product_response?.form_data).length > 0)
+  );
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 80 }}>
@@ -334,24 +354,43 @@ export default function AdminInitialProductProcessing() {
 
               {app.status === 'product_approval_form_enabled' && (
                 <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleMarkFormReceived}
-                    disabled={markingReceived}
-                    style={{
-                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                      borderColor: '#047857',
-                      fontWeight: 800,
-                      padding: '10px 20px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
-                    }}
-                  >
-                    <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Product Form Received →'}
-                  </button>
+                  {isClientSubmitted ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleMarkFormReceived}
+                      disabled={markingReceived}
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                        borderColor: '#047857',
+                        fontWeight: 800,
+                        padding: '10px 20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                      }}
+                    >
+                      <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Mark Product Form Received →'}
+                    </button>
+                  ) : (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: '#fff7ed',
+                        color: '#c2410c',
+                        border: '1px solid #fed7aa',
+                        padding: '9px 16px',
+                        borderRadius: 12,
+                        fontSize: 13,
+                        fontWeight: 700
+                      }}
+                    >
+                      <Clock size={15} /> Awaiting Client Submission
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="btn btn-outline"
@@ -530,26 +569,44 @@ export default function AdminInitialProductProcessing() {
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {!isFormEnabled && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setShowEnableFormModal(true)}
-                    style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <Send size={14} /> Enable Form for Client
-                  </button>
+                  hasFtAssigned ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setShowEnableFormModal(true)}
+                      style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <Send size={14} /> Enable Form for Client
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowFtModal(true)}
+                      style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      title="Food Technologist must be assigned before enabling form"
+                    >
+                      <User size={14} /> Assign FT to Enable Form &rarr;
+                    </button>
+                  )
                 )}
 
                 {isFormEnabled && !isFormReceived && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={handleMarkFormReceived}
-                    disabled={markingReceived}
-                    style={{ background: '#059669', borderColor: '#059669', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <CheckCircle size={14} /> {markingReceived ? 'Marking...' : 'Product Form Received'}
-                  </button>
+                  isClientSubmitted ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleMarkFormReceived}
+                      disabled={markingReceived}
+                      style={{ background: '#059669', borderColor: '#059669', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <CheckCircle size={14} /> {markingReceived ? 'Marking...' : 'Mark Product Form Received'}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', padding: '4px 10px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={12} /> Awaiting Client Response
+                    </span>
+                  )
                 )}
 
                 {isFormEnabled && (
@@ -569,13 +626,21 @@ export default function AdminInitialProductProcessing() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }}>Status</div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: isFormReceived ? '#166534' : isFormEnabled ? '#6b21a8' : '#64748b', marginTop: 2 }}>
-                    {isFormReceived ? '✓ Client Form Response Received' : isFormEnabled ? 'Form Enabled — Awaiting Client Response' : 'Not Enabled Yet'}
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: isFormReceived ? '#166534' : isClientSubmitted ? '#0284c7' : isFormEnabled ? '#6b21a8' : '#64748b', marginTop: 2 }}>
+                    {isFormReceived
+                      ? '✓ Product Form Received & Confirmed by HFA'
+                      : isClientSubmitted
+                        ? 'Client Form Submitted — Awaiting HFA Receipt Confirmation'
+                        : isFormEnabled
+                          ? 'Form Enabled — Awaiting Client Response'
+                          : hasFtAssigned
+                            ? 'FT Assigned — Ready to Enable Form'
+                            : 'FT Not Assigned — Please Assign FT First'}
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {isFormEnabled && !isFormReceived && (
+                  {isFormEnabled && !isFormReceived && isClientSubmitted && (
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
@@ -583,7 +648,7 @@ export default function AdminInitialProductProcessing() {
                       disabled={markingReceived}
                       style={{ background: '#059669', borderColor: '#059669', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                     >
-                      <CheckCircle size={14} /> {markingReceived ? 'Confirming...' : 'Product Form Received'}
+                      <CheckCircle size={14} /> {markingReceived ? 'Confirming...' : 'Mark Product Form Received'}
                     </button>
                   )}
 

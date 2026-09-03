@@ -534,6 +534,9 @@ export default function AdminClients() {
                 <div className="form-group">
                   <label className="form-label">Role <span>*</span></label>
                   <select className="form-control" value={staffForm.role} onChange={e => setStaffForm(s => ({ ...s, role: e.target.value }))} required>
+                    <option value="scheme_manager">Scheme Manager</option>
+                    <option value="certificate_officer">Certificate Officer</option>
+                    <option value="accountant">Accountant</option>
                     <option value="food_tech">Food Tech Inspector</option>
                     <option value="food_tech_manager">Food Tech Manager</option>
                     <option value="audit_manager">Audit Manager</option>

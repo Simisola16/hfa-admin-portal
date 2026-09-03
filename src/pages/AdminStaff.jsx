@@ -5,7 +5,7 @@ import {
   Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle,
   RefreshCw, KeyRound, Lock, Sparkles, Check, CheckSquare, Square,
   Crown, ClipboardCheck, Eye, FileCheck, Beaker, Edit3, ShieldAlert,
-  ChevronRight, Filter
+  ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,16 +31,49 @@ export const STAFF_ROLE_CONFIG = {
     bg: '#eff6ff',
     border: '#bfdbfe',
     icon: Shield,
-    desc: 'Full application management, invoicing, contracts, proposals, and operational oversight.'
+    desc: 'Full application management, system oversight, workflows, and operational supervision.'
+  },
+  scheme_manager: {
+    id: 'scheme_manager',
+    label: 'Scheme Manager',
+    shortLabel: 'Scheme Mgr',
+    badgeClass: 'badge-indigo',
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    border: '#c7d2fe',
+    icon: ClipboardList,
+    desc: 'Accept, reject, or put applications on hold, issue proposals, and send certification agreements.'
+  },
+  certificate_officer: {
+    id: 'certificate_officer',
+    label: 'Certificate Officer',
+    shortLabel: 'Cert Officer',
+    badgeClass: 'badge-emerald',
+    color: '#059669',
+    bg: '#ecfdf5',
+    border: '#a7f3d0',
+    icon: Award,
+    desc: 'Generate, issue, and manage official Halal Certificates, surveillance letters, and certificate reviews.'
+  },
+  accountant: {
+    id: 'accountant',
+    label: 'Accountant',
+    shortLabel: 'Accountant',
+    badgeClass: 'badge-amber',
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    icon: FileBarChart,
+    desc: 'Issue initial, renewal, and final invoices, confirm payment receipts, and manage financial accounts.'
   },
   audit_manager: {
     id: 'audit_manager',
     label: 'Audit Manager',
     shortLabel: 'Audit Mgr',
-    badgeClass: 'badge-amber',
-    color: '#d97706',
-    bg: '#fffbeb',
-    border: '#fde68a',
+    badgeClass: 'badge-sky',
+    color: '#0284c7',
+    bg: '#f0f9ff',
+    border: '#bae6fd',
     icon: ClipboardCheck,
     desc: 'Coordinate audit schedules, assign auditors, and review audit reports & NC closures.'
   },
@@ -48,10 +81,10 @@ export const STAFF_ROLE_CONFIG = {
     id: 'inspector',
     label: 'Auditor',
     shortLabel: 'Auditor',
-    badgeClass: 'badge-sky',
-    color: '#0284c7',
-    bg: '#f0f9ff',
-    border: '#bae6fd',
+    badgeClass: 'badge-cyan',
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#a5f3fc',
     icon: Eye,
     desc: 'Conduct physical / remote site audits, submit audit findings, and report non-conformities.'
   },
@@ -70,16 +103,26 @@ export const STAFF_ROLE_CONFIG = {
     id: 'food_tech',
     label: 'Food Technologist',
     shortLabel: 'Food Tech',
-    badgeClass: 'badge-emerald',
-    color: '#059669',
-    bg: '#ecfdf5',
-    border: '#a7f3d0',
+    badgeClass: 'badge-green',
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    border: '#bbf7d0',
     icon: Beaker,
     desc: 'Evaluate client product specifications, raw material lists, and processing flows.'
   }
 };
 
-const ALL_STAFF_ROLE_KEYS = ['superadmin', 'admin', 'audit_manager', 'food_tech_manager', 'food_tech', 'inspector'];
+export const ALL_STAFF_ROLE_KEYS = [
+  'superadmin',
+  'admin',
+  'scheme_manager',
+  'certificate_officer',
+  'accountant',
+  'audit_manager',
+  'food_tech_manager',
+  'food_tech',
+  'inspector'
+];
 
 export default function AdminStaff() {
   const { user: loggedInUser } = useAuth();
@@ -147,9 +190,12 @@ export default function AdminStaff() {
   const filtered = staffMembers.filter(s => {
     const userRoles = getUserRoles(s);
 
-    // Role Tab Filter (Admins only shows admin, Superadmins shows superadmin)
+    // Role Tab Filter
     if (roleFilter === 'admin' && !userRoles.includes('admin')) return false;
     if (roleFilter === 'superadmin' && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'scheme_manager' && !userRoles.includes('scheme_manager')) return false;
+    if (roleFilter === 'certificate_officer' && !userRoles.includes('certificate_officer')) return false;
+    if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
     if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !userRoles.includes('superadmin')) return false;
@@ -172,6 +218,9 @@ export default function AdminStaff() {
     total: staffMembers.length,
     admins: staffMembers.filter(s => getUserRoles(s).includes('admin')).length,
     superadmins: staffMembers.filter(s => getUserRoles(s).includes('superadmin')).length,
+    schemeManagers: staffMembers.filter(s => getUserRoles(s).includes('scheme_manager')).length,
+    certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
+    accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
     specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
@@ -459,6 +508,39 @@ export default function AdminStaff() {
 
         <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Scheme Managers</span>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5' }}>
+              <ClipboardList size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.schemeManagers}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Applications & Agreements</div>
+        </div>
+
+        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Certificate Officers</span>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
+              <Award size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.certificateOfficers}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Halal Cert Issuance</div>
+        </div>
+
+        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Accountants</span>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+              <FileBarChart size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.accountants}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Invoicing & Payments</div>
+        </div>
+
+        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Administrators</span>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
               <Shield size={16} />
@@ -470,35 +552,13 @@ export default function AdminStaff() {
 
         <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Superadmins</span>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
-              <Crown size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.superadmins}</div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Full Master Access</div>
-        </div>
-
-        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Technical & Audit</span>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0d9488' }}>
               <Beaker size={16} />
             </div>
           </div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.techAudit}</div>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Auditors & Food Techs</div>
-        </div>
-
-        <div style={{ background: 'white', padding: '18px 20px', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Special Grants</span>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
-              <Sparkles size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>{stats.specialGrants}</div>
-          <div style={{ fontSize: 12, color: '#d97706', fontWeight: 600, marginTop: 4 }}>Direct Cert Studio Access</div>
         </div>
       </div>
 
@@ -540,6 +600,9 @@ export default function AdminStaff() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {[
             { id: 'all', label: 'All Staff' },
+            { id: 'scheme_manager', label: 'Scheme Managers' },
+            { id: 'certificate_officer', label: 'Certificate Officers' },
+            { id: 'accountant', label: 'Accountants' },
             { id: 'admin', label: 'Admins' },
             { id: 'superadmin', label: 'Superadmins' },
             { id: 'audit', label: 'Audit Team' },

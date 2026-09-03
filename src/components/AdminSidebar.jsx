@@ -222,8 +222,10 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
   const toggle = (label) =>
     setExpanded(prev => ({ ...prev, [label]: !prev[label] }));
 
-  const isSuperAdmin = profile?.role === 'superadmin';
-  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
+  const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin');
+  const isCertOfficer = userRoles.includes('certificate_officer');
+  const hasDirectCertPrivilege = isSuperAdmin || isCertOfficer || profile?.can_issue_direct_certificate === true;
   const visibleSections = NAV_SECTIONS.filter(section => {
     if (section.superadminOnly) return isSuperAdmin;
     if (section.directCertOnly) return hasDirectCertPrivilege;
@@ -454,7 +456,19 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
           <div className="sidebar-user-info">
             <div className="sidebar-user-name truncate">{profile?.full_name || 'Admin'}</div>
             <div className="sidebar-user-role" style={{ color: isSuperAdmin ? '#15803d' : undefined, fontWeight: isSuperAdmin ? 700 : undefined }}>
-              {isSuperAdmin ? '👑 Super Administrator' : 'Administrator'}
+              {(() => {
+                const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
+                if (userRoles.includes('superadmin')) return '👑 Super Administrator';
+                if (userRoles.includes('scheme_manager')) return '📋 Scheme Manager';
+                if (userRoles.includes('certificate_officer')) return '🎖️ Certificate Officer';
+                if (userRoles.includes('accountant')) return '💳 Accountant';
+                if (userRoles.includes('admin')) return '🛡️ Administrator';
+                if (userRoles.includes('audit_manager')) return '🔍 Audit Manager';
+                if (userRoles.includes('inspector')) return '🕵️ Auditor';
+                if (userRoles.includes('food_tech_manager')) return '🧪 Food Tech Manager';
+                if (userRoles.includes('food_tech')) return '🔬 Food Technologist';
+                return 'Administrator';
+              })()}
             </div>
           </div>
         </div>

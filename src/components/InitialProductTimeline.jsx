@@ -108,12 +108,17 @@ export default function InitialProductTimeline({ status = 'submitted', statusHis
     if (!isComplete && !isCurrent) return null;
 
     if (stageId === 'ft_assigned' && (isComplete || isCurrent)) {
-      const ftName = [
-        ...(app?.assigned_food_techs || []).map(f => f.full_name || f.name),
-        app?.assigned_food_tech?.full_name || app?.assigned_food_tech?.name,
-        app?.assigned_ft_custom?.name || app?.assigned_ft_details
-      ].filter(Boolean)[0] || 'Assigned Specialist';
-      return `FT assigned: ${ftName}`;
+      const ftList = [
+        ...(app?.assigned_food_techs || []).map(f => {
+          const name = f.full_name || f.name;
+          return f.email ? `${name} (${f.email})` : name;
+        }),
+        app?.assigned_food_tech ? (app.assigned_food_tech.email ? `${app.assigned_food_tech.full_name || app.assigned_food_tech.name} (${app.assigned_food_tech.email})` : (app.assigned_food_tech.full_name || app.assigned_food_tech.name)) : null,
+        app?.assigned_ft_custom?.name ? (app.assigned_ft_custom.email ? `${app.assigned_ft_custom.name} (${app.assigned_ft_custom.email})` : app.assigned_ft_custom.name) : null,
+        app?.assigned_ft_details
+      ].filter(Boolean);
+      const ftDisplay = ftList[0] || 'Assigned Specialist';
+      return `FT assigned: ${ftDisplay}`;
     }
 
     if (stageId === 'product_approval_form_enabled' && (isComplete || isCurrent)) {

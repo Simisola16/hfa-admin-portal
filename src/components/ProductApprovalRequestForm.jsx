@@ -65,29 +65,47 @@ export const INITIAL_PRODUCT_APPROVAL_FORM = {
 
 export default function ProductApprovalRequestForm({
   formData = {},
+  initialData = {},
   onChange,
   readOnly = false,
   product = {},
   company = {}
 }) {
-  const [form, setForm] = useState({
-    ...INITIAL_PRODUCT_APPROVAL_FORM,
-    ...formData,
-    product_name: formData?.product_name || product?.name || '',
-    product_code: formData?.product_code || product?.code || '',
-    company_name_address: formData?.company_name_address || [company?.company_name, company?.address].filter(Boolean).join(', ') || ''
-  });
+  const resolveIncoming = (input) => {
+    if (!input) return {};
+    if (typeof input === 'string') {
+      try { return JSON.parse(input); } catch (e) { return {}; }
+    }
+    return typeof input === 'object' ? input : {};
+  };
+
+  const getMergedData = (fd, id) => {
+    const rawData = (id && Object.keys(id).length > 0) ? id : fd;
+    const resolved = resolveIncoming(rawData);
+    return {
+      ...INITIAL_PRODUCT_APPROVAL_FORM,
+      ...resolved,
+      product_name: resolved.product_name || product?.name || '',
+      product_code: resolved.product_code || product?.code || '',
+      company_name_address: resolved.company_name_address || [company?.company_name, company?.address].filter(Boolean).join(', ') || ''
+    };
+  };
+
+  const [form, setForm] = useState(() => getMergedData(formData, initialData));
 
   useEffect(() => {
-    if (formData && Object.keys(formData).length > 0) {
+    const rawData = (initialData && Object.keys(initialData).length > 0) ? initialData : formData;
+    const resolved = resolveIncoming(rawData);
+    if (resolved && Object.keys(resolved).length > 0) {
       setForm(prev => ({
+        ...INITIAL_PRODUCT_APPROVAL_FORM,
         ...prev,
-        ...formData,
-        product_name: formData.product_name || product?.name || prev.product_name,
-        product_code: formData.product_code || product?.code || prev.product_code
+        ...resolved,
+        product_name: resolved.product_name || product?.name || prev.product_name,
+        product_code: resolved.product_code || product?.code || prev.product_code
       }));
     }
-  }, [formData, product]);
+  }, [formData, initialData, product]);
 
   const [uploadingField, setUploadingField] = useState(null);
 

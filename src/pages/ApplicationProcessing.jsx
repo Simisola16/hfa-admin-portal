@@ -600,11 +600,30 @@ export default function ApplicationProcessing() {
         );
       }
 
-      // 3. Invoice Stage (Post-Audit / NC Closed)
-      const fastTrackInvoice = initialInvoice || invoice;
-      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received';
+      // 3. LogSheet Stage (Post-Audit / NC Closed)
+      const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-      if (['nc_closed', 'audit_report_submitted'].includes(status) && !fastTrackInvoice) {
+      if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status))) {
+        if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
+          const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+          return (
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0e7490' }}
+              onClick={() => navigate(`/applications/${appId}/logsheet`)}
+              title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            >
+              <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            </button>
+          );
+        }
+      }
+
+      // 4. Invoice Stage (Post-Application Successful / LogSheet Signed)
+      const fastTrackInvoice = initialInvoice || invoice;
+      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate';
+
+      if (['logsheet_signed', 'application_successful'].includes(status) && !fastTrackInvoice) {
         return (
           <button
             className="btn btn-primary"
@@ -628,27 +647,8 @@ export default function ApplicationProcessing() {
         );
       }
 
-      // 4. LogSheet Stage (Post-Invoice Payment)
-      const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
-
-      if (isFastTrackInvoicePaid || ['payment_received', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
-        if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
-          const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
-          return (
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#0e7490' }}
-              onClick={() => navigate(`/applications/${appId}/logsheet`)}
-              title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-            >
-              <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-            </button>
-          );
-        }
-      }
-
-      // 5. Waiting for Letter / Certificate Stage
-      if (status === 'ready_for_certificate' || status === 'Waiting For Certificate' || (isLogsheetSigned && status !== 'certificate_issued')) {
+      // 5. Waiting for Letter / Certificate Stage (Post-Invoice Payment)
+      if (status === 'ready_for_certificate' || status === 'payment_received' || status === 'Waiting For Certificate' || (isFastTrackInvoicePaid && status !== 'certificate_issued')) {
         if (isSurveillance) {
           return (
             <button
@@ -1039,7 +1039,18 @@ export default function ApplicationProcessing() {
             actionSubmitting={actionSubmitting}
           />
 
-          {/* 3. Renewal / Surveillance Invoice Card (Post-Audit) */}
+          {/* 3. Logsheet Card */}
+          <LogsheetCard 
+            logsheet={logsheet} 
+            status={status} 
+            appId={appId} 
+            isRenewal={isRenewal}
+            isSurveillance={isSurveillance}
+            onMarkDone={handleMarkLogsheetDone}
+            markingDone={markingLogsheetDone}
+          />
+
+          {/* 4. Renewal / Surveillance Invoice Card (Post-Application Successful) */}
           {isFastTrack && (
             <InvoiceCard
               app={app}
@@ -1052,17 +1063,6 @@ export default function ApplicationProcessing() {
               confirmingPayment={confirmingPayment}
             />
           )}
-
-          {/* 4. Logsheet Card */}
-          <LogsheetCard 
-            logsheet={logsheet} 
-            status={status} 
-            appId={appId} 
-            isRenewal={isRenewal}
-            isSurveillance={isSurveillance}
-            onMarkDone={handleMarkLogsheetDone}
-            markingDone={markingLogsheetDone}
-          />
 
           {/* For standard only: Agreement Card and Final Invoice Card */}
           {!isFastTrack && (

@@ -34,6 +34,8 @@ export default function LogsheetCard({ logsheet, status, appId, isRenewal = fals
 
   const isAdvancedPastLogsheet = [
     'application_successful',
+    'invoice_sent',
+    'payment_received',
     'agreement_sent',
     'agreement_signed',
     'agreement_finalised',

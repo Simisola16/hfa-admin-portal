@@ -171,19 +171,35 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             break;
 
           case 'payment_received':
-            actionList.push({
-              id: `app-payrec-${appId}`,
-              category: 'applications',
-              app,
-              type: 'manage_audit',
-              title: 'Initial Payment Received: Schedule Audit',
-              tag: 'Audit Schedule',
-              desc: `Propose 3 possible audit visit dates for ${estName}`,
-              buttonText: 'Propose Audit Dates',
-              buttonBg: '#ea580c',
-              isFullPage: false,
-              icon: <Calendar size={16} />
-            });
+            if (isRenewal) {
+              actionList.push({
+                id: `app-payrec-renewal-${appId}`,
+                category: 'applications',
+                app,
+                type: 'issue_certificate',
+                title: 'Renewal Fee Paid: Issue Certificate',
+                tag: 'Certificate',
+                desc: `Issue renewed Halal Certificate for ${estName}`,
+                buttonText: 'Issue Certificate',
+                buttonBg: '#16a34a',
+                isFullPage: false,
+                icon: <Award size={16} />
+              });
+            } else {
+              actionList.push({
+                id: `app-payrec-${appId}`,
+                category: 'applications',
+                app,
+                type: 'manage_audit',
+                title: 'Initial Payment Received: Schedule Audit',
+                tag: 'Audit Schedule',
+                desc: `Propose 3 possible audit visit dates for ${estName}`,
+                buttonText: 'Propose Audit Dates',
+                buttonBg: '#ea580c',
+                isFullPage: false,
+                icon: <Calendar size={16} />
+              });
+            }
             break;
 
           case 'dates_rejected':
@@ -204,66 +220,66 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
 
           case 'dates_accepted':
             actionList.push({
-              id: `app-audit-${appId}`,
+              id: `app-datesacc-${appId}`,
               category: 'applications',
               app,
-              type: 'finalize_audit_date',
-              title: 'Client Selected Preferred Audit Dates',
+              type: 'manage_audit',
+              title: 'Dates Accepted: Finalize Audit Date',
               tag: 'Audit Finalize',
-              desc: `Lock in final confirmed audit visit date for ${estName}`,
+              desc: `Client accepted date options. Finalize official audit date for ${estName}`,
               buttonText: 'Finalize Date',
-              buttonBg: '#ea580c',
+              buttonBg: '#059669',
               isFullPage: false,
-              icon: <Calendar size={16} />
+              icon: <CheckCircle size={16} />
             });
             break;
 
           case 'date_finalized':
             actionList.push({
-              id: `app-datefin-${appId}`,
+              id: `app-auditassign-${appId}`,
               category: 'applications',
               app,
               type: 'manage_audit',
-              title: 'Date Finalized: Assign Auditor Team',
-              tag: 'Assign Auditor',
-              desc: `Assign qualified lead auditor & audit team for ${estName}`,
-              buttonText: 'Assign Auditors',
-              buttonBg: '#0284c7',
+              title: 'Date Finalized: Assign Lead Auditor',
+              tag: 'Auditor Assign',
+              desc: `Assign qualified lead auditor & technical experts for ${estName}`,
+              buttonText: 'Assign Auditor',
+              buttonBg: '#7c3aed',
               isFullPage: false,
-              icon: <Calendar size={16} />
+              icon: <PenTool size={16} />
             });
             break;
 
           case 'audit_assigned':
             actionList.push({
-              id: `app-auditassign-${appId}`,
+              id: `app-audassigned-${appId}`,
               category: 'applications',
               app,
               type: 'manage_audit',
-              title: 'Audit Scheduled: Team Assigned',
-              tag: 'Audit In Progress',
-              desc: `Manage or mark audit visit completed for ${estName}`,
+              title: 'Audit Assigned: Awaiting Completion',
+              tag: 'Audit Execution',
+              desc: `Audit is assigned and scheduled for execution at ${estName}`,
               buttonText: 'Manage Audit',
-              buttonBg: '#0284c7',
+              buttonBg: '#0e7490',
               isFullPage: false,
-              icon: <Calendar size={16} />
+              icon: <Clock size={16} />
             });
             break;
 
           case 'audit_successful':
           case 'audit_completed':
             actionList.push({
-              id: `app-auditcomplete-${appId}`,
+              id: `app-auditdone-${appId}`,
               category: 'applications',
               app,
               type: 'review_app',
-              title: 'Audit Visit Complete: Review Findings',
-              tag: 'Audit Findings',
-              desc: `Review audit report, flag non-conformities or close clean for ${estName}`,
-              buttonText: 'Review Findings',
-              buttonBg: '#059669',
+              title: isRenewal ? 'Renewal Audit Complete: Review & LogSheet' : 'Audit Complete: Review & LogSheet',
+              tag: 'Audit Complete',
+              desc: `Audit completed successfully for ${estName}. Proceed with logsheet.`,
+              buttonText: 'Process LogSheet',
+              buttonBg: '#16a34a',
               isFullPage: true,
-              link: `/applications/${appId}/processing`,
+              link: `/applications/${appId}/logsheet`,
               icon: <CheckCircle size={16} />
             });
             break;
@@ -287,37 +303,20 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
 
           case 'nc_closed':
           case 'audit_report_submitted':
-            if (isRenewal) {
-              actionList.push({
-                id: `app-ncclose-renewal-${appId}`,
-                category: 'applications',
-                app,
-                type: 'review_app',
-                title: 'Renewal Audit Complete: Process Next Step',
-                tag: 'Renewal',
-                desc: `Send renewal invoice or manage logsheet for ${estName}`,
-                buttonText: 'Process Renewal',
-                buttonBg: '#0e7490',
-                isFullPage: true,
-                link: `/applications/${appId}/processing`,
-                icon: <ClipboardList size={16} />
-              });
-            } else {
-              actionList.push({
-                id: `app-logsheet-${appId}`,
-                category: 'applications',
-                app,
-                type: 'create_logsheet',
-                title: 'Audit Complete: Create LogSheet',
-                tag: 'LogSheet',
-                desc: `Generate & submit official logsheet for ${estName}`,
-                buttonText: 'Create LogSheet',
-                buttonBg: '#0e7490',
-                isFullPage: true,
-                link: `/applications/${appId}/logsheet`,
-                icon: <ClipboardList size={16} />
-              });
-            }
+            actionList.push({
+              id: `app-logsheet-${appId}`,
+              category: 'applications',
+              app,
+              type: 'create_logsheet',
+              title: isRenewal ? 'Renewal Audit Complete: Create LogSheet' : 'Audit Complete: Create LogSheet',
+              tag: 'LogSheet',
+              desc: `Generate & submit official logsheet for ${estName}`,
+              buttonText: 'Create LogSheet',
+              buttonBg: '#0e7490',
+              isFullPage: true,
+              link: `/applications/${appId}/logsheet`,
+              icon: <ClipboardList size={16} />
+            });
             break;
 
           case 'logsheet_created':
@@ -342,17 +341,17 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
           case 'application_successful':
             if (isRenewal) {
               actionList.push({
-                id: `app-cert-${appId}`,
-                category: 'applications',
+                id: `app-reninv-${appId}`,
+                category: 'invoices',
                 app,
-                type: 'issue_certificate',
-                title: 'Renewal LogSheet Signed: Issue Certificate',
-                tag: 'Certificate',
-                desc: `Issue renewed Halal Certificate for ${estName}`,
-                buttonText: 'Issue Certificate',
-                buttonBg: '#16a34a',
+                type: 'send_initial_invoice',
+                title: 'Renewal Application Successful: Issue Renewal Invoice',
+                tag: 'Renewal Invoice',
+                desc: `Issue renewal certification fee invoice to ${estName}`,
+                buttonText: 'Send Invoice',
+                buttonBg: '#854d0e',
                 isFullPage: false,
-                icon: <Award size={16} />
+                icon: <Receipt size={16} />
               });
             } else {
               actionList.push({

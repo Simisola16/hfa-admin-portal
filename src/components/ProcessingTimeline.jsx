@@ -77,14 +77,14 @@ export default function ProcessingTimeline({
         stepsToShow.push('nc_closed');
       }
 
-      // Downstream renewal/surveillance steps (Invoice -> Payment -> Logsheet -> Application Successful -> Certificate / Letter)
+      // Downstream renewal/surveillance steps (Logsheet -> Application Successful -> Invoice -> Payment -> Certificate / Letter)
       if (status !== 'on_hold') {
         stepsToShow.push(
-          'invoice_sent',
-          'payment_received',
           'logsheet_created',
           'logsheet_signed',
           'application_successful',
+          'invoice_sent',
+          'payment_received',
           'certificate_issued'
         );
       }
@@ -149,17 +149,21 @@ export default function ProcessingTimeline({
     if (isSurveillance) {
       if (stepKey === 'submitted') return 'Surveillance Application Submitted';
       if (stepKey === 'approved') return 'Surveillance Application Accepted';
+      if (stepKey === 'logsheet_created') return 'Logsheet Created';
+      if (stepKey === 'logsheet_signed') return 'Logsheet Signed';
+      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Surveillance Invoice Sent';
       if (stepKey === 'payment_received') return 'Surveillance Payment Received';
-      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'certificate_issued') return 'Surveillance Letter Issued';
     }
     if (isRenewal) {
       if (stepKey === 'submitted') return 'Renewal Application Submitted';
       if (stepKey === 'approved') return 'Renewal Application Accepted';
+      if (stepKey === 'logsheet_created') return 'Logsheet Created';
+      if (stepKey === 'logsheet_signed') return 'Logsheet Signed';
+      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
-      if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
     if (stepKey === 'initial_product') {
@@ -195,8 +199,9 @@ export default function ProcessingTimeline({
     if (s === 'dates_rejected') s = 'dates_proposed';
     if (s === 'audit_report_submitted') s = 'nc_closed';
     if (isRenewal || isSurveillance) {
-      if (s === 'ready_for_certificate' && stepsToShow.includes('application_successful') && !stepsToShow.includes('ready_for_certificate')) s = 'application_successful';
-      if (s === 'application_successful' && stepsToShow.includes('ready_for_certificate') && !stepsToShow.includes('application_successful')) s = 'ready_for_certificate';
+      if (s === 'ready_for_certificate') {
+        s = stepsToShow.includes('ready_for_certificate') ? 'ready_for_certificate' : 'payment_received';
+      }
     }
     return stepsToShow.indexOf(s);
   };
@@ -245,17 +250,33 @@ export default function ProcessingTimeline({
           isComplete = true;
           isCurrent = false;
           isPending = false;
-        } else if (s === 'payment_received' && !isRenewal) {
-          // In standard flow: Initial Payment Received is marked complete once admin confirms payment
-          const hasPaymentReceived = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
-          if (hasPaymentReceived) {
-            isComplete = true;
-            isCurrent = false;
-            isPending = false;
-          } else if (currentIndex === idx) {
-            isCurrent = true;
-          } else if (currentIndex < idx) {
-            isPending = true;
+        } else if (s === 'payment_received') {
+          if (!isRenewal) {
+            // In standard flow: Initial Payment Received is marked complete once admin confirms payment
+            const hasPaymentReceived = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
+            if (hasPaymentReceived) {
+              isComplete = true;
+              isCurrent = false;
+              isPending = false;
+            } else if (currentIndex === idx) {
+              isCurrent = true;
+            } else if (currentIndex < idx) {
+              isPending = true;
+            }
+          } else {
+            // In Renewal flow: Renewal Payment Received
+            const hasPaymentReceived = normStatus === 'payment_received' || normStatus === 'ready_for_certificate' || Boolean(historyMap['payment_received']);
+            if (hasPaymentReceived) {
+              isComplete = true;
+              isCurrent = false;
+              isPending = false;
+            } else if (currentIndex === idx) {
+              isCurrent = true;
+            } else if (currentIndex < idx) {
+              isPending = true;
+            } else {
+              isComplete = currentIndex > idx;
+            }
           }
         } else if (s === 'initial_product') {
           const hasPassedPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));

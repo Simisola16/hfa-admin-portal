@@ -64,12 +64,12 @@ export const INITIAL_PRODUCT_APPROVAL_FORM = {
 };
 
 export default function ProductApprovalRequestForm({
-  formData = {},
-  initialData = {},
+  formData,
+  initialData,
   onChange,
   readOnly = false,
-  product = {},
-  company = {}
+  product,
+  company
 }) {
   const resolveIncoming = (input) => {
     if (!input) return {};
@@ -91,21 +91,20 @@ export default function ProductApprovalRequestForm({
     };
   };
 
-  const [form, setForm] = useState(() => getMergedData(formData, initialData));
+  const [internalForm, setInternalForm] = useState(() => getMergedData(formData, initialData));
 
-  useEffect(() => {
-    const rawData = (initialData && Object.keys(initialData).length > 0) ? initialData : formData;
-    const resolved = resolveIncoming(rawData);
-    if (resolved && Object.keys(resolved).length > 0) {
-      setForm(prev => ({
+  // Controlled if formData or initialData is provided by parent; otherwise uncontrolled internal state
+  const rawProvided = (formData && Object.keys(formData).length > 0) ? formData : ((initialData && Object.keys(initialData).length > 0) ? initialData : null);
+  const resolvedProvided = rawProvided ? resolveIncoming(rawProvided) : null;
+  const form = resolvedProvided
+    ? {
         ...INITIAL_PRODUCT_APPROVAL_FORM,
-        ...prev,
-        ...resolved,
-        product_name: resolved.product_name || product?.name || prev.product_name,
-        product_code: resolved.product_code || product?.code || prev.product_code
-      }));
-    }
-  }, [formData, initialData, product]);
+        ...resolvedProvided,
+        product_name: resolvedProvided.product_name || product?.name || '',
+        product_code: resolvedProvided.product_code || product?.code || '',
+        company_name_address: resolvedProvided.company_name_address || [company?.company_name, company?.address].filter(Boolean).join(', ') || ''
+      }
+    : internalForm;
 
   const [uploadingField, setUploadingField] = useState(null);
 
@@ -130,7 +129,7 @@ export default function ProductApprovalRequestForm({
   const updateField = (key, val) => {
     if (readOnly) return;
     const updated = { ...form, [key]: val };
-    setForm(updated);
+    setInternalForm(updated);
     if (onChange) onChange(updated);
   };
 

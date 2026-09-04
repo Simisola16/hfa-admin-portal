@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3 } from 'lucide-react';
+import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3, Eye, ChevronDown, Send } from 'lucide-react';
+import ViewCertificateModal from '../components/ViewCertificateModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -22,12 +23,21 @@ export default function AdminCertificates({ defaultTab }) {
   const [showModal, setShowModal] = useState(false);
   const [showFulfillModal, setShowFulfillModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [viewingCert, setViewingCert] = useState(null);
+  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
   const [searchParams] = useSearchParams();
+
+  // Close actions dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = () => setActiveActionMenuId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const statusParam = searchParams.get('status') || searchParams.get('filter');
@@ -351,8 +361,31 @@ export default function AdminCertificates({ defaultTab }) {
                              effectiveStatus}
                           </span>
                         </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <td style={{ textAlign: 'right', overflow: 'visible', position: 'relative' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+                            {/* 1. View Button (Always first, allows staff to only view certificate) */}
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              onClick={() => setViewingCert(c)}
+                              style={{
+                                background: '#f8fafc',
+                                color: '#047857',
+                                border: '1px solid #a7f3d0',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                fontWeight: 700,
+                                fontSize: 12,
+                                padding: '5px 10px',
+                                borderRadius: 6
+                              }}
+                              title="View Certificate (Read-Only)"
+                            >
+                              <Eye size={13} /> View
+                            </button>
+
+                            {/* 2. Review & Send (Pending Review tab / Under Review) or Review / Edit */}
                             <button
                               type="button"
                               className="btn btn-sm"
@@ -361,31 +394,224 @@ export default function AdminCertificates({ defaultTab }) {
                                 background: isReview ? '#047857' : '#f1f5f9',
                                 color: isReview ? '#ffffff' : '#334155',
                                 borderColor: isReview ? '#047857' : '#cbd5e1',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 4,
                                 fontWeight: 700,
-                                fontSize: 12
+                                fontSize: 12,
+                                padding: '5px 10px',
+                                borderRadius: 6
                               }}
+                              title={isReview ? "Open QA Review & Send to Client" : "Review / Edit Certificate"}
                             >
                               <Edit3 size={13} /> {isReview ? 'Review & Send' : 'Review / Edit'}
                             </button>
 
-                            {effectiveStatus === 'active' && (
-                              <button 
-                                className="btn btn-ghost btn-sm" 
-                                style={{ color: 'var(--danger)', fontSize: 12 }} 
-                                onClick={() => handleRevoke(c.id || c._id)}
+                            {/* 3. Actions Dropdown Button */}
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveActionMenuId(activeActionMenuId === (c.id || c._id) ? null : (c.id || c._id));
+                                }}
+                                style={{
+                                  background: activeActionMenuId === (c.id || c._id) ? '#e2e8f0' : '#ffffff',
+                                  color: '#334155',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: 6,
+                                  padding: '5px 9px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontWeight: 600,
+                                  fontSize: 12,
+                                  cursor: 'pointer'
+                                }}
+                                title="More Actions"
                               >
-                                Revoke
+                                Actions <ChevronDown size={12} style={{ transition: 'transform 0.15s', transform: activeActionMenuId === (c.id || c._id) ? 'rotate(180deg)' : 'none' }} />
                               </button>
-                            )}
 
-                            {c.certificate_url && (
-                              <a href={getPdfUrl(c.certificate_url)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" title="Download PDF">
-                                <Download size={13} />
-                              </a>
-                            )}
+                              {activeActionMenuId === (c.id || c._id) && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 'calc(100% + 4px)',
+                                    zIndex: 9999,
+                                    background: '#ffffff',
+                                    borderRadius: 10,
+                                    border: '1px solid #e2e8f0',
+                                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)',
+                                    minWidth: 205,
+                                    padding: '6px 0',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    textAlign: 'left'
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div style={{ padding: '6px 14px 4px', fontSize: 10.5, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    {c.certificate_number}
+                                  </div>
+
+                                  {/* View */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      setViewingCert(c);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 9,
+                                      width: '100%',
+                                      padding: '8px 14px',
+                                      border: 'none',
+                                      background: 'none',
+                                      textAlign: 'left',
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      color: '#1e293b',
+                                      cursor: 'pointer'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                  >
+                                    <Eye size={14} style={{ color: '#047857' }} />
+                                    <span>View Certificate</span>
+                                  </button>
+
+                                  {/* Edit */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      navigate(`/certificates/${c.id || c._id}/review`);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 9,
+                                      width: '100%',
+                                      padding: '8px 14px',
+                                      border: 'none',
+                                      background: 'none',
+                                      textAlign: 'left',
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      color: '#1e293b',
+                                      cursor: 'pointer'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                  >
+                                    <Edit3 size={14} style={{ color: '#2563eb' }} />
+                                    <span>Edit Details</span>
+                                  </button>
+
+                                  {/* Send / Review & Send */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      if (isReview) {
+                                        navigate(`/certificates/${c.id || c._id}/review`);
+                                      } else {
+                                        toast('Opening QA Review Record for this certificate.', { icon: '📋' });
+                                        navigate(`/certificates/${c.id || c._id}/review`);
+                                      }
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 9,
+                                      width: '100%',
+                                      padding: '8px 14px',
+                                      border: 'none',
+                                      background: 'none',
+                                      textAlign: 'left',
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      color: isReview ? '#047857' : '#475569',
+                                      cursor: 'pointer'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                  >
+                                    <Send size={14} style={{ color: isReview ? '#047857' : '#64748b' }} />
+                                    <span>{isReview ? 'Review & Send' : 'Send / QA Record'}</span>
+                                  </button>
+
+                                  {/* Download */}
+                                  {c.certificate_url && (
+                                    <a
+                                      href={getPdfUrl(c.certificate_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download
+                                      onClick={() => setActiveActionMenuId(null)}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 9,
+                                        width: '100%',
+                                        padding: '8px 14px',
+                                        border: 'none',
+                                        background: 'none',
+                                        textAlign: 'left',
+                                        fontSize: 12.5,
+                                        fontWeight: 600,
+                                        color: '#1e293b',
+                                        textDecoration: 'none',
+                                        cursor: 'pointer'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                    >
+                                      <Download size={14} style={{ color: '#0f766e' }} />
+                                      <span>Download PDF</span>
+                                    </a>
+                                  )}
+
+                                  {/* Revoke */}
+                                  {effectiveStatus === 'active' && (
+                                    <>
+                                      <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }} />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionMenuId(null);
+                                          handleRevoke(c.id || c._id);
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 9,
+                                          width: '100%',
+                                          padding: '8px 14px',
+                                          border: 'none',
+                                          background: 'none',
+                                          textAlign: 'left',
+                                          fontSize: 12.5,
+                                          fontWeight: 600,
+                                          color: '#dc2626',
+                                          cursor: 'pointer'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                      >
+                                        <AlertCircle size={14} style={{ color: '#dc2626' }} />
+                                        <span>Revoke Certificate</span>
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -574,6 +800,13 @@ export default function AdminCertificates({ defaultTab }) {
           </div>
         </div>
       )}
+
+      {/* Read-Only View Certificate Modal */}
+      <ViewCertificateModal
+        isOpen={!!viewingCert}
+        onClose={() => setViewingCert(null)}
+        cert={viewingCert}
+      />
     </div>
   );
 }

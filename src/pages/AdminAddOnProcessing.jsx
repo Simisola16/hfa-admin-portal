@@ -419,7 +419,7 @@ export default function AdminAddOnProcessing() {
     if (app.status === 'product_form_approved' || app.status === 'ready_for_certificate') {
       return (
         <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('complete')}>
-          <Award size={16} style={{ marginRight: 6 }} /> Issue / Update Certificate
+          <Award size={16} style={{ marginRight: 6 }} /> Issue Certificate
         </button>
       );
     }
@@ -1343,7 +1343,7 @@ export default function AdminAddOnProcessing() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">
-              <span className="modal-title">Issue / Update Certificate</span>
+              <span className="modal-title">Issue Certificate</span>
               <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ padding: 24 }}>
@@ -1354,7 +1354,7 @@ export default function AdminAddOnProcessing() {
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setActionType(null)} disabled={submitting}>Cancel</button>
               <button className="btn btn-primary" onClick={handleComplete} disabled={submitting}>
-                {submitting ? 'Updating Certificate...' : 'Complete & Update Certificate'}
+                {submitting ? 'Issuing Certificate...' : 'Complete & Issue Certificate'}
               </button>
             </div>
           </div>

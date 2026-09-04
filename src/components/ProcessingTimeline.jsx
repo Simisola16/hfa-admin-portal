@@ -146,11 +146,15 @@ export default function ProcessingTimeline({
   }
 
   const getStepLabel = (stepKey) => {
+    if (stepKey === 'logsheet_created') {
+      return isGSO ? 'Waiting for Shari\'a Board Approval' : 'Under Committee Review';
+    }
+    if (stepKey === 'logsheet_signed') {
+      return 'Committee Endorsed';
+    }
     if (isSurveillance) {
       if (stepKey === 'submitted') return 'Surveillance Application Submitted';
       if (stepKey === 'approved') return 'Surveillance Application Accepted';
-      if (stepKey === 'logsheet_created') return 'Logsheet Created';
-      if (stepKey === 'logsheet_signed') return 'Logsheet Signed';
       if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Surveillance Invoice Sent';
       if (stepKey === 'payment_received') return 'Surveillance Payment Received';
@@ -159,8 +163,6 @@ export default function ProcessingTimeline({
     if (isRenewal) {
       if (stepKey === 'submitted') return 'Renewal Application Submitted';
       if (stepKey === 'approved') return 'Renewal Application Accepted';
-      if (stepKey === 'logsheet_created') return 'Logsheet Created';
-      if (stepKey === 'logsheet_signed') return 'Logsheet Signed';
       if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
@@ -409,9 +411,7 @@ export default function ProcessingTimeline({
                 }}>
                   {isDatesRejectedStep
                     ? 'Audit Dates Rejected'
-                    : (s === 'logsheet_created' && isGSO
-                      ? 'Waiting for Shari\'a Board Approval'
-                      : getStepLabel(s))}
+                    : getStepLabel(s)}
                 </span>
                 {isCurrent && (
                   <span style={{

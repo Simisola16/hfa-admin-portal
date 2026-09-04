@@ -666,8 +666,9 @@ export default function AdminCreateLogsheet() {
     const toastId = toast.loading(`Uploading ${files.length} document(s)...`);
     try {
       const uploadedDocs = [];
+      const folder = isProductLogsheet ? 'product_specifications' : 'audit_reports';
       for (const file of files) {
-        const url = await api.uploadPdf(file, 'audit_reports');
+        const url = await api.uploadPdf(file, folder);
         if (!url) throw new Error(`Upload failed for file "${file.name}"`);
         uploadedDocs.push({
           name: file.name,
@@ -675,23 +676,75 @@ export default function AdminCreateLogsheet() {
           uploaded_at: new Date()
         });
       }
-      setForm(prev => {
-        const existing = Array.isArray(prev.document_urls) ? prev.document_urls : [];
-        const combined = [...existing, ...uploadedDocs];
-        return {
-          ...prev,
-          document_url: combined[0]?.url || '',
-          document_urls: combined,
-          audit_reports: combined
-        };
-      });
-      toast.success(`${files.length} audit report document(s) uploaded successfully!`, { id: toastId });
+
+      const existing = Array.isArray(form.document_urls) ? form.document_urls : [];
+      const combined = [...existing, ...uploadedDocs];
+
+      setForm(prev => ({
+        ...prev,
+        document_url: combined[0]?.url || '',
+        document_urls: combined,
+        audit_reports: combined
+      }));
+
+      // If currentLogsheet exists on server, persist immediately
+      if (currentLogsheet?._id) {
+        try {
+          await api.put(`/api/application-logsheets/${currentLogsheet._id}/documents`, {
+            document_urls: combined,
+            audit_reports: combined,
+            document_url: combined[0]?.url || ''
+          });
+          setCurrentLogsheet(prev => ({
+            ...prev,
+            document_urls: combined,
+            audit_reports: combined,
+            document_url: combined[0]?.url || ''
+          }));
+        } catch (saveErr) {
+          console.error('Failed to auto-save uploaded documents to server:', saveErr);
+        }
+      }
+
+      const docLabel = isProductLogsheet ? 'additional document(s)' : 'audit report document(s)';
+      toast.success(`${files.length} ${docLabel} uploaded successfully!`, { id: toastId });
     } catch (err) {
-      console.error('Audit report upload error:', err);
+      console.error('Document upload error:', err);
       toast.error(err.message || 'Upload failed. Please try again.', { id: toastId });
     } finally {
       setUploadingReport(false);
       e.target.value = '';
+    }
+  };
+
+  const handleRemoveDocument = async (idx) => {
+    const existing = Array.isArray(form.document_urls) ? form.document_urls : [];
+    const updated = existing.filter((_, i) => i !== idx);
+    setForm(prev => ({
+      ...prev,
+      document_urls: updated,
+      document_url: updated[0]?.url || '',
+      audit_reports: updated
+    }));
+
+    if (currentLogsheet?._id) {
+      try {
+        await api.put(`/api/application-logsheets/${currentLogsheet._id}/documents`, {
+          document_urls: updated,
+          audit_reports: updated,
+          document_url: updated[0]?.url || ''
+        });
+        setCurrentLogsheet(prev => ({
+          ...prev,
+          document_urls: updated,
+          audit_reports: updated,
+          document_url: updated[0]?.url || ''
+        }));
+        toast.success('Document removed successfully');
+      } catch (err) {
+        console.error('Failed to remove document from server:', err);
+        toast.error('Failed to remove document from server');
+      }
     }
   };
 
@@ -1608,65 +1661,135 @@ export default function AdminCreateLogsheet() {
                     })}
                   </div>
 
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
+                  {((Array.isArray(form.document_urls) && form.document_urls.length > 0) || form.document_url) && (
                     <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #e2e8f0' }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Additional Supporting Documents:</div>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        {form.document_urls.map((doc, idx) => (
-                          <a key={idx} href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                            <Download size={13} /> {doc.name || `Document_${idx + 1}`}
-                          </a>
-                        ))}
+                        {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                          form.document_urls.map((doc, idx) => (
+                            <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '5px 10px' }}>
+                              <a
+                                href={getPdfUrl(doc.url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, textDecoration: 'none', color: '#0369a1', fontWeight: 600 }}
+                                onClick={e => {
+                                  e.preventDefault();
+                                  const fullUrl = getPdfUrl(doc.url);
+                                  if (fullUrl && fullUrl !== '#') window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                              >
+                                <Download size={13} /> {doc.name || `Document_${idx + 1}`}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDocument(idx)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                                title="Remove document"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ))
+                        ) : form.document_url ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '5px 10px' }}>
+                            <a
+                              href={getPdfUrl(form.document_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, textDecoration: 'none', color: '#0369a1', fontWeight: 600 }}
+                              onClick={e => {
+                                e.preventDefault();
+                                const fullUrl = getPdfUrl(form.document_url);
+                                if (fullUrl && fullUrl !== '#') window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                              }}
+                            >
+                              <Download size={13} /> Attached Document
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(0)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                              title="Remove document"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   )}
+
+                  {/* Upload additional document in read-only mode */}
+                  <div style={{ marginTop: 14, paddingTop: 10 }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: uploadingReport ? '#94a3b8' : '#0284c7', fontWeight: 700, cursor: uploadingReport ? 'not-allowed' : 'pointer', background: '#f0f9ff', border: '1px dashed #7dd3fc', padding: '7px 14px', borderRadius: 8 }}>
+                      <UploadCloud size={14} /> {uploadingReport ? 'Uploading...' : '+ Attach Additional Product Document'}
+                      <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                    </label>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                    form.document_urls.map((doc, idx) => (
-                      <a
-                        key={idx}
-                        href={getPdfUrl(doc.url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
-                        onClick={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const fullUrl = getPdfUrl(doc.url);
-                          if (fullUrl && fullUrl !== '#') {
-                            window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                          }
-                        }}
-                      >
-                        <Download size={14} style={{ color: '#047857' }} /> {doc.name || `Audit Report Document ${idx + 1}`}
-                      </a>
-                    ))
-                  ) : form.document_url ? (
-                    <a
-                      href={getPdfUrl(form.document_url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-outline btn-sm"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontWeight: 600 }}
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const fullUrl = getPdfUrl(form.document_url);
-                        if (fullUrl && fullUrl !== '#') {
-                          window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                        }
-                      }}
-                    >
-                      <Download size={14} style={{ color: '#047857' }} /> Audit Report Document
-                    </a>
-                  ) : (
-                    <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
-                      No audit report files attached.
-                    </div>
-                  )}
+                <div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                      form.document_urls.map((doc, idx) => (
+                        <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 12px' }}>
+                          <a
+                            key={idx}
+                            href={getPdfUrl(doc.url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '2px 4px', fontWeight: 600, fontSize: 13, textDecoration: 'none', color: '#047857' }}
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const fullUrl = getPdfUrl(doc.url);
+                              if (fullUrl && fullUrl !== '#') {
+                                window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            <Download size={14} style={{ color: '#047857' }} /> {doc.name || `Audit Report Document ${idx + 1}`}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDocument(idx)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                            title="Remove document"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))
+                    ) : form.document_url ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 12px' }}>
+                        <a
+                          href={getPdfUrl(form.document_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '2px 4px', fontWeight: 600, fontSize: 13, textDecoration: 'none', color: '#047857' }}
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const fullUrl = getPdfUrl(form.document_url);
+                            if (fullUrl && fullUrl !== '#') {
+                              window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                        >
+                          <Download size={14} style={{ color: '#047857' }} /> Audit Report Document
+                        </a>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
+                        No audit report files attached.
+                      </div>
+                    )}
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: uploadingReport ? '#94a3b8' : 'var(--primary)', fontWeight: 700, cursor: uploadingReport ? 'not-allowed' : 'pointer', background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '7px 14px', borderRadius: 8 }}>
+                    <UploadCloud size={14} /> {uploadingReport ? 'Uploading...' : '+ Upload Additional Audit Report'}
+                    <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                  </label>
                 </div>
               )}
             </div>
@@ -2153,10 +2276,74 @@ export default function AdminCreateLogsheet() {
                       </div>
 
                       <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12, marginTop: 12 }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0284c7', fontWeight: 600, cursor: 'pointer' }}>
-                          <UploadCloud size={14} /> Attach Additional Product Specifications (Optional)
-                          <input type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: uploadingReport ? '#94a3b8' : '#0284c7', fontWeight: 700, cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
+                            <UploadCloud size={14} /> {uploadingReport ? 'Uploading...' : 'Attach Additional Product Specifications / Documents (Optional)'}
+                            <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                          </label>
+                        </div>
+
+                        {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                          <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                            {form.document_urls.map((doc, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0f9ff', padding: '10px 14px', borderRadius: 8, border: '1px solid #bae6fd' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <CheckCircle2 size={16} color="#0284c7" />
+                                  <a
+                                    href={getPdfUrl(doc.url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#0369a1', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}
+                                    onClick={e => {
+                                      e.preventDefault();
+                                      const fullUrl = getPdfUrl(doc.url);
+                                      if (fullUrl && fullUrl !== '#') window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                    }}
+                                  >
+                                    {doc.name || `Product_Document_${idx + 1}.pdf`}
+                                  </a>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <a
+                                    href={getPdfUrl(doc.url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-outline btn-sm"
+                                    style={{ padding: '2px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                    onClick={e => {
+                                      e.preventDefault();
+                                      const fullUrl = getPdfUrl(doc.url);
+                                      if (fullUrl && fullUrl !== '#') window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                    }}
+                                  >
+                                    <Download size={12} /> View
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ color: '#dc2626', padding: '2px 8px' }}
+                                    onClick={() => handleRemoveDocument(idx)}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : form.document_url ? (
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0f9ff', padding: '10px 14px', borderRadius: 8, border: '1px solid #bae6fd', marginTop: 8 }}>
+                            <CheckCircle2 size={16} color="#0284c7" />
+                            <a
+                              href={getPdfUrl(form.document_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: '#0369a1', fontWeight: 600, flex: 1, textDecoration: 'none', fontSize: 13 }}
+                            >
+                              Additional Product Specification Attached
+                            </a>
+                            <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => handleRemoveDocument(0)}>Remove</button>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
@@ -2185,15 +2372,7 @@ export default function AdminCreateLogsheet() {
                                 type="button"
                                 className="btn btn-ghost btn-sm"
                                 style={{ color: '#dc2626', padding: '2px 8px' }}
-                                onClick={() => {
-                                  const updated = form.document_urls.filter((_, i) => i !== idx);
-                                  setForm(f => ({
-                                    ...f,
-                                    document_urls: updated,
-                                    document_url: updated[0]?.url || '',
-                                    audit_reports: updated
-                                  }));
-                                }}
+                                onClick={() => handleRemoveDocument(idx)}
                               >
                                 Remove
                               </button>

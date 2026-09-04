@@ -326,6 +326,21 @@ export default function AdminCreateLogsheet() {
           } catch (e) { /* fallback */ }
         }
 
+        const hasFT = Boolean(
+          (Array.isArray(ipData.assigned_food_techs) && ipData.assigned_food_techs.length > 0) ||
+          ipData.assigned_food_tech ||
+          ipData.assigned_ft_custom?.name ||
+          ipData.assigned_ft_details ||
+          assignedFTsList
+        );
+
+        if (!hasFT && !ipLogsheet) {
+          toast.error('Food Technologist is not assigned yet. Please assign a Food Technologist before creating the Logsheet.');
+          navigate(`/admin/initial-products/${resolvedInitialProductId}`);
+          setLoading(false);
+          return;
+        }
+
         if (ipLogsheet && ipLogsheet._id) {
           setCurrentLogsheet(ipLogsheet);
 

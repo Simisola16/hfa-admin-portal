@@ -281,8 +281,8 @@ export default function ProcessingTimeline({
             }
           }
         } else if (s === 'initial_product') {
-          const hasPassedPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
-          const hasPassedInitialProduct = currentOrderIdx > STATUS_ORDER.indexOf('initial_product') && normStatus !== 'payment_received';
+          const hasPassedPayment = normStatus === 'payment_received' || normStatus === 'initial_product_approved' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
+          const hasPassedInitialProduct = (currentOrderIdx > STATUS_ORDER.indexOf('initial_product') && normStatus !== 'payment_received') || normStatus === 'initial_product_approved';
 
           if (hasPassedInitialProduct || (hasPassedPayment && isInitialProductApproved)) {
             isComplete = true;

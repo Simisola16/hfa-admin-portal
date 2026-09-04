@@ -312,7 +312,7 @@ export default function AdminInitialProductProcessing() {
           {/* ── Dynamic Next Action Button in Header ── */}
           {isManagerOrAdmin && !isApproved && (
             <div>
-              {app.status === 'submitted' && (
+              {!hasFtAssigned ? (
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -330,36 +330,92 @@ export default function AdminInitialProductProcessing() {
                 >
                   <User size={16} /> Assign FT &rarr;
                 </button>
-              )}
-
-              {app.status === 'ft_assigned' && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setShowEnableFormModal(true)}
-                  style={{
-                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-                    borderColor: '#6d28d9',
-                    fontWeight: 800,
-                    padding: '10px 20px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 12px rgba(124,58,237,0.25)'
-                  }}
-                >
-                  <Send size={16} /> Enable Product Form &rarr;
-                </button>
-              )}
-
-              {app.status === 'product_approval_form_enabled' && (
-                <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-                  {isClientSubmitted ? (
+              ) : (
+                <>
+                  {app.status === 'ft_assigned' && (
                     <button
                       type="button"
                       className="btn btn-primary"
-                      onClick={handleMarkFormReceived}
-                      disabled={markingReceived}
+                      onClick={() => setShowEnableFormModal(true)}
+                      style={{
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                        borderColor: '#6d28d9',
+                        fontWeight: 800,
+                        padding: '10px 20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        boxShadow: '0 4px 12px rgba(124,58,237,0.25)'
+                      }}
+                    >
+                      <Send size={16} /> Enable Product Form &rarr;
+                    </button>
+                  )}
+
+                  {app.status === 'product_approval_form_enabled' && (
+                    <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
+                      {isClientSubmitted ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={handleMarkFormReceived}
+                          disabled={markingReceived}
+                          style={{
+                            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                            borderColor: '#047857',
+                            fontWeight: 800,
+                            padding: '10px 20px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                          }}
+                        >
+                          <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Mark Product Form Received →'}
+                        </button>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: '#fff7ed',
+                            color: '#c2410c',
+                            border: '1px solid #fed7aa',
+                            padding: '9px 16px',
+                            borderRadius: 12,
+                            fontSize: 13,
+                            fontWeight: 700
+                          }}
+                        >
+                          <Clock size={15} /> Awaiting Client Submission
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setShowEnableFormModal(true)}
+                        style={{
+                          color: '#6b21a8',
+                          borderColor: '#d8b4fe',
+                          background: '#faf5ff',
+                          fontWeight: 700,
+                          padding: '10px 14px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                      >
+                        <Edit size={14} /> Form Settings
+                      </button>
+                    </div>
+                  )}
+
+                  {app.status === 'all_forms_received' && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
                       style={{
                         background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                         borderColor: '#047857',
@@ -371,64 +427,10 @@ export default function AdminInitialProductProcessing() {
                         boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
                       }}
                     >
-                      <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Mark Product Form Received →'}
+                      <FileSpreadsheet size={16} /> Create Logsheet &rarr;
                     </button>
-                  ) : (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: '#fff7ed',
-                        color: '#c2410c',
-                        border: '1px solid #fed7aa',
-                        padding: '9px 16px',
-                        borderRadius: 12,
-                        fontSize: 13,
-                        fontWeight: 700
-                      }}
-                    >
-                      <Clock size={15} /> Awaiting Client Submission
-                    </span>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => setShowEnableFormModal(true)}
-                    style={{
-                      color: '#6b21a8',
-                      borderColor: '#d8b4fe',
-                      background: '#faf5ff',
-                      fontWeight: 700,
-                      padding: '10px 14px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6
-                    }}
-                  >
-                    <Edit size={14} /> Form Settings
-                  </button>
-                </div>
-              )}
-
-              {app.status === 'all_forms_received' && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
-                  style={{
-                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                    borderColor: '#047857',
-                    fontWeight: 800,
-                    padding: '10px 20px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
-                  }}
-                >
-                  <FileSpreadsheet size={16} /> Create Logsheet &rarr;
-                </button>
+                </>
               )}
 
               {(app.status === 'logsheet_created' || app.status === 'waiting_sharia_signature') && (

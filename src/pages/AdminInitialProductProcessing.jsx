@@ -227,7 +227,8 @@ export default function AdminInitialProductProcessing() {
   const siteName = app.site_id?.name || app.application_id?.site_name || app.application_id?.establishment_name || 'Main Facility';
   const compName = app.client_id?.company_name || app.client_id?.full_name || 'Client';
   const ftNames = [
-    ...(app.assigned_food_techs || []).map(ft => ft.full_name || ft.email),
+    ...(app.assigned_food_techs || []).map(ft => ft.full_name || ft.email || ft.name),
+    typeof app.assigned_food_tech === 'object' ? (app.assigned_food_tech?.full_name || app.assigned_food_tech?.name || app.assigned_food_tech?.email) : null,
     app.assigned_ft_custom?.name || app.assigned_ft_details
   ].filter(Boolean);
 
@@ -237,10 +238,9 @@ export default function AdminInitialProductProcessing() {
   const hasFtAssigned = Boolean(
     ftNames.length > 0 ||
     app.assigned_food_tech ||
-    (app.assigned_food_techs && app.assigned_food_techs.length > 0) ||
+    (Array.isArray(app.assigned_food_techs) && app.assigned_food_techs.length > 0) ||
     app.assigned_ft_custom?.name ||
-    app.assigned_ft_details ||
-    app.status !== 'submitted'
+    app.assigned_ft_details
   );
   const isClientSubmitted = Boolean(
     app.product_approval_form?.submitted_at ||
@@ -698,22 +698,76 @@ export default function AdminInitialProductProcessing() {
                 4. Committee Logsheet &amp; Final Approval
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
-                  style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  <Plus size={14} /> Create Logsheet
-                </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {hasFtAssigned ? (
+                  logsheets.length === 0 ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
+                      style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <Plus size={14} /> Create Logsheet
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
+                      style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      Open Logsheet &rarr;
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setShowFtModal(true)}
+                    style={{
+                      color: '#b45309',
+                      borderColor: '#fde68a',
+                      background: '#fffbeb',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      fontSize: 12
+                    }}
+                    title="Food Technologist must be assigned before creating logsheet"
+                  >
+                    <User size={14} /> Assign FT to Enable Logsheet &rarr;
+                  </button>
+                )}
               </div>
             </div>
 
             {logsheets.length === 0 ? (
-              <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
-                No logsheet created for this Initial Product yet. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
-              </div>
+              !hasFtAssigned ? (
+                <div style={{ padding: '16px 20px', background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a', fontSize: 13, color: '#92400e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+                    <div>
+                      <strong style={{ display: 'block', color: '#78350f', marginBottom: 2 }}>FT Assignment Required</strong>
+                      Food Technologist must be assigned before creating a committee logsheet.
+                    </div>
+                  </div>
+                  {isManagerOrAdmin && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setShowFtModal(true)}
+                      style={{ background: '#2563eb', borderColor: '#2563eb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <User size={14} /> Assign FT Now &rarr;
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
+                  No logsheet created for this Initial Product yet. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
+                </div>
+              )
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {logsheets.map(ls => {

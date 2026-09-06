@@ -112,6 +112,10 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
+      const id = l.initial_product_application_id?._id || l.initial_product_application_id;
+      return `/initial-products/${id}/logsheet`;
+    }
     if (l.source_type === 'addon_application' || l.addon_application_id) {
       const id = l.addon_application_id?._id || l.addon_application_id;
       return `/addon-applications/${id}/logsheet`;
@@ -121,6 +125,10 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getApplicationLink = (l) => {
+    if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
+      const id = l.initial_product_application_id?._id || l.initial_product_application_id;
+      return `/initial-products/${id}/processing`;
+    }
     if (l.source_type === 'addon_application' || l.addon_application_id) {
       const id = l.addon_application_id?._id || l.addon_application_id;
       return `/addon-applications/${id}/processing`;
@@ -623,7 +631,7 @@ export default function AdminLogsheetWaitingSignature() {
                         to={getLogsheetLink(l)}
                         style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}
                       >
-                        #{l.application_id?.application_number || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
+                        #{l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
                       </Link>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,

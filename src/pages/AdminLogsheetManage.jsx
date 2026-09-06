@@ -106,6 +106,10 @@ export default function AdminLogsheetManage() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
+      const id = l.initial_product_application_id?._id || l.initial_product_application_id;
+      return `/initial-products/${id}/logsheet`;
+    }
     if (l.source_type === 'addon_application' || l.addon_application_id) {
       const id = l.addon_application_id?._id || l.addon_application_id;
       return `/addon-applications/${id}/logsheet`;
@@ -115,6 +119,10 @@ export default function AdminLogsheetManage() {
   };
 
   const getApplicationLink = (l) => {
+    if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
+      const id = l.initial_product_application_id?._id || l.initial_product_application_id;
+      return `/initial-products/${id}/processing`;
+    }
     if (l.source_type === 'addon_application' || l.addon_application_id) {
       const id = l.addon_application_id?._id || l.addon_application_id;
       return `/addon-applications/${id}/processing`;

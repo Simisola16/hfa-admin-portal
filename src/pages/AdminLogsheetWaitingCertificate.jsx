@@ -18,10 +18,44 @@ export default function AdminLogsheetWaitingCertificate() {
   const fetchLogsheets = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/application-logsheets');
-      const allLogs = res.data?.data || res.data || [];
-      // Filter logsheets in "Waiting For Certificate" status (or Signed/Completed)
-      const waitingLogs = allLogs.filter(l => l.status === 'Waiting For Certificate' || l.status === 'Signed');
+      const [logsRes, certsRes] = await Promise.all([
+        api.get('/api/application-logsheets'),
+        api.get('/api/certificates').catch(() => ({ data: [] }))
+      ]);
+      const allLogs = logsRes.data?.data || logsRes.data || [];
+      const allCerts = Array.isArray(certsRes.data?.data) ? certsRes.data.data : (Array.isArray(certsRes.data) ? certsRes.data : (Array.isArray(certsRes) ? certsRes : []));
+
+      // Build a set of application IDs that already have an active, under_review, renewed, or valid certificate
+      const certifiedAppIds = new Set(
+        allCerts
+          .filter(c => ['active', 'under_review', 'renewed', 'expired'].includes(c.status))
+          .map(c => String(c.application_id?._id || c.application_id))
+          .filter(Boolean)
+      );
+
+      // Filter logsheets in "Waiting For Certificate" status:
+      // Exclude completed logsheets, initial product logsheets, and applications that already have an issued certificate
+      const waitingLogs = allLogs.filter(l => {
+        // Exclude completed logsheets
+        if (l.status === 'Completed') return false;
+
+        // Exclude Initial Product logsheets (Initial Product approvals do not issue standalone facility certificates)
+        if (l.source_type === 'initial_product_application' || l.initial_product_application_id || l.audit_type === 'Initial Product Evaluation') {
+          return false;
+        }
+
+        // Exclude applications where certificate has already been issued
+        const appId = String(l.application_id?._id || l.application_id || '');
+        if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
+          return false;
+        }
+
+        // Exclude completed add-on applications
+        if (l.addon_application_id?.status === 'completed') return false;
+
+        return l.status === 'Waiting For Certificate' || l.status === 'Signed';
+      });
+
       setLogsheets(waitingLogs);
     } catch (err) {
       toast.error('Failed to load completed logsheets');

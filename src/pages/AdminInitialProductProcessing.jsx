@@ -689,6 +689,38 @@ export default function AdminInitialProductProcessing() {
                   </a>
                 </div>
               )}
+
+              {/* Client Reply to Requested Information & Documents */}
+              {(app.product_approval_form?.client_reply_text || app.product_approval_form?.client_reply_file_url) && (
+                <div style={{ marginTop: 14, background: '#f0fdf4', padding: 18, borderRadius: 12, border: '1.5px solid #86efac' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={15} color="#16a34a" /> Client Reply &amp; Uploaded Supporting Documents
+                    </div>
+                    {app.product_approval_form?.client_replied_at && (
+                      <span style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>
+                        Replied on {new Date(app.product_approval_form.client_replied_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  {app.product_approval_form?.client_reply_text && (
+                    <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, color: '#1e293b', whiteSpace: 'pre-wrap', marginBottom: app.product_approval_form?.client_reply_file_url ? 10 : 0 }}>
+                      {app.product_approval_form.client_reply_text}
+                    </div>
+                  )}
+                  {app.product_approval_form?.client_reply_file_url && (
+                    <a
+                      href={getPdfUrl(app.product_approval_form.client_reply_file_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-sm"
+                      style={{ background: '#15803d', borderColor: '#15803d', color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Download size={14} /> Download Client Uploaded Document
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -703,14 +735,34 @@ export default function AdminInitialProductProcessing() {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {hasFtAssigned ? (
                   logsheets.length === 0 ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
-                      style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                    >
-                      <Plus size={14} /> Create Logsheet
-                    </button>
+                    isFormReceived ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
+                        style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <Plus size={14} /> Create Logsheet
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: '#b45309',
+                          background: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                        title="Product Approval Form must be received before creating a committee logsheet"
+                      >
+                        <AlertCircle size={14} /> Product Form Must Be Received
+                      </span>
+                    )
                   ) : (
                     <button
                       type="button"
@@ -765,9 +817,17 @@ export default function AdminInitialProductProcessing() {
                     </button>
                   )}
                 </div>
+              ) : !isFormReceived ? (
+                <div style={{ padding: '16px 20px', background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a', fontSize: 13, color: '#92400e', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ display: 'block', color: '#78350f', marginBottom: 2 }}>Product Form Must Be Received First</strong>
+                    The Product Approval Form has not been received yet. The client must submit the completed form before a committee logsheet can be created.
+                  </div>
+                </div>
               ) : (
                 <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
-                  No logsheet created for this Initial Product yet. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
+                  Product Approval Form received. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
                 </div>
               )
             ) : (

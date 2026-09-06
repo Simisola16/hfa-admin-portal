@@ -34,7 +34,11 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
         ]).then(([appRes, invRes]) => {
           const loadedApp = appRes.data?.data || appRes.data || null;
-          const loadedInvoice = invRes.data?.data || invRes.data || null;
+          const rawInv = invRes.data?.data || invRes.data || null;
+          const isMatchingInvoice = rawInv && (isFinal 
+            ? (rawInv.invoice_type === 'final' || rawInv.stage === 'final' || rawInv.target_status === 'final_invoice_sent') 
+            : (rawInv.invoice_type !== 'final' && rawInv.stage !== 'final' && rawInv.target_status !== 'final_invoice_sent'));
+          const loadedInvoice = isMatchingInvoice ? rawInv : null;
           setApp(loadedApp);
           setInvoice(loadedInvoice);
           if (loadedApp) {
@@ -45,18 +49,23 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
                 : `${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`,
               amount: loadedInvoice?.amount || '',
               notes: loadedInvoice?.notes || '',
+              file: null
             }));
           }
         }).finally(() => setLoading(false));
       } else {
+        const isMatchingInvoice = propInvoice && (isFinal 
+          ? (propInvoice.invoice_type === 'final' || propInvoice.stage === 'final' || propInvoice.target_status === 'final_invoice_sent') 
+          : (propInvoice.invoice_type !== 'final' && propInvoice.stage !== 'final' && propInvoice.target_status !== 'final_invoice_sent'));
+        const activeInvoice = isMatchingInvoice ? propInvoice : null;
         setApp(propApp || null);
-        setInvoice(propInvoice || null);
+        setInvoice(activeInvoice);
         setInvoiceForm({
-          title: propInvoice
+          title: activeInvoice
             ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`
             : `${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`,
-          amount: propInvoice?.amount || '',
-          notes: propInvoice?.notes || '',
+          amount: activeInvoice?.amount || '',
+          notes: activeInvoice?.notes || '',
           file: null
         });
       }
@@ -75,6 +84,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
   if (!app) return null;
 
   const handleSubmit = async () => {
+    const isFinal = invoiceType === 'final';
     if (!invoiceForm.title.trim()) {
       toast.error('Please enter an invoice title.');
       return;
@@ -87,9 +97,16 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       toast.error('Please enter a valid Amount Due (£).');
       return;
     }
-    if (!invoiceForm.file && !invoice?.invoice_url) {
-      toast.error('Please upload an invoice PDF document.');
-      return;
+    if (isFinal) {
+      if (!invoiceForm.file && !invoice?.invoice_url) {
+        toast.error('Please upload the Final Invoice PDF document before sending.');
+        return;
+      }
+    } else {
+      if (!invoiceForm.file && !invoice?.invoice_url) {
+        toast.error('Please upload an invoice PDF document.');
+        return;
+      }
     }
 
     setSubmitting(true);

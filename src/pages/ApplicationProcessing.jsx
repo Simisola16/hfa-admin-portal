@@ -24,6 +24,7 @@ import FinalAgreementModal from '../components/FinalAgreementModal';
 // Extracted Detail Cards
 import ProposalCard from '../components/ProposalCard';
 import InvoiceCard from '../components/InvoiceCard';
+import InitialProductCard from '../components/InitialProductCard';
 import AuditCard from '../components/AuditCard';
 import NcCard from '../components/NcCard';
 import LogsheetCard from '../components/LogsheetCard';
@@ -1017,6 +1018,13 @@ export default function ApplicationProcessing() {
               confirmingPayment={confirmingPayment}
             />
           )}
+
+          {/* Initial Product Card */}
+          <InitialProductCard
+            app={app}
+            initialProduct={initialProduct}
+            isFastTrack={isFastTrack}
+          />
 
           {/* 1. Audit Card */}
           <AuditCard 

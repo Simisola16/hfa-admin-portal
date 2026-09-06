@@ -145,13 +145,6 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{name}</div>
                 {(email || phone) && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{email} {phone ? `• ${phone}` : ''}</div>}
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {role && (
-                  <span style={{ fontSize: 11, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 10px', borderRadius: 12 }}>
-                    {roleLabels[role] || role}
-                  </span>
-                )}
-              </div>
             </div>
           );
         })}

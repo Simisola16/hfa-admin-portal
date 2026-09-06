@@ -168,12 +168,6 @@ export default function AdminAudits() {
     nc_closed: 'badge-green'
   };
 
-  const roleLabels = {
-    lead_auditor: 'Lead Auditor',
-    sharia_board: 'Sharia Board',
-    audit_trainee: 'Audit Trainee',
-    auditor: 'Auditor'
-  };
 
   const formatProcessStatus = (s) => {
     if (!s) return 'Pending';
@@ -564,11 +558,6 @@ export default function AdminAudits() {
                               <div key={i} style={{ fontSize: 12.5, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
                                 <UserCheck size={13.5} style={{ color: '#0284c7', flexShrink: 0 }} />
                                 <span style={{ fontWeight: 700, color: '#0f172a' }}>{aud.name}</span>
-                                {aud.role && (
-                                  <span style={{ fontSize: 10.5, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '1.5px 6px', borderRadius: 4, border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                                    {roleLabels[aud.role] || aud.role}
-                                  </span>
-                                )}
                               </div>
                             ))}
                           </div>

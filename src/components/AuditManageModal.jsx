@@ -178,13 +178,12 @@ export default function AuditManageModal({
     if (existingAudit?.status === 'date_finalized' && auditForm.auditors.length === 0) {
       const isDual = currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
       const numAuditors = isDual ? 2 : 1;
-      const initialAuditors = Array(numAuditors).fill(null).map((_, i) => ({
+      const initialAuditors = Array(numAuditors).fill(null).map(() => ({
         name: '',
         email: '',
         contact_number: '',
         purpose: '',
         inspector_id: '',
-        role: i === 0 ? 'lead_auditor' : (isDual && i === 1 ? 'sharia_board' : 'audit_trainee')
       }));
       setAuditForm(f => ({ ...f, auditors: initialAuditors }));
     }
@@ -341,13 +340,6 @@ export default function AuditManageModal({
     }
   };
 
-  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee', auditor: 'Auditor' };
-  const roleColors = {
-    lead_auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    audit_trainee: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-  };
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
@@ -620,7 +612,7 @@ export default function AuditManageModal({
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
-                      const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '', role: 'audit_trainee' }];
+                      const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '' }];
                       setAuditForm({ ...auditForm, auditors: newAuditors });
                     }}
                   >
@@ -658,27 +650,21 @@ export default function AuditManageModal({
               </div>
 
               <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
-                {existingAudit.auditors?.map((a, idx) => {
-                  const rc = roleColors[a.role] || roleColors.lead_auditor;
-                  return (
-                    <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{a.name}</div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, padding: '3px 10px', borderRadius: '12px' }}>
-                          {roleLabels[a.role] || a.role}
-                        </span>
-                        {a.purpose && (
-                          <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px' }}>
-                            {a.purpose}
-                          </span>
-                        )}
-                      </div>
+                {existingAudit.auditors?.map((a, idx) => (
+                  <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{a.name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
                     </div>
-                  );
-                })}
+                    {a.purpose && (
+                      <div>
+                        <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px' }}>
+                          {a.purpose}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {existingAudit.status !== 'audit_completed' && (

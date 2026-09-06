@@ -19,13 +19,6 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
   const stage2 = audits?.find(a => a.stage === 2);
 
-  const roleLabels = { lead_auditor: 'Lead Auditor', sharia_board: 'Sharia Board', audit_trainee: 'Audit Trainee', auditor: 'Auditor' };
-  const roleColors = {
-    lead_auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    sharia_board: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    audit_trainee: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-    auditor: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-  };
 
   const formatProcessStatus = (s) => {
     if (!s) return 'Pending';
@@ -137,8 +130,6 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
           const name = a.name || a.full_name || a.user_id?.full_name || 'Auditor';
           const email = a.email || a.user_id?.email || '';
           const phone = a.contact_number || a.phone || a.user_id?.phone || '';
-          const role = a.role || 'lead_auditor';
-          const rc = roleColors[role] || roleColors.lead_auditor;
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div>

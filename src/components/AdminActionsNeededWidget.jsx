@@ -171,6 +171,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             break;
 
           case 'payment_received':
+          case 'initial_product_approved':
             if (isRenewal) {
               actionList.push({
                 id: `app-payrec-renewal-${appId}`,
@@ -191,7 +192,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                 category: 'applications',
                 app,
                 type: 'manage_audit',
-                title: 'Initial Payment Received: Schedule Audit',
+                title: app.status === 'initial_product_approved' ? 'Initial Product Approved: Schedule Audit' : 'Initial Payment Received: Schedule Audit',
                 tag: 'Audit Schedule',
                 desc: `Propose 3 possible audit visit dates for ${estName}`,
                 buttonText: 'Propose Audit Dates',

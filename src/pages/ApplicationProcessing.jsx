@@ -532,7 +532,7 @@ export default function ApplicationProcessing() {
     // 6. Complete (Certificate / Letter Issued)
     // =========================================================================
     const isDualStage = isGSO;
-    const isInitialProductApproved = isFastTrack ? true : Boolean(initialProduct && initialProduct.status === 'initial_product_approved');
+    const isInitialProductApproved = isFastTrack ? true : Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved);
     const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
     const stage2 = audits?.find(a => a.stage === 2);
     const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
@@ -719,7 +719,7 @@ export default function ApplicationProcessing() {
     }
 
     // 4. Audit Scheduling & Execution Stage
-    if (['payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+    if (['payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
       // If Initial Product is not approved yet, lock audit actions for standard applications
       if (!isFastTrack && !isInitialProductApproved) {
         if (!initialProduct) {
@@ -792,7 +792,7 @@ export default function ApplicationProcessing() {
           style={{ gap: 8, background: '#ea580c' }}
           onClick={() => setShowAuditModal(true)}
         >
-          <Calendar size={16} /> Manage Audit
+          <Calendar size={16} /> {audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit'}
         </button>
       );
     }
@@ -1024,9 +1024,9 @@ export default function ApplicationProcessing() {
             audits={audits} 
             status={status}
             initialProduct={initialProduct}
-            isInitialProductApproved={isFastTrack ? true : Boolean(initialProduct && initialProduct.status === 'initial_product_approved')}
+            isInitialProductApproved={isFastTrack ? true : Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved)}
             isFastTrack={isFastTrack}
-            onManage={(!isFastTrack && !(initialProduct && initialProduct.status === 'initial_product_approved')) ? undefined : () => setShowAuditModal(true)} 
+            onManage={(!isFastTrack && !(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved)) ? undefined : () => setShowAuditModal(true)} 
           />
 
           {/* 2. Non-Conformity (NC) & Findings Card */}

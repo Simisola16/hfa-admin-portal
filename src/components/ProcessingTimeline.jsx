@@ -184,13 +184,13 @@ export default function ProcessingTimeline({
   if (normStatus === 'dates_rejected') effectiveStatus = 'dates_proposed';
   if (normStatus === 'audit_report_submitted') effectiveStatus = 'nc_closed';
 
-  // When status is payment_received in standard flow:
+  // When status is payment_received or initial_product_approved in standard flow:
   // If initial product is not yet approved, advance the active timeline step to 'initial_product'
-  if (!isRenewal && normStatus === 'payment_received') {
-    if (!isInitialProductApproved) {
-      effectiveStatus = 'initial_product';
-    } else {
+  if (!isRenewal && (normStatus === 'payment_received' || normStatus === 'initial_product_approved')) {
+    if (normStatus === 'initial_product_approved' || isInitialProductApproved) {
       effectiveStatus = 'dates_proposed';
+    } else {
+      effectiveStatus = 'initial_product';
     }
   }
 

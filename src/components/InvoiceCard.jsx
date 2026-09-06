@@ -20,7 +20,7 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
     ? ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'invoice_sent', 'payment_received', 'certificate_issued'].includes(normStatus) || invoice
     : isFinal 
       ? ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
-      : ['proposal_approved', 'invoice_sent', 'payment_received', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
+      : ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
 
   const cardTitle = isSurv
     ? 'Surveillance Certification Invoice'

@@ -283,11 +283,6 @@ export default function AdminCertificates({ defaultTab }) {
             <option value="expired">Expired</option>
           </select>
         )}
-        {activeTab !== 'surveillance' && (
-          <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginLeft: 'auto', background: '#047857', borderColor: '#047857' }}>
-            <Plus size={15} /> Create &amp; Review Certificate
-          </button>
-        )}
       </div>
 
       {activeTab === 'review' || activeTab === 'certs' ? (

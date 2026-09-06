@@ -106,12 +106,9 @@ export default function AdminCertificates({ defaultTab }) {
     try { 
       const res = await api.post('/api/certificates', payload); 
       const created = res.data?.data || res.data;
-      toast.success('Certificate created! Opening review page...'); 
+      toast.success('Certificate created and sent to Review Certification.'); 
       setShowModal(false); 
       fetchAllData();
-      if (created?._id) {
-        navigate(`/certificates/${created._id}/review`);
-      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
     } finally {

@@ -57,7 +57,34 @@ export default function AuditManageModal({
   }, [isOpen, app, applicationId]);
 
   const currentApp = appData || (typeof app === 'object' ? app : {});
-  const isDualStage = currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const cat = String(currentApp?.category || '').toLowerCase();
+  const type = String(currentApp?.application_type || '').toLowerCase();
+  const scheme = String(currentApp?.scheme || '').toLowerCase();
+  const isGso = cat.includes('gso') || cat.includes('uae') || type.includes('gso') || scheme.includes('gso');
+  const isDualStage = isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const isRenewalOrSurveillance = type === 'renewal' || type === 'surveillance';
+  const isGsoInitial = isGso && !isRenewalOrSurveillance;
+
+  const [initialProduct, setInitialProduct] = useState(null);
+
+  useEffect(() => {
+    const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+    if (isOpen && targetAppId) {
+      api.get(`/api/initial-products/application/${targetAppId}`)
+        .then(res => {
+          const raw = res.data?.data !== undefined ? res.data.data : (res.data !== undefined ? res.data : null);
+          setInitialProduct(raw);
+        })
+        .catch(() => setInitialProduct(null));
+    }
+  }, [isOpen, app, applicationId]);
+
+  const isInitialProductApproved = Boolean(
+    currentApp?.status === 'initial_product_approved' ||
+    currentApp?.is_initial_product_approved ||
+    (initialProduct && initialProduct.status === 'initial_product_approved')
+  );
+  const isProposeBlockedByGsoInitial = isGsoInitial && !isInitialProductApproved;
 
   // Sync prop existingAudits with local state
   useEffect(() => {
@@ -192,6 +219,11 @@ export default function AuditManageModal({
   if (!isOpen) return null;
 
   const handleProposeDates = async () => {
+    if (isProposeBlockedByGsoInitial) {
+      toast.error('Cannot propose audit dates: For UAE/GSO applications, the Initial Product must be approved before facility audit dates can be proposed.');
+      return;
+    }
+
     // Stage 2 dates are optional for GSO/UAE dual-stage — allow skipping
     if (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d)) {
       toast('Stage 2 dates skipped — you can propose them later from this modal.', { icon: '💡' });
@@ -393,11 +425,21 @@ export default function AuditManageModal({
                   </div>
                 </div>
               )}
+              {isProposeBlockedByGsoInitial && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fefce8', border: '1.5px solid #fde047', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                  <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: 13, color: '#854d0e', lineHeight: 1.5 }}>
+                    <strong>Initial Product Approval Required:</strong> For UAE/GSO applications, the Initial Product must be evaluated and approved by the committee before facility audit dates can be proposed.
+                    {initialProduct ? ` (Current Initial Product status: ${(initialProduct.status || '').replace(/_/g, ' ')})` : ' (No Initial Product has been submitted yet)'}
+                  </div>
+                </div>
+              )}
+
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
                 Propose 3 possible audit dates to the client. They will select 2 dates from their portal.
                 {activeStage === 2 && <span style={{ display: 'block', marginTop: 6, color: '#6366f1', fontWeight: 600 }}>💡 Stage 2 dates are optional — you can propose them now or after Stage 1 completes.</span>}
               </p>
-              <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gap: 12, marginBottom: 24, opacity: isProposeBlockedByGsoInitial ? 0.6 : 1, pointerEvents: isProposeBlockedByGsoInitial ? 'none' : 'auto' }}>
                 {Array(3).fill(null).map((_, i) => (
                   <div key={i} className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Proposed Date Option {i + 1} <span>*</span></label>
@@ -406,6 +448,7 @@ export default function AuditManageModal({
                       min={new Date().toISOString().split('T')[0]}
                       className="form-control"
                       value={auditForm.dates[i]}
+                      disabled={isProposeBlockedByGsoInitial}
                       onChange={e => {
                         const newDates = [...auditForm.dates];
                         newDates[i] = e.target.value;
@@ -433,8 +476,9 @@ export default function AuditManageModal({
                 <div style={{ flex: 1 }} />
                 <button
                   className="btn btn-primary"
-                  disabled={auditSubmitting}
+                  disabled={auditSubmitting || isProposeBlockedByGsoInitial}
                   onClick={handleProposeDates}
+                  title={isProposeBlockedByGsoInitial ? 'Initial Product must be approved first for UAE/GSO applications' : ''}
                 >
                   {auditSubmitting ? 'Submitting...' : (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d) ? 'Skip & Close' : 'Propose Dates')}
                 </button>

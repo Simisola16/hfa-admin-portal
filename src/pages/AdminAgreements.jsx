@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   FileText, Search, Filter, Calendar, Building2,
   ExternalLink, CheckCircle, AlertCircle, RefreshCw,
-  Eye, Download, PenTool, Upload, Clock, Check, ChevronRight
+  Eye, Download, PenTool, Upload, Clock, Check, ChevronRight, FileCheck
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import AgreementModal from '../components/AgreementModal';
+import FinalAgreementModal from '../components/FinalAgreementModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -24,11 +26,9 @@ export default function AdminAgreements() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | sent | client_signed | approved
 
-  // Countersign / Details Modal state
-  const [selectedAgreement, setSelectedAgreement] = useState(null);
-  const [countersignFile, setCountersignFile] = useState(null);
-  const [adminComment, setAdminComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  // Agreement Modals state
+  const [agreementModalAg, setAgreementModalAg] = useState(null);
+  const [finalModalAg, setFinalModalAg] = useState(null);
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -46,30 +46,6 @@ export default function AdminAgreements() {
   useEffect(() => {
     fetchAgreements();
   }, []);
-
-  const handleCountersignSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedAgreement) return;
-
-    setSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append('status', 'approved');
-      if (adminComment) formData.append('admin_comment', adminComment);
-      if (countersignFile) formData.append('signed_agreement_file', countersignFile);
-
-      await api.put(`/api/agreements/${selectedAgreement._id}`, formData, true);
-      toast.success('Agreement successfully updated / countersigned!');
-      setSelectedAgreement(null);
-      setCountersignFile(null);
-      setAdminComment('');
-      fetchAgreements();
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to update agreement.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const filtered = agreements.filter(ag => {
     const app = ag.application_id || {};
@@ -295,18 +271,38 @@ export default function AdminAgreements() {
                             </a>
                           )}
 
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => {
-                              setSelectedAgreement(ag);
-                              setAdminComment(ag.admin_comment || '');
-                              setCountersignFile(null);
-                            }}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                            title="Manage & Countersign Agreement"
-                          >
-                            <PenTool size={13} /> Manage
-                          </button>
+                          {ag.final_agreement_url && (
+                            <a
+                              href={getPdfUrl(ag.final_agreement_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-sm"
+                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', borderColor: '#0284c7' }}
+                              title="View Final Countersigned Copy"
+                            >
+                              <FileCheck size={13} /> Final Copy
+                            </a>
+                          )}
+
+                          {ag.client_signed || ag.status === 'client_signed' ? (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => setFinalModalAg(ag)}
+                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', borderColor: '#0284c7' }}
+                              title="Send Final Countersigned Agreement Copy to Client"
+                            >
+                              <FileCheck size={13} /> {ag.final_agreement_url ? 'Resend Final Copy' : 'Send Final Signed Copy'}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => setAgreementModalAg(ag)}
+                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                              title="Re-upload or Edit Agreement"
+                            >
+                              <PenTool size={13} /> Edit / Re-upload
+                            </button>
+                          )}
 
                           {appId && (
                             <button
@@ -329,104 +325,31 @@ export default function AdminAgreements() {
         )}
       </div>
 
-      {/* Countersign / Manage Modal */}
-      {selectedAgreement && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', zIndex: 1050 }}>
-          <div className="modal-content" style={{ maxWidth: 540, borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '20px 24px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Manage Certification Agreement</h3>
-                <p style={{ margin: '3px 0 0', fontSize: 12, opacity: 0.8 }}>
-                  {selectedAgreement.application_id?.establishment_name || selectedAgreement.company_name || 'Client Agreement'} &middot; {selectedAgreement.title}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedAgreement(null)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}
-              >
-                &times;
-              </button>
-            </div>
+      {/* Initial / Re-upload Agreement Modal */}
+      <AgreementModal
+        isOpen={Boolean(agreementModalAg)}
+        onClose={() => setAgreementModalAg(null)}
+        app={agreementModalAg?.application_id}
+        appId={agreementModalAg?.application_id?._id || agreementModalAg?.application_id}
+        agreement={agreementModalAg}
+        onSuccess={() => {
+          setAgreementModalAg(null);
+          fetchAgreements();
+        }}
+      />
 
-            <form onSubmit={handleCountersignSubmit} style={{ padding: '24px' }}>
-              {/* Agreement summary info */}
-              <div style={{ background: '#f8fafc', borderRadius: 10, padding: '14px 16px', border: '1px solid #e2e8f0', marginBottom: 20, fontSize: 12.5 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '8px 12px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Client Signature:</span>
-                  <span style={{ fontWeight: 700, color: selectedAgreement.client_signed ? '#15803d' : '#d97706' }}>
-                    {selectedAgreement.client_signed ? `Signed by ${selectedAgreement.client_sign_name || 'Client'}` : 'Pending Client Signature'}
-                  </span>
-
-                  {selectedAgreement.client_sign_date && (
-                    <>
-                      <span style={{ color: '#64748b', fontWeight: 600 }}>Signed Date:</span>
-                      <span style={{ fontWeight: 600 }}>{new Date(selectedAgreement.client_sign_date).toLocaleString('en-GB')}</span>
-                    </>
-                  )}
-
-                  {selectedAgreement.client_comment && (
-                    <>
-                      <span style={{ color: '#64748b', fontWeight: 600 }}>Client Comment:</span>
-                      <span style={{ color: '#334155', fontStyle: 'italic' }}>"{selectedAgreement.client_comment}"</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Upload Countersigned / Final Agreement Document */}
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label className="form-label" style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                  Upload Countersigned Agreement (PDF):
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="form-control"
-                  onChange={e => setCountersignFile(e.target.files?.[0] || null)}
-                />
-                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                  Attach the finalized, countersigned PDF signed by both HFA and the client.
-                </div>
-              </div>
-
-              {/* Admin Comment */}
-              <div className="form-group" style={{ marginBottom: 24 }}>
-                <label className="form-label" style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                  Admin Notes / Remarks:
-                </label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  placeholder="Optional internal remarks or certification conditions..."
-                  value={adminComment}
-                  onChange={e => setAdminComment(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setSelectedAgreement(null)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                >
-                  {submitting ? <RefreshCw size={15} className="spin" /> : <CheckCircle size={15} />}
-                  Save &amp; Approve Agreement
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Final Countersigned Agreement Modal */}
+      <FinalAgreementModal
+        isOpen={Boolean(finalModalAg)}
+        onClose={() => setFinalModalAg(null)}
+        app={finalModalAg?.application_id}
+        appId={finalModalAg?.application_id?._id || finalModalAg?.application_id}
+        agreement={finalModalAg}
+        onSuccess={() => {
+          setFinalModalAg(null);
+          fetchAgreements();
+        }}
+      />
     </div>
   );
 }

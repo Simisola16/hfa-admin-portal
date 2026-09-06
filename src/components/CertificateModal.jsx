@@ -174,15 +174,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       const res = await api.post('/api/certificates', formData, true);
       const createdCert = res.data?.data || res.data;
 
-      toast.success('Certificate created! Opening Review & Quality Check...');
+      toast.success('Certificate created and sent to Review Certification for quality check.');
       if (onSuccess) onSuccess();
       onClose();
-
-      if (createdCert?._id) {
-        navigate(`/certificates/${createdCert._id}/review`);
-      } else {
-        navigate('/certificates');
-      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to create certificate.'));
     } finally {

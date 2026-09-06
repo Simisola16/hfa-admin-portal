@@ -729,7 +729,7 @@ export default function AdminCertificates({ defaultTab }) {
               <div className="modal-footer">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Issue Certificate'}
+                  {submitting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Create & Proceed to Review'}
                 </button>
               </div>
             </form>

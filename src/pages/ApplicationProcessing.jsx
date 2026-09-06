@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertTriangle, ClipboardList, Download, Award, PenTool, Receipt, ExternalLink, Clock,
-  Lock, Package
+  Lock, Package, ShieldCheck
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -29,6 +29,7 @@ import AuditCard from '../components/AuditCard';
 import NcCard from '../components/NcCard';
 import LogsheetCard from '../components/LogsheetCard';
 import AgreementCard from '../components/AgreementCard';
+import CertificateCard from '../components/CertificateCard';
 
 export default function ApplicationProcessing() {
   const { appId } = useParams();
@@ -46,6 +47,7 @@ export default function ApplicationProcessing() {
   const [audits, setAudits] = useState([]);
   const [logsheet, setLogsheet] = useState(null);
   const [initialProduct, setInitialProduct] = useState(null);
+  const [certificate, setCertificate] = useState(null);
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -82,7 +84,7 @@ export default function ApplicationProcessing() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes, ipRes] = await Promise.all([
+      const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes, ipRes, certRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/proposals/application/${appId}`).catch(() => ({ data: null })),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
@@ -94,6 +96,8 @@ export default function ApplicationProcessing() {
           .catch(() => ({ data: null })),
         api.get(`/api/initial-products/by-application/${appId}`)
           .catch(() => api.get(`/api/initial-products?application_id=${appId}`))
+          .catch(() => ({ data: null })),
+        api.get(`/api/certificates/application/${appId}`)
           .catch(() => ({ data: null }))
       ]);
 
@@ -176,6 +180,7 @@ export default function ApplicationProcessing() {
       setAudits(loadedAudits);
       setLogsheet(fetchedLogsheet);
       setInitialProduct(initialProductItem);
+      setCertificate(certRes?.data?.data || certRes?.data || null);
     } catch (err) {
       if (!silent) toast.error('Failed to load application details.');
     } finally {
@@ -661,6 +666,17 @@ export default function ApplicationProcessing() {
             </button>
           );
         }
+        if (certificate && (certificate.status === 'under_review' || certificate.status === 'draft')) {
+          return (
+            <button
+              className="btn btn-warning"
+              style={{ gap: 8, background: '#d97706', borderColor: '#b45309', color: '#fff' }}
+              onClick={() => navigate(`/certificates/${certificate._id || certificate.id}/review`)}
+            >
+              <ShieldCheck size={16} /> Review Certificate &amp; Send to Client
+            </button>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -901,6 +917,17 @@ export default function ApplicationProcessing() {
 
     // 11. Issue Certificate Stage
     if (status === 'ready_for_certificate') {
+      if (certificate && (certificate.status === 'under_review' || certificate.status === 'draft')) {
+        return (
+          <button
+            className="btn btn-warning"
+            style={{ gap: 8, background: '#d97706', borderColor: '#b45309', color: '#fff' }}
+            onClick={() => navigate(`/certificates/${certificate._id || certificate.id}/review`)}
+          >
+            <ShieldCheck size={16} /> Review Certificate &amp; Send to Client
+          </button>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -1095,6 +1122,15 @@ export default function ApplicationProcessing() {
               confirmingPayment={confirmingPayment}
             />
           )}
+
+          {/* Certificate & Issuance Card */}
+          <CertificateCard
+            app={app}
+            certificate={certificate}
+            status={status}
+            isSurveillance={isSurveillance}
+            onIssueCertificate={() => setShowCertificateModal(true)}
+          />
         </div>
 
         {/* Right Column: Sidebar info */}

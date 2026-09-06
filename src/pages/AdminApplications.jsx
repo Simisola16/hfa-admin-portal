@@ -1453,6 +1453,19 @@ export default function AdminApplications() {
         }}
       />
 
+      {/* Certificate Modal */}
+      <CertificateModal
+        isOpen={showCertificateModal}
+        onClose={() => setShowCertificateModal(false)}
+        app={manageModal}
+        onSuccess={() => {
+          fetchData();
+          if (manageModal) {
+            setManageModal(null);
+          }
+        }}
+      />
+
       <style>{`
         .action-btn-group {
           display: flex;

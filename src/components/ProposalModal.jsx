@@ -87,12 +87,8 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       toast.error('Please enter a valid Estimated Cost (£).');
       return;
     }
-    if (proposalForm.type === 'upload' && !proposalForm.file && !proposal?.proposal_url) {
-      toast.error('Please select a proposal document.');
-      return;
-    }
-    if (proposalForm.type === 'write' && !proposalForm.details.trim()) {
-      toast.error('Please write the proposal details.');
+    if (!proposalForm.file) {
+      toast.error('Please upload the Proposal PDF document.');
       return;
     }
 
@@ -215,6 +211,7 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
                   id="proposal-file-shared"
                   type="file"
                   hidden
+                  accept=".pdf,.doc,.docx"
                   onChange={e => setProposalForm(f => ({ ...f, file: e.target.files[0] }))}
                 />
               </div>
@@ -249,7 +246,7 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !proposalForm.file}
           >
             {submitting ? 'Sending...' : 'Send Proposal'}
           </button>

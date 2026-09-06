@@ -182,7 +182,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 onClick={onIssueCertificate}
               >
-                <Award size={15} /> Create Certificate for Review
+                <Award size={15} /> Issue Certificate
               </button>
             )}
           </div>

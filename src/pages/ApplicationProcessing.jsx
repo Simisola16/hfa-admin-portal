@@ -666,25 +666,21 @@ export default function ApplicationProcessing() {
             </button>
           );
         }
-        if (certificate && (certificate.status === 'under_review' || certificate.status === 'draft')) {
-          return (
-            <button
-              className="btn btn-warning"
-              style={{ gap: 8, background: '#d97706', borderColor: '#b45309', color: '#fff' }}
-              onClick={() => navigate(`/certificates/${certificate._id || certificate.id}/review`)}
-            >
-              <ShieldCheck size={16} /> Review Certificate &amp; Send to Client
-            </button>
-          );
-        }
         return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a' }}
-            onClick={() => setShowCertificateModal(true)}
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
+              onClick={() => setShowCertificateModal(true)}
+            >
+              <Award size={16} /> Issue Certificate
+            </button>
+            {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
+              <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+              </span>
+            )}
+          </div>
         );
       }
 
@@ -917,25 +913,21 @@ export default function ApplicationProcessing() {
 
     // 11. Issue Certificate Stage
     if (status === 'ready_for_certificate') {
-      if (certificate && (certificate.status === 'under_review' || certificate.status === 'draft')) {
-        return (
-          <button
-            className="btn btn-warning"
-            style={{ gap: 8, background: '#d97706', borderColor: '#b45309', color: '#fff' }}
-            onClick={() => navigate(`/certificates/${certificate._id || certificate.id}/review`)}
-          >
-            <ShieldCheck size={16} /> Review Certificate &amp; Send to Client
-          </button>
-        );
-      }
       return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#16a34a' }}
-          onClick={() => setShowCertificateModal(true)}
-        >
-          <Award size={16} /> Issue Certificate
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
+            onClick={() => setShowCertificateModal(true)}
+          >
+            <Award size={16} /> Issue Certificate
+          </button>
+          {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          )}
+        </div>
       );
     }
 

@@ -29,7 +29,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   const isSurveillance = app?.application_type === 'surveillance';
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
-  const initForm = (loadedApp) => {
+  const initForm = (loadedApp, existingCert = null) => {
     if (!loadedApp) return;
     const isSurv = loadedApp.application_type === 'surveillance';
     const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurv;
@@ -47,24 +47,29 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
 
     setCertificateForm({
-      certificate_number: isSurv ? `HFA-SURV-${Date.now().toString().slice(-6)}` : generateHfaId(companyName),
-      certificate_type: isSurv ? 'UAE/GSO Halal Surveillance Letter' : (isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification'),
-      issue_date: new Date().toISOString().split('T')[0],
-      expiry_date: expiryDate.toISOString().split('T')[0],
-      products_covered: prods,
+      certificate_number: existingCert?.certificate_number || (isSurv ? `HFA-SURV-${Date.now().toString().slice(-6)}` : generateHfaId(companyName)),
+      certificate_type: existingCert?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : (isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification')),
+      issue_date: existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      expiry_date: existingCert?.expiry_date ? new Date(existingCert.expiry_date).toISOString().split('T')[0] : expiryDate.toISOString().split('T')[0],
+      products_covered: existingCert?.products_covered ? (Array.isArray(existingCert.products_covered) ? existingCert.products_covered.join(', ') : existingCert.products_covered) : prods,
       file: null
     });
   };
 
   useEffect(() => {
     if (isOpen) {
-      if (!propApp && targetAppId) {
+      const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
+      if (appIdToUse) {
         setLoading(true);
-        api.get(`/api/applications/${targetAppId}`)
-          .then(res => {
-            const loadedApp = res.data?.data || res.data || null;
+        Promise.all([
+          !propApp ? api.get(`/api/applications/${appIdToUse}`) : Promise.resolve({ data: propApp }),
+          api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null }))
+        ])
+          .then(([appRes, certRes]) => {
+            const loadedApp = appRes.data?.data || appRes.data || null;
+            const loadedCert = certRes.data?.data || certRes.data || null;
             setApp(loadedApp);
-            initForm(loadedApp);
+            initForm(loadedApp, loadedCert);
           })
           .catch(() => setApp(null))
           .finally(() => setLoading(false));
@@ -174,11 +179,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       const res = await api.post('/api/certificates', formData, true);
       const createdCert = res.data?.data || res.data;
 
-      toast.success('Certificate created and sent to Review Certification for quality check.');
+      toast.success('Certificate issued successfully and sent to Review Certificates.');
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to create certificate.'));
+      toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to issue certificate.'));
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +201,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             )}
             <div>
               <div className="modal-title" style={{ fontSize: 16, fontWeight: 800, color: isSurveillance ? '#0369a1' : '#0f172a' }}>
-                {isSurveillance ? 'Issue Official Surveillance Letter' : 'Create Certificate for Review'}
+                {isSurveillance ? 'Issue Official Surveillance Letter' : 'Issue Certificate'}
               </div>
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                 {app.profiles?.company_name || app.establishment_name} &bull; {isSurveillance ? 'UAE/GSO 3-Year Halal Scheme' : (app.category || 'Halal Certification')}
@@ -220,7 +225,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             {isSurveillance ? (
               <span><strong>Notice:</strong> GSO Surveillance applications do not issue new certificates. Issuing this letter confirms the audit was successful and publishes the official <strong>Surveillance Letter</strong> to the client portal.</span>
             ) : (
-              <span>Creating this certificate will generate an official draft and take you directly to the <strong>Review Certificate Page</strong>, where you can verify all details, edit any field, regenerate the PDF, and send to the client.</span>
+              <span>Issuing this certificate will send it directly to <strong>Review Certificates</strong>, where committee reviewers can verify all details, rectify any mistakes, and then send it to the client.</span>
             )}
           </div>
 
@@ -342,7 +347,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             }}
           >
             {isSurveillance ? <FileText size={16} /> : <ShieldCheck size={16} />}
-            {submitting ? (isSurveillance ? 'Issuing Letter...' : 'Creating Certificate...') : (isSurveillance ? 'Issue Surveillance Letter' : 'Create & Proceed to Review')}
+            {submitting ? (isSurveillance ? 'Issuing Letter...' : 'Issuing Certificate...') : (isSurveillance ? 'Issue Surveillance Letter' : 'Issue Certificate')}
           </button>
         </div>
       </div>

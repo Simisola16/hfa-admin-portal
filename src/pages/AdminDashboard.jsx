@@ -63,22 +63,31 @@ export default function AdminDashboard() {
   const [allApps, setAllApps] = useState([]);
   const [allCerts, setAllCerts] = useState([]);
   const [proposals, setProposals] = useState([]);
+  const [productsCount, setProductsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [dashRes, appsRes, certsRes, propRes] = await Promise.all([
-        api.get('/api/reports/dashboard'),
-        api.get('/api/applications'),
+      const [dashRes, appsRes, certsRes, propRes, productsRes] = await Promise.all([
+        api.get('/api/reports/dashboard').catch(() => ({ data: null })),
+        api.get('/api/applications').catch(() => ({ data: [] })),
         api.get('/api/certificates').catch(() => ({ data: [] })),
         api.get('/api/proposals').catch(() => ({ data: [] })),
+        api.get('/api/products').catch(() => ({ data: [] })),
       ]);
-      setStats(dashRes.data || dashRes);
-      setAllApps(appsRes.data || []);
-      setAllCerts(certsRes.data || []);
-      setProposals(propRes.data || []);
+      const dashData = dashRes.data || dashRes;
+      const appsData = Array.isArray(appsRes.data) ? appsRes.data : (Array.isArray(appsRes) ? appsRes : []);
+      const certsData = Array.isArray(certsRes.data) ? certsRes.data : (Array.isArray(certsRes) ? certsRes : []);
+      const propData = Array.isArray(propRes.data) ? propRes.data : (Array.isArray(propRes) ? propRes : []);
+      const prodList = Array.isArray(productsRes.data) ? productsRes.data : (Array.isArray(productsRes) ? productsRes : []);
+
+      setStats(dashData);
+      setAllApps(appsData);
+      setAllCerts(certsData);
+      setProposals(propData);
+      setProductsCount(dashData?.products?.total ?? prodList.length);
       setLastUpdated(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -110,22 +119,24 @@ export default function AdminDashboard() {
   /* ─── 4 KPI cards ─── */
   const KPI = [
     { id: 'total_apps', label: 'Total Applications', value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
-    { id: 'new_apps', label: 'New Applications', value: submitted || underReview || 0, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'new_apps', label: 'New Applications', value: submitted + underReview, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
     { id: 'renewal_apps', label: 'Renewal Applications', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Application statistics derived metrics ─── */
-  const approvedAppsCount = count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued');
+  const acceptedAppsCount = allApps.filter(a =>
+    ['approved', 'accepted', 'certificate_issued', 'application_successful', 'ready_for_certificate', 'certified'].includes(a.status)
+  ).length;
   const pendingAppsCount = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
   const rejectedAppsCount = count(allApps, 'status', 'rejected');
   const totalAppsCount = allApps.length;
 
-  const appApprovedPercent = totalAppsCount ? Math.round((approvedAppsCount / totalAppsCount) * 100) : 0;
+  const appApprovedPercent = totalAppsCount ? Math.round((acceptedAppsCount / totalAppsCount) * 100) : 0;
   const appPendingPercent = totalAppsCount ? Math.round((pendingAppsCount / totalAppsCount) * 100) : 0;
   const appRejectedPercent = totalAppsCount ? Math.round((rejectedAppsCount / totalAppsCount) * 100) : 0;
 
-  const pendingCertsCount = allCerts.filter(c => c.status === 'pending').length;
+  const pendingCertsCount = allCerts.filter(c => c.status === 'pending' || c.status === 'under_review').length;
 
   /* ─── Pipeline list (True total count vs Capped at 5) ─── */
   const allPipeline = [...allApps]
@@ -464,13 +475,28 @@ export default function AdminDashboard() {
       <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
-            { label: 'Total Applications', value: allApps.length || 157, sub: `${submitted} pending`, path: '/applications' },
-            { label: 'Total Products', value: '472', sub: 'Registered in system', path: '/products' },
-            { label: 'Total Certificates', value: certTotal || 109, sub: `${activeCerts || 61} active`, path: '/certificates' },
+            { 
+              label: 'Total Applications', 
+              value: allApps.length, 
+              sub: `${submitted + underReview} pending`, 
+              path: '/applications' 
+            },
+            { 
+              label: 'Total Products', 
+              value: productsCount, 
+              sub: 'Registered in system', 
+              path: '/products' 
+            },
+            { 
+              label: 'Total Certificates', 
+              value: certTotal, 
+              sub: `${activeCerts} active`, 
+              path: '/certificates' 
+            },
             {
               label: 'Accepted',
-              value: count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued') || 78,
-              sub: allApps.length ? `${Math.round(((count(allApps, 'status', 'approved') + count(allApps, 'status', 'accepted') + count(allApps, 'status', 'certificate_issued')) / allApps.length) * 100)}% success rate` : '49.7% success rate',
+              value: acceptedAppsCount,
+              sub: `${appApprovedPercent}% success rate`,
               path: '/reports'
             },
           ].map((b, i, arr) => (

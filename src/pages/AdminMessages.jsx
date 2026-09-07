@@ -34,7 +34,11 @@ export default function AdminMessages() {
   const [submittingCompose, setSubmittingCompose] = useState(false);
 
   const threadEndRef = useRef(null);
-  const socketRef = useRef(null);
+  const selectedClientRef = useRef(selectedClient);
+
+  useEffect(() => {
+    selectedClientRef.current = selectedClient;
+  }, [selectedClient]);
 
   // Fetch all messages and clients
   const fetchMessages = async (silent = false) => {
@@ -52,8 +56,8 @@ export default function AdminMessages() {
       setClients(clientList);
 
       // If a client was already selected, refresh the conversation
-      if (selectedClient) {
-        loadConversation(selectedClient._id || selectedClient.id, false);
+      if (selectedClientRef.current) {
+        loadConversation(selectedClientRef.current._id || selectedClientRef.current.id, false);
       }
     } catch (err) {
       if (!silent) toast.error('Failed to load messages');
@@ -66,60 +70,88 @@ export default function AdminMessages() {
     fetchMessages();
   }, []);
 
-  // Socket.io Real-Time Synchronization
+  // Socket.io Real-Time Synchronization (attached once)
   useEffect(() => {
     const token = localStorage.getItem('hfa_token');
     if (!token) return;
 
     const socket = getSocket(token);
-    socketRef.current = socket;
+    if (!socket) return;
 
-    if (socket) {
-      const handleNewMessage = (newMsg) => {
-        const senderName = newMsg.sender?.company_name || newMsg.sender?.full_name || 'Client';
-        toast.success(`New inquiry from ${senderName}`, {
-          icon: '✉️',
-          duration: 4000
-        });
+    const handleNewMessage = (newMsg) => {
+      const myId = (profile?._id || profile?.id)?.toString();
+      // If current user is sender, do not re-add on new_message broadcast
+      if (myId && (newMsg.sender_id === myId || newMsg.sender_id === profile?._id)) {
+        return;
+      }
 
-        setMessages(prev => [newMsg, ...prev.filter(m => m._id !== newMsg._id)]);
+      const senderName = newMsg.sender?.company_name || newMsg.sender?.full_name || 'Client';
+      toast.success(`New inquiry from ${senderName}`, {
+        icon: '✉️',
+        duration: 4000
+      });
 
-        if (selectedClient) {
-          const clientId = selectedClient._id || selectedClient.id;
-          if (newMsg.sender_id === clientId || newMsg.recipient_id === clientId) {
-            setConversation(prev => [...prev.filter(m => m._id !== newMsg._id), newMsg]);
-            scrollToBottom();
-          }
+      const msgId = (newMsg._id || newMsg.id)?.toString();
+
+      setMessages(prev => {
+        const filtered = prev.filter(m => (m._id || m.id)?.toString() !== msgId);
+        return [newMsg, ...filtered];
+      });
+
+      const activeClient = selectedClientRef.current;
+      if (activeClient) {
+        const clientId = (activeClient._id || activeClient.id)?.toString();
+        if (newMsg.sender_id === clientId || newMsg.recipient_id === clientId) {
+          setConversation(prev => {
+            if (prev.some(m => (m._id || m.id)?.toString() === msgId)) {
+              return prev.map(m => (m._id || m.id)?.toString() === msgId ? newMsg : m);
+            }
+            return [...prev, newMsg];
+          });
+          scrollToBottom();
         }
-      };
+      }
+    };
 
-      const handleMessageSent = (sentMsg) => {
-        setMessages(prev => [sentMsg, ...prev.filter(m => m._id !== sentMsg._id)]);
-        if (selectedClient) {
-          const clientId = selectedClient._id || selectedClient.id;
-          if (sentMsg.sender_id === clientId || sentMsg.recipient_id === clientId) {
-            setConversation(prev => [...prev.filter(m => m._id !== sentMsg._id), sentMsg]);
-            scrollToBottom();
-          }
+    const handleMessageSent = (sentMsg) => {
+      const msgId = (sentMsg._id || sentMsg.id)?.toString();
+
+      setMessages(prev => {
+        const filtered = prev.filter(m => (m._id || m.id)?.toString() !== msgId);
+        return [sentMsg, ...filtered];
+      });
+
+      const activeClient = selectedClientRef.current;
+      if (activeClient) {
+        const clientId = (activeClient._id || activeClient.id)?.toString();
+        if (sentMsg.sender_id === clientId || sentMsg.recipient_id === clientId) {
+          setConversation(prev => {
+            if (prev.some(m => (m._id || m.id)?.toString() === msgId)) {
+              return prev.map(m => (m._id || m.id)?.toString() === msgId ? sentMsg : m);
+            }
+            return [...prev, sentMsg];
+          });
+          scrollToBottom();
         }
-      };
+      }
+    };
 
-      const handleMessageRead = ({ messageId, read_at }) => {
-        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, is_read: true, read_at } : m));
-        setConversation(prev => prev.map(m => m._id === messageId ? { ...m, is_read: true, read_at } : m));
-      };
+    const handleMessageRead = ({ messageId, read_at }) => {
+      const targetId = messageId?.toString();
+      setMessages(prev => prev.map(m => (m._id || m.id)?.toString() === targetId ? { ...m, is_read: true, read_at } : m));
+      setConversation(prev => prev.map(m => (m._id || m.id)?.toString() === targetId ? { ...m, is_read: true, read_at } : m));
+    };
 
-      socket.on('new_message', handleNewMessage);
-      socket.on('message_sent', handleMessageSent);
-      socket.on('message_read', handleMessageRead);
+    socket.on('new_message', handleNewMessage);
+    socket.on('message_sent', handleMessageSent);
+    socket.on('message_read', handleMessageRead);
 
-      return () => {
-        socket.off('new_message', handleNewMessage);
-        socket.off('message_sent', handleMessageSent);
-        socket.off('message_read', handleMessageRead);
-      };
-    }
-  }, [selectedClient]);
+    return () => {
+      socket.off('new_message', handleNewMessage);
+      socket.off('message_sent', handleMessageSent);
+      socket.off('message_read', handleMessageRead);
+    };
+  }, [profile]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -167,9 +199,21 @@ export default function AdminMessages() {
 
       const res = await api.post('/api/messages', payload);
       const newMsg = res.data;
+      const msgId = (newMsg._id || newMsg.id)?.toString();
 
-      setConversation(prev => [...prev, newMsg]);
-      setMessages(prev => [newMsg, ...prev.filter(m => m._id !== newMsg._id)]);
+      // Deduplicated state update
+      setConversation(prev => {
+        if (prev.some(m => (m._id || m.id)?.toString() === msgId)) {
+          return prev;
+        }
+        return [...prev, newMsg];
+      });
+
+      setMessages(prev => {
+        const filtered = prev.filter(m => (m._id || m.id)?.toString() !== msgId);
+        return [newMsg, ...filtered];
+      });
+
       setReplyText('');
       scrollToBottom();
       toast.success('Message sent to client');
@@ -331,7 +375,7 @@ export default function AdminMessages() {
               <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Try clearing the search filter.</p>
             </div>
           ) : (
-            clientConversations.map(({ client, unreadCount, latestMsg, lastActivity }) => {
+            clientConversations.map(({ client, unreadCount, latestMsg }) => {
               const clientId = client._id || client.id;
               const isSelected = selectedClient && (selectedClient._id === clientId || selectedClient.id === clientId);
 
@@ -388,7 +432,7 @@ export default function AdminMessages() {
 
                   {latestMsg ? (
                     <div style={{ 
-                      fontSize: 11.5, 
+                       fontSize: 11.5, 
                       color: unreadCount > 0 ? '#1e293b' : '#64748b', 
                       fontWeight: unreadCount > 0 ? 600 : 400,
                       whiteSpace: 'nowrap',
@@ -498,7 +542,7 @@ export default function AdminMessages() {
                 </div>
               ) : (
                 conversation.map((msg, idx) => {
-                  const clientId = selectedClient._id || selectedClient.id;
+                  const clientId = (selectedClient._id || selectedClient.id)?.toString();
                   const isFromClient = msg.sender_id === clientId;
 
                   return (
@@ -521,7 +565,7 @@ export default function AdminMessages() {
                         color: '#64748b'
                       }}>
                         <span style={{ fontWeight: 700, color: isFromClient ? '#2563eb' : 'var(--primary-dark)' }}>
-                          {isFromClient ? (selectedClient.company_name || selectedClient.full_name) : (msg.sender?.full_name || profile?.full_name || 'HFA Staff')}
+                          {isFromClient ? (selectedClient.company_name || selectedClient.full_name) : (msg.sender?.full_name || profile?.full_name || 'HFA Admin')}
                         </span>
                         <span>•</span>
                         <span>{new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} ({new Date(msg.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})</span>
@@ -711,4 +755,3 @@ export default function AdminMessages() {
     </div>
   );
 }
-

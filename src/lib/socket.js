@@ -8,6 +8,7 @@ export function getSocket(token) {
     
     socket = io(backendUrl, {
       auth: { token },
+      transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,

@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { 
   MessageSquare, Send, X, User, Search, Plus, Check, CheckCheck, 
-  Clock, Shield, Building2, Phone, Mail, RefreshCw, Paperclip, Filter
+  Clock, Shield, Building2, Phone, Mail, RefreshCw, Paperclip, Filter,
+  Megaphone, Bell, Users
 } from 'lucide-react';
 
 export default function AdminMessages() {
@@ -196,9 +197,14 @@ export default function AdminMessages() {
     setSubmittingReply(true);
     try {
       const clientId = selectedClient._id || selectedClient.id;
+      const isBroadcast = clientId === 'all_clients';
+
       const payload = {
-        recipient_id: clientId,
-        subject: `Re: Communication with ${selectedClient.company_name || selectedClient.full_name}`,
+        recipient_id: isBroadcast ? 'all_clients' : clientId,
+        is_broadcast: isBroadcast,
+        subject: isBroadcast 
+          ? `[Announcement] ${replyText.trim().substring(0, 45)}...`
+          : `Re: Communication with ${selectedClient.company_name || selectedClient.full_name}`,
         body: replyText.trim()
       };
 
@@ -221,7 +227,10 @@ export default function AdminMessages() {
 
       setReplyText('');
       scrollToBottom();
-      toast.success('Message sent to client');
+      toast.success(isBroadcast 
+        ? `📢 Broadcast sent to all clients & email notifications dispatched!` 
+        : 'Message sent to client'
+      );
     } catch (err) {
       toast.error(err.message || 'Failed to send reply');
     } finally {
@@ -241,19 +250,34 @@ export default function AdminMessages() {
     submittingRef.current = true;
     setSubmittingCompose(true);
     try {
+      const isBroadcast = composeForm.recipient_id === 'all_clients';
       const res = await api.post('/api/messages', {
         recipient_id: composeForm.recipient_id,
-        subject: composeForm.subject || 'HFA Support Notice',
+        is_broadcast: isBroadcast,
+        subject: composeForm.subject || (isBroadcast ? 'HFA Official Broadcast Announcement' : 'HFA Support Notice'),
         body: composeForm.body.trim(),
         application_id: composeForm.application_id || null
       });
 
-      toast.success('Message sent to client');
+      toast.success(isBroadcast 
+        ? `📢 Broadcast delivered to all clients & email notifications dispatched!` 
+        : 'Message sent to client'
+      );
       setShowCompose(false);
 
-      const targetClient = clients.find(c => (c._id || c.id) === composeForm.recipient_id);
-      if (targetClient) {
-        handleSelectClient(targetClient);
+      if (isBroadcast) {
+        handleSelectClient({
+          _id: 'all_clients',
+          id: 'all_clients',
+          company_name: 'All Registered Clients',
+          full_name: 'Broadcast Announcements Channel',
+          isBroadcastChannel: true
+        });
+      } else {
+        const targetClient = clients.find(c => (c._id || c.id) === composeForm.recipient_id);
+        if (targetClient) {
+          handleSelectClient(targetClient);
+        }
       }
 
       setComposeForm({ recipient_id: '', subject: '', body: '', application_id: '' });
@@ -374,6 +398,58 @@ export default function AdminMessages() {
 
         {/* Client List Stream */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
+          {/* Pinned Broadcast Channel */}
+          <div 
+            onClick={() => handleSelectClient({
+              _id: 'all_clients',
+              id: 'all_clients',
+              company_name: 'All Registered Clients',
+              full_name: 'Broadcast Announcements Channel',
+              email: `Broadcasts to ${clients.length} client companies`,
+              isBroadcastChannel: true
+            })}
+            style={{
+              padding: '12px 16px',
+              borderBottom: '2px solid #e2e8f0',
+              cursor: 'pointer',
+              background: (selectedClient && (selectedClient._id === 'all_clients' || selectedClient.id === 'all_clients')) ? '#ecfdf5' : '#f8fafc',
+              borderLeft: (selectedClient && (selectedClient._id === 'all_clients' || selectedClient.id === 'all_clients')) ? '4px solid #16a34a' : '4px solid #10b981',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: '#16a34a',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 13
+                }}>
+                  📢
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                    All Clients Broadcast
+                  </div>
+                  <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>
+                    Announcements ({clients.length} Companies)
+                  </div>
+                </div>
+              </div>
+              <span className="badge badge-green" style={{ fontSize: 10, padding: '2px 6px' }}>
+                Email & App
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+              Post notices & auto-dispatch email notifications to all clients
+            </div>
+          </div>
+
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center' }}>
               <div className="spinner" style={{ margin: '0 auto 12px' }} />
@@ -487,24 +563,38 @@ export default function AdminMessages() {
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
                     {selectedClient.company_name || selectedClient.full_name}
                   </h3>
-                  <span className="badge badge-blue" style={{ fontSize: 10 }}>
-                    Client Portal
-                  </span>
+                  {selectedClient._id === 'all_clients' || selectedClient.isBroadcastChannel ? (
+                    <span className="badge badge-green" style={{ fontSize: 10 }}>
+                      📢 Broadcast Channel ({clients.length} Clients)
+                    </span>
+                  ) : (
+                    <span className="badge badge-blue" style={{ fontSize: 10 }}>
+                      Client Portal
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, fontSize: 12, color: '#64748b' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <User size={12} /> {selectedClient.full_name}
-                  </span>
-                  <span>•</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Mail size={12} /> {selectedClient.email}
-                  </span>
-                  {selectedClient.phone && (
+                  {selectedClient._id === 'all_clients' || selectedClient.isBroadcastChannel ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#166534', fontWeight: 600 }}>
+                      <Mail size={12} /> Broadcasts are sent to all {clients.length} client inboxes + dispatched as email notifications via Resend
+                    </span>
+                  ) : (
                     <>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <User size={12} /> {selectedClient.full_name}
+                      </span>
                       <span>•</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Phone size={12} /> {selectedClient.phone}
+                        <Mail size={12} /> {selectedClient.email}
                       </span>
+                      {selectedClient.phone && (
+                        <>
+                          <span>•</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Phone size={12} /> {selectedClient.phone}
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -546,15 +636,21 @@ export default function AdminMessages() {
               ) : conversation.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', padding: 40 }}>
                   <MessageSquare size={36} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>No messages in this channel</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>
+                    {selectedClient._id === 'all_clients' ? 'No broadcast announcements posted yet' : 'No messages in this channel'}
+                  </div>
                   <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
-                    Send a direct message below to start communicating with {selectedClient.company_name || selectedClient.full_name}.
+                    {selectedClient._id === 'all_clients' 
+                      ? 'Type an announcement below to notify all clients in real-time and send official email notifications.'
+                      : `Send a direct message below to start communicating with ${selectedClient.company_name || selectedClient.full_name}.`
+                    }
                   </p>
                 </div>
               ) : (
                 conversation.map((msg, idx) => {
                   const clientId = (selectedClient._id || selectedClient.id)?.toString();
                   const isFromClient = msg.sender_id === clientId;
+                  const isBroadcast = msg.recipient_id === 'all_clients' || msg.recipient_id === 'all' || msg.is_broadcast;
 
                   return (
                     <div
@@ -578,6 +674,11 @@ export default function AdminMessages() {
                         <span style={{ fontWeight: 700, color: isFromClient ? '#2563eb' : 'var(--primary-dark)' }}>
                           {isFromClient ? (selectedClient.company_name || selectedClient.full_name) : (msg.sender?.full_name || profile?.full_name || 'HFA Admin')}
                         </span>
+                        {isBroadcast && (
+                          <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
+                            📢 Broadcast to All
+                          </span>
+                        )}
                         <span>•</span>
                         <span>{new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} ({new Date(msg.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})</span>
                       </div>
@@ -598,9 +699,18 @@ export default function AdminMessages() {
                       </div>
 
                       {!isFromClient && (
-                        <div style={{ alignSelf: 'flex-end', marginTop: 2, display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, color: '#94a3b8' }}>
-                          {msg.is_read ? <CheckCheck size={12} color="#16a34a" /> : <Check size={12} />}
-                          <span>{msg.is_read ? 'Read by client' : 'Delivered'}</span>
+                        <div style={{ alignSelf: 'flex-end', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#94a3b8' }}>
+                          {isBroadcast ? (
+                            <>
+                              <Mail size={11} color="#16a34a" />
+                              <span style={{ color: '#166534', fontWeight: 600 }}>Sent to all clients & emailed</span>
+                            </>
+                          ) : (
+                            <>
+                              {msg.is_read ? <CheckCheck size={12} color="#16a34a" /> : <Check size={12} />}
+                              <span>{msg.is_read ? 'Read by client' : 'Delivered'}</span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -621,7 +731,11 @@ export default function AdminMessages() {
                 <textarea
                   className="form-control"
                   rows={2}
-                  placeholder={`Reply to ${selectedClient.company_name || selectedClient.full_name}... (Press Enter to send, Shift+Enter for newline)`}
+                  placeholder={
+                    selectedClient._id === 'all_clients'
+                      ? 'Type broadcast announcement to all clients... (Dispatches in-app and email notifications)'
+                      : `Reply to ${selectedClient.company_name || selectedClient.full_name}... (Press Enter to send, Shift+Enter for newline)`
+                  }
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                   onKeyDown={e => {
@@ -650,10 +764,17 @@ export default function AdminMessages() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    fontWeight: 700
+                    fontWeight: 700,
+                    background: selectedClient._id === 'all_clients' ? '#16a34a' : 'var(--primary)'
                   }}
                 >
-                  {submittingReply ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <><Send size={15} /> Send Reply</>}
+                  {submittingReply ? (
+                    <div className="spinner" style={{ width: 14, height: 14 }} />
+                  ) : selectedClient._id === 'all_clients' ? (
+                    <><Megaphone size={15} /> Send Broadcast</>
+                  ) : (
+                    <><Send size={15} /> Send Reply</>
+                  )}
                 </button>
               </form>
             </div>
@@ -663,7 +784,7 @@ export default function AdminMessages() {
             margin: 'auto', 
             textAlign: 'center', 
             padding: 40,
-            maxWidth: 400
+            maxWidth: 420
           }}>
             <div style={{
               width: 64,
@@ -682,15 +803,32 @@ export default function AdminMessages() {
               Admin Communications Desk
             </h3>
             <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, marginBottom: 20 }}>
-              Select a client company from the directory on the left to review inquiry threads and respond in real-time.
+              Select a client company or open the <strong>All Clients Broadcast</strong> channel to send instant messages and email notifications to all companies.
             </p>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => setShowCompose(true)}
-              style={{ borderRadius: 10, padding: '9px 18px', fontWeight: 700 }}
-            >
-              <Plus size={15} style={{ marginRight: 6 }} /> Compose Direct Message
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button 
+                className="btn btn-outline"
+                onClick={() => {
+                  setComposeForm({
+                    recipient_id: 'all_clients',
+                    subject: '',
+                    body: '',
+                    application_id: ''
+                  });
+                  setShowCompose(true);
+                }}
+                style={{ borderRadius: 10, padding: '9px 16px', fontWeight: 700, color: '#166534', borderColor: '#bbf7d0' }}
+              >
+                📢 Broadcast to All Clients
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setShowCompose(true)}
+                style={{ borderRadius: 10, padding: '9px 18px', fontWeight: 700 }}
+              >
+                <Plus size={15} style={{ marginRight: 6 }} /> Direct Message
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -698,11 +836,17 @@ export default function AdminMessages() {
       {/* Compose Modal */}
       {showCompose && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowCompose(false)}>
-          <div className="modal" style={{ maxWidth: 540 }}>
+          <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MessageSquare size={18} style={{ color: 'var(--primary)' }} />
-                <span className="modal-title">New Direct Message</span>
+                {composeForm.recipient_id === 'all_clients' ? (
+                  <Megaphone size={18} style={{ color: '#16a34a' }} />
+                ) : (
+                  <MessageSquare size={18} style={{ color: 'var(--primary)' }} />
+                )}
+                <span className="modal-title">
+                  {composeForm.recipient_id === 'all_clients' ? '📢 Broadcast Announcement to All Clients' : 'New Direct Message'}
+                </span>
               </div>
               <button className="modal-close" onClick={() => setShowCompose(false)}><X size={16} /></button>
             </div>
@@ -710,21 +854,47 @@ export default function AdminMessages() {
             <form onSubmit={handleSendCompose}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div className="form-group">
-                  <label className="form-label">Recipient Client <span>*</span></label>
+                  <label className="form-label">Recipient <span>*</span></label>
                   <select 
                     className="form-control" 
                     value={composeForm.recipient_id} 
                     onChange={e => setComposeForm(f => ({ ...f, recipient_id: e.target.value }))}
                     required
+                    style={{
+                      fontWeight: composeForm.recipient_id === 'all_clients' ? 800 : 400,
+                      color: composeForm.recipient_id === 'all_clients' ? '#166534' : 'inherit'
+                    }}
                   >
-                    <option value="">-- Choose client company --</option>
-                    {clients.map(c => (
-                      <option key={c._id || c.id} value={c._id || c.id}>
-                        {c.company_name || c.full_name} ({c.email})
-                      </option>
-                    ))}
+                    <option value="">-- Choose recipient or broadcast --</option>
+                    <option value="all_clients" style={{ fontWeight: 'bold', color: '#166534' }}>
+                      📢 All Clients (Broadcast Announcement to ALL {clients.length} Companies)
+                    </option>
+                    <optgroup label="Direct Message to Individual Client:">
+                      {clients.map(c => (
+                        <option key={c._id || c.id} value={c._id || c.id}>
+                          {c.company_name || c.full_name} ({c.email})
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
+
+                {composeForm.recipient_id === 'all_clients' && (
+                  <div style={{
+                    padding: '12px 16px',
+                    background: '#ecfdf5',
+                    borderRadius: 10,
+                    border: '1px solid #bbf7d0',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10
+                  }}>
+                    <Megaphone size={18} style={{ color: '#16a34a', flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ fontSize: 12, color: '#166534', lineHeight: 1.5 }}>
+                      <strong>Broadcast Notification:</strong> This message will be delivered to the Portal Inboxes of all <strong>{clients.length} registered clients</strong> in real-time, and each client will receive an official <strong>Email Notification via Resend</strong>.
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">Subject <span>*</span></label>
@@ -732,19 +902,27 @@ export default function AdminMessages() {
                     className="form-control" 
                     value={composeForm.subject} 
                     onChange={e => setComposeForm(f => ({ ...f, subject: e.target.value }))}
-                    placeholder="e.g. Halal Audit Confirmation or Scheme Update"
+                    placeholder={
+                      composeForm.recipient_id === 'all_clients'
+                        ? 'e.g. [Important Announcement] Annual Halal Standard Updates & Compliance'
+                        : 'e.g. Halal Audit Confirmation or Scheme Update'
+                    }
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Message <span>*</span></label>
+                  <label className="form-label">Message / Announcement Body <span>*</span></label>
                   <textarea 
                     className="form-control" 
                     rows={6} 
                     value={composeForm.body} 
                     onChange={e => setComposeForm(f => ({ ...f, body: e.target.value }))}
-                    placeholder="Write your message to the client..."
+                    placeholder={
+                      composeForm.recipient_id === 'all_clients'
+                        ? 'Write official announcement text to all client companies...'
+                        : 'Write your message to the client...'
+                    }
                     required
                   />
                 </div>
@@ -756,8 +934,17 @@ export default function AdminMessages() {
                   type="submit" 
                   className="btn btn-primary" 
                   disabled={submittingCompose || !composeForm.recipient_id || !composeForm.body}
+                  style={{
+                    background: composeForm.recipient_id === 'all_clients' ? '#16a34a' : 'var(--primary)'
+                  }}
                 >
-                  {submittingCompose ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <><Send size={14} /> Send Message</>}
+                  {submittingCompose ? (
+                    <div className="spinner" style={{ width: 14, height: 14 }} />
+                  ) : composeForm.recipient_id === 'all_clients' ? (
+                    <><Megaphone size={14} /> Send Broadcast to All Clients</>
+                  ) : (
+                    <><Send size={14} /> Send Message</>
+                  )}
                 </button>
               </div>
             </form>

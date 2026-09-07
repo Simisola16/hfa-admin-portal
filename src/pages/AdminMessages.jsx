@@ -35,6 +35,7 @@ export default function AdminMessages() {
 
   const threadEndRef = useRef(null);
   const selectedClientRef = useRef(selectedClient);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     selectedClientRef.current = selectedClient;
@@ -185,9 +186,13 @@ export default function AdminMessages() {
 
   // Send reply in active conversation
   const handleSendReply = async (e) => {
-    e?.preventDefault();
-    if (!replyText.trim() || submittingReply || !selectedClient) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (submittingRef.current || !replyText.trim() || !selectedClient) return;
 
+    submittingRef.current = true;
     setSubmittingReply(true);
     try {
       const clientId = selectedClient._id || selectedClient.id;
@@ -198,7 +203,7 @@ export default function AdminMessages() {
       };
 
       const res = await api.post('/api/messages', payload);
-      const newMsg = res.data;
+      const newMsg = res.data || res;
       const msgId = (newMsg._id || newMsg.id)?.toString();
 
       // Deduplicated state update
@@ -220,15 +225,20 @@ export default function AdminMessages() {
     } catch (err) {
       toast.error(err.message || 'Failed to send reply');
     } finally {
+      submittingRef.current = false;
       setSubmittingReply(false);
     }
   };
 
   // Send new composed message
   const handleSendCompose = async (e) => {
-    e.preventDefault();
-    if (!composeForm.recipient_id || !composeForm.body.trim()) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (submittingRef.current || !composeForm.recipient_id || !composeForm.body.trim()) return;
 
+    submittingRef.current = true;
     setSubmittingCompose(true);
     try {
       const res = await api.post('/api/messages', {
@@ -251,6 +261,7 @@ export default function AdminMessages() {
     } catch (err) {
       toast.error(err.message || 'Failed to send message');
     } finally {
+      submittingRef.current = false;
       setSubmittingCompose(false);
     }
   };
@@ -616,7 +627,8 @@ export default function AdminMessages() {
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      handleSendReply();
+                      e.stopPropagation();
+                      handleSendReply(e);
                     }
                   }}
                   style={{ 

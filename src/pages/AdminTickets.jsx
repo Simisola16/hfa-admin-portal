@@ -24,7 +24,12 @@ export default function AdminTickets() {
   const [search, setSearch] = useState('');
 
   const responsesEndRef = useRef(null);
-  const socketRef = useRef(null);
+  const selectedTicketRef = useRef(selectedTicket);
+  const submittingRef = useRef(false);
+
+  useEffect(() => {
+    selectedTicketRef.current = selectedTicket;
+  }, [selectedTicket]);
 
   const fetchTickets = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -33,8 +38,9 @@ export default function AdminTickets() {
       const data = res.data || [];
       setTickets(data);
 
-      if (selectedTicket) {
-        const found = data.find(t => t._id === selectedTicket._id || t.id === selectedTicket.id);
+      if (selectedTicketRef.current) {
+        const selId = (selectedTicketRef.current._id || selectedTicketRef.current.id)?.toString();
+        const found = data.find(t => (t._id || t.id)?.toString() === selId);
         if (found) setSelectedTicket(found);
       }
     } catch (err) {
@@ -48,64 +54,68 @@ export default function AdminTickets() {
     fetchTickets();
   }, []);
 
-  // Socket.io Real-Time Synchronization
+  // Socket.io Real-Time Synchronization (attached once)
   useEffect(() => {
     const token = localStorage.getItem('hfa_token');
     if (!token) return;
 
     const socket = getSocket(token);
-    socketRef.current = socket;
+    if (!socket) return;
 
-    if (socket) {
-      const handleTicketCreated = (newTkt) => {
-        const clientName = newTkt.user?.company_name || newTkt.user?.full_name || 'Client';
-        toast.success(`New Ticket: ${newTkt.ticket_number} from ${clientName}`, {
-          icon: '🎫',
-          duration: 5000
-        });
+    const handleTicketCreated = (newTkt) => {
+      const tktId = (newTkt._id || newTkt.id)?.toString();
+      const clientName = newTkt.user?.company_name || newTkt.user?.full_name || 'Client';
+      toast.success(`New Ticket: ${newTkt.ticket_number} from ${clientName}`, {
+        icon: '🎫',
+        duration: 5000
+      });
 
-        setTickets(prev => [newTkt, ...prev.filter(t => t._id !== newTkt._id)]);
-      };
+      setTickets(prev => [newTkt, ...prev.filter(t => (t._id || t.id)?.toString() !== tktId)]);
+    };
 
-      const handleTicketReply = ({ ticketId, ticket: updatedTicket, reply }) => {
-        toast.success(`Reply on ${updatedTicket.ticket_number}`, {
-          icon: '💬',
-          duration: 4000
-        });
+    const handleTicketReply = ({ ticketId, ticket: updatedTicket, reply }) => {
+      const targetId = ticketId?.toString();
+      toast.success(`Reply on ${updatedTicket.ticket_number}`, {
+        icon: '💬',
+        duration: 4000
+      });
 
-        setTickets(prev => prev.map(t => (t._id === ticketId || t.id === ticketId) ? updatedTicket : t));
-        
-        if (selectedTicket && (selectedTicket._id === ticketId || selectedTicket.id === ticketId)) {
-          setSelectedTicket(updatedTicket);
-          setTimeout(() => {
-            responsesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }
-      };
+      setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === targetId ? updatedTicket : t));
+      
+      const activeTicket = selectedTicketRef.current;
+      if (activeTicket && (activeTicket._id || activeTicket.id)?.toString() === targetId) {
+        setSelectedTicket(updatedTicket);
+        setTimeout(() => {
+          responsesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    };
 
-      const handleTicketUpdated = (updatedTicket) => {
-        setTickets(prev => prev.map(t => (t._id === updatedTicket._id || t.id === updatedTicket._id) ? updatedTicket : t));
-        if (selectedTicket && (selectedTicket._id === updatedTicket._id || selectedTicket.id === updatedTicket._id)) {
-          setSelectedTicket(updatedTicket);
-        }
-      };
+    const handleTicketUpdated = (updatedTicket) => {
+      const targetId = (updatedTicket._id || updatedTicket.id)?.toString();
+      setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === targetId ? updatedTicket : t));
+      const activeTicket = selectedTicketRef.current;
+      if (activeTicket && (activeTicket._id || activeTicket.id)?.toString() === targetId) {
+        setSelectedTicket(updatedTicket);
+      }
+    };
 
-      socket.on('ticket_created', handleTicketCreated);
-      socket.on('ticket_reply', handleTicketReply);
-      socket.on('ticket_updated', handleTicketUpdated);
+    socket.on('ticket_created', handleTicketCreated);
+    socket.on('ticket_reply', handleTicketReply);
+    socket.on('ticket_updated', handleTicketUpdated);
 
-      return () => {
-        socket.off('ticket_created', handleTicketCreated);
-        socket.off('ticket_reply', handleTicketReply);
-        socket.off('ticket_updated', handleTicketUpdated);
-      };
-    }
-  }, [selectedTicket]);
+    return () => {
+      socket.off('ticket_created', handleTicketCreated);
+      socket.off('ticket_reply', handleTicketReply);
+      socket.off('ticket_updated', handleTicketUpdated);
+    };
+  }, []);
 
   const handleReply = async (e, markResolved = false) => {
     e?.preventDefault();
-    if (!reply.trim() || submittingReply || !selectedTicket) return;
+    if (submittingRef.current || !reply.trim() || !selectedTicket) return;
 
+    submittingRef.current = true;
     setSubmittingReply(true);
     try {
       const payload = {
@@ -116,7 +126,7 @@ export default function AdminTickets() {
       const res = await api.post(`/api/tickets/${selectedTicket._id || selectedTicket.id}/reply`, payload);
       setReply('');
       setSelectedTicket(res.data);
-      setTickets(prev => prev.map(t => (t._id === res.data._id || t.id === res.data._id) ? res.data : t));
+      setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === (res.data._id || res.data.id)?.toString() ? res.data : t));
       toast.success(markResolved ? 'Reply sent & ticket marked resolved' : 'Reply sent');
       setTimeout(() => {
         responsesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,6 +134,7 @@ export default function AdminTickets() {
     } catch (err) {
       toast.error(err.message || 'Failed to send reply');
     } finally {
+      submittingRef.current = false;
       setSubmittingReply(false);
     }
   };

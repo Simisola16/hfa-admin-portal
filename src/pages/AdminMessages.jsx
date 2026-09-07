@@ -652,68 +652,107 @@ export default function AdminMessages() {
                   const isFromClient = msg.sender_id === clientId;
                   const isBroadcast = msg.recipient_id === 'all_clients' || msg.recipient_id === 'all' || msg.is_broadcast;
 
+                  const prevMsg = idx > 0 ? conversation[idx - 1] : null;
+                  const showDateDivider = !prevMsg || (
+                    new Date(msg.created_at).toDateString() !== new Date(prevMsg.created_at).toDateString()
+                  );
+
+                  const formatDividerDate = (dateStr) => {
+                    const d = new Date(dateStr);
+                    const now = new Date();
+                    if (d.toDateString() === now.toDateString()) return 'Today';
+                    const yesterday = new Date(now);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                  };
+
                   return (
-                    <div
-                      key={msg._id || idx}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignSelf: isFromClient ? 'flex-start' : 'flex-end',
-                        maxWidth: '78%'
-                      }}
-                    >
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        marginBottom: 4,
-                        alignSelf: isFromClient ? 'flex-start' : 'flex-end',
-                        fontSize: 11,
-                        color: '#64748b'
-                      }}>
-                        <span style={{ fontWeight: 700, color: isFromClient ? '#2563eb' : 'var(--primary-dark)' }}>
-                          {isFromClient ? (selectedClient.company_name || selectedClient.full_name) : (msg.sender?.full_name || profile?.full_name || 'HFA Admin')}
-                        </span>
-                        {isBroadcast && (
-                          <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
-                            📢 Broadcast to All
+                    <React.Fragment key={msg._id || idx}>
+                      {showDateDivider && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '10px 0 4px'
+                        }}>
+                          <span style={{
+                            background: '#e2e8f0',
+                            color: '#475569',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '3px 12px',
+                            borderRadius: 20,
+                            letterSpacing: 0.3
+                          }}>
+                            {formatDividerDate(msg.created_at)}
                           </span>
-                        )}
-                        <span>•</span>
-                        <span>{new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} ({new Date(msg.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})</span>
-                      </div>
-
-                      <div style={{
-                        padding: '14px 18px',
-                        borderRadius: isFromClient ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
-                        background: isFromClient ? 'white' : 'var(--primary)',
-                        color: isFromClient ? '#1e293b' : 'white',
-                        boxShadow: '0 2px 8px -2px rgba(0,0,0,0.08)',
-                        border: isFromClient ? '1px solid #e2e8f0' : 'none',
-                        fontSize: 13.5,
-                        lineHeight: 1.6,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word'
-                      }}>
-                        {msg.body}
-                      </div>
-
-                      {!isFromClient && (
-                        <div style={{ alignSelf: 'flex-end', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#94a3b8' }}>
-                          {isBroadcast ? (
-                            <>
-                              <Mail size={11} color="#16a34a" />
-                              <span style={{ color: '#166534', fontWeight: 600 }}>Sent to all clients & emailed</span>
-                            </>
-                          ) : (
-                            <>
-                              {msg.is_read ? <CheckCheck size={12} color="#16a34a" /> : <Check size={12} />}
-                              <span>{msg.is_read ? 'Read by client' : 'Delivered'}</span>
-                            </>
-                          )}
                         </div>
                       )}
-                    </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignSelf: isFromClient ? 'flex-start' : 'flex-end',
+                          maxWidth: '78%'
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginBottom: 4,
+                          alignSelf: isFromClient ? 'flex-start' : 'flex-end',
+                          fontSize: 11,
+                          color: '#64748b'
+                        }}>
+                          <span style={{ fontWeight: 700, color: isFromClient ? '#2563eb' : 'var(--primary-dark)' }}>
+                            {isFromClient ? (selectedClient.company_name || selectedClient.full_name) : (msg.sender?.full_name || profile?.full_name || 'HFA Staff')}
+                          </span>
+                          {isBroadcast && (
+                            <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
+                              📢 Broadcast to All
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>{new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+
+                        <div style={{
+                          padding: '13px 18px',
+                          borderRadius: isFromClient ? '18px 18px 18px 4px' : '18px 18px 4px 18px',
+                          background: isFromClient 
+                            ? '#ffffff' 
+                            : (isBroadcast ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'linear-gradient(135deg, #1B7A7A 0%, #155e5e 100%)'),
+                          color: isFromClient ? '#1e293b' : 'white',
+                          boxShadow: isFromClient ? '0 2px 8px rgba(0,0,0,0.04)' : '0 3px 12px rgba(27,122,122,0.2)',
+                          border: isFromClient ? '1px solid #e2e8f0' : 'none',
+                          fontSize: 13.5,
+                          lineHeight: 1.6,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}>
+                          {msg.body}
+                        </div>
+
+                        {!isFromClient && (
+                          <div style={{ alignSelf: 'flex-end', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#94a3b8' }}>
+                            {isBroadcast ? (
+                              <>
+                                <Mail size={12} color="#16a34a" />
+                                <span style={{ color: '#166534', fontWeight: 600 }}>Sent to all clients & email dispatched</span>
+                              </>
+                            ) : (
+                              <>
+                                {msg.is_read ? <CheckCheck size={13} color="#16a34a" /> : <Check size={13} />}
+                                <span>{msg.is_read ? 'Read by client' : 'Delivered'}</span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </React.Fragment>
                   );
                 })
               )}
@@ -722,11 +761,41 @@ export default function AdminMessages() {
 
             {/* Quick Reply Bar */}
             <div style={{ 
-              padding: '16px 20px', 
+              padding: '14px 20px', 
               borderTop: '1px solid var(--border)', 
               background: 'white',
               flexShrink: 0 
             }}>
+              {/* Quick Admin Template Chips */}
+              {selectedClient._id !== 'all_clients' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginRight: 2 }}>
+                    Quick Templates:
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={() => setReplyText('Hello, your Halal certification audit has been scheduled. Please ensure all preparation documents are ready.')}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: 12, fontSize: 11, color: '#475569', cursor: 'pointer' }}
+                  >
+                    📅 Audit Confirmation
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setReplyText('Your updated Halal Certificate has been approved and is now available in your client portal.')}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: 12, fontSize: 11, color: '#475569', cursor: 'pointer' }}
+                  >
+                    📜 Certificate Ready
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setReplyText('Please upload the outstanding raw material specification documents for our technical review.')}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: 12, fontSize: 11, color: '#475569', cursor: 'pointer' }}
+                  >
+                    📑 Request Documents
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleSendReply} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                 <textarea
                   className="form-control"
@@ -758,14 +827,15 @@ export default function AdminMessages() {
                   className="btn btn-primary"
                   disabled={submittingReply || !replyText.trim()}
                   style={{
-                    height: 44,
+                    height: 46,
                     padding: '0 20px',
                     borderRadius: 12,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                     fontWeight: 700,
-                    background: selectedClient._id === 'all_clients' ? '#16a34a' : 'var(--primary)'
+                    background: selectedClient._id === 'all_clients' ? '#16a34a' : 'var(--primary)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}
                 >
                   {submittingReply ? (

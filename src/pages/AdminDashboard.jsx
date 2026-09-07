@@ -372,7 +372,7 @@ export default function AdminDashboard() {
 
             {/* Progress track */}
             <div style={{ height: 10, borderRadius: 6, background: '#f1f5f9', overflow: 'hidden', display: 'flex', marginTop: 10 }}>
-              <div style={{ width: `${appApprovedPercent}%`, background: '#00c853', transition: 'width 0.3s' }} title={`Accepted: ${approvedAppsCount}`} />
+              <div style={{ width: `${appApprovedPercent}%`, background: '#00c853', transition: 'width 0.3s' }} title={`Accepted: ${acceptedAppsCount}`} />
               <div style={{ width: `${appPendingPercent}%`, background: '#f59e0b', transition: 'width 0.3s' }} title={`Pending: ${pendingAppsCount}`} />
               <div style={{ width: `${appRejectedPercent}%`, background: '#ef4444', transition: 'width 0.3s' }} title={`Rejected: ${rejectedAppsCount}`} />
             </div>
@@ -385,7 +385,7 @@ export default function AdminDashboard() {
                 title="View Accepted Applications"
               >
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00c853', display: 'inline-block' }} />
-                <span>Accepted: <span style={{ fontWeight: 700 }}>{approvedAppsCount}</span></span>
+                <span>Accepted: <span style={{ fontWeight: 700 }}>{acceptedAppsCount}</span></span>
               </div>
               <div
                 onClick={() => navigate('/applications?type=new')}

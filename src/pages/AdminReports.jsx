@@ -35,7 +35,7 @@ export default function AdminReports() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [timeframe, setTimeframe] = useState('month');
+  const [timeframe, setTimeframe] = useState('all');
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'applications' | 'certificates' | 'financials' | 'audits' | 'support'
   const [exportingType, setExportingType] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());

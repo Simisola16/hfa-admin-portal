@@ -20,6 +20,12 @@ const STATUS_META = {
   proposal_accepted: { label: 'Proposal Accepted', color: '#15803d', bg: '#dcfce7' },
   proposal_rejected: { label: 'Proposal Rejected', color: '#b91c1c', bg: '#fee2e2' },
   invoice_sent: { label: 'Invoice Sent', color: '#c2410c', bg: '#ffedd5' },
+  payment_received: { label: 'Initial Product in-progress', color: '#0284c7', bg: '#e0f2fe' },
+  initial_product: { label: 'Initial Product in-progress', color: '#0284c7', bg: '#e0f2fe' },
+  initial_product_approved: { label: 'Initial Product Approved', color: '#15803d', bg: '#dcfce7' },
+  dates_proposed: { label: 'Audit Dates Proposed', color: '#0284c7', bg: '#e0f2fe' },
+  dates_accepted: { label: 'Dates Accepted', color: '#15803d', bg: '#dcfce7' },
+  date_finalized: { label: 'Date Finalized', color: '#15803d', bg: '#dcfce7' },
   audit_assigned: { label: 'Audit Assigned', color: '#0e7490', bg: '#cffafe' },
   audit_report_submitted: { label: 'Audit Submitted', color: '#0e7490', bg: '#cffafe' },
   certificate_issued: { label: 'Cert Issued', color: '#15803d', bg: '#dcfce7' },
@@ -27,12 +33,18 @@ const STATUS_META = {
   agreement_signed: { label: 'Agreement Signed', color: '#0e7490', bg: '#cffafe' },
 };
 
-function StatusBadge({ status }) {
-  const s = STATUS_META[status] || {
-    label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Approved/gi, 'Accepted'),
-    color: '#334155',
-    bg: '#f1f5f9'
-  };
+function StatusBadge({ status, type }) {
+  const isRenewal = (type || '').toLowerCase() === 'renewal';
+  let s = STATUS_META[status];
+  if (status === 'payment_received' && isRenewal) {
+    s = { label: 'Renewal Fee Paid', color: '#15803d', bg: '#dcfce7' };
+  } else if (!s) {
+    s = {
+      label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Approved/gi, 'Accepted'),
+      color: '#334155',
+      bg: '#f1f5f9'
+    };
+  }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
@@ -327,7 +339,7 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 10px' }}>
-                        <StatusBadge status={a.status} />
+                        <StatusBadge status={a.status} type={a.application_type} />
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>

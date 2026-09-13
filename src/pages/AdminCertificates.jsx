@@ -52,7 +52,7 @@ export default function AdminCertificates({ defaultTab }) {
   const [form, setForm] = useState({ 
     client_id: '', 
     application_id: '', 
-    certificate_type: 'Halal Certification', 
+    certificate_type: 'HFA SCHEME', 
     issue_date: '', 
     expiry_date: '', 
     products_covered: '' 
@@ -700,7 +700,7 @@ export default function AdminCertificates({ defaultTab }) {
                 <div className="form-group">
                   <label className="form-label">Certificate Type <span>*</span></label>
                   <select className="form-control" value={form.certificate_type} onChange={e => setForm(f => ({ ...f, certificate_type: e.target.value }))}>
-                    {['Annual Halal Certificate','Abattoir Certificate','Restaurant Certificate','Retail Certificate','Export Certificate','Product Certificate'].map(t => <option key={t}>{t}</option>)}
+                    {['GSO MEAT', 'GSO NON MEAT', 'SMIIC', 'HFA SCHEME', 'COSMETICS'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="form-grid">

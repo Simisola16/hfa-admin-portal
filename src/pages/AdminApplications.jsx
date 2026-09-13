@@ -316,7 +316,7 @@ export default function AdminApplications() {
                       <div style={{fontSize:12,color:'var(--text-muted)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</div>
                     </td>
                     <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
-                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || LEGACY_BADGE[app.status] || 'badge-gray'}`}>{STATUS_LABELS[app.status] || app.status?.replace(/_/g, ' ')}</span></td>
+                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || LEGACY_BADGE[app.status] || 'badge-gray'}`}>{app.status === 'payment_received' && (app.application_type || '').toLowerCase() === 'renewal' ? 'Renewal Fee Paid' : (STATUS_LABELS[app.status] || app.status?.replace(/_/g, ' '))}</span></td>
                     <td style={{textAlign:'center', position:'relative'}}>
                       <button
                         className="btn btn-ghost btn-sm"

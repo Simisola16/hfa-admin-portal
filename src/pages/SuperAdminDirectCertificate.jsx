@@ -12,14 +12,11 @@ import {
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES = [
-  'Annual Halal Certificate',
-  'UAE/GSO Approved Halal Certification',
-  'Abattoir & Meat Processing Certificate',
-  'Restaurant & Catering Certificate',
-  'Retail & Supermarket Certificate',
-  'Product & Ingredient Certificate',
-  'Export Halal Certificate',
-  'Halal Storage & Logistics Certificate',
+  'GSO MEAT',
+  'GSO NON MEAT',
+  'SMIIC',
+  'HFA SCHEME',
+  'COSMETICS'
 ];
 
 const SCOPE_PRESETS = [
@@ -104,7 +101,7 @@ export default function SuperAdminDirectCertificate() {
   };
 
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
-  const [certType, setCertType] = useState('Annual Halal Certificate');
+  const [certType, setCertType] = useState('GSO MEAT');
   const [scope, setScope] = useState(SCOPE_PRESETS[0]);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [expiryDate, setExpiryDate] = useState(() => {
@@ -775,8 +772,10 @@ export default function SuperAdminDirectCertificate() {
                       value={certType}
                       onChange={e => {
                         setCertType(e.target.value);
-                        if (e.target.value.includes('UAE/GSO')) {
+                        if (e.target.value.includes('GSO')) {
                           applyValidityPreset(3);
+                        } else {
+                          applyValidityPreset(1);
                         }
                       }}
                       required

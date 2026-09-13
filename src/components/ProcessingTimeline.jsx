@@ -173,7 +173,7 @@ export default function ProcessingTimeline({
       if (isPastPayment && isInitialProductApproved) {
         return 'Initial Product Approved';
       }
-      return isPastPayment && initialProduct ? 'Initial Product In Progress' : 'Initial Product';
+      return isPastPayment ? 'Initial Product in-progress' : 'Initial Product';
     }
     return STATUS_LABELS[stepKey] || stepKey.replace(/_/g, ' ');
   };

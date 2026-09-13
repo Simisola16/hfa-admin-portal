@@ -38,6 +38,7 @@ const NAV_SECTIONS = [
           { label: 'Certified Applications',  path: '/applications?type=certified' },
           { label: 'Renewals',                path: '/applications?type=renewal' },
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
+          { label: 'Extension Applications',  path: '/extension-applications' },
         ],
       },
     ],
@@ -69,6 +70,7 @@ const NAV_SECTIONS = [
       {
         icon: ClipboardList, label: 'Logsheets', path: '/logsheet/manage',
         children: [
+          { label: 'Direct Logsheet',       path: '/logsheet/direct' },
           { label: 'Manage Logsheet',       path: '/logsheet/manage' },
           { label: 'Waiting for Signature', path: '/logsheet/waiting-signature' },
           { label: 'Waiting for Certificate', path: '/logsheet/waiting-certificate' },
@@ -130,6 +132,12 @@ const NAV_SECTIONS = [
         icon: Sparkles,
         label: 'Direct Certificate',
         path: '/superadmin/direct-certificate',
+        badge: '⚡ DIRECT'
+      },
+      {
+        icon: FileText,
+        label: 'Direct Logsheet',
+        path: '/superadmin/direct-logsheet',
         badge: '⚡ DIRECT'
       },
     ],

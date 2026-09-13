@@ -522,11 +522,11 @@ export default function AdminReviewCertificate() {
                   onChange={e => setForm({ ...form, certificate_type: e.target.value })}
                   style={{ fontWeight: 600 }}
                 >
-                  <option value="Halal Certification">Halal Certification (Standard Annual)</option>
-                  <option value="UAE/GSO Halal Certification">UAE/GSO Halal Certification (3-Year Exporter Scheme)</option>
-                  <option value="Add-on Products Certification">Add-on Products Certification</option>
-                  <option value="Export Halal Certificate">Export Halal Certificate</option>
-                  <option value="Batch Halal Certificate">Batch Halal Certificate</option>
+                  <option value="GSO MEAT">GSO MEAT</option>
+                  <option value="GSO NON MEAT">GSO NON MEAT</option>
+                  <option value="SMIIC">SMIIC</option>
+                  <option value="HFA SCHEME">HFA SCHEME</option>
+                  <option value="COSMETICS">COSMETICS</option>
                 </select>
               </div>
 

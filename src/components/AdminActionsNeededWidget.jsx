@@ -171,7 +171,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             break;
 
           case 'payment_received':
-          case 'initial_product_approved':
+          case 'initial_product_approved': {
             if (isRenewal) {
               actionList.push({
                 id: `app-payrec-renewal-${appId}`,
@@ -187,21 +187,54 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                 icon: <Award size={16} />
               });
             } else {
-              actionList.push({
-                id: `app-payrec-${appId}`,
-                category: 'applications',
-                app,
-                type: 'manage_audit',
-                title: app.status === 'initial_product_approved' ? 'Initial Product Approved: Schedule Audit' : 'Initial Payment Received: Schedule Audit',
-                tag: 'Audit Schedule',
-                desc: `Propose 3 possible audit visit dates for ${estName}`,
-                buttonText: 'Propose Audit Dates',
-                buttonBg: '#ea580c',
-                isFullPage: false,
-                icon: <Calendar size={16} />
+              const linkedInitProd = allInitProds.find(ip => {
+                const ipAppId = String(ip.application_id?._id || ip.application_id || '');
+                return ipAppId === String(appId);
               });
+
+              const isInitialProductApproved = app.status === 'initial_product_approved' ||
+                app.is_initial_product_approved ||
+                (linkedInitProd && ['approved', 'initial_product_approved', 'completed'].includes(linkedInitProd.status));
+
+              if (isInitialProductApproved) {
+                actionList.push({
+                  id: `app-payrec-${appId}`,
+                  category: 'applications',
+                  app,
+                  type: 'manage_audit',
+                  title: 'Initial Product Approved: Schedule Audit',
+                  tag: 'Audit Schedule',
+                  desc: `Propose 3 possible audit visit dates for ${estName}`,
+                  buttonText: 'Propose Audit Dates',
+                  buttonBg: '#ea580c',
+                  isFullPage: false,
+                  icon: <Calendar size={16} />
+                });
+              } else {
+                const processLink = linkedInitProd
+                  ? `/initial-products/${linkedInitProd._id || linkedInitProd.id}/processing`
+                  : `/applications/${appId}/processing`;
+
+                actionList.push({
+                  id: `app-initprod-progress-${appId}`,
+                  category: 'initial_products',
+                  app,
+                  type: 'navigate',
+                  title: 'Initial Product in Progress',
+                  tag: 'Initial Product',
+                  desc: linkedInitProd
+                    ? `Initial product "${linkedInitProd.product?.name || 'Specification'}" is undergoing Halal technical assessment for ${estName}.`
+                    : `Payment confirmed for ${estName}. Initial product submission and evaluation in progress.`,
+                  buttonText: 'Go to Process',
+                  buttonBg: '#059669',
+                  isFullPage: true,
+                  link: processLink,
+                  icon: <Layers size={16} />
+                });
+              }
             }
             break;
+          }
 
           case 'dates_rejected':
             actionList.push({
@@ -950,10 +983,12 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                       <div>
                         {item.isFullPage ? (
                           <button
-                            className="btn btn-outline btn-sm"
+                            className="btn btn-sm"
                             style={{
+                              background: item.buttonBg || '#ffffff',
+                              color: item.buttonBg ? '#ffffff' : '#334155',
+                              borderColor: item.buttonBg || '#cbd5e1',
                               gap: 6, fontWeight: 700,
-                              borderColor: '#cbd5e1',
                               padding: '8px 16px', borderRadius: 8
                             }}
                             onClick={() => {

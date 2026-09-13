@@ -959,7 +959,7 @@ export default function ApplicationProcessing() {
               {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
             </h1>
             <span className={`badge ${STATUS_BADGE[status] || 'badge-gray'}`} style={{ fontSize: 12 }}>
-              {STATUS_LABELS[status] || status.replace(/_/g, ' ')}
+              {isRenewal && status === 'payment_received' ? 'Renewal Fee Paid' : (STATUS_LABELS[status] || status.replace(/_/g, ' '))}
             </span>
             {refreshing && <RefreshCw size={14} style={{ color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
           </div>

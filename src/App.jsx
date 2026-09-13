@@ -39,6 +39,10 @@ import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
 import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
 import AdminReviewCertificate from './pages/AdminReviewCertificate';
+import AdminExtensionApplications from './pages/AdminExtensionApplications';
+import AdminExtensionProcessing from './pages/AdminExtensionProcessing';
+import AdminExtensionLogsheet from './pages/AdminExtensionLogsheet';
+import AdminDirectLogsheet from './pages/AdminDirectLogsheet';
 
 export default function App() {
   return (
@@ -51,6 +55,7 @@ export default function App() {
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
+            <Route path="/superadmin/direct-logsheet" element={<AdminDirectLogsheet />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/initial-products" element={<AdminInitialProducts />} />
@@ -63,6 +68,9 @@ export default function App() {
             <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />
             <Route path="/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
+            <Route path="/extension-applications" element={<AdminExtensionApplications />} />
+            <Route path="/extension-applications/:id/processing" element={<AdminExtensionProcessing />} />
+            <Route path="/extension-applications/:id/logsheet" element={<AdminExtensionLogsheet />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />
@@ -83,12 +91,14 @@ export default function App() {
             <Route path="/agreements" element={<AdminAgreements />} />
             <Route path="/exports" element={<AdminExports />} />
             <Route path="/export" element={<AdminExports />} />
+            <Route path="/logsheet/direct" element={<AdminDirectLogsheet />} />
+            <Route path="/logsheet/direct/:id" element={<AdminDirectLogsheet />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
             <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />
             <Route path="/logsheet/waiting-signature" element={<AdminLogsheetWaitingSignature />} />
             <Route path="/logsheet/waiting-certificate" element={<AdminLogsheetWaitingCertificate />} />
-            <Route path="/logsheet/create" element={<Navigate to="/logsheet/manage" replace />} />
+            <Route path="/logsheet/create" element={<Navigate to="/logsheet/direct" replace />} />
             <Route path="/logsheets/:id" element={<Navigate to="/logsheet/manage" replace />} />
             <Route path="/tickets" element={<AdminTickets />} />
             <Route path="/signatures" element={<AdminSignatures />} />

@@ -251,10 +251,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                 value={certificateForm.certificate_type}
                 onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}
               >
-                <option value="Halal Certification">Halal Certification (Standard Annual)</option>
-                <option value="UAE/GSO Halal Certification">UAE/GSO Halal Certification (3-Year Scheme)</option>
-                <option value="Add-on Products Certification">Add-on Products Certification</option>
-                <option value="Export Halal Certificate">Export Halal Certificate</option>
+                <option value="GSO MEAT">GSO MEAT</option>
+                <option value="GSO NON MEAT">GSO NON MEAT</option>
+                <option value="SMIIC">SMIIC</option>
+                <option value="HFA SCHEME">HFA SCHEME</option>
+                <option value="COSMETICS">COSMETICS</option>
               </select>
             </div>
           )}

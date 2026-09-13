@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import { 
   FileText, Search, Trash2, Eye, CheckSquare, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool 
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, Plus 
 } from 'lucide-react';
 
 export default function AdminLogsheetManage() {
@@ -106,6 +106,9 @@ export default function AdminLogsheetManage() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'direct') {
+      return `/logsheet/direct/${l._id}`;
+    }
     if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
       const id = l.initial_product_application_id?._id || l.initial_product_application_id;
       return `/initial-products/${id}/logsheet`;
@@ -115,7 +118,7 @@ export default function AdminLogsheetManage() {
       return `/addon-applications/${id}/logsheet`;
     }
     const id = l.application_id?._id || l.application_id;
-    return id ? `/applications/${id}/logsheet` : '/logsheet/manage';
+    return id ? `/applications/${id}/logsheet` : `/logsheet/direct/${l._id}`;
   };
 
   const getApplicationLink = (l) => {
@@ -199,10 +202,16 @@ export default function AdminLogsheetManage() {
             Review, sign, and manage all processing and finalized application logsheets.
           </p>
         </div>
-        <button className="btn btn-ghost" onClick={fetchLogsheets} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 16px', fontWeight: 700 }}>
-          <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          Reload
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button className="btn btn-ghost" onClick={fetchLogsheets} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 16px', fontWeight: 700 }}>
+            <RefreshCw size={16} className={loading ? 'spin' : ''} />
+            Reload
+          </button>
+          <Link to="/logsheet/direct" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '8px', padding: '8px 18px', fontWeight: 700, textDecoration: 'none' }}>
+            <Plus size={16} />
+            Create Direct Logsheet
+          </Link>
+        </div>
       </div>
 
       {/* Main Table Card */}

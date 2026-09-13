@@ -112,6 +112,9 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'direct') {
+      return `/logsheet/direct/${l._id}`;
+    }
     if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
       const id = l.initial_product_application_id?._id || l.initial_product_application_id;
       return `/initial-products/${id}/logsheet`;

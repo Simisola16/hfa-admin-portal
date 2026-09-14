@@ -442,6 +442,7 @@ export default function ApplicationProcessing() {
   const canActOnApplication = status === 'submitted' || status === 'under_review';
   const isRenewal = app.application_type === 'renewal';
   const isSurveillance = app.application_type === 'surveillance';
+  const isFastTrack = isRenewal || isSurveillance;
   const catLower = String(app.category || '').toLowerCase();
   const typeLower = String(app.application_type || '').toLowerCase();
   const schemeLower = String(app.scheme || '').toLowerCase();

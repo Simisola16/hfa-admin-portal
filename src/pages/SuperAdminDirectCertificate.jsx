@@ -8,7 +8,8 @@ import {
   Award, Shield, ShieldCheck, Plus, Trash2, Copy, Download, Search,
   CheckCircle2, AlertTriangle, FileText, Sparkles, Building2, Package,
   Calendar, Check, X, ArrowRight, RefreshCw, Upload, Eye, FileCheck2,
-  Lock, ExternalLink, HelpCircle, Layers, AlertCircle, Info
+  Lock, ExternalLink, HelpCircle, Layers, AlertCircle, Info,
+  CheckSquare, Square, Filter, ListChecks, CheckCheck
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES = [
@@ -78,6 +79,12 @@ export default function SuperAdminDirectCertificate() {
   const [clientMode, setClientMode] = useState('existing');
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
+
+  // Client Catalog State (Registered Products for Selected Client)
+  const [clientCatalog, setClientCatalog] = useState([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('ALL');
 
   // Quick-create Client Form
   const [newClient, setNewClient] = useState({
@@ -243,6 +250,163 @@ export default function SuperAdminDirectCertificate() {
     }
     return '';
   }, [selectedSite, selectedClient, defaultSite]);
+
+  // Fetch Client Products Catalog
+  const fetchClientCatalog = async (clientId) => {
+    if (!clientId) {
+      setClientCatalog([]);
+      return;
+    }
+    setLoadingCatalog(true);
+    try {
+      const res = await api.get(`/api/products?client_id=${clientId}`);
+      const rawList = Array.isArray(res?.data)
+        ? res.data
+        : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
+      setClientCatalog(rawList);
+    } catch (err) {
+      console.error('Failed to load client products:', err);
+      setClientCatalog([]);
+    } finally {
+      setLoadingCatalog(false);
+    }
+  };
+
+  useEffect(() => {
+    if (clientMode === 'existing' && selectedClient?._id) {
+      fetchClientCatalog(selectedClient._id);
+    } else {
+      setClientCatalog([]);
+    }
+  }, [clientMode, selectedClient?._id]);
+
+  // Catalog Helper: Check if a client catalog product is currently selected
+  const isProductSelected = (catalogItem) => {
+    const cId = catalogItem._id || catalogItem.id;
+    const cName = (catalogItem.name || '').trim().toLowerCase();
+    return products.some(p => {
+      if (p._sourceId && cId && String(p._sourceId) === String(cId)) return true;
+      if (cName && (p.name || '').trim().toLowerCase() === cName) return true;
+      return false;
+    });
+  };
+
+  // Toggle single catalog product selection
+  const toggleCatalogProduct = (catalogItem) => {
+    const selected = isProductSelected(catalogItem);
+    const cId = catalogItem._id || catalogItem.id;
+    const cName = (catalogItem.name || '').trim().toLowerCase();
+
+    if (selected) {
+      // Deselect: remove from products table
+      setProducts(prev => {
+        const filtered = prev.filter(p => {
+          if (p._sourceId && cId && String(p._sourceId) === String(cId)) return false;
+          if (cName && (p.name || '').trim().toLowerCase() === cName) return false;
+          return true;
+        });
+        return filtered.length > 0
+          ? filtered
+          : [{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }];
+      });
+    } else {
+      // Select: add to products table
+      const newProductItem = {
+        id: Date.now(),
+        _sourceId: cId,
+        name: catalogItem.name || '',
+        code: catalogItem.code || catalogItem.barcode || `PRD-${String(products.length + 1).padStart(2, '0')}`,
+        category: catalogItem.category || 'Meat & Poultry',
+        product_type: catalogItem.product_type || 'Processed',
+        barcode: catalogItem.barcode || '',
+        ingredients: Array.isArray(catalogItem.ingredients) ? catalogItem.ingredients.join(', ') : (catalogItem.ingredients || '')
+      };
+
+      setProducts(prev => {
+        // If the only product row is empty placeholder, replace it cleanly
+        if (prev.length === 1 && (!prev[0].name || !prev[0].name.trim())) {
+          return [newProductItem];
+        }
+        return [...prev, newProductItem];
+      });
+    }
+  };
+
+  // Bulk Select all displayed catalog products
+  const handleSelectAllCatalog = (itemsToSelect) => {
+    const targetItems = itemsToSelect || filteredCatalog;
+    const toAdd = [];
+    targetItems.forEach((catItem, idx) => {
+      if (!isProductSelected(catItem)) {
+        toAdd.push({
+          id: Date.now() + idx + Math.random(),
+          _sourceId: catItem._id || catItem.id,
+          name: catItem.name || '',
+          code: catItem.code || catItem.barcode || `PRD-${String(products.length + toAdd.length + 1).padStart(2, '0')}`,
+          category: catItem.category || 'Meat & Poultry',
+          product_type: catItem.product_type || 'Processed',
+          barcode: catItem.barcode || '',
+          ingredients: Array.isArray(catItem.ingredients) ? catItem.ingredients.join(', ') : (catItem.ingredients || '')
+        });
+      }
+    });
+
+    if (toAdd.length === 0) {
+      toast('All displayed products are already selected.', { icon: 'ℹ️' });
+      return;
+    }
+
+    setProducts(prev => {
+      const nonBlank = prev.filter(p => p.name && p.name.trim());
+      return [...nonBlank, ...toAdd];
+    });
+    toast.success(`Selected ${toAdd.length} product(s) for this certificate.`);
+  };
+
+  // Deselect all catalog products
+  const handleDeselectAllCatalog = () => {
+    const catalogIds = new Set(clientCatalog.map(c => String(c._id || c.id)));
+    const catalogNames = new Set(clientCatalog.map(c => (c.name || '').trim().toLowerCase()));
+
+    setProducts(prev => {
+      const remaining = prev.filter(p => {
+        if (p._sourceId && catalogIds.has(String(p._sourceId))) return false;
+        if (p.name && catalogNames.has(p.name.trim().toLowerCase())) return false;
+        return true;
+      });
+      return remaining.length > 0
+        ? remaining
+        : [{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }];
+    });
+    toast.success('Deselected all client catalog products.');
+  };
+
+  // Filtered Catalog Memo
+  const filteredCatalog = useMemo(() => {
+    let list = clientCatalog;
+    if (catalogCategoryFilter !== 'ALL') {
+      list = list.filter(p => p.category === catalogCategoryFilter);
+    }
+    if (catalogSearchQuery.trim()) {
+      const q = catalogSearchQuery.toLowerCase().trim();
+      list = list.filter(p =>
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.code && p.code.toLowerCase().includes(q)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [clientCatalog, catalogCategoryFilter, catalogSearchQuery]);
+
+  const catalogCategories = useMemo(() => {
+    const cats = new Set(clientCatalog.map(p => p.category).filter(Boolean));
+    return ['ALL', ...Array.from(cats)];
+  }, [clientCatalog]);
+
+  const selectedCatalogCount = useMemo(() => {
+    return clientCatalog.filter(c => isProductSelected(c)).length;
+  }, [clientCatalog, products]);
 
   // Product Handlers
   const addProductRow = () => {
@@ -595,7 +759,12 @@ export default function SuperAdminDirectCertificate() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setClientMode('new'); setSelectedClient(null); }}
+                      onClick={() => {
+                        setClientMode('new');
+                        setSelectedClient(null);
+                        setClientCatalog([]);
+                        setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                      }}
                       style={{
                         padding: '5px 12px', borderRadius: 6, border: 'none',
                         background: clientMode === 'new' ? '#ffffff' : 'transparent',
@@ -630,8 +799,11 @@ export default function SuperAdminDirectCertificate() {
                           <div
                             key={c._id}
                             onClick={() => {
-                              setSelectedClient(c);
-                              setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
+                              if (selectedClient?._id !== c._id) {
+                                setSelectedClient(c);
+                                setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
+                                setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                              }
                             }}
                             style={{
                               padding: '10px 14px',
@@ -954,23 +1126,31 @@ export default function SuperAdminDirectCertificate() {
 
               {/* CARD 3: Multi-Product Certification Builder */}
               <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Package size={18} />
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Package size={20} />
                     </div>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>3. Certified Products Builder</h3>
-                        <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11, fontWeight: 800, padding: '1px 8px', borderRadius: 10 }}>
-                          {products.length} {products.length === 1 ? 'Product' : 'Products'}
+                        <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11.5, fontWeight: 800, padding: '2px 9px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Check size={12} strokeWidth={3} />
+                          {products.filter(p => p.name && p.name.trim()).length} on Certificate
                         </span>
+                        {clientCatalog.length > 0 && (
+                          <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12 }}>
+                            {selectedCatalogCount} / {clientCatalog.length} Client Items Picked
+                          </span>
+                        )}
                       </div>
-                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Add and certify products directly covered under this certificate</p>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                        Select from registered client products or add custom product lines for this certificate
+                      </p>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
@@ -998,111 +1178,327 @@ export default function SuperAdminDirectCertificate() {
                   </div>
                 </div>
 
-                {/* Products Table */}
-                <div className="table-wrap" style={{ border: '1px solid #e2e8f0', borderRadius: 10 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
-                        <th style={{ width: 40, padding: '10px 8px', textAlign: 'center' }}>#</th>
-                        <th style={{ width: '30%', padding: '10px 8px' }}>Product Name <span>*</span></th>
-                        <th style={{ width: '18%', padding: '10px 8px' }}>Code / SKU</th>
-                        <th style={{ width: '22%', padding: '10px 8px' }}>Category</th>
-                        <th style={{ width: '18%', padding: '10px 8px' }}>Type / State</th>
-                        <th style={{ width: 60, padding: '10px 8px', textAlign: 'center' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((prod, index) => (
-                        <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{index + 1}</td>
-                          <td style={{ padding: '8px 6px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ padding: '6px 10px', fontSize: 12.5 }}
-                              placeholder="e.g. Frozen Halal Beef Burger"
-                              value={prod.name}
-                              onChange={e => updateProductRow(prod.id, 'name', e.target.value)}
-                              required
-                            />
-                          </td>
-                          <td style={{ padding: '8px 6px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ padding: '6px 10px', fontSize: 12.5 }}
-                              placeholder="e.g. PRD-001"
-                              value={prod.code}
-                              onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '8px 6px' }}>
-                            <select
-                              className="form-control"
-                              style={{ padding: '6px 10px', fontSize: 12.5 }}
-                              value={prod.category}
-                              onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
-                            >
-                              {PRODUCT_CATEGORIES.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td style={{ padding: '8px 6px' }}>
-                            <select
-                              className="form-control"
-                              style={{ padding: '6px 10px', fontSize: 12.5 }}
-                              value={prod.product_type}
-                              onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
-                            >
-                              <option value="Processed">Processed</option>
-                              <option value="Raw">Raw</option>
-                              <option value="Frozen">Frozen</option>
-                              <option value="Chilled">Chilled</option>
-                              <option value="Ambient">Ambient</option>
-                              <option value="Ingredient">Ingredient</option>
-                            </select>
-                          </td>
-                          <td style={{ textAlign: 'center', padding: '8px 6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                title="Duplicate Row"
-                                style={{ padding: 4, color: '#64748b' }}
-                                onClick={() => duplicateProductRow(prod)}
-                              >
-                                <Copy size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                title="Delete Row"
-                                style={{ padding: 4, color: '#ef4444' }}
-                                onClick={() => removeProductRow(prod.id)}
-                              >
-                                <Trash2 size={13} />
-                              </button>
+                {/* ── Client Catalog Selector Box ── */}
+                {clientMode === 'existing' && selectedClient && (
+                  <div style={{
+                    marginBottom: 22,
+                    background: '#f8fafc',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: 14,
+                    padding: 18,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                  }}>
+                    {loadingCatalog ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                        <div className="spinner" style={{ width: 22, height: 22, margin: '0 auto 8px', borderColor: '#16a34a', borderTopColor: 'transparent' }} />
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>Loading registered products for {selectedClient.company_name || selectedClient.full_name}...</div>
+                      </div>
+                    ) : clientCatalog.length > 0 ? (
+                      <div>
+                        {/* Catalog Top Bar */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Building2 size={16} style={{ color: '#16a34a' }} />
+                              <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
+                                {selectedClient.company_name || selectedClient.full_name}’s Registered Products
+                              </span>
+                              <span style={{ background: '#16a34a', color: '#ffffff', fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 10 }}>
+                                {clientCatalog.length}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+                              Click any product card below to toggle inclusion on this certificate.
+                            </p>
+                          </div>
 
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
-                    💡 All products entered above will be registered into the database with <strong>Active Status</strong> and linked to this certificate.
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={addProductRow}
-                    style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}
-                  >
-                    + Add Another Product
-                  </button>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => handleSelectAllCatalog(filteredCatalog)}
+                              style={{ fontSize: 12, background: '#ffffff', borderColor: '#16a34a', color: '#15803d', fontWeight: 700 }}
+                            >
+                              <CheckCheck size={14} style={{ marginRight: 4 }} />
+                              Select All ({filteredCatalog.length})
+                            </button>
+                            {selectedCatalogCount > 0 && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={handleDeselectAllCatalog}
+                                style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}
+                              >
+                                <X size={14} style={{ marginRight: 4 }} />
+                                Deselect All
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Search & Category Filters */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                          <div style={{ position: 'relative', minWidth: 220, flex: '1 1 240px' }}>
+                            <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Search client products by name or SKU..."
+                              value={catalogSearchQuery}
+                              onChange={e => setCatalogSearchQuery(e.target.value)}
+                              style={{ paddingLeft: 30, height: 34, fontSize: 12 }}
+                            />
+                          </div>
+
+                          {catalogCategories.length > 2 && (
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginRight: 2 }}>
+                                <Filter size={11} style={{ display: 'inline', marginRight: 2 }} /> Filter:
+                              </span>
+                              {catalogCategories.map(cat => (
+                                <button
+                                  key={cat}
+                                  type="button"
+                                  onClick={() => setCatalogCategoryFilter(cat)}
+                                  style={{
+                                    padding: '3px 9px',
+                                    borderRadius: 14,
+                                    border: catalogCategoryFilter === cat ? '1.5px solid #16a34a' : '1px solid #cbd5e1',
+                                    background: catalogCategoryFilter === cat ? '#f0fdf4' : '#ffffff',
+                                    color: catalogCategoryFilter === cat ? '#15803d' : '#64748b',
+                                    fontSize: 11,
+                                    fontWeight: catalogCategoryFilter === cat ? 700 : 500,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Interactive Product Grid */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                          gap: 10,
+                          maxHeight: 260,
+                          overflowY: 'auto',
+                          padding: '2px 4px 6px'
+                        }}>
+                          {filteredCatalog.map(item => {
+                            const selected = isProductSelected(item);
+                            return (
+                              <div
+                                key={item._id || item.id}
+                                onClick={() => toggleCatalogProduct(item)}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderRadius: 10,
+                                  border: selected ? '2px solid #16a34a' : '1.5px solid #e2e8f0',
+                                  background: selected ? '#f0fdf4' : '#ffffff',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 10,
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: selected ? '0 2px 8px rgba(22, 163, 74, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)'
+                                }}
+                              >
+                                <div style={{ marginTop: 2, color: selected ? '#16a34a' : '#94a3b8', flexShrink: 0 }}>
+                                  {selected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontWeight: selected ? 800 : 600,
+                                    fontSize: 13,
+                                    color: selected ? '#166534' : '#0f172a',
+                                    lineHeight: 1.3,
+                                    marginBottom: 4,
+                                    wordBreak: 'break-word'
+                                  }}>
+                                    {item.name}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    {item.code && (
+                                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
+                                        {item.code}
+                                      </span>
+                                    )}
+                                    {item.category && (
+                                      <span style={{ fontSize: 10.5, padding: '1px 6px', borderRadius: 4, background: '#e2e8f0', color: '#334155' }}>
+                                        {item.category}
+                                      </span>
+                                    )}
+                                    {item.product_type && (
+                                      <span style={{ fontSize: 10.5, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e' }}>
+                                        {item.product_type}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {filteredCatalog.length === 0 && (
+                          <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 12.5 }}>
+                            No client products matched your search "{catalogSearchQuery}".
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#475569', fontSize: 12.5 }}>
+                        <Info size={18} style={{ color: '#0284c7', flexShrink: 0 }} />
+                        <div>
+                          <strong>No previously registered products found</strong> in database for {selectedClient.company_name || selectedClient.full_name}. You can add new products manually below using the table or bulk paste.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!selectedClient && clientMode === 'existing' && (
+                  <div style={{
+                    marginBottom: 20,
+                    background: '#eff6ff',
+                    border: '1px dashed #93c5fd',
+                    borderRadius: 12,
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    color: '#1e40af',
+                    fontSize: 13
+                  }}>
+                    <Info size={20} style={{ color: '#2563eb', flexShrink: 0 }} />
+                    <div>
+                      <strong>Tip:</strong> Select an existing client in <strong>Step 1</strong> above to instantly load and pick their registered products for this certificate.
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Active Products on Certificate Table ── */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ListChecks size={16} style={{ color: '#16a34a' }} />
+                      <strong style={{ fontSize: 13.5, color: '#0f172a' }}>
+                        Products to be Included on Certificate ({products.filter(p => p.name && p.name.trim()).length})
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                      Only the products listed below will appear on the final certificate
+                    </span>
+                  </div>
+
+                  <div className="table-wrap" style={{ border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                          <th style={{ width: 40, padding: '10px 8px', textAlign: 'center' }}>#</th>
+                          <th style={{ width: '30%', padding: '10px 8px' }}>Product Name <span>*</span></th>
+                          <th style={{ width: '18%', padding: '10px 8px' }}>Code / SKU</th>
+                          <th style={{ width: '22%', padding: '10px 8px' }}>Category</th>
+                          <th style={{ width: '18%', padding: '10px 8px' }}>Type / State</th>
+                          <th style={{ width: 60, padding: '10px 8px', textAlign: 'center' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.map((prod, index) => (
+                          <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#fafdfa' : '#ffffff' }}>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{index + 1}</td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                placeholder="e.g. Frozen Halal Beef Burger"
+                                value={prod.name}
+                                onChange={e => updateProductRow(prod.id, 'name', e.target.value)}
+                                required
+                              />
+                            </td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                placeholder="e.g. PRD-001"
+                                value={prod.code}
+                                onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <select
+                                className="form-control"
+                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                value={prod.category}
+                                onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
+                              >
+                                {PRODUCT_CATEGORIES.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <select
+                                className="form-control"
+                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                value={prod.product_type}
+                                onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
+                              >
+                                <option value="Processed">Processed</option>
+                                <option value="Raw">Raw</option>
+                                <option value="Frozen">Frozen</option>
+                                <option value="Chilled">Chilled</option>
+                                <option value="Ambient">Ambient</option>
+                                <option value="Ingredient">Ingredient</option>
+                              </select>
+                            </td>
+                            <td style={{ textAlign: 'center', padding: '8px 6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  title="Duplicate Row"
+                                  style={{ padding: 4, color: '#64748b' }}
+                                  onClick={() => duplicateProductRow(prod)}
+                                >
+                                  <Copy size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  title="Delete Row"
+                                  style={{ padding: 4, color: '#ef4444' }}
+                                  onClick={() => removeProductRow(prod.id)}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      💡 All products listed above will be certified and printed on the official certificate.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={addProductRow}
+                      style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}
+                    >
+                      + Add Another Product Row
+                    </button>
+                  </div>
                 </div>
               </div>
 

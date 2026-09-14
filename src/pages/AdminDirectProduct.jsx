@@ -119,7 +119,7 @@ export default function AdminDirectProduct() {
   const fetchProductsHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await api.get('/api/products');
+      const res = await api.get('/api/products?all=true');
       const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setHistoryProducts(list);
     } catch (err) {

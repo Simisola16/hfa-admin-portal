@@ -335,10 +335,20 @@ export default function AdminDirectProduct() {
         clientName.toLowerCase().includes(q) ||
         siteName.toLowerCase().includes(q);
 
-      const prodClientId = p.client_id?._id || p.client_id?.id || (typeof p.client_id === 'string' ? p.client_id : '');
+      const prodClientId = p.client_id?._id
+        ? p.client_id._id.toString()
+        : (p.client_id?.id
+            ? p.client_id.id.toString()
+            : (p.client_id ? p.client_id.toString() : '')
+          );
       const matchCompany = !historyFilterCompany || String(prodClientId) === String(historyFilterCompany);
 
-      const prodSiteId = p.site_id?._id || p.site_id?.id || (typeof p.site_id === 'string' ? p.site_id : '');
+      const prodSiteId = p.site_id?._id
+        ? p.site_id._id.toString()
+        : (p.site_id?.id
+            ? p.site_id.id.toString()
+            : (p.site_id ? p.site_id.toString() : '')
+          );
       const matchSite = !historyFilterSite || String(prodSiteId) === String(historyFilterSite);
 
       const matchCategory = !historyFilterCategory || p.category === historyFilterCategory;

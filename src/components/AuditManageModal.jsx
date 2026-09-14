@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Users, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Calendar, Users, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -70,7 +70,7 @@ export default function AuditManageModal({
   useEffect(() => {
     const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
     if (isOpen && targetAppId) {
-      api.get(`/api/initial-products/application/${targetAppId}`)
+      api.get(`/api/initial-products/by-application/${targetAppId}`)
         .then(res => {
           const raw = res.data?.data !== undefined ? res.data.data : (res.data !== undefined ? res.data : null);
           setInitialProduct(raw);
@@ -106,6 +106,19 @@ export default function AuditManageModal({
         .catch(() => setExistingAudits([]));
     }
   }, [isOpen, app, applicationId, propExistingAudits, audit]);
+
+  // Auto-switch to Stage 2 tab if Stage 1 is already completed and Stage 2 is pending
+  useEffect(() => {
+    if (isOpen && isDualStage && existingAudits.length > 0 && !audit?.stage) {
+      const s1 = existingAudits.find(a => (a.stage || 1) === 1) || existingAudits[0];
+      const s2 = existingAudits.find(a => a.stage === 2);
+      const isS1Done = s1?.status === 'audit_completed' || s1?.status === 'audit_successful';
+      const isS2Done = s2?.status === 'audit_completed' || s2?.status === 'audit_successful';
+      if (isS1Done && !isS2Done) {
+        setActiveStage(2);
+      }
+    }
+  }, [isOpen, isDualStage, existingAudits, audit]);
 
   const [inspectorsList, setInspectorsList] = useState([]);
 

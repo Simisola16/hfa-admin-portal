@@ -23,14 +23,22 @@ export default function ProcessingTimeline({
   category = '',
   applicationType = '',
   initialProduct = null,
-  appId = null
+  appId = null,
+  audits = []
 }) {
   const navigate = useNavigate();
   const isRejected = status === 'rejected';
   const isSurveillance = (applicationType || '').toLowerCase() === 'surveillance';
   const isRenewal = (applicationType || '').toLowerCase() === 'renewal' || isSurveillance;
-  const isGSO = category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurveillance;
+  const catLower = String(category || '').toLowerCase();
+  const typeLower = String(applicationType || '').toLowerCase();
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || isSurveillance;
   const isInitialProductApproved = Boolean(initialProduct && (initialProduct.status === 'initial_product_approved' || initialProduct.status === 'approved'));
+
+  const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+  const stage2 = audits?.find(a => a.stage === 2);
+  const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+  const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
 
   // Build a lookup from statusHistory entries for quick timestamp/note access
   const historyMap = {};
@@ -168,6 +176,21 @@ export default function ProcessingTimeline({
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
+    if (isGSO) {
+      if (isStage1Complete && !isStage2Complete) {
+        if (stepKey === 'dates_proposed') return 'Stage 2 Audit Dates Proposed';
+        if (stepKey === 'dates_accepted') return 'Stage 2 Audit Dates Accepted';
+        if (stepKey === 'date_finalized') return 'Stage 2 Audit Date Finalized';
+        if (stepKey === 'audit_assigned') return 'Stage 2 Auditor Assigned';
+        if (stepKey === 'audit_successful') return 'Stage 2 Audit Complete';
+      } else if (!isStage1Complete) {
+        if (stepKey === 'dates_proposed') return 'Stage 1 Audit Dates Proposed';
+        if (stepKey === 'dates_accepted') return 'Stage 1 Audit Dates Accepted';
+        if (stepKey === 'date_finalized') return 'Stage 1 Audit Date Finalized';
+        if (stepKey === 'audit_assigned') return 'Stage 1 Auditor Assigned';
+        if (stepKey === 'audit_successful') return 'Stage 1 Audit Complete';
+      }
+    }
     if (stepKey === 'initial_product') {
       const isPastPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
       if (isPastPayment && isInitialProductApproved) {
@@ -183,6 +206,21 @@ export default function ProcessingTimeline({
   if (normStatus === 'audit_completed') effectiveStatus = 'audit_successful';
   if (normStatus === 'dates_rejected') effectiveStatus = 'dates_proposed';
   if (normStatus === 'audit_report_submitted') effectiveStatus = 'nc_closed';
+
+  // Dual-stage audit tracking: If Stage 1 is complete, but Stage 2 has not completed:
+  // Keep timeline on Stage 2 step, do NOT allow it to jump to nc_closed or logsheet_created!
+  if (isGSO && isStage1Complete && !isStage2Complete) {
+    if (normStatus === 'nc_flagged') {
+      effectiveStatus = 'nc_flagged';
+    } else if (stage2) {
+      if (stage2.status === 'auditors_assigned') effectiveStatus = 'audit_assigned';
+      else if (stage2.status === 'date_finalized') effectiveStatus = 'date_finalized';
+      else if (stage2.status === 'dates_accepted') effectiveStatus = 'dates_accepted';
+      else effectiveStatus = 'dates_proposed';
+    } else {
+      effectiveStatus = 'dates_proposed';
+    }
+  }
 
   // When status is payment_received or initial_product_approved in standard flow:
   // If initial product is not yet approved, advance the active timeline step to 'initial_product'

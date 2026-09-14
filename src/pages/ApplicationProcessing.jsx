@@ -380,16 +380,32 @@ export default function ApplicationProcessing() {
   const handleCloseNc = async () => {
     setActionSubmitting(true);
     try {
-      const auditObj = audits?.[0] || audits?.data?.[0];
-      const auditId = auditObj?._id || auditObj?.id;
-      await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
-      await api.put(`/api/applications/${appId}/status`, {
-        status: 'nc_closed',
-        note: 'NC closed — non-conformities reviewed, verified, and closed.'
-      }).catch(() => {});
+      const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+      const stage2 = audits?.find(a => a.stage === 2);
+      const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+      const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
+      const targetAudit = (isGSO && isStage1Complete && stage2) ? stage2 : stage1;
+      const auditId = targetAudit?._id || targetAudit?.id;
 
-      setApp(prev => ({ ...prev, status: 'nc_closed' }));
-      toast.success('NC Closed successfully! You can now create the LogSheet.');
+      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
+      const nextStatus = res?.data?.application_status;
+
+      if (isGSO && !isStage2Complete) {
+        const targetStatus = nextStatus || 'dates_proposed';
+        await api.put(`/api/applications/${appId}/status`, {
+          status: targetStatus,
+          note: 'Stage 1 NC closed — now proceed to Stage 2 audit scheduling.'
+        }).catch(() => {});
+        setApp(prev => ({ ...prev, status: targetStatus }));
+        toast.success('Stage 1 NC Closed! Please propose Stage 2 Audit Dates.');
+      } else {
+        await api.put(`/api/applications/${appId}/status`, {
+          status: 'nc_closed',
+          note: 'NC closed — non-conformities reviewed, verified, and closed.'
+        }).catch(() => {});
+        setApp(prev => ({ ...prev, status: 'nc_closed' }));
+        toast.success('NC Closed successfully! You can now create the LogSheet.');
+      }
       setShowNcModal(false);
       await fetchApp(true);
     } catch (err) {
@@ -426,8 +442,10 @@ export default function ApplicationProcessing() {
   const canActOnApplication = status === 'submitted' || status === 'under_review';
   const isRenewal = app.application_type === 'renewal';
   const isSurveillance = app.application_type === 'surveillance';
-  const isFastTrack = isRenewal || isSurveillance;
-  const isGSO = app.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurveillance;
+  const catLower = String(app.category || '').toLowerCase();
+  const typeLower = String(app.application_type || '').toLowerCase();
+  const schemeLower = String(app.scheme || '').toLowerCase();
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso') || isSurveillance;
   const activeAudit = (Array.isArray(audits) ? audits[0] : audits?.data?.[0]) || null;
   const hasActiveNc = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0) || (activeAudit?.nc_reports && activeAudit.nc_reports.length > 0) || Boolean(activeAudit?.nc_text && !activeAudit?.nc_closed);
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
@@ -492,12 +510,20 @@ export default function ApplicationProcessing() {
   const handleMarkAuditCompleted = async () => {
     setActionSubmitting(true);
     try {
-      const activeAudit = audits?.find(a => a.status === 'auditors_assigned' || a.status === 'date_finalized') || audits?.[0];
+      const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+      const stage2 = audits?.find(a => a.stage === 2);
+      const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+      const targetAudit = (isGSO && isStage1Complete && stage2) ? stage2 : stage1;
+
       await api.post('/api/audits/complete-clean', {
-        audit_id: activeAudit?._id || activeAudit?.id,
+        audit_id: targetAudit?._id || targetAudit?.id,
         application_id: appId
       });
-      toast.success('Audit session marked as completed successfully!');
+      if (isGSO && !isStage1Complete) {
+        toast.success('Stage 1 Audit completed! Please propose Stage 2 Audit dates.');
+      } else {
+        toast.success('Audit session marked as completed successfully!');
+      }
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to complete audit');
@@ -541,12 +567,75 @@ export default function ApplicationProcessing() {
     const isInitialProductApproved = isFastTrack ? true : Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved);
     const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
     const stage2 = audits?.find(a => a.stage === 2);
+    const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+    const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
+    const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
     const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
     const canCompleteAudit = isDualStage
-      ? (stage1?.status === 'audit_completed' && isStage2Ready)
-      : (status === 'audit_assigned' || stage1?.status === 'auditors_assigned');
+      ? (isStage1Complete ? isStage2Ready : isStage1Ready)
+      : (status === 'audit_assigned' || stage1?.status === 'auditors_assigned' || (stage1?.status === 'date_finalized' && stage1?.auditors?.length > 0));
 
     if (isFastTrack) {
+      // If NC is currently flagged, prioritize NC resolution
+      if (status === 'nc_flagged') {
+        return (
+          <>
+            <button
+              className="btn btn-danger"
+              style={{ gap: 8 }}
+              onClick={() => setShowNcModal(true)}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleCloseNc}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> Close NC
+            </button>
+          </>
+        );
+      }
+
+      // If Dual-Stage and Stage 1 is complete but Stage 2 is NOT complete, manage Stage 2 audit
+      if (isDualStage && !isStage2Complete) {
+        if (canCompleteAudit) {
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 2 Audit
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+              </button>
+            </div>
+          );
+        }
+
+        const stage2NeedsDates = !stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending';
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#ea580c' }}
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Calendar size={16} /> {stage2NeedsDates ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit'}
+          </button>
+        );
+      }
+
       // 2. Audit Scheduling & Execution (Directly after Accept — No Proposal, No Pre-Audit Invoice, No Agreement)
       if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
         if (canCompleteAudit) {
@@ -557,7 +646,7 @@ export default function ApplicationProcessing() {
                 style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
                 onClick={() => setShowAuditModal(true)}
               >
-                <Calendar size={16} /> Manage Audit {isDualStage ? '(2 Stages)' : ''}
+                <Calendar size={16} /> Manage Audit {isDualStage ? '(Stage 1)' : ''}
               </button>
               <button
                 className="btn btn-primary"
@@ -583,7 +672,7 @@ export default function ApplicationProcessing() {
       }
 
       // Post-Audit Decision (Flag NC / Close NC)
-      if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || (status === 'on_hold' && audits.length > 0)) {
+      if (status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0)) {
         return (
           <>
             <button
@@ -606,7 +695,7 @@ export default function ApplicationProcessing() {
         );
       }
 
-      // 3. LogSheet Stage (Post-Audit / NC Closed)
+      // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
       const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
       if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status))) {
@@ -785,7 +874,7 @@ export default function ApplicationProcessing() {
               style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
               onClick={() => setShowAuditModal(true)}
             >
-              <Calendar size={16} /> Manage Audit
+              <Calendar size={16} /> Manage Audit {isDualStage ? (isStage1Complete ? '(Stage 2)' : '(Stage 1)') : ''}
             </button>
             <button
               className="btn btn-primary"
@@ -793,7 +882,7 @@ export default function ApplicationProcessing() {
               onClick={handleMarkAuditCompleted}
               disabled={actionSubmitting}
             >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : (isDualStage ? (isStage1Complete ? 'Mark Stage 2 Audit Completed' : 'Mark Stage 1 Audit Completed') : 'Mark Audit Completed')}
             </button>
           </div>
         );
@@ -805,13 +894,20 @@ export default function ApplicationProcessing() {
           style={{ gap: 8, background: '#ea580c' }}
           onClick={() => setShowAuditModal(true)}
         >
-          <Calendar size={16} /> {audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit'}
+          <Calendar size={16} /> {
+            isDualStage
+              ? (isStage1Complete
+                  ? ((!stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending') ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit')
+                  : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : 'Manage Stage 1 Audit'))
+              : (audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit')
+          }
         </button>
       );
     }
 
     // 5. Post-Audit Decision (NC vs Clean Close & NC Reply)
-    if (status === 'audit_successful' || status === 'audit_completed' || status === 'nc_flagged' || status === 'on_hold') {
+    // If NC is currently flagged, prioritize NC resolution
+    if (status === 'nc_flagged') {
       return (
         <>
           <button
@@ -834,7 +930,66 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // 6. LogSheet Stage (Create / Sign LogSheet) - After NC is Closed
+    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet!
+    if (isDualStage && !isStage2Complete) {
+      if (canCompleteAudit) {
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Stage 2 Audit
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleMarkAuditCompleted}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+            </button>
+          </div>
+        );
+      }
+
+      const stage2NeedsDates = !stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending';
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#ea580c' }}
+          onClick={() => setShowAuditModal(true)}
+        >
+          <Calendar size={16} /> {stage2NeedsDates ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit'}
+        </button>
+      );
+    }
+
+    if (status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold') {
+      return (
+        <>
+          <button
+            className="btn btn-danger"
+            style={{ gap: 8 }}
+            onClick={() => setShowNcModal(true)}
+            disabled={actionSubmitting}
+          >
+            <AlertTriangle size={16} /> Flag NC
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleCloseNc}
+            disabled={actionSubmitting}
+          >
+            <CheckCircle size={16} /> Close NC
+          </button>
+        </>
+      );
+    }
+
+    // 6. LogSheet Stage (Create / Sign LogSheet) - After All Audit Stages are Complete & NC Closed
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
     if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned)) {
@@ -1140,6 +1295,7 @@ export default function ApplicationProcessing() {
                 applicationType={app.application_type || ''}
                 initialProduct={initialProduct}
                 appId={appId}
+                audits={audits}
               />
             </div>
           </div>

@@ -93,6 +93,7 @@ export default function SuperAdminDirectCertificate() {
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [customSiteName, setCustomSiteName] = useState('');
   const [customSiteAddress, setCustomSiteAddress] = useState('');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [manufacturerAddress, setManufacturerAddress] = useState('');
 
   // Certificate Parameters
@@ -208,6 +209,39 @@ export default function SuperAdminDirectCertificate() {
       return String(sClientId) === String(clientId);
     });
   }, [sites, selectedClient]);
+
+  const formatSiteAddress = (site) => {
+    if (!site) return '';
+    const parts = [site.address_1, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const formatClientAddress = (client) => {
+    if (!client) return '';
+    const parts = [client.address, client.postcode, client.country].map(p => (p || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const selectedSite = useMemo(() => {
+    if (!selectedSiteId) return null;
+    return clientSites.find(s => String(s._id) === String(selectedSiteId)) || sites.find(s => String(s._id) === String(selectedSiteId)) || null;
+  }, [selectedSiteId, clientSites, sites]);
+
+  const defaultSite = useMemo(() => {
+    return selectedSite || (clientSites.length > 0 ? clientSites[0] : null);
+  }, [selectedSite, clientSites]);
+
+  const resolvedBusinessAddress = useMemo(() => {
+    if (selectedSite) {
+      return formatSiteAddress(selectedSite);
+    }
+    const clientAddr = formatClientAddress(selectedClient);
+    if (clientAddr) return clientAddr;
+    if (defaultSite) {
+      return formatSiteAddress(defaultSite);
+    }
+    return '';
+  }, [selectedSite, selectedClient, defaultSite]);
 
   // Product Handlers
   const addProductRow = () => {
@@ -336,12 +370,19 @@ export default function SuperAdminDirectCertificate() {
       }
 
       // Facility info
+      const effectiveAddress = (customSiteAddress || resolvedBusinessAddress || '').trim();
       if (selectedSiteId) {
         formData.append('site_id', selectedSiteId);
       }
-      if (customSiteName) formData.append('site_name', customSiteName);
-      if (customSiteAddress) formData.append('site_address', customSiteAddress);
-      if (manufacturerAddress) formData.append('manufacturer_address', manufacturerAddress);
+      if (customSiteName || selectedSite?.name) {
+        formData.append('site_name', customSiteName || selectedSite?.name);
+      }
+      if (effectiveAddress) {
+        formData.append('site_address', effectiveAddress);
+      }
+      if (manufacturerAddress || effectiveAddress) {
+        formData.append('manufacturer_address', manufacturerAddress || effectiveAddress);
+      }
 
       // Certificate details
       formData.append('certificate_number', certNumber.trim());
@@ -629,8 +670,38 @@ export default function SuperAdminDirectCertificate() {
                             <span style={{ fontSize: 13, color: '#0f172a' }}>{selectedClient.email}</span>
                           </div>
                           <div>
-                            <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Business Address</span>
-                            <span style={{ fontSize: 12, color: '#475569' }}>{selectedClient.address || '—'}, {selectedClient.postcode || ''}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: '#64748b' }}>Business / Facility Address</span>
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingAddress(!isEditingAddress)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#16a34a',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                              >
+                                {isEditingAddress ? 'Done' : 'Edit'}
+                              </button>
+                            </div>
+                            {isEditingAddress ? (
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, marginTop: 4 }}
+                                placeholder="Enter address..."
+                                value={customSiteAddress !== '' ? customSiteAddress : resolvedBusinessAddress}
+                                onChange={e => setCustomSiteAddress(e.target.value)}
+                              />
+                            ) : (
+                              <span style={{ fontSize: 12, color: (customSiteAddress || resolvedBusinessAddress) ? '#0f172a' : '#94a3b8', display: 'block', marginTop: 2, fontWeight: (customSiteAddress || resolvedBusinessAddress) ? 500 : 400 }}>
+                                {customSiteAddress || resolvedBusinessAddress || 'No address specified (Click Edit to enter)'}
+                              </span>
+                            )}
                           </div>
                           <div>
                             <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Registered Site (Optional)</label>
@@ -638,11 +709,20 @@ export default function SuperAdminDirectCertificate() {
                               className="form-control"
                               style={{ padding: '4px 8px', fontSize: 12, marginTop: 2 }}
                               value={selectedSiteId}
-                              onChange={e => setSelectedSiteId(e.target.value)}
+                              onChange={e => {
+                                const sId = e.target.value;
+                                setSelectedSiteId(sId);
+                                const foundSite = clientSites.find(s => String(s._id) === String(sId));
+                                if (foundSite) {
+                                  setCustomSiteAddress(formatSiteAddress(foundSite));
+                                } else {
+                                  setCustomSiteAddress('');
+                                }
+                              }}
                             >
-                              <option value="">Use Company Main Address</option>
+                              <option value="">{clientSites.length > 0 ? 'Use Default / Company Address' : 'No registered sites (Use Company Address)'}</option>
                               {clientSites.map(s => (
-                                <option key={s._id} value={s._id}>{s.name} ({s.address_1})</option>
+                                <option key={s._id} value={s._id}>{s.name} ({s.address_1}{s.city ? `, ${s.city}` : ''})</option>
                               ))}
                             </select>
                           </div>

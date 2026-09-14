@@ -8,7 +8,7 @@ import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
-import { generateHfaId } from '../lib/idGenerator';
+import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -735,12 +735,13 @@ export default function AdminApplications() {
                                 return;
                               }
                               if (step === 'SEND CERTIFICATE') {
+                                const certTypeCode = normalizeHfaTypeCode(manageModal?.application_type);
                                 setCertificateForm({
                                   certificate_type: 'Halal Certification',
                                   issue_date: new Date().toISOString().split('T')[0],
                                   expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
                                   products_covered: '',
-                                  certificate_number: generateHfaId(manageModal?.establishment_name || manageModal?.client_id?.company_name || manageModal?.client_id?.full_name || 'HFA'),
+                                  certificate_number: generateHfaId(manageModal?.establishment_name || manageModal?.client_id?.company_name || manageModal?.client_id?.full_name || 'HFA', certTypeCode),
                                   file: null
                                 });
                                 setShowCertificateModal(true);

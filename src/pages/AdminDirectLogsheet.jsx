@@ -3,7 +3,6 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { generateHfaId } from '../lib/idGenerator';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import {
   ClipboardList, Shield, ShieldCheck, Plus, Trash2, Copy, Download, Search,

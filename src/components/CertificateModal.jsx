@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, FileText, Award, ShieldCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
-import { generateHfaId } from '../lib/idGenerator';
+import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 
 const getCleanId = (val) => {
   if (!val) return '';
@@ -46,8 +46,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       prods = loadedApp.scope;
     }
 
+    const certTypeCode = normalizeHfaTypeCode(loadedApp.application_type);
     setCertificateForm({
-      certificate_number: existingCert?.certificate_number || (isSurv ? `HFA-SURV-${Date.now().toString().slice(-6)}` : generateHfaId(companyName)),
+      certificate_number: existingCert?.certificate_number || generateHfaId(companyName, certTypeCode),
       certificate_type: existingCert?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : (isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification')),
       issue_date: existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       expiry_date: existingCert?.expiry_date ? new Date(existingCert.expiry_date).toISOString().split('T')[0] : expiryDate.toISOString().split('T')[0],

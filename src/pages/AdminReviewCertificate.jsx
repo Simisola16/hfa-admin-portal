@@ -64,7 +64,7 @@ export default function AdminReviewCertificate() {
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdCat, setNewProdCat] = useState('');
 
-  // Fetch certificate details & associated client site products
+  // Fetch certificate details & associated client site products with robust multi-tier fallback
   const fetchCertificate = async () => {
     setLoading(true);
     setLoadingProducts(true);
@@ -72,7 +72,7 @@ export default function AdminReviewCertificate() {
       const [certRes, siteProdRes] = await Promise.all([
         api.get(`/api/certificates/${certId}`),
         api.get(`/api/certificates/${certId}/site-products`).catch(err => {
-          console.warn('Failed to load site products:', err);
+          console.warn('Notice: site-products endpoint returned:', err?.response?.status || err?.message);
           return { data: null };
         })
       ]);
@@ -90,12 +90,131 @@ export default function AdminReviewCertificate() {
       setCert(c);
       setClientUser(client);
 
-      // Site products response
+      const clientId = c.client_id || c.application_id?.client_id;
+      const targetSiteId = c.site_id?._id || c.site_id || c.application_id?.site_id;
+
+      // Initial products from siteProdRes
       const siteProdData = siteProdRes?.data || {};
-      const fetchedSiteProducts = Array.isArray(siteProdData.products) ? siteProdData.products : [];
+      let fetchedSiteProducts = Array.isArray(siteProdData.products) ? [...siteProdData.products] : [];
+
+      // Multi-tier Fallback if site-products endpoint returned 0 products
+      if (fetchedSiteProducts.length === 0) {
+        const fallbackMap = new Map();
+
+        const addCandidate = (p, source = 'site_product') => {
+          if (!p) return;
+          const name = (p.name || p.title || p.product_name || '').trim();
+          if (!name) return;
+          const key = name.toLowerCase();
+          if (!fallbackMap.has(key)) {
+            fallbackMap.set(key, {
+              id: p._id ? (p._id.toString ? p._id.toString() : p._id) : (p.id || `p_${Math.random().toString(36).substr(2, 8)}`),
+              name,
+              code: p.code || p.barcode || '',
+              category: p.category || 'Halal Certified',
+              product_type: p.product_type || p.type || 'Processed',
+              description: p.description || '',
+              barcode: p.barcode || p.code || '',
+              source,
+              status: p.status || 'active',
+              site_id: p.site_id || targetSiteId || null
+            });
+          } else {
+            const existing = fallbackMap.get(key);
+            if (!existing.code && (p.code || p.barcode)) existing.code = p.code || p.barcode;
+            if (!existing.category && p.category) existing.category = p.category;
+            if (!existing.description && p.description) existing.description = p.description;
+            if (!existing.barcode && p.barcode) existing.barcode = p.barcode;
+          }
+        };
+
+        // Fallback A: Query /api/products?all=true (standard admin catalog endpoint)
+        try {
+          const prodsRes = await api.get('/api/products?all=true').catch(() => null);
+          const allProds = prodsRes?.data?.data || prodsRes?.data || [];
+          if (Array.isArray(allProds) && allProds.length > 0) {
+            const clientIdStr = clientId ? (clientId._id ? clientId._id.toString() : clientId.toString()) : '';
+            const targetSiteStr = targetSiteId ? (targetSiteId._id ? targetSiteId._id.toString() : targetSiteId.toString()) : '';
+
+            // Filter products for this client
+            const clientMatched = allProds.filter(p => {
+              if (!clientIdStr) return true;
+              const pClient = p.client_id;
+              if (!pClient) return false;
+              const pClientIdStr = (typeof pClient === 'object' && pClient._id) ? pClient._id.toString() : pClient.toString();
+              return pClientIdStr === clientIdStr;
+            });
+
+            // If any product specifically matches the site, prioritize site match
+            const siteMatched = clientMatched.filter(p => {
+              if (!targetSiteStr) return false;
+              const pSite = p.site_id;
+              if (!pSite) return false;
+              const pSiteIdStr = (typeof pSite === 'object' && pSite._id) ? pSite._id.toString() : pSite.toString();
+              return pSiteIdStr === targetSiteStr;
+            });
+
+            const prodsToAdd = siteMatched.length > 0 ? siteMatched : clientMatched;
+            prodsToAdd.forEach(p => addCandidate(p, siteMatched.length > 0 ? 'site_inventory' : 'client_inventory'));
+          }
+        } catch (err) {
+          console.warn('Fallback /api/products query failed:', err);
+        }
+
+        // Fallback B: Products from populated application_id
+        if (c.application_id?.products && Array.isArray(c.application_id.products)) {
+          c.application_id.products.forEach(p => addCandidate(p, 'application'));
+        }
+
+        // Fallback C: Products from ApplicationLogsheet
+        const appId = c.application_id?._id || c.application_id;
+        if (appId) {
+          try {
+            const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
+            const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
+            const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
+            logsheets.forEach(l => {
+              if (Array.isArray(l.products_list)) {
+                l.products_list.forEach(p => addCandidate(p, 'logsheet'));
+              }
+              if (l.product_name) {
+                addCandidate({ name: l.product_name }, 'logsheet');
+              }
+            });
+          } catch (err) {
+            console.warn('Fallback logsheet check notice:', err?.message);
+          }
+        }
+
+        // Fallback D: Products currently recorded on certificate
+        if (Array.isArray(c.product_details)) {
+          c.product_details.forEach(p => addCandidate(p, 'certificate'));
+        }
+        if (Array.isArray(c.products_covered)) {
+          c.products_covered.forEach(p => {
+            if (typeof p === 'string') addCandidate({ name: p }, 'certificate');
+            else if (typeof p === 'object') addCandidate(p, 'certificate');
+          });
+        }
+
+        fetchedSiteProducts = Array.from(fallbackMap.values());
+      }
+
       setSiteProducts(fetchedSiteProducts);
 
-      const resolvedSite = siteProdData.site || siteFromCert || c.site_id || (c.application_id?.site_name ? { name: c.application_id.site_name } : null);
+      // Resolve site data
+      let resolvedSite = siteProdData.site || siteFromCert || c.site_id || (c.application_id?.site_name ? { name: c.application_id.site_name } : null);
+      if (!resolvedSite && clientId) {
+        try {
+          const sitesRes = await api.get('/api/sites').catch(() => null);
+          const allSites = sitesRes?.data?.data || sitesRes?.data || [];
+          if (Array.isArray(allSites)) {
+            const clientIdStr = clientId._id ? clientId._id.toString() : clientId.toString();
+            const clientSite = allSites.find(s => s.client_id && s.client_id.toString() === clientIdStr);
+            if (clientSite) resolvedSite = clientSite;
+          }
+        } catch (_) {}
+      }
       setSiteData(resolvedSite);
 
       const resolvedProducts = Array.isArray(c.products_covered) ? c.products_covered : [];
@@ -128,7 +247,7 @@ export default function AdminReviewCertificate() {
         certificate_type: c.certificate_type || 'Halal Certification',
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
-        manufacturing_address: c.manufacturing_address || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
+        manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
         scope: c.scope || c.application_id?.scope || 'Halal Food and Consumer Products Certification',
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expiry_date: c.expiry_date ? new Date(c.expiry_date).toISOString().split('T')[0] : '',

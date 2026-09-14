@@ -73,7 +73,7 @@ export default function AdminDirectProduct() {
 
   // Product Builder Rows
   const [products, setProducts] = useState([
-    { id: 1, name: '', code: 'PRD-01', category: 'General Food Products', product_type: 'Processed', status: 'active', description: '' }
+    { id: 1, name: '', code: 'PRD-01', category: 'General Food Products', product_type: 'Processed', status: 'approved', description: '' }
   ]);
 
   // Bulk Import Modal
@@ -89,6 +89,7 @@ export default function AdminDirectProduct() {
 
   // History Tab Filter States
   const [historySearch, setHistorySearch] = useState('');
+  const [historyFilterCompany, setHistoryFilterCompany] = useState('');
   const [historyFilterSite, setHistoryFilterSite] = useState('');
   const [historyFilterCategory, setHistoryFilterCategory] = useState('');
 
@@ -183,7 +184,7 @@ export default function AdminDirectProduct() {
         code: `PRD-${String(nextIndex).padStart(2, '0')}`,
         category: 'General Food Products',
         product_type: 'Processed',
-        status: 'active',
+        status: 'approved',
         description: ''
       }
     ]);
@@ -231,7 +232,7 @@ export default function AdminDirectProduct() {
         code,
         category: PRODUCT_CATEGORIES.includes(category) ? category : 'General Food Products',
         product_type: PRODUCT_TYPES.includes(product_type) ? product_type : 'Processed',
-        status: 'active',
+        status: 'approved',
         description: ''
       };
     });
@@ -276,7 +277,7 @@ export default function AdminDirectProduct() {
           code: p.code ? p.code.trim() : '',
           category: p.category,
           product_type: p.product_type,
-          status: p.status || 'active',
+          status: p.status || 'approved',
           description: p.description || '',
           notes: adminNotes
         })),
@@ -302,7 +303,7 @@ export default function AdminDirectProduct() {
 
       // Reset form
       setProducts([
-        { id: Date.now(), name: '', code: 'PRD-01', category: 'General Food Products', product_type: 'Processed', status: 'active', description: '' }
+        { id: Date.now(), name: '', code: 'PRD-01', category: 'General Food Products', product_type: 'Processed', status: 'approved', description: '' }
       ]);
     } catch (err) {
       toast.error(err.message || 'Failed to register products', { id: toastId });
@@ -310,6 +311,15 @@ export default function AdminDirectProduct() {
       setSubmitting(false);
     }
   };
+
+  // Sites available for History filter based on selected Company filter
+  const availableHistorySites = useMemo(() => {
+    if (!historyFilterCompany) return sites;
+    return sites.filter(s => {
+      const sClientId = s.client_id?._id || s.client_id;
+      return String(sClientId) === String(historyFilterCompany);
+    });
+  }, [sites, historyFilterCompany]);
 
   // History Tab Filtered Products
   const filteredHistory = useMemo(() => {
@@ -325,14 +335,17 @@ export default function AdminDirectProduct() {
         clientName.toLowerCase().includes(q) ||
         siteName.toLowerCase().includes(q);
 
-      const prodSiteId = p.site_id?._id || p.site_id?.id || p.site_id;
+      const prodClientId = p.client_id?._id || p.client_id?.id || (typeof p.client_id === 'string' ? p.client_id : '');
+      const matchCompany = !historyFilterCompany || String(prodClientId) === String(historyFilterCompany);
+
+      const prodSiteId = p.site_id?._id || p.site_id?.id || (typeof p.site_id === 'string' ? p.site_id : '');
       const matchSite = !historyFilterSite || String(prodSiteId) === String(historyFilterSite);
 
       const matchCategory = !historyFilterCategory || p.category === historyFilterCategory;
 
-      return matchSearch && matchSite && matchCategory;
+      return matchSearch && matchCompany && matchSite && matchCategory;
     });
-  }, [historyProducts, historySearch, historyFilterSite, historyFilterCategory]);
+  }, [historyProducts, historySearch, historyFilterCompany, historyFilterSite, historyFilterCategory]);
 
   if (!loadingData && !isAdminOrStaff) {
     return (
@@ -1003,21 +1016,27 @@ export default function AdminDirectProduct() {
                 />
               </div>
 
-              {/* Filter Category */}
+              {/* Filter Company */}
               <select
-                value={historyFilterCategory}
-                onChange={e => setHistoryFilterCategory(e.target.value)}
+                value={historyFilterCompany}
+                onChange={e => {
+                  setHistoryFilterCompany(e.target.value);
+                  setHistoryFilterSite('');
+                }}
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
                   border: '1px solid #cbd5e1',
                   fontSize: 13,
-                  background: '#fff'
+                  background: '#fff',
+                  maxWidth: 220
                 }}
               >
-                <option value="">All Categories</option>
-                {PRODUCT_CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                <option value="">All Companies ({clients.length})</option>
+                {clients.map(c => (
+                  <option key={c._id || c.id} value={c._id || c.id}>
+                    {c.company_name || c.full_name || c.email}
+                  </option>
                 ))}
               </select>
 
@@ -1030,14 +1049,36 @@ export default function AdminDirectProduct() {
                   borderRadius: 8,
                   border: '1px solid #cbd5e1',
                   fontSize: 13,
-                  background: '#fff'
+                  background: '#fff',
+                  maxWidth: 220
                 }}
               >
-                <option value="">All Sites ({sites.length})</option>
-                {sites.map(s => (
+                <option value="">
+                  {historyFilterCompany ? `All Sites for Selected Company (${availableHistorySites.length})` : `All Sites (${sites.length})`}
+                </option>
+                {availableHistorySites.map(s => (
                   <option key={s._id || s.id} value={s._id || s.id}>
                     {s.name || s.est_name || s.trading_name || 'Site'}
                   </option>
+                ))}
+              </select>
+
+              {/* Filter Category */}
+              <select
+                value={historyFilterCategory}
+                onChange={e => setHistoryFilterCategory(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  fontSize: 13,
+                  background: '#fff',
+                  maxWidth: 200
+                }}
+              >
+                <option value="">All Categories</option>
+                {PRODUCT_CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
@@ -1115,11 +1156,11 @@ export default function AdminDirectProduct() {
                             borderRadius: 6,
                             fontSize: 11,
                             fontWeight: 700,
-                            background: p.status === 'active' ? '#ecfdf5' : '#fef2f2',
-                            color: p.status === 'active' ? '#059669' : '#dc2626',
-                            border: `1px solid ${p.status === 'active' ? '#a7f3d0' : '#fecaca'}`
+                            background: (p.status === 'active' || p.status === 'approved') ? '#ecfdf5' : '#fef2f2',
+                            color: (p.status === 'active' || p.status === 'approved') ? '#059669' : '#dc2626',
+                            border: `1px solid ${(p.status === 'active' || p.status === 'approved') ? '#a7f3d0' : '#fecaca'}`
                           }}>
-                            {p.status ? p.status.toUpperCase() : 'ACTIVE'}
+                            {p.status ? p.status.toUpperCase() : 'APPROVED'}
                           </span>
                         </td>
                         <td style={{ padding: '10px 14px', color: '#94a3b8', fontSize: 12 }}>

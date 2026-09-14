@@ -43,6 +43,7 @@ import AdminExtensionApplications from './pages/AdminExtensionApplications';
 import AdminExtensionProcessing from './pages/AdminExtensionProcessing';
 import AdminExtensionLogsheet from './pages/AdminExtensionLogsheet';
 import AdminDirectLogsheet from './pages/AdminDirectLogsheet';
+import AdminDirectProduct from './pages/AdminDirectProduct';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
             <Route path="/superadmin/direct-logsheet" element={<AdminDirectLogsheet />} />
+            <Route path="/superadmin/direct-product" element={<AdminDirectProduct />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/initial-products" element={<AdminInitialProducts />} />
@@ -85,6 +87,7 @@ export default function App() {
             <Route path="/messages" element={<AdminMessages />} />
             <Route path="/sites" element={<AdminSites />} />
             <Route path="/products" element={<AdminProducts />} />
+            <Route path="/products/direct" element={<AdminDirectProduct />} />
             <Route path="/products/manage" element={<AdminManageProducts />} />
             <Route path="/reports" element={<AdminReports />} />
             <Route path="/proposals" element={<AdminProposals />} />

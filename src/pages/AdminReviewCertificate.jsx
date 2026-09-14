@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { generateHfaId } from '../lib/idGenerator';
+import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 
 const getPdfUrl = (url) => {
   if (!url) return '';
@@ -497,7 +497,11 @@ export default function AdminReviewCertificate() {
                   <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
                   <button
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, certificate_number: generateHfaId(f.company_name || 'HFA') }))}
+                    onClick={() => {
+                      const detectedType = cert?.application_id?.application_type || cert?.certificate_type || form.certificate_type || 'NE';
+                      const typeCode = normalizeHfaTypeCode(detectedType);
+                      setForm(f => ({ ...f, certificate_number: generateHfaId(f.company_name || 'HFA', typeCode) }));
+                    }}
                     style={{ background: 'none', border: 'none', color: '#0d9488', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
                     Regenerate ID

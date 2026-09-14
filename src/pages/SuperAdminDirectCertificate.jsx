@@ -97,8 +97,8 @@ export default function SuperAdminDirectCertificate() {
   const [manufacturerAddress, setManufacturerAddress] = useState('');
 
   // Certificate Parameters
-  const generateRandomCertNo = (companyName) => {
-    return generateHfaId(companyName || 'UK');
+  const generateRandomCertNo = (companyName, type = 'NE') => {
+    return generateHfaId(companyName || 'UK', type);
   };
 
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
@@ -630,7 +630,7 @@ export default function SuperAdminDirectCertificate() {
                             key={c._id}
                             onClick={() => {
                               setSelectedClient(c);
-                              setCertNumber(generateHfaId(c.company_name || c.full_name));
+                              setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
                             }}
                             style={{
                               padding: '10px 14px',
@@ -743,7 +743,7 @@ export default function SuperAdminDirectCertificate() {
                           const val = e.target.value;
                           setNewClient(prev => ({ ...prev, company_name: val }));
                           if (val.trim().length >= 2) {
-                            setCertNumber(generateHfaId(val));
+                            setCertNumber(generateHfaId(val, 'NE'));
                           }
                         }}
                         required
@@ -828,7 +828,7 @@ export default function SuperAdminDirectCertificate() {
                           const compName = clientMode === 'existing'
                             ? (selectedClient?.company_name || selectedClient?.full_name || 'UK')
                             : (newClient.company_name || 'UK');
-                          setCertNumber(generateHfaId(compName));
+                          setCertNumber(generateHfaId(compName, 'NE'));
                         }}
                       >
                         <RefreshCw size={11} style={{ marginRight: 3 }} /> Generate New

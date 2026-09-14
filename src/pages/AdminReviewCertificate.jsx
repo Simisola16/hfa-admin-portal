@@ -528,9 +528,10 @@ export default function AdminReviewCertificate() {
                 >
                   <option value="GSO MEAT">GSO MEAT</option>
                   <option value="GSO NON MEAT">GSO NON MEAT</option>
-                  <option value="SMIIC">SMIIC</option>
-                  <option value="HFA SCHEME">HFA SCHEME</option>
+                  <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
+                  <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
                   <option value="COSMETICS">COSMETICS</option>
+                  <option value="SMIIC">SMIIC</option>
                 </select>
               </div>
 

@@ -14,9 +14,10 @@ import {
 const CERTIFICATE_TYPES = [
   'GSO MEAT',
   'GSO NON MEAT',
-  'SMIIC',
-  'HFA SCHEME',
-  'COSMETICS'
+  'HFA SCHEME MEAT',
+  'HFA SCHEME NON MEAT',
+  'COSMETICS',
+  'SMIIC'
 ];
 
 const SCOPE_PRESETS = [

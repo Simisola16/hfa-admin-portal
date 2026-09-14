@@ -52,7 +52,7 @@ export default function AdminCertificates({ defaultTab }) {
   const [form, setForm] = useState({ 
     client_id: '', 
     application_id: '', 
-    certificate_type: 'HFA SCHEME', 
+    certificate_type: 'HFA SCHEME MEAT', 
     issue_date: '', 
     expiry_date: '', 
     products_covered: '' 
@@ -700,7 +700,7 @@ export default function AdminCertificates({ defaultTab }) {
                 <div className="form-group">
                   <label className="form-label">Certificate Type <span>*</span></label>
                   <select className="form-control" value={form.certificate_type} onChange={e => setForm(f => ({ ...f, certificate_type: e.target.value }))}>
-                    {['GSO MEAT', 'GSO NON MEAT', 'SMIIC', 'HFA SCHEME', 'COSMETICS'].map(t => <option key={t} value={t}>{t}</option>)}
+                    {['GSO MEAT', 'GSO NON MEAT', 'HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'COSMETICS', 'SMIIC'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="form-grid">

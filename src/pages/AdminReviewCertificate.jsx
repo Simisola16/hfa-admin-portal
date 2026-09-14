@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Award, ArrowLeft, Save, RefreshCw, Send, FileText, CheckCircle2, 
   AlertTriangle, Building, MapPin, Calendar, Package, Plus, Trash2, 
-  ExternalLink, Download, Check, X, Lock, ShieldCheck, Eye, UploadCloud
+  ExternalLink, Download, Check, X, Lock, ShieldCheck, Eye, UploadCloud,
+  Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -26,6 +27,12 @@ export default function AdminReviewCertificate() {
   const [loading, setLoading] = useState(true);
   const [cert, setCert] = useState(null);
   const [clientUser, setClientUser] = useState(null);
+  const [siteData, setSiteData] = useState(null);
+  const [siteProducts, setSiteProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -57,13 +64,22 @@ export default function AdminReviewCertificate() {
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdCat, setNewProdCat] = useState('');
 
-  // Fetch certificate details
+  // Fetch certificate details & associated client site products
   const fetchCertificate = async () => {
     setLoading(true);
+    setLoadingProducts(true);
     try {
-      const res = await api.get(`/api/certificates/${certId}`);
-      const c = res.data?.data || res.data;
-      const client = res.data?.client || null;
+      const [certRes, siteProdRes] = await Promise.all([
+        api.get(`/api/certificates/${certId}`),
+        api.get(`/api/certificates/${certId}/site-products`).catch(err => {
+          console.warn('Failed to load site products:', err);
+          return { data: null };
+        })
+      ]);
+
+      const c = certRes.data?.data || certRes.data;
+      const client = certRes.data?.client || null;
+      const siteFromCert = certRes.data?.site || null;
 
       if (!c) {
         toast.error('Certificate not found.');
@@ -74,26 +90,49 @@ export default function AdminReviewCertificate() {
       setCert(c);
       setClientUser(client);
 
+      // Site products response
+      const siteProdData = siteProdRes?.data || {};
+      const fetchedSiteProducts = Array.isArray(siteProdData.products) ? siteProdData.products : [];
+      setSiteProducts(fetchedSiteProducts);
+
+      const resolvedSite = siteProdData.site || siteFromCert || c.site_id || (c.application_id?.site_name ? { name: c.application_id.site_name } : null);
+      setSiteData(resolvedSite);
+
       const resolvedProducts = Array.isArray(c.products_covered) ? c.products_covered : [];
       let resolvedDetails = Array.isArray(c.product_details) && c.product_details.length > 0
         ? c.product_details
-        : resolvedProducts.map((p, idx) => ({
-            name: typeof p === 'string' ? p : p.name,
-            code: `GEN-${String(idx + 1).padStart(2, '0')}`,
-            category: 'Halal Certified',
-            barcode: ''
-          }));
+        : (resolvedProducts.length > 0
+            ? resolvedProducts.map((p, idx) => ({
+                name: typeof p === 'string' ? p : p.name,
+                code: typeof p === 'object' && p.code ? p.code : `GEN-${String(idx + 1).padStart(2, '0')}`,
+                category: typeof p === 'object' && p.category ? p.category : 'Halal Certified',
+                barcode: typeof p === 'object' && p.barcode ? p.barcode : ''
+              }))
+            : []
+          );
+
+      // If certificate has NO products recorded yet, but site products are available, default to selecting all site products
+      if (resolvedDetails.length === 0 && fetchedSiteProducts.length > 0) {
+        resolvedDetails = fetchedSiteProducts.map((p, idx) => ({
+          name: p.name,
+          code: p.code || `PRD-${String(idx + 1).padStart(2, '0')}`,
+          category: p.category || 'Halal Certified',
+          barcode: p.barcode || ''
+        }));
+      }
+
+      const finalProductsCovered = resolvedDetails.map(p => p.name);
 
       setForm({
         certificate_number: c.certificate_number || '',
         certificate_type: c.certificate_type || 'Halal Certification',
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
-        manufacturing_address: c.manufacturing_address || c.application_id?.manufacturer_address || c.company_address || '',
+        manufacturing_address: c.manufacturing_address || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
         scope: c.scope || c.application_id?.scope || 'Halal Food and Consumer Products Certification',
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expiry_date: c.expiry_date ? new Date(c.expiry_date).toISOString().split('T')[0] : '',
-        products_covered: resolvedProducts,
+        products_covered: finalProductsCovered,
         product_details: resolvedDetails,
         review_notes: c.review_notes || '',
         checklist: {
@@ -107,6 +146,7 @@ export default function AdminReviewCertificate() {
       toast.error('Failed to load certificate: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
+      setLoadingProducts(false);
     }
   };
 
@@ -116,13 +156,114 @@ export default function AdminReviewCertificate() {
     }
   }, [certId]);
 
-  // Handle Add Product
+  // Check if a site product is currently picked for certificate
+  const isProductSelected = (prodName) => {
+    if (!prodName) return false;
+    const target = prodName.trim().toLowerCase();
+    return form.product_details.some(p => (p.name || '').trim().toLowerCase() === target);
+  };
+
+  // Toggle selection of a product from the site inventory
+  const handleToggleProduct = (prod) => {
+    const prodName = (prod.name || '').trim();
+    if (!prodName) return;
+    const target = prodName.toLowerCase();
+    const alreadySelected = form.product_details.some(p => (p.name || '').trim().toLowerCase() === target);
+
+    if (alreadySelected) {
+      // Deselect / Remove
+      const updatedDetails = form.product_details.filter(p => (p.name || '').trim().toLowerCase() !== target);
+      const updatedCovered = updatedDetails.map(p => p.name);
+      setForm(f => ({
+        ...f,
+        product_details: updatedDetails,
+        products_covered: updatedCovered
+      }));
+    } else {
+      // Select / Add
+      const newCode = prod.code || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
+      const newCat = prod.category || 'Halal Certified';
+      const newItem = {
+        name: prodName,
+        code: newCode,
+        category: newCat,
+        barcode: prod.barcode || '',
+        description: prod.description || ''
+      };
+      const updatedDetails = [...form.product_details, newItem];
+      const updatedCovered = updatedDetails.map(p => p.name);
+      setForm(f => ({
+        ...f,
+        product_details: updatedDetails,
+        products_covered: updatedCovered
+      }));
+    }
+  };
+
+  // Select all products visible in the site inventory list
+  const handleSelectAllSiteProducts = (productsToSelect) => {
+    const list = productsToSelect || siteProducts;
+    if (list.length === 0) return;
+
+    const currentMap = new Map();
+    form.product_details.forEach(p => {
+      if (p.name) currentMap.set(p.name.trim().toLowerCase(), p);
+    });
+
+    list.forEach((p) => {
+      const name = (p.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!currentMap.has(key)) {
+        currentMap.set(key, {
+          name,
+          code: p.code || `PRD-${String(currentMap.size + 1).padStart(2, '0')}`,
+          category: p.category || 'Halal Certified',
+          barcode: p.barcode || '',
+          description: p.description || ''
+        });
+      }
+    });
+
+    const updatedDetails = Array.from(currentMap.values());
+    const updatedCovered = updatedDetails.map(p => p.name);
+    setForm(f => ({
+      ...f,
+      product_details: updatedDetails,
+      products_covered: updatedCovered
+    }));
+    toast.success(`Selected all ${list.length} site products.`);
+  };
+
+  // Deselect all products from certificate
+  const handleDeselectAllSiteProducts = () => {
+    setForm(f => ({
+      ...f,
+      product_details: [],
+      products_covered: []
+    }));
+    toast.success('Deselected all products from certificate.');
+  };
+
+  // Update specific field on a selected product (e.g. code or category)
+  const handleUpdateProductDetail = (index, field, value) => {
+    const updated = [...form.product_details];
+    updated[index] = { ...updated[index], [field]: value };
+    const updatedCovered = updated.map(p => p.name);
+    setForm(f => ({
+      ...f,
+      product_details: updated,
+      products_covered: updatedCovered
+    }));
+  };
+
+  // Handle Add Custom Product manually
   const handleAddProduct = () => {
     if (!newProdName.trim()) {
       toast.error('Please enter product name.');
       return;
     }
-    const newCode = newProdCode.trim() || `GEN-${String(form.product_details.length + 1).padStart(2, '0')}`;
+    const newCode = newProdCode.trim() || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
     const newCat = newProdCat.trim() || 'Halal Certified';
 
     const updatedDetails = [
@@ -143,7 +284,7 @@ export default function AdminReviewCertificate() {
     toast.success('Product added to certificate.');
   };
 
-  // Handle Remove Product
+  // Handle Remove Product from Certificate
   const handleRemoveProduct = (index) => {
     const updatedDetails = form.product_details.filter((_, i) => i !== index);
     const updatedCovered = updatedDetails.map(p => p.name);
@@ -152,7 +293,7 @@ export default function AdminReviewCertificate() {
       product_details: updatedDetails,
       products_covered: updatedCovered
     }));
-    toast.success('Product removed.');
+    toast.success('Product removed from certificate.');
   };
 
   // Set date helpers
@@ -193,7 +334,7 @@ export default function AdminReviewCertificate() {
     }
   };
 
-  // Regenerate PDF Preview with updated details
+  // Regenerate PDF Preview with updated details & selected products
   const handleRegeneratePdf = async () => {
     setRegenerating(true);
     try {
@@ -207,7 +348,8 @@ export default function AdminReviewCertificate() {
         scope: form.scope,
         issue_date: form.issue_date,
         expiry_date: form.expiry_date,
-        products_covered: form.products_covered
+        products_covered: form.products_covered,
+        product_details: form.product_details
       });
 
       if (res.data?.certificateUrl) {
@@ -300,6 +442,22 @@ export default function AdminReviewCertificate() {
       setApproving(false);
     }
   };
+
+  const uniqueCategories = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(siteProducts.map(p => p.category).filter(Boolean)))];
+  }, [siteProducts]);
+
+  const filteredSiteProducts = useMemo(() => {
+    return siteProducts.filter(p => {
+      const q = productSearch.trim().toLowerCase();
+      const matchesSearch = !q || 
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.code && p.code.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q));
+      const matchesCat = categoryFilter === 'ALL' || p.category === categoryFilter;
+      return matchesSearch && matchesCat;
+    });
+  }, [siteProducts, productSearch, categoryFilter]);
 
   if (loading) {
     return (
@@ -625,12 +783,40 @@ export default function AdminReviewCertificate() {
 
           {/* Card 3: Scope of Certification & Products Management */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              <Package size={16} style={{ color: '#047857' }} />
-              3. Scope &amp; Certified Products List
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <Package size={16} style={{ color: '#047857' }} />
+                  3. Scope &amp; Certified Products Selection
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                  Pick products belonging to this client site to appear on the official certificate document.
+                </p>
+              </div>
 
-            <div className="form-group" style={{ marginBottom: 18 }}>
+              {/* Site indicator badge */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: 12
+              }}>
+                <MapPin size={14} style={{ color: '#16a34a' }} />
+                <span style={{ color: '#15803d', fontWeight: 700 }}>
+                  {siteData?.name || siteData?.trading_name || siteData?.est_name || cert?.application_id?.site_name || 'Manufacturing Facility Site'}
+                </span>
+                {(siteData?.address || form.manufacturing_address) && (
+                  <span style={{ color: '#64748b', fontSize: 11 }}>• {siteData?.address || form.manufacturing_address}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Scope input */}
+            <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label" style={{ fontWeight: 700 }}>Scope of Certification <span style={{ color: '#dc2626' }}>*</span></label>
               <textarea
                 rows={2}
@@ -641,44 +827,257 @@ export default function AdminReviewCertificate() {
               />
             </div>
 
-            {/* Products Table */}
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                  Products Covered ({form.product_details.length})
-                </span>
-                <span style={{ fontSize: 11, color: '#64748b' }}>Appears on the certificate annex / products schedule</span>
+            {/* SECTION A: SITE PRODUCTS PICKER */}
+            <div style={{
+              background: '#f8fafc',
+              borderRadius: 10,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+              marginBottom: 20
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Layers size={16} style={{ color: '#047857' }} />
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                      Products Available for this Site ({siteProducts.length})
+                    </span>
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: form.product_details.length > 0 ? '#dcfce7' : '#fee2e2',
+                      color: form.product_details.length > 0 ? '#15803d' : '#b91c1c',
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      border: `1px solid ${form.product_details.length > 0 ? '#bbf7d0' : '#fecaca'}`
+                    }}>
+                      {form.product_details.length} Selected for Certificate
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+                    Check or uncheck products to include or exclude them from this certificate.
+                  </div>
+                </div>
+
+                {/* Bulk selection buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAllSiteProducts(filteredSiteProducts)}
+                    disabled={siteProducts.length === 0}
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#047857', borderColor: '#bbf7d0', background: '#ffffff' }}
+                  >
+                    <CheckSquare size={13} /> Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllSiteProducts}
+                    disabled={form.product_details.length === 0}
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#64748b', borderColor: '#cbd5e1', background: '#ffffff' }}
+                  >
+                    <Square size={13} /> Deselect All
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters toolbar */}
+              <div style={{ display: 'grid', gridTemplateColumns: uniqueCategories.length > 2 ? '1fr auto' : '1fr', gap: 10, marginBottom: 12 }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    placeholder="Search site products by name, code, or category..."
+                    className="form-control"
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    style={{ paddingLeft: 32, fontSize: 12, height: 34 }}
+                  />
+                  {productSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setProductSearch('')}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {uniqueCategories.length > 2 && (
+                  <select
+                    className="form-control"
+                    value={categoryFilter}
+                    onChange={e => setCategoryFilter(e.target.value)}
+                    style={{ fontSize: 12, height: 34, width: 170 }}
+                  >
+                    {uniqueCategories.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat === 'ALL' ? 'All Categories' : cat}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Products selection list */}
+              {loadingProducts ? (
+                <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 12 }}>
+                  <RefreshCw size={16} className="spinner" style={{ margin: '0 auto 8px', color: '#047857' }} />
+                  Loading site products...
+                </div>
+              ) : siteProducts.length === 0 ? (
+                <div style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  background: '#ffffff',
+                  borderRadius: 8,
+                  border: '1px dashed #cbd5e1',
+                  color: '#64748b',
+                  fontSize: 12.5
+                }}>
+                  <Package size={28} style={{ color: '#cbd5e1', margin: '0 auto 8px' }} />
+                  <div style={{ fontWeight: 600, color: '#334155' }}>No pre-registered products found for this site.</div>
+                  <div style={{ marginTop: 4 }}>You can manually add custom products in the table below to be issued on this certificate.</div>
+                </div>
+              ) : filteredSiteProducts.length === 0 ? (
+                <div style={{ padding: 18, textAlign: 'center', color: '#64748b', fontSize: 12 }}>
+                  No site products match "<strong>{productSearch}</strong>".
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: 8,
+                  maxHeight: 260,
+                  overflowY: 'auto',
+                  paddingRight: 4
+                }}>
+                  {filteredSiteProducts.map((p) => {
+                    const isSelected = isProductSelected(p.name);
+                    return (
+                      <div
+                        key={p.id || p.name}
+                        onClick={() => handleToggleProduct(p)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 10,
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          background: isSelected ? '#f0fdf4' : '#ffffff',
+                          border: `1.5px solid ${isSelected ? '#86efac' : '#e2e8f0'}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 1px 3px rgba(34,197,94,0.1)' : 'none'
+                        }}
+                      >
+                        <div style={{ marginTop: 2, color: isSelected ? '#16a34a' : '#cbd5e1' }}>
+                          {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12.5,
+                            fontWeight: isSelected ? 700 : 600,
+                            color: isSelected ? '#15803d' : '#1e293b',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {p.name}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                            {p.code && (
+                              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: isSelected ? '#dcfce7' : '#f1f5f9', color: isSelected ? '#166534' : '#475569' }}>
+                                {p.code}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 10.5, color: '#64748b' }}>
+                              {p.category || 'Halal Certified'}
+                            </span>
+                            {p.source && p.source !== 'site_inventory' && (
+                              <span style={{ fontSize: 9.5, color: '#0369a1', background: '#e0f2fe', padding: '1px 4px', borderRadius: 3 }}>
+                                {p.source}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION B: PRODUCTS THAT WILL APPEAR ON CERTIFICATE ANNEX */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                    Certified Products Annex ({form.product_details.length})
+                  </span>
+                  <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>
+                    Official products printed on the certificate schedule
+                  </span>
+                </div>
+                {form.product_details.length > 0 && (
+                  <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
+                    ✓ Click "Sync &amp; Refresh" above to preview on PDF
+                  </span>
+                )}
               </div>
 
               {form.product_details.length === 0 ? (
-                <div style={{ padding: 18, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                  No individual products added. Add products below.
+                <div style={{ padding: 18, background: '#fffbeb', borderRadius: 8, border: '1px solid #fef08a', textAlign: 'center', color: '#854d0e', fontSize: 12.5 }}>
+                  <AlertTriangle size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+                  No products selected yet. Please check the products above or add custom products below so they appear on the certificate.
                 </div>
               ) : (
-                <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, background: '#ffffff' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 2 }}>
                       <tr>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 40 }}>#</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 35 }}>#</th>
                         <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569' }}>Product Name</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 100 }}>Code</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 120 }}>Category</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: 50 }}></th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 120 }}>Code</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 150 }}>Category</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', width: 45 }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {form.product_details.map((prod, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 12px', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{prod.name}</td>
-                          <td style={{ padding: '8px 12px', color: '#64748b' }}>{prod.code || '—'}</td>
-                          <td style={{ padding: '8px 12px', color: '#64748b' }}>{prod.category || 'Halal'}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '6px 12px', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
+                          <td style={{ padding: '6px 12px', fontWeight: 600, color: '#0f172a' }}>
+                            {prod.name}
+                          </td>
+                          <td style={{ padding: '6px 12px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={prod.code || ''}
+                              onChange={e => handleUpdateProductDetail(idx, 'code', e.target.value)}
+                              style={{ fontSize: 11.5, padding: '3px 6px', height: 26 }}
+                              placeholder="Code"
+                            />
+                          </td>
+                          <td style={{ padding: '6px 12px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={prod.category || ''}
+                              onChange={e => handleUpdateProductDetail(idx, 'category', e.target.value)}
+                              style={{ fontSize: 11.5, padding: '3px 6px', height: 26 }}
+                              placeholder="Category"
+                            />
+                          </td>
+                          <td style={{ padding: '6px 12px', textAlign: 'center' }}>
                             <button
                               type="button"
                               onClick={() => handleRemoveProduct(idx)}
                               style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}
-                              title="Delete product"
+                              title="Remove product from certificate"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -690,13 +1089,13 @@ export default function AdminReviewCertificate() {
                 </div>
               )}
 
-              {/* Add product mini-form */}
+              {/* Add custom / unlisted product mini-form */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
                 <input
                   type="text"
-                  placeholder="Add product name..."
+                  placeholder="Add custom product name..."
                   className="form-control"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 12, height: 34 }}
                   value={newProdName}
                   onChange={e => setNewProdName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProduct(); } }}
@@ -705,7 +1104,7 @@ export default function AdminReviewCertificate() {
                   type="text"
                   placeholder="Code (optional)"
                   className="form-control"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 12, height: 34 }}
                   value={newProdCode}
                   onChange={e => setNewProdCode(e.target.value)}
                 />
@@ -713,7 +1112,7 @@ export default function AdminReviewCertificate() {
                   type="text"
                   placeholder="Category"
                   className="form-control"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 12, height: 34 }}
                   value={newProdCat}
                   onChange={e => setNewProdCat(e.target.value)}
                 />
@@ -721,7 +1120,7 @@ export default function AdminReviewCertificate() {
                   type="button"
                   onClick={handleAddProduct}
                   className="btn btn-ghost"
-                  style={{ padding: '8px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9' }}
+                  style={{ padding: '6px 14px', fontSize: 12, height: 34, display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9' }}
                 >
                   <Plus size={14} /> Add
                 </button>

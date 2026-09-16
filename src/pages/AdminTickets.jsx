@@ -166,9 +166,10 @@ export default function AdminTickets() {
       };
 
       const res = await api.post(`/api/tickets/${selectedTicket._id || selectedTicket.id}/reply`, payload);
+      const updated = res.data?.data || res.data;
       setReply('');
-      setSelectedTicket(res.data);
-      setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === (res.data._id || res.data.id)?.toString() ? res.data : t));
+      setSelectedTicket(updated);
+      setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === (updated._id || updated.id)?.toString() ? updated : t));
       toast.success(markResolved ? 'Reply sent & ticket marked resolved' : 'Reply sent');
       setTimeout(() => {
         responsesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -185,8 +186,9 @@ export default function AdminTickets() {
     if (!selectedTicket) return;
     try {
       const res = await api.patch(`/api/tickets/${selectedTicket._id || selectedTicket.id}/status`, { status: newStatus });
-      setSelectedTicket(res.data);
-      setTickets(prev => prev.map(t => (t._id === res.data._id || t.id === res.data._id) ? res.data : t));
+      const updated = res.data?.data || res.data;
+      setSelectedTicket(updated);
+      setTickets(prev => prev.map(t => ((t._id || t.id)?.toString() === (updated._id || updated.id)?.toString()) ? updated : t));
       toast.success(`Ticket status updated to ${newStatus}`);
     } catch (err) {
       toast.error(err.message || 'Failed to update ticket status');
@@ -199,7 +201,7 @@ export default function AdminTickets() {
       const res = await api.patch(`/api/tickets/${selectedTicket._id || selectedTicket.id}/status`, { priority: newPriority });
       const updated = res.data?.data || res.data;
       setSelectedTicket(updated);
-      setTickets(prev => prev.map(t => ((t._id || t.id) === (updated._id || updated.id)) ? updated : t));
+      setTickets(prev => prev.map(t => ((t._id || t.id)?.toString() === (updated._id || updated.id)?.toString()) ? updated : t));
       toast.success(`Ticket priority set to ${newPriority}`);
     } catch (err) {
       toast.error(err.message || 'Failed to update priority');

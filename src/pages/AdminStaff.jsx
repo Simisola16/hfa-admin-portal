@@ -139,7 +139,8 @@ export default function AdminStaff() {
     password: '',
     full_name: '',
     roles: ['food_tech'],
-    can_issue_direct_certificate: false
+    can_issue_direct_certificate: false,
+    is_support_manager: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -147,6 +148,7 @@ export default function AdminStaff() {
   const [editRolesModal, setEditRolesModal] = useState(null); // target user
   const [editRolesList, setEditRolesList] = useState([]);
   const [editSpecialGrant, setEditSpecialGrant] = useState(false);
+  const [editSupportManagerGrant, setEditSupportManagerGrant] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Suspension Modal State
@@ -199,6 +201,7 @@ export default function AdminStaff() {
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
     if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
     if (!search.trim()) return true;
@@ -303,6 +306,7 @@ export default function AdminStaff() {
     setEditRolesModal(user);
     setEditRolesList(getUserRoles(user));
     setEditSpecialGrant(Boolean(user.can_issue_direct_certificate || user.role === 'superadmin' || (user.roles && user.roles.includes('superadmin'))));
+    setEditSupportManagerGrant(Boolean(user.is_support_manager || user.role === 'superadmin' || user.role === 'support_manager' || (user.roles && user.roles.includes('superadmin'))));
   };
 
   // Save Edit Roles
@@ -314,11 +318,13 @@ export default function AdminStaff() {
     setRolesSaving(true);
     const targetId = editRolesModal._id || editRolesModal.id;
     const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
+    const smVal = editRolesList.includes('superadmin') ? true : editSupportManagerGrant;
     try {
       await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
         role: editRolesList[0],
-        can_issue_direct_certificate: grantVal
+        can_issue_direct_certificate: grantVal,
+        is_support_manager: smVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       
@@ -330,7 +336,8 @@ export default function AdminStaff() {
             ...u,
             roles: editRolesList,
             role: editRolesList[0],
-            can_issue_direct_certificate: grantVal
+            can_issue_direct_certificate: grantVal,
+            is_support_manager: smVal
           };
         }
         return u;
@@ -355,6 +362,19 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Special Grant');
+    }
+  };
+
+  // Special Grants: Toggle Support Manager Privilege
+  const handleToggleSupportManager = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Support Manager privilege.');
+    const nextVal = !currentStatus;
+    try {
+      await api.put(`/api/users/${userId}/support-manager-permission`, { is_support_manager: nextVal });
+      toast.success(`Support Manager privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Support Manager privilege');
     }
   };
 
@@ -605,6 +625,7 @@ export default function AdminStaff() {
             { id: 'accountant', label: 'Accountants' },
             { id: 'admin', label: 'Admins' },
             { id: 'superadmin', label: 'Superadmins' },
+            { id: 'support_manager', label: 'Support Managers 🎧' },
             { id: 'audit', label: 'Audit Team' },
             { id: 'food_tech', label: 'Food Tech Team' },
             { id: 'special_grants', label: 'Special Grants' },
@@ -799,29 +820,55 @@ export default function AdminStaff() {
                             👑 Full Master Access
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => isSuperAdmin && handleToggleSpecialGrant(member._id, member.can_issue_direct_certificate, member.full_name)}
-                            disabled={!isSuperAdmin}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              background: member.can_issue_direct_certificate ? '#ecfdf5' : '#f8fafc',
-                              color: member.can_issue_direct_certificate ? '#047857' : '#64748b',
-                              border: member.can_issue_direct_certificate ? '1.5px solid #a7f3d0' : '1px dashed #cbd5e1',
-                              borderRadius: 20,
-                              padding: '5px 12px',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: isSuperAdmin ? 'pointer' : 'default',
-                              transition: 'all 0.15s ease'
-                            }}
-                            title={isSuperAdmin ? (member.can_issue_direct_certificate ? 'Click to revoke Direct Certificate Studio special grant' : 'Click to grant Direct Certificate Studio privilege') : 'Superadmin permission needed to modify'}
-                          >
-                            <Sparkles size={13} style={{ color: member.can_issue_direct_certificate ? '#10b981' : '#94a3b8' }} />
-                            {member.can_issue_direct_certificate ? '✨ Direct Cert Studio (Active)' : '+ Grant Direct Cert Studio'}
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => isSuperAdmin && handleToggleSpecialGrant(member._id, member.can_issue_direct_certificate, member.full_name)}
+                              disabled={!isSuperAdmin}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                background: member.can_issue_direct_certificate ? '#ecfdf5' : '#f8fafc',
+                                color: member.can_issue_direct_certificate ? '#047857' : '#64748b',
+                                border: member.can_issue_direct_certificate ? '1.5px solid #a7f3d0' : '1px dashed #cbd5e1',
+                                borderRadius: 20,
+                                padding: '4px 10px',
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                cursor: isSuperAdmin ? 'pointer' : 'default',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isSuperAdmin ? (member.can_issue_direct_certificate ? 'Click to revoke Direct Certificate Studio special grant' : 'Click to grant Direct Certificate Studio privilege') : 'Superadmin permission needed to modify'}
+                            >
+                              <Sparkles size={12} style={{ color: member.can_issue_direct_certificate ? '#10b981' : '#94a3b8' }} />
+                              {member.can_issue_direct_certificate ? '✨ Direct Cert Studio' : '+ Direct Cert Studio'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => isSuperAdmin && handleToggleSupportManager(member._id, member.is_support_manager, member.full_name)}
+                              disabled={!isSuperAdmin}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                background: member.is_support_manager ? '#f0fdf4' : '#f8fafc',
+                                color: member.is_support_manager ? '#15803d' : '#64748b',
+                                border: member.is_support_manager ? '1.5px solid #86efac' : '1px dashed #cbd5e1',
+                                borderRadius: 20,
+                                padding: '4px 10px',
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                cursor: isSuperAdmin ? 'pointer' : 'default',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isSuperAdmin ? (member.is_support_manager ? 'Click to revoke Support Manager privilege' : 'Click to grant Support Manager privilege') : 'Superadmin permission needed to modify'}
+                            >
+                              <Shield size={12} style={{ color: member.is_support_manager ? '#16a34a' : '#94a3b8' }} />
+                              {member.is_support_manager ? '🎧 Support Manager' : '+ Support Manager'}
+                            </button>
+                          </div>
                         )}
                       </td>
 
@@ -1080,7 +1127,7 @@ export default function AdminStaff() {
                     Optional elevated permissions for specific operational workflows.
                   </div>
 
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                     <input
                       type="checkbox"
                       checked={staffForm.can_issue_direct_certificate}
@@ -1093,6 +1140,23 @@ export default function AdminStaff() {
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                         Allows this staff account to directly generate certificates and certify products outside standard client application flows.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.is_support_manager}
+                      onChange={e => setStaffForm(f => ({ ...f, is_support_manager: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#059669' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Support Manager Privilege 🎧
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to receive live client human-handover requests from the chatbox and assign tickets to admins.
                       </span>
                     </div>
                   </label>
@@ -1242,22 +1306,41 @@ export default function AdminStaff() {
                     👑 Superadmin accounts automatically possess all Special Grants.
                   </div>
                 ) : (
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={editSpecialGrant}
-                      onChange={e => setEditSpecialGrant(e.target.checked)}
-                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#10b981' }}
-                    />
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                        Grant Direct Certificate Studio Privilege
-                      </span>
-                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
-                        Allows this staff account to directly generate certificates and certify products outside standard client application flows.
-                      </span>
-                    </div>
-                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editSpecialGrant}
+                        onChange={e => setEditSpecialGrant(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#10b981' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Direct Certificate Studio Privilege
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff account to directly generate certificates and certify products outside standard client application flows.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editSupportManagerGrant}
+                        onChange={e => setEditSupportManagerGrant(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#059669' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Support Manager Privilege 🎧
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to receive live client human-handover requests from the chatbox and assign tickets to admins.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
                 )}
               </div>
             </div>

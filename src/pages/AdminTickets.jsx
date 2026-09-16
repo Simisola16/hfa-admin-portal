@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { 
   Search, MessageSquare, Send, X, Clock, AlertCircle, CheckCircle2, 
   HelpCircle, RefreshCw, User, Building2, Phone, Mail, Filter, 
-  Check, CheckCheck, Shield, ChevronDown
+  Check, CheckCheck, Shield, ChevronDown, UserCheck, Sparkles
 } from 'lucide-react';
 
 export default function AdminTickets() {
@@ -16,11 +16,18 @@ export default function AdminTickets() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [reply, setReply] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+
+  // Privilege checks
+  const myId = profile?._id || profile?.id || '';
+  const isSuperAdmin = profile?.role === 'superadmin' || (Array.isArray(profile?.roles) && profile.roles.includes('superadmin'));
+  const isSupportManager = isSuperAdmin || Boolean(profile?.is_support_manager || profile?.role === 'support_manager' || (Array.isArray(profile?.roles) && profile.roles.includes('support_manager')));
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [assignmentFilter, setAssignmentFilter] = useState('all'); // 'all' | 'assigned_to_me' | 'unassigned' | 'chat_widget'
   const [search, setSearch] = useState('');
 
   const responsesEndRef = useRef(null);
@@ -52,6 +59,15 @@ export default function AdminTickets() {
 
   useEffect(() => {
     fetchTickets();
+
+    // Fetch staff list for assignment selector
+    api.get('/api/users')
+      .then(res => {
+        const loaded = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        const staff = loaded.filter(u => u.role !== 'client' && u.is_active !== false);
+        setStaffList(staff);
+      })
+      .catch(() => {});
   }, []);
 
   // Socket.io Real-Time Synchronization (attached once)
@@ -100,16 +116,42 @@ export default function AdminTickets() {
       }
     };
 
+    const handleSupportManagerAlert = ({ ticket, clientName, department, description }) => {
+      if (isSupportManager) {
+        toast((t) => (
+          <div 
+            onClick={() => { setSelectedTicket(ticket); toast.dismiss(t.id); }} 
+            style={{ cursor: 'pointer' }}
+          >
+            <div style={{ fontWeight: 800, color: '#b45309', fontSize: 13 }}>🚨 Human Support Requested!</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{clientName} • {department}</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Click to open &amp; assign an admin agent</div>
+          </div>
+        ), { duration: 9000, icon: '🎧' });
+      }
+    };
+
+    const handleTicketAssigned = ({ ticketId, ticket, ticketNumber }) => {
+      toast.success(`You were assigned to Ticket ${ticketNumber}!`, { icon: '📋' });
+      if (ticket) {
+        setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === ticketId?.toString() ? ticket : t));
+      }
+    };
+
     socket.on('ticket_created', handleTicketCreated);
     socket.on('ticket_reply', handleTicketReply);
     socket.on('ticket_updated', handleTicketUpdated);
+    socket.on('support_manager_alert', handleSupportManagerAlert);
+    socket.on('ticket_assigned', handleTicketAssigned);
 
     return () => {
       socket.off('ticket_created', handleTicketCreated);
       socket.off('ticket_reply', handleTicketReply);
       socket.off('ticket_updated', handleTicketUpdated);
+      socket.off('support_manager_alert', handleSupportManagerAlert);
+      socket.off('ticket_assigned', handleTicketAssigned);
     };
-  }, []);
+  }, [isSupportManager]);
 
   const handleReply = async (e, markResolved = false) => {
     e?.preventDefault();
@@ -155,11 +197,28 @@ export default function AdminTickets() {
     if (!selectedTicket) return;
     try {
       const res = await api.patch(`/api/tickets/${selectedTicket._id || selectedTicket.id}/status`, { priority: newPriority });
-      setSelectedTicket(res.data);
-      setTickets(prev => prev.map(t => (t._id === res.data._id || t.id === res.data._id) ? res.data : t));
+      const updated = res.data?.data || res.data;
+      setSelectedTicket(updated);
+      setTickets(prev => prev.map(t => ((t._id || t.id) === (updated._id || updated.id)) ? updated : t));
       toast.success(`Ticket priority set to ${newPriority}`);
     } catch (err) {
       toast.error(err.message || 'Failed to update priority');
+    }
+  };
+
+  // Support Manager Assignment Handler
+  const handleAssignTicket = async (ticketId, staffId) => {
+    try {
+      const res = await api.patch(`/api/tickets/${ticketId}/status`, {
+        assigned_to: staffId || null
+      });
+      const updated = res.data?.data || res.data;
+      setSelectedTicket(updated);
+      setTickets(prev => prev.map(t => ((t._id || t.id)?.toString() === ticketId?.toString()) ? updated : t));
+      const staffMember = staffList.find(s => (s._id || s.id)?.toString() === staffId?.toString());
+      toast.success(staffId ? `Assigned to ${staffMember?.full_name || 'staff member'}` : 'Assignment removed');
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to assign ticket');
     }
   };
 
@@ -175,6 +234,19 @@ export default function AdminTickets() {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     if (deptFilter !== 'all' && t.department !== deptFilter) return false;
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+
+    // Assignment & Source filter
+    if (assignmentFilter === 'assigned_to_me') {
+      const assignedId = (t.assigned_to?._id || t.assigned_to || t.assigned_staff?._id)?.toString();
+      if (assignedId !== myId?.toString()) return false;
+    }
+    if (assignmentFilter === 'unassigned') {
+      if (t.assigned_to || t.assigned_staff) return false;
+    }
+    if (assignmentFilter === 'chat_widget') {
+      if (t.source !== 'chat_widget') return false;
+    }
+
     if (!search) return true;
     const s = search.toLowerCase();
     const tNum = (t.ticket_number || '').toLowerCase();
@@ -183,7 +255,8 @@ export default function AdminTickets() {
     const dept = (t.department || '').toLowerCase();
     const clientName = (t.user?.full_name || '').toLowerCase();
     const companyName = (t.user?.company_name || '').toLowerCase();
-    return tNum.includes(s) || subj.includes(s) || msg.includes(s) || dept.includes(s) || clientName.includes(s) || companyName.includes(s);
+    const staffName = (t.assigned_staff?.full_name || '').toLowerCase();
+    return tNum.includes(s) || subj.includes(s) || msg.includes(s) || dept.includes(s) || clientName.includes(s) || companyName.includes(s) || staffName.includes(s);
   });
 
   const statusBadge = (s) => {
@@ -342,6 +415,35 @@ export default function AdminTickets() {
             <option value="low">Low</option>
           </select>
 
+          {/* Assignment Quick Filter Buttons */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'assigned_to_me', label: 'Assigned to Me' },
+              { id: 'unassigned', label: '⚠️ Unassigned' },
+              { id: 'chat_widget', label: '💬 Chatbox Requests' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setAssignmentFilter(tab.id)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  border: '1px solid',
+                  cursor: 'pointer',
+                  background: assignmentFilter === tab.id ? '#0f172a' : '#ffffff',
+                  color: assignmentFilter === tab.id ? '#ffffff' : '#475569',
+                  borderColor: assignmentFilter === tab.id ? '#0f172a' : '#cbd5e1',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <button className="btn btn-ghost btn-sm" onClick={() => fetchTickets()} title="Refresh Tickets">
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
@@ -372,6 +474,7 @@ export default function AdminTickets() {
                   <th>Client / Company</th>
                   <th>Subject & Message</th>
                   <th>Department</th>
+                  <th>Assigned Agent</th>
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Responses</th>
@@ -386,6 +489,11 @@ export default function AdminTickets() {
                       <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace', fontSize: 13 }}>
                         {t.ticket_number}
                       </span>
+                      {t.source === 'chat_widget' && (
+                        <span style={{ display: 'block', fontSize: 10, color: '#2563eb', fontWeight: 700, marginTop: 2 }}>
+                          💬 Chatbox
+                        </span>
+                      )}
                     </td>
                     <td>
                       <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
@@ -397,14 +505,37 @@ export default function AdminTickets() {
                     </td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 13.5 }}>{t.subject}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {t.message}
                       </div>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: '#475569', fontWeight: 500 }}>
+                      <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
                         {t.department}
                       </span>
+                    </td>
+                    <td>
+                      {t.assigned_staff ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#047857' }}>
+                          <UserCheck size={14} />
+                          <span>{t.assigned_staff.full_name || t.assigned_staff.email}</span>
+                        </div>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          background: '#fffbeb',
+                          color: '#b45309',
+                          border: '1px solid #fde68a'
+                        }}>
+                          ⚠️ Unassigned
+                        </span>
+                      )}
                     </td>
                     <td>{priorityBadge(t.priority)}</td>
                     <td>{statusBadge(t.status)}</td>
@@ -523,6 +654,72 @@ export default function AdminTickets() {
                   <span><Mail size={12} style={{ marginRight: 4 }} />{selectedTicket.user?.email || 'N/A'}</span>
                   {selectedTicket.user?.phone && <span><Phone size={12} style={{ marginRight: 4 }} />{selectedTicket.user.phone}</span>}
                 </div>
+              </div>
+
+              {/* Support Manager Assignment Bar */}
+              <div style={{ 
+                background: isSupportManager ? '#f0fdf4' : '#ffffff', 
+                border: isSupportManager ? '1.5px solid #86efac' : '1px solid #e2e8f0', 
+                borderRadius: 14, 
+                padding: '14px 18px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                flexWrap: 'wrap', 
+                gap: 12 
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ 
+                    width: 36, 
+                    height: 36, 
+                    borderRadius: 10, 
+                    background: isSupportManager ? '#dcfce7' : '#f1f5f9', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    color: isSupportManager ? '#15803d' : '#64748b' 
+                  }}>
+                    <UserCheck size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>Assigned Agent:</span>
+                      <span style={{ color: selectedTicket.assigned_staff ? '#047857' : '#d97706', fontWeight: 800 }}>
+                        {selectedTicket.assigned_staff ? (selectedTicket.assigned_staff.full_name || selectedTicket.assigned_staff.email) : '⚠️ Unassigned'}
+                      </span>
+                      {selectedTicket.source === 'chat_widget' && (
+                        <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 8px', borderRadius: 10, fontWeight: 700 }}>
+                          💬 Client Chatbox Request
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                      {isSupportManager 
+                        ? 'Support Manager Privilege: Assign any specialist below to respond to the client.' 
+                        : 'Support Managers can assign or reassign this ticket.'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Support Manager Dropdown */}
+                {isSupportManager && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: '#065f46', margin: 0 }}>Assign To:</label>
+                    <select
+                      className="form-control"
+                      style={{ fontSize: 12, fontWeight: 700, minWidth: 210, borderRadius: 8, borderColor: '#86efac' }}
+                      value={(selectedTicket.assigned_to?._id || selectedTicket.assigned_to) || ''}
+                      onChange={e => handleAssignTicket(selectedTicket._id || selectedTicket.id, e.target.value)}
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {staffList.map(s => (
+                        <option key={s._id || s.id} value={s._id || s.id}>
+                          {s.full_name || s.username || s.email} ({s.role?.replace('_', ' ')})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Original Inquiry Card */}

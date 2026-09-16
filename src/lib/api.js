@@ -38,6 +38,7 @@ export const api = {
   get: (path) => request('GET', path),
   post: (path, body, isFormData) => request('POST', path, body, isFormData),
   put: (path, body, isFormData) => request('PUT', path, body, isFormData),
+  patch: (path, body, isFormData) => request('PATCH', path, body, isFormData),
   delete: (path) => request('DELETE', path),
 
   /**

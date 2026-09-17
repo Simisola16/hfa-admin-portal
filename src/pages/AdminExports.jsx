@@ -14,7 +14,7 @@ export default function AdminExports() {
   const fetchExports = () => {
     setLoading(true);
     api.get('/api/exports')
-      .then(d => setExports(d.data || []))
+      .then(res => setExports(res.data?.data || res.data || []))
       .catch(() => toast.error('Failed to load export requests'))
       .finally(() => setLoading(false));
   };

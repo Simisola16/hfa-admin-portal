@@ -289,7 +289,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
           {!isSurveillance && (
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>Products / Facility Scope</label>
+              <label className="form-label" style={{ fontWeight: 700 }}>Products Covered</label>
               <textarea
                 className="form-control"
                 rows={2}

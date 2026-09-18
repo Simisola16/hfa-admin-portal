@@ -29,8 +29,8 @@ const AUDIT_TYPE_OPTIONS = [
   'Renewal Evaluation',
   'Initial Product Evaluation',
   'Facility Extension Review',
-  'Add-on Product / Scope Review',
-  'Special Scope Assessment'
+  'Add-on Product Review',
+  'Special Product Assessment'
 ];
 
 const NATURE_OF_BUSINESS_PRESETS = [
@@ -73,9 +73,9 @@ const LOGSHEET_TYPES = [
     id: 'addon',
     title: 'Add-on Logsheet',
     shortTitle: 'Add-on',
-    subtitle: 'Mid-cycle Product, Facility & Scope Expansion',
+    subtitle: 'Mid-cycle Product & Facility Expansion',
     icon: Plus,
-    badge: 'Scope Expansion',
+    badge: 'Product Expansion',
     badgeColor: '#059669',
     badgeBg: '#ecfdf5',
     badgeBorder: '#a7f3d0',
@@ -226,8 +226,8 @@ export default function AdminDirectLogsheet() {
         updatedAuditType = 'Certificate Extension Review';
         defaultComment = 'Certificate extension evaluated and recommended based on satisfactory compliance history.';
       } else if (typeId === 'addon') {
-        updatedAuditType = 'Add-on Product / Scope Review';
-        defaultComment = 'Add-on scope evaluated and verified compliant with Halal scheme standards.';
+        updatedAuditType = 'Add-on Product Review';
+        defaultComment = 'Add-on products evaluated and verified compliant with Halal scheme standards.';
       } else if (typeId === 'initial_product') {
         updatedAuditType = 'Initial Product Evaluation';
         defaultComment = 'Initial product formulations and ingredients cleared for Halal processing.';
@@ -742,7 +742,7 @@ export default function AdminDirectLogsheet() {
               {[
                 {
                   step: 1,
-                  title: selectedType === 'extension' ? '1. Certificate & Company' : selectedType === 'addon' ? '1. Scope & Company' : selectedType === 'initial_product' ? '1. Company & Products' : '1. Company & Facility',
+                  title: selectedType === 'extension' ? '1. Certificate & Company' : selectedType === 'addon' ? '1. Add-on & Company' : selectedType === 'initial_product' ? '1. Company & Products' : '1. Company & Facility',
                   sub: selectedType === 'extension' ? 'Client & Expiry' : 'Details & Standards'
                 },
                 {
@@ -752,7 +752,7 @@ export default function AdminDirectLogsheet() {
                 },
                 {
                   step: 3,
-                  title: selectedType === 'extension' ? '3. Justification & Terms' : selectedType === 'addon' ? '3. Scope Decision' : selectedType === 'initial_product' ? '3. Product Clearance' : '3. Certificate Status',
+                  title: selectedType === 'extension' ? '3. Justification & Terms' : selectedType === 'addon' ? '3. Evaluation Decision' : selectedType === 'initial_product' ? '3. Product Clearance' : '3. Certificate Status',
                   sub: 'Recommendation'
                 },
                 {
@@ -999,7 +999,7 @@ export default function AdminDirectLogsheet() {
 
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>
-                        Scope of Certification / Evaluation
+                        Operational Category / Evaluation
                       </label>
                       <input
                         type="text"
@@ -1155,7 +1155,7 @@ export default function AdminDirectLogsheet() {
               <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ShieldCheck size={18} style={{ color: 'var(--primary)' }} />
-                  {selectedType === 'extension' ? 'Certificate Extension Duration & Parameters' : selectedType === 'addon' ? 'Add-on Scope & Raw Material Evaluation' : selectedType === 'initial_product' ? 'Initial Product Formulation & Lab Checklist' : 'Audit Review & Technical Evaluation'}
+                  {selectedType === 'extension' ? 'Certificate Extension Duration & Parameters' : selectedType === 'addon' ? 'Add-on Products & Raw Material Evaluation' : selectedType === 'initial_product' ? 'Initial Product Formulation & Lab Checklist' : 'Audit Review & Technical Evaluation'}
                 </h3>
 
                 {/* EXTENSION SPECIFIC DURATION STEP */}
@@ -1218,7 +1218,7 @@ export default function AdminDirectLogsheet() {
                         <option value="New Products">New Products Addition</option>
                         <option value="New Production Line">New Production Line Addition</option>
                         <option value="Site Addition">Manufacturing Site Addition</option>
-                        <option value="Scope Amendment">Scope / Brand Amendment</option>
+                        <option value="Brand Amendment">Brand / Formulation Amendment</option>
                       </select>
                     </div>
 
@@ -1301,7 +1301,7 @@ export default function AdminDirectLogsheet() {
                     ← Back
                   </button>
                   <button type="button" className="btn btn-primary" onClick={() => setCreateStep(3)} style={{ padding: '10px 24px', fontWeight: 700, borderRadius: 10 }}>
-                    Next: {selectedType === 'extension' ? 'Justification & Terms' : selectedType === 'addon' ? 'Scope Decision' : selectedType === 'initial_product' ? 'Product Clearance' : 'Certificate Status'} →
+                    Next: {selectedType === 'extension' ? 'Justification & Terms' : selectedType === 'addon' ? 'Evaluation Decision' : selectedType === 'initial_product' ? 'Product Clearance' : 'Certificate Status'} →
                   </button>
                 </div>
               </div>
@@ -1314,7 +1314,7 @@ export default function AdminDirectLogsheet() {
               <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Award size={18} style={{ color: 'var(--primary)' }} />
-                  {selectedType === 'extension' ? 'Extension Justification & Authorization Terms' : selectedType === 'addon' ? 'Add-on Scope Decision & Validity Dates' : selectedType === 'initial_product' ? 'Initial Product Approval Decision' : 'Certificate Status & Committee Recommendation'}
+                  {selectedType === 'extension' ? 'Extension Justification & Authorization Terms' : selectedType === 'addon' ? 'Add-on Approval Decision & Validity Dates' : selectedType === 'initial_product' ? 'Initial Product Approval Decision' : 'Certificate Status & Committee Recommendation'}
                 </h3>
 
                 {/* EXTENSION JUSTIFICATION */}
@@ -1597,7 +1597,7 @@ export default function AdminDirectLogsheet() {
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Ref &amp; Type</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Company &amp; Site</th>
-                      <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Standard / Scope</th>
+                      <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Standard / Category</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Signatory Progress</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Date</th>
                       <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
@@ -1797,8 +1797,8 @@ export default function AdminDirectLogsheet() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Scope of Certification</div>
-                  <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{inspectLogsheet.scope || 'Halal Operations'}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Audit Category</div>
+                  <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{inspectLogsheet.nature_of_business || inspectLogsheet.product_category || 'Halal Operations'}</div>
                 </div>
 
                 <div>

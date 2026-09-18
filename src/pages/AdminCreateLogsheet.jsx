@@ -1506,11 +1506,11 @@ export default function AdminCreateLogsheet() {
               </div>
             </div>
 
-            {/* Section 4: Certificate Status & Scope Checks */}
+            {/* Section 4: Certificate Status Checks */}
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <Award size={16} style={{ color: '#047857' }} />
-                4. Scope &amp; Certificate Status Checks
+                4. Scheme &amp; Certificate Status Checks
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
                 {[

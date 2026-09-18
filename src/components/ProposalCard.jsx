@@ -65,7 +65,7 @@ export default function ProposalCard({ proposal, status }) {
 
         {proposal.admin_comment && (
           <div style={{ marginBottom: proposal.client_comment ? 20 : 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 6 }}>Proposal Details / Scope</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 6 }}>Proposal Details</div>
             <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, lineHeight: 1.5 }}>
               {proposal.admin_comment}
             </div>

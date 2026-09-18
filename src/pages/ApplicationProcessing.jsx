@@ -1361,7 +1361,7 @@ export default function ApplicationProcessing() {
                 </div>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Accept Application</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification scope &amp; category before proceeding</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification category before proceeding</div>
                 </div>
               </div>
               <button className="modal-close" onClick={() => setShowApproveModal(false)}><X size={18} /></button>
@@ -1875,11 +1875,11 @@ export default function ApplicationProcessing() {
                 </div>
               </div>
 
-              {/* Section 3: Operating Scope & Products */}
+              {/* Section 3: Operations & Products */}
               <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <FileText size={15} style={{ color: '#2563eb' }} />
-                  3. Operating Scope & Product List
+                  3. Operations & Product List
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1891,10 +1891,6 @@ export default function ApplicationProcessing() {
                       <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Production Schedule</div>
                       <div style={{ fontSize: 13, color: '#0f172a', marginTop: 2, fontWeight: 400 }}>{app.production_schedule || '—'}</div>
                     </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Scope of Certification</div>
-                    <div style={{ fontSize: 13, color: '#0f172a', background: '#f8fafc', padding: 10, borderRadius: 8, marginTop: 4, fontWeight: 400 }}>{app.scope || '—'}</div>
                   </div>
 
                   {/* Submitted Products Table */}

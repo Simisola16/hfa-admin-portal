@@ -900,13 +900,13 @@ export default function AdminReviewCertificate() {
             </div>
           </div>
 
-          {/* Card 3: Scope of Certification & Products Management */}
+          {/* Card 3: Certified Products Management */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
               <div>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   <Package size={16} style={{ color: '#047857' }} />
-                  3. Scope &amp; Certified Products Selection
+                  3. Certified Products Selection
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
                   Pick products belonging to this client site to appear on the official certificate document.
@@ -932,18 +932,6 @@ export default function AdminReviewCertificate() {
                   <span style={{ color: '#64748b', fontSize: 11 }}>• {siteData?.address || form.manufacturing_address}</span>
                 )}
               </div>
-            </div>
-
-            {/* Scope input */}
-            <div className="form-group" style={{ marginBottom: 20 }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>Scope of Certification <span style={{ color: '#dc2626' }}>*</span></label>
-              <textarea
-                rows={2}
-                className="form-control"
-                value={form.scope}
-                onChange={e => setForm({ ...form, scope: e.target.value })}
-                placeholder="e.g. Processing, packaging and distribution of halal confectionery and baked goods"
-              />
             </div>
 
             {/* SECTION A: SITE PRODUCTS PICKER */}
@@ -1258,7 +1246,7 @@ export default function AdminReviewCertificate() {
               {[
                 { key: 'company_verified', label: 'Company name and registered address verified' },
                 { key: 'site_verified', label: 'Manufacturing site matches audit & logsheet' },
-                { key: 'scope_verified', label: 'Scope & product formulations approved' },
+                { key: 'scope_verified', label: 'Product formulations & specifications approved' },
                 { key: 'dates_verified', label: 'Issue & expiry dates correctly aligned' },
               ].map(chk => (
                 <label key={chk.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#334155', cursor: 'pointer', background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -1390,7 +1378,7 @@ export default function AdminReviewCertificate() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, marginBottom: 4 }}>
                   <AlertTriangle size={16} color="#d97706" /> Are you sure and don't want to change anything?
                 </div>
-                Please make sure all information (Company Name, Addresses, Scope, Dates, and Products) is accurate. Once approved, the certificate will be immediately published to the client portal and an official email will be sent to the client.
+                Please make sure all information (Company Name, Addresses, Dates, and Products) is accurate. Once approved, the certificate will be immediately published to the client portal and an official email will be sent to the client.
               </div>
 
               {/* Summary verification box */}

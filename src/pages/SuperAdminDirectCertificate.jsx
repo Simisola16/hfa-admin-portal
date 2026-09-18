@@ -21,14 +21,7 @@ const CERTIFICATE_TYPES = [
   'SMIIC'
 ];
 
-const SCOPE_PRESETS = [
-  'Halal Food Certification & Processing Operations',
-  'Slaughtering, Cutting, Processing and Packaging of Halal Meat Products',
-  'Manufacturing, Packaging and Distribution of Halal Bakery and Confectionery Products',
-  'Processing and Packaging of Halal Dairy and Beverage Products',
-  'Production and Supply of Halal Certified Food Ingredients and Flavours',
-  'Halal Food Storage, Warehousing and Logistics Services'
-];
+
 
 const PRODUCT_CATEGORIES = [
   'Meat & Poultry',
@@ -111,7 +104,6 @@ export default function SuperAdminDirectCertificate() {
 
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
   const [certType, setCertType] = useState('GSO MEAT');
-  const [scope, setScope] = useState(SCOPE_PRESETS[0]);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [expiryDate, setExpiryDate] = useState(() => {
     const d = new Date();
@@ -552,7 +544,6 @@ export default function SuperAdminDirectCertificate() {
       // Certificate details
       formData.append('certificate_number', certNumber.trim());
       formData.append('certificate_type', certType);
-      formData.append('scope_of_certification', scope);
       formData.append('issue_date', issueDate);
       formData.append('expiry_date', expiryDate);
       formData.append('status', 'active');
@@ -984,7 +975,7 @@ export default function SuperAdminDirectCertificate() {
                   </div>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>2. Certificate Specification</h3>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Certificate number, type, scope of certification, and validity duration</p>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Certificate number, type, and validity duration</p>
                   </div>
                 </div>
 
@@ -1037,46 +1028,6 @@ export default function SuperAdminDirectCertificate() {
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* Scope of Certification */}
-                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label" style={{ margin: 0 }}>Scope of Certification <span>*</span></label>
-                      <span style={{ fontSize: 11, color: '#64748b' }}>Select a preset or customize</span>
-                    </div>
-                    
-                    {/* Preset Pills */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                      {SCOPE_PRESETS.map((p, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setScope(p)}
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: 20,
-                            border: scope === p ? '1.5px solid #16a34a' : '1px solid #e2e8f0',
-                            background: scope === p ? '#f0fdf4' : '#ffffff',
-                            color: scope === p ? '#15803d' : '#475569',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {p.length > 40 ? p.slice(0, 40) + '...' : p}
-                        </button>
-                      ))}
-                    </div>
-
-                    <textarea
-                      className="form-control"
-                      rows={2}
-                      value={scope}
-                      onChange={e => setScope(e.target.value)}
-                      placeholder="Describe the activities, standards, and scope covered by this certificate..."
-                      required
-                    />
                   </div>
 
                   {/* Issue Date & Expiry Date */}

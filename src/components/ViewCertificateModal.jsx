@@ -216,20 +216,11 @@ export default function ViewCertificateModal({ isOpen, onClose, cert }) {
             </div>
           </div>
 
-          {/* Scope and Addresses */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Scope of Certification</div>
-              <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500, lineHeight: 1.5 }}>
-                {cert.scope || cert.application_id?.scope || 'Halal Food and Consumer Products Certification'}
-              </div>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Facility &amp; Manufacturing Address</div>
-              <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500, lineHeight: 1.5 }}>
-                {cert.manufacturing_address || cert.company_address || '—'}
-              </div>
+          {/* Facility Address */}
+          <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Facility &amp; Manufacturing Address</div>
+            <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500, lineHeight: 1.5 }}>
+              {cert.manufacturing_address || cert.company_address || '—'}
             </div>
           </div>
 

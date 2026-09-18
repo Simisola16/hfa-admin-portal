@@ -92,7 +92,7 @@ export default function AdminProposals() {
                 <tr>
                   <th>Proposal Title</th>
                   <th>Company / Facility</th>
-                  <th>Standard &amp; Scope</th>
+                  <th>Standard / Scheme</th>
                   <th>Est. Cost</th>
                   <th>Status</th>
                   <th>Date Sent</th>

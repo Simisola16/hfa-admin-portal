@@ -394,7 +394,7 @@ export default function AdminApplications() {
                 {/* Profile Card */}
                 <div className="col-span-8">
                   <div className="detail-card mb-6">
-                    <h4 className="section-title"><Shield size={18}/> Company & Scope Info</h4>
+                    <h4 className="section-title"><Shield size={18}/> Company Info</h4>
                     <div className="grid grid-cols-2 gap-x-12 gap-y-6">
                       <div className="detail-item">
                         <label>Registered Company</label>
@@ -404,14 +404,6 @@ export default function AdminApplications() {
                       <div className="detail-item">
                         <label>Application Type</label>
                         <div className="capitalize">{selectedApp.application_type} Certification</div>
-                      </div>
-                      <div className="col-span-2">
-                        <div className="detail-item">
-                          <label>Proposed Scope</label>
-                          <div style={{ background: '#f0fdf4', padding: 16, borderRadius: 12, border: '1px solid #dcfce7', fontStyle: 'italic', color: '#166534' }}>
-                            "{selectedApp.scope || 'No scope defined'}"
-                          </div>
-                        </div>
                       </div>
                       <div className="detail-item">
                         <label>Establishment</label>
@@ -578,12 +570,7 @@ export default function AdminApplications() {
                     </div>
                   </div>
 
-                  <div className="detail-item" style={{ marginBottom: 20 }}>
-                    <label>Scope of Certification</label>
-                    <div style={{ background: '#f0fdf4', padding: 14, borderRadius: 10, border: '1px solid #dcfce7', fontStyle: 'italic', color: '#166534', fontSize: 13 }}>
-                      "{manageModal.scope || 'No scope defined'}"
-                    </div>
-                  </div>
+
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
                     <div className="detail-item">

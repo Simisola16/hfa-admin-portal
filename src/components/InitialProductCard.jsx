@@ -102,7 +102,7 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
               {cfg.label}
             </span>
             <Link
-              to={`/admin/initial-products/${ipId}`}
+              to={`/admin/initial-products/${ipId}/processing`}
               className="btn btn-outline btn-sm"
               style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
@@ -126,7 +126,7 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
                 </div>
                 {initialProduct.product?.code && (
                   <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                    SKU: <code>{initialProduct.product.code}</code>
+                    CODE: <code>{initialProduct.product.code}</code>
                   </div>
                 )}
               </div>

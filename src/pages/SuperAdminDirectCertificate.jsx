@@ -1519,7 +1519,7 @@ export default function SuperAdminDirectCertificate() {
                           </th>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
                           <th style={{ padding: '8px 6px' }}>Product Name</th>
-                          <th style={{ width: '28%', padding: '8px 6px' }}>Code / SKU</th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
                           <th style={{ width: 90, padding: '8px 10px', textAlign: 'center' }}>Status</th>
                         </tr>
                       </thead>
@@ -1590,8 +1590,8 @@ export default function SuperAdminDirectCertificate() {
                       <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                         <tr style={{ color: '#475569', textAlign: 'left' }}>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                          <th style={{ padding: '8px 6px' }}>Product Name <span>*</span></th>
-                          <th style={{ width: '35%', padding: '8px 6px' }}>Code / SKU</th>
+                          <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2068,7 +2068,7 @@ export default function SuperAdminDirectCertificate() {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
-                Paste product names one per line. You can optionally include SKU and Category separated by a pipe (<code>|</code>) or comma:
+                Paste product names one per line. You can optionally include CODE and Category separated by a pipe (<code>|</code>) or comma:
               </p>
               <div style={{ background: '#f8fafc', padding: 8, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#475569', marginBottom: 12 }}>
                 Halal Beef Sausage | PRD-01 | Meat & Poultry<br />

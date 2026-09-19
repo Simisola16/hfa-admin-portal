@@ -336,7 +336,7 @@ export default function AdminCreateLogsheet() {
 
         if (!hasFT && !ipLogsheet) {
           toast.error('Food Technologist is not assigned yet. Please assign a Food Technologist before creating the Logsheet.');
-          navigate(`/admin/initial-products/${resolvedInitialProductId}`);
+          navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
           setLoading(false);
           return;
         }
@@ -2208,7 +2208,7 @@ export default function AdminCreateLogsheet() {
 
                             <div className="form-group" style={{ margin: 0 }}>
                               <label className="form-label" style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
-                                Product Code / SKU
+                                Product CODE
                               </label>
                               <input
                                 type="text"

@@ -265,7 +265,7 @@ export default function ProductApprovalRequestForm({
             disabled={readOnly}
             value={form.product_code}
             onChange={e => updateField('product_code', e.target.value)}
-            placeholder="e.g. SKU-8849"
+            placeholder="e.g. CODE-8849"
             style={{ fontSize: 13 }}
           />
         </div>

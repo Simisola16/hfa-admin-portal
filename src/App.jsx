@@ -61,20 +61,37 @@ export default function App() {
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/initial-products" element={<AdminInitialProducts />} />
+            <Route path="/initial-products/:id" element={<AdminInitialProductProcessing />} />
             <Route path="/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
             <Route path="/initial-products/:initialProductId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/admin/initial-products" element={<AdminInitialProducts />} />
+            <Route path="/admin/initial-products/:id" element={<AdminInitialProductProcessing />} />
             <Route path="/admin/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />
             <Route path="/admin/initial-products/:initialProductId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/addon-applications" element={<AdminAddOnApplications />} />
+            <Route path="/addon-applications/:addonId" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />
             <Route path="/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
+            <Route path="/admin/addon-applications" element={<AdminAddOnApplications />} />
+            <Route path="/admin/addon-applications/:addonId" element={<AdminAddOnProcessing />} />
+            <Route path="/admin/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
+            <Route path="/admin/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />
+            <Route path="/admin/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/extension-applications" element={<AdminExtensionApplications />} />
+            <Route path="/extension-applications/:id" element={<AdminExtensionProcessing />} />
             <Route path="/extension-applications/:id/processing" element={<AdminExtensionProcessing />} />
             <Route path="/extension-applications/:id/logsheet" element={<AdminExtensionLogsheet />} />
+            <Route path="/admin/extension-applications" element={<AdminExtensionApplications />} />
+            <Route path="/admin/extension-applications/:id" element={<AdminExtensionProcessing />} />
+            <Route path="/admin/extension-applications/:id/processing" element={<AdminExtensionProcessing />} />
+            <Route path="/admin/extension-applications/:id/logsheet" element={<AdminExtensionLogsheet />} />
+            <Route path="/applications/:appId" element={<ApplicationProcessing />} />
             <Route path="/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/applications/:appId/processing" element={<ApplicationProcessing />} />
+            <Route path="/admin/applications/:appId" element={<ApplicationProcessing />} />
+            <Route path="/admin/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
+            <Route path="/admin/applications/:appId/processing" element={<ApplicationProcessing />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/certificates/review" element={<AdminCertificates defaultTab="review" />} />
             <Route path="/certificates/:id/review" element={<AdminReviewCertificate />} />

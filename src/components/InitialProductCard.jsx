@@ -102,7 +102,7 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
               {cfg.label}
             </span>
             <Link
-              to={`/admin/initial-products/${ipId}`}
+              to={`/admin/initial-products/${ipId}/processing`}
               className="btn btn-outline btn-sm"
               style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >

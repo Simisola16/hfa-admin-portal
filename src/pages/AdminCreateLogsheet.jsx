@@ -336,7 +336,7 @@ export default function AdminCreateLogsheet() {
 
         if (!hasFT && !ipLogsheet) {
           toast.error('Food Technologist is not assigned yet. Please assign a Food Technologist before creating the Logsheet.');
-          navigate(`/admin/initial-products/${resolvedInitialProductId}`);
+          navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
           setLoading(false);
           return;
         }

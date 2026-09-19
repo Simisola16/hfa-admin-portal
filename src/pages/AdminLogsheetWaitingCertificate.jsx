@@ -44,10 +44,13 @@ export default function AdminLogsheetWaitingCertificate() {
           return false;
         }
 
-        // Exclude applications where certificate has already been issued
-        const appId = String(l.application_id?._id || l.application_id || '');
-        if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
-          return false;
+        // Exclude applications where certificate has already been issued (for main applications only, NOT add-on applications)
+        const isAddon = l.source_type === 'addon_application' || Boolean(l.addon_application_id);
+        if (!isAddon) {
+          const appId = String(l.application_id?._id || l.application_id || '');
+          if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
+            return false;
+          }
         }
 
         // Exclude completed add-on applications

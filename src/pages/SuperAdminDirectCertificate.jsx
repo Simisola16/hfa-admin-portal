@@ -1256,171 +1256,326 @@ export default function SuperAdminDirectCertificate() {
                         <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>3. Certified Products Schedule</h3>
                         <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11.5, fontWeight: 800, padding: '2px 9px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Check size={12} strokeWidth={3} />
-                          {products.filter(p => p.name && p.name.trim()).length} Product(s) Included
+                          {products.filter(p => p.name && p.name.trim()).length} Product(s) Selected
                         </span>
                       </div>
                       <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
-                        {clientMode === 'existing' && selectedClient
-                          ? `Products loaded from ${selectedClient.company_name || selectedClient.full_name}'s catalog. Edit or add rows below:`
+                        {clientMode === 'existing' && selectedClient && clientCatalog.length > 0
+                          ? `Select products from ${selectedClient.company_name || selectedClient.full_name}'s catalog to include on this certificate:`
                           : 'Add and certify products directly covered under this certificate'}
                       </p>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={handleLoadSampleProducts}
-                      style={{ fontSize: 11.5, padding: '4px 8px' }}
-                    >
-                      <Sparkles size={13} style={{ marginRight: 3 }} /> Sample Items
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => setShowBulkModal(true)}
-                      style={{ fontSize: 11.5, padding: '4px 8px' }}
-                    >
-                      <Upload size={13} style={{ marginRight: 3 }} /> Bulk Paste
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={addProductRow}
-                      style={{ fontSize: 11.5, padding: '4px 10px' }}
-                    >
-                      <Plus size={13} style={{ marginRight: 3 }} /> Add Product Row
-                    </button>
-                  </div>
+                  {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => handleSelectAllCatalog(filteredCatalog)}
+                        style={{ fontSize: 11.5, padding: '4px 10px' }}
+                      >
+                        Select All ({filteredCatalog.length})
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={handleDeselectAllCatalog}
+                        style={{ fontSize: 11.5, padding: '4px 10px', color: '#dc2626' }}
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={handleLoadSampleProducts}
+                        style={{ fontSize: 11.5, padding: '4px 8px' }}
+                      >
+                        <Sparkles size={13} style={{ marginRight: 3 }} /> Sample Items
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowBulkModal(true)}
+                        style={{ fontSize: 11.5, padding: '4px 8px' }}
+                      >
+                        <Upload size={13} style={{ marginRight: 3 }} /> Bulk Paste
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={addProductRow}
+                        style={{ fontSize: 11.5, padding: '4px 10px' }}
+                      >
+                        <Plus size={13} style={{ marginRight: 3 }} /> Add Product Row
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Single Compact 1-Line Scrollable Table Box (Max 280px tall) */}
-                <div className="table-wrap" style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 10,
-                  maxHeight: 280,
-                  overflowY: 'auto',
-                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
-                }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                      <tr style={{ color: '#475569', textAlign: 'left' }}>
-                        <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                        <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
-                        <th style={{ width: '18%', padding: '8px 6px' }}>Code / SKU</th>
-                        <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
-                        <th style={{ width: '18%', padding: '8px 6px' }}>Type / State</th>
-                        <th style={{ width: 50, padding: '8px 6px', textAlign: 'center' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((prod, index) => (
-                        <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa') }}>
-                          <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
-                          <td style={{ padding: '4px 6px' }}>
+                {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
+                {clientMode === 'existing' && clientCatalog.length > 0 && (
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 260 }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input
+                          type="text"
+                          className="form-control"
+                          style={{ paddingLeft: 30, fontSize: 12, height: 32 }}
+                          placeholder="Search client catalog by product name or SKU..."
+                          value={catalogSearchQuery}
+                          onChange={e => setCatalogSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      {catalogCategories.length > 2 && (
+                        <select
+                          className="form-control"
+                          style={{ width: 150, fontSize: 12, height: 32 }}
+                          value={catalogCategoryFilter}
+                          onChange={e => setCatalogCategoryFilter(e.target.value)}
+                        >
+                          {catalogCategories.map(c => (
+                            <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
+                {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                  <div className="table-wrap" style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 10,
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                        <tr style={{ color: '#475569', textAlign: 'left' }}>
+                          <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
                             <input
-                              type="text"
-                              className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                              placeholder="e.g. Frozen Halal Beef Burger"
-                              value={prod.name}
-                              onChange={e => updateProductRow(prod.id, 'name', e.target.value)}
-                              required
+                              type="checkbox"
+                              checked={filteredCatalog.length > 0 && filteredCatalog.every(item => isProductSelected(item))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  handleSelectAllCatalog(filteredCatalog);
+                                } else {
+                                  handleDeselectAllCatalog();
+                                }
+                              }}
+                              style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                              title="Select/Deselect All Displayed Products"
                             />
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                              placeholder="e.g. PRD-001"
-                              value={prod.code}
-                              onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <select
-                              className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                              value={prod.category}
-                              onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
-                            >
-                              {PRODUCT_CATEGORIES.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <select
-                              className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                              value={prod.product_type}
-                              onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
-                            >
-                              <option value="Processed">Processed</option>
-                              <option value="Raw">Raw</option>
-                              <option value="Frozen">Frozen</option>
-                              <option value="Chilled">Chilled</option>
-                              <option value="Ambient">Ambient</option>
-                              <option value="Ingredient">Ingredient</option>
-                            </select>
-                          </td>
-                          <td style={{ textAlign: 'center', padding: '4px 6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                title="Duplicate Row"
-                                style={{ padding: '3px 5px', color: '#64748b' }}
-                                onClick={() => duplicateProductRow(prod)}
-                              >
-                                <Copy size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                title="Delete Row"
-                                style={{ padding: '3px 5px', color: '#ef4444' }}
-                                onClick={() => removeProductRow(prod.id)}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </td>
+                          </th>
+                          <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                          <th style={{ padding: '8px 6px' }}>Product Name</th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Code / SKU</th>
+                          <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Type / State</th>
+                          <th style={{ width: 90, padding: '8px 10px', textAlign: 'center' }}>Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {filteredCatalog.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                              No products found matching "{catalogSearchQuery}".
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredCatalog.map((prod, index) => {
+                            const selected = isProductSelected(prod);
+                            return (
+                              <tr
+                                key={prod._id || prod.id || index}
+                                onClick={() => toggleCatalogProduct(prod)}
+                                style={{
+                                  borderBottom: '1px solid #f1f5f9',
+                                  background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
+                                  cursor: 'pointer',
+                                  transition: 'background-color 0.15s ease'
+                                }}
+                              >
+                                <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => toggleCatalogProduct(prod)}
+                                    style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                                  />
+                                </td>
+                                <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                                <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
+                                  {prod.name}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                                  {prod.code || prod.barcode || '—'}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: '#475569' }}>
+                                  {prod.category || '—'}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: '#475569' }}>
+                                  {prod.product_type || 'Processed'}
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '6px 8px' }}>
+                                  {selected ? (
+                                    <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
+                                      Included
+                                    </span>
+                                  ) : (
+                                    <span style={{ background: '#f1f5f9', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
+                                      Excluded
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  /* FALLBACK EDITABLE TABLE FOR NEW CLIENTS / CLIENTS WITHOUT CATALOG */
+                  <div className="table-wrap" style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 10,
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                        <tr style={{ color: '#475569', textAlign: 'left' }}>
+                          <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                          <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Code / SKU</th>
+                          <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
+                          <th style={{ width: '18%', padding: '8px 6px' }}>Type / State</th>
+                          <th style={{ width: 50, padding: '8px 6px', textAlign: 'center' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.map((prod, index) => (
+                          <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa') }}>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                placeholder="e.g. Frozen Halal Beef Burger"
+                                value={prod.name}
+                                onChange={e => updateProductRow(prod.id, 'name', e.target.value)}
+                                required
+                              />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                placeholder="e.g. PRD-001"
+                                value={prod.code}
+                                onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <select
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                value={prod.category}
+                                onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
+                              >
+                                {PRODUCT_CATEGORIES.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <select
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                value={prod.product_type}
+                                onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
+                              >
+                                <option value="Processed">Processed</option>
+                                <option value="Raw">Raw</option>
+                                <option value="Frozen">Frozen</option>
+                                <option value="Chilled">Chilled</option>
+                                <option value="Ambient">Ambient</option>
+                                <option value="Ingredient">Ingredient</option>
+                              </select>
+                            </td>
+                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  title="Duplicate Row"
+                                  style={{ padding: '3px 5px', color: '#64748b' }}
+                                  onClick={() => duplicateProductRow(prod)}
+                                >
+                                  <Copy size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  title="Delete Row"
+                                  style={{ padding: '3px 5px', color: '#ef4444' }}
+                                  onClick={() => removeProductRow(prod.id)}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ fontSize: 11.5, color: '#64748b' }}>
                     💡 Printed on certificate: <strong>{products.filter(p => p.name && p.name.trim()).length}</strong> item(s).
                   </span>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {products.length > 1 && (
+                  {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                    <span style={{ fontSize: 11.5, color: '#166534', fontWeight: 600 }}>
+                      ✓ Selecting from official client portal catalog
+                    </span>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {products.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11, color: '#ef4444', padding: '2px 6px' }}
+                          onClick={() => {
+                            setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                            toast.success('Product list cleared.');
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        style={{ fontSize: 11, color: '#ef4444', padding: '2px 6px' }}
-                        onClick={() => {
-                          setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
-                          toast.success('Product list cleared.');
-                        }}
+                        onClick={addProductRow}
+                        style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600, padding: '2px 6px' }}
                       >
-                        Clear All
+                        + Add Product Row
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={addProductRow}
-                      style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600, padding: '2px 6px' }}
-                    >
-                      + Add Product Row
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -2208,7 +2208,7 @@ export default function AdminCreateLogsheet() {
 
                             <div className="form-group" style={{ margin: 0 }}>
                               <label className="form-label" style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
-                                Product Code / SKU
+                                Product CODE
                               </label>
                               <input
                                 type="text"

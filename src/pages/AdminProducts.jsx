@@ -132,7 +132,7 @@ export default function AdminProducts() {
                   <th>Client / Company</th>
                   <th>Manufacturing Site</th>
                   <th>Category / Type</th>
-                  <th>Code / SKU</th>
+                  <th>CODE</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -243,7 +243,7 @@ export default function AdminProducts() {
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{selected.name}</div>
                 </div>
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700 }}>Code / SKU</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>CODE</label>
                   <div style={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>{selected.barcode || selected.code || 'N/A'}</div>
                 </div>
                 <div>

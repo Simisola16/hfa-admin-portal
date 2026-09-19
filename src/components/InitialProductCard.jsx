@@ -126,7 +126,7 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
                 </div>
                 {initialProduct.product?.code && (
                   <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                    SKU: <code>{initialProduct.product.code}</code>
+                    CODE: <code>{initialProduct.product.code}</code>
                   </div>
                 )}
               </div>

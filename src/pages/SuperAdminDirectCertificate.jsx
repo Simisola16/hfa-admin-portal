@@ -1519,16 +1519,14 @@ export default function SuperAdminDirectCertificate() {
                           </th>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
                           <th style={{ padding: '8px 6px' }}>Product Name</th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Code / SKU</th>
-                          <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Type / State</th>
+                          <th style={{ width: '28%', padding: '8px 6px' }}>Code / SKU</th>
                           <th style={{ width: 90, padding: '8px 10px', textAlign: 'center' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCatalog.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                            <td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
                               No products found matching "{catalogSearchQuery}".
                             </td>
                           </tr>
@@ -1561,12 +1559,6 @@ export default function SuperAdminDirectCertificate() {
                                 <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
                                   {prod.code || prod.barcode || '—'}
                                 </td>
-                                <td style={{ padding: '6px 8px', color: '#475569' }}>
-                                  {prod.category || '—'}
-                                </td>
-                                <td style={{ padding: '6px 8px', color: '#475569' }}>
-                                  {prod.product_type || 'Processed'}
-                                </td>
                                 <td style={{ textAlign: 'center', padding: '6px 8px' }}>
                                   {selected ? (
                                     <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
@@ -1598,11 +1590,8 @@ export default function SuperAdminDirectCertificate() {
                       <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                         <tr style={{ color: '#475569', textAlign: 'left' }}>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                          <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Code / SKU</th>
-                          <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Type / State</th>
-                          <th style={{ width: 50, padding: '8px 6px', textAlign: 'center' }}>Actions</th>
+                          <th style={{ padding: '8px 6px' }}>Product Name <span>*</span></th>
+                          <th style={{ width: '35%', padding: '8px 6px' }}>Code / SKU</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1629,55 +1618,6 @@ export default function SuperAdminDirectCertificate() {
                                 value={prod.code}
                                 onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
                               />
-                            </td>
-                            <td style={{ padding: '4px 6px' }}>
-                              <select
-                                className="form-control"
-                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                                value={prod.category}
-                                onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
-                              >
-                                {PRODUCT_CATEGORIES.map(cat => (
-                                  <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td style={{ padding: '4px 6px' }}>
-                              <select
-                                className="form-control"
-                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                                value={prod.product_type}
-                                onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
-                              >
-                                <option value="Processed">Processed</option>
-                                <option value="Raw">Raw</option>
-                                <option value="Frozen">Frozen</option>
-                                <option value="Chilled">Chilled</option>
-                                <option value="Ambient">Ambient</option>
-                                <option value="Ingredient">Ingredient</option>
-                              </select>
-                            </td>
-                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-sm"
-                                  title="Duplicate Row"
-                                  style={{ padding: '3px 5px', color: '#64748b' }}
-                                  onClick={() => duplicateProductRow(prod)}
-                                >
-                                  <Copy size={12} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-sm"
-                                  title="Delete Row"
-                                  style={{ padding: '3px 5px', color: '#ef4444' }}
-                                  onClick={() => removeProductRow(prod.id)}
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
                             </td>
                           </tr>
                         ))}

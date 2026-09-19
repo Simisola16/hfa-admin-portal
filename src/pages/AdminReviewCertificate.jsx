@@ -14,10 +14,9 @@ const getPdfUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-  if (url.startsWith('/api/files/')) {
-    return `${API_URL}${url}`;
-  }
-  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  const cleanApi = API_URL.replace(/\/$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${cleanApi}${cleanPath}`;
 };
 
 export default function AdminReviewCertificate() {
@@ -48,6 +47,9 @@ export default function AdminReviewCertificate() {
     manufacturing_address: '',
     scope: '',
     issue_date: '',
+    current_cycle_start_date: '',
+    original_cycle_start_date: '',
+    certification_start_date: '',
     expiry_date: '',
     products_covered: [],
     product_details: [],
@@ -59,6 +61,8 @@ export default function AdminReviewCertificate() {
       dates_verified: false
     }
   });
+
+  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
 
   const [newProdName, setNewProdName] = useState('');
   const [newProdCode, setNewProdCode] = useState('');
@@ -250,6 +254,9 @@ export default function AdminReviewCertificate() {
         manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
         scope: c.scope || c.application_id?.scope || 'Halal Food and Consumer Products Certification',
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        original_cycle_start_date: c.original_cycle_start_date ? new Date(c.original_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        certification_start_date: c.certification_start_date ? new Date(c.certification_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         expiry_date: c.expiry_date ? new Date(c.expiry_date).toISOString().split('T')[0] : '',
         products_covered: finalProductsCovered,
         product_details: resolvedDetails,
@@ -435,6 +442,9 @@ export default function AdminReviewCertificate() {
         manufacturing_address: form.manufacturing_address,
         scope: form.scope,
         issue_date: form.issue_date,
+        current_cycle_start_date: form.current_cycle_start_date,
+        original_cycle_start_date: form.original_cycle_start_date,
+        certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
         product_details: form.product_details,
@@ -461,22 +471,33 @@ export default function AdminReviewCertificate() {
       await handleSave(true);
 
       const res = await api.post(`/api/certificates/${certId}/regenerate`, {
+        certificate_number: form.certificate_number,
+        certificate_type: form.certificate_type,
         company_name: form.company_name,
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
         scope: form.scope,
         issue_date: form.issue_date,
+        current_cycle_start_date: form.current_cycle_start_date,
+        original_cycle_start_date: form.original_cycle_start_date,
+        certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
         product_details: form.product_details
       });
 
-      if (res.data?.certificateUrl) {
+      const newCertUrl = res.certificateUrl || res.data?.certificateUrl || res.data?.data?.certificate_url;
+      if (newCertUrl) {
         setCert(prev => ({
           ...prev,
-          certificate_url: res.data.certificateUrl
+          certificate_url: newCertUrl
         }));
+        setPreviewTimestamp(Date.now());
         toast.success('Certificate PDF regenerated successfully!');
+      } else {
+        fetchCertificate();
+        setPreviewTimestamp(Date.now());
+        toast.success('Certificate preview refreshed!');
       }
     } catch (err) {
       toast.error('PDF Regeneration failed: ' + (err.response?.data?.error || err.message));
@@ -540,6 +561,9 @@ export default function AdminReviewCertificate() {
         manufacturing_address: form.manufacturing_address,
         scope: form.scope,
         issue_date: form.issue_date,
+        current_cycle_start_date: form.current_cycle_start_date,
+        original_cycle_start_date: form.original_cycle_start_date,
+        certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
         product_details: form.product_details,
@@ -588,7 +612,9 @@ export default function AdminReviewCertificate() {
   }
 
   const isUnderReview = cert?.status === 'under_review' || cert?.status === 'draft';
-  const pdfUrl = getPdfUrl(cert?.certificate_url);
+  const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || (form.certificate_type && form.certificate_type.includes('GSO'));
+  const rawPdfUrl = getPdfUrl(cert?.certificate_url);
+  const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
 
   return (
     <div style={{ padding: '24px 32px 100px', maxWidth: 1600, margin: '0 auto' }}>
@@ -710,7 +736,7 @@ export default function AdminReviewCertificate() {
             </div>
 
             {/* Document details strip */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 14, fontSize: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isGso ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 10, marginTop: 14, fontSize: 12 }}>
               <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Scheme</div>
                 <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
@@ -721,6 +747,12 @@ export default function AdminReviewCertificate() {
                 <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Issue Date</div>
                 <div style={{ fontWeight: 700, color: '#047857', marginTop: 2 }}>{form.issue_date || '—'}</div>
               </div>
+              {isGso && (
+                <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Cycle Start</div>
+                  <div style={{ fontWeight: 700, color: '#2563eb', marginTop: 2 }}>{form.current_cycle_start_date || form.issue_date || '—'}</div>
+                </div>
+              )}
               <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
                 <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{form.expiry_date || '—'}</div>
@@ -775,11 +807,11 @@ export default function AdminReviewCertificate() {
                   <button
                     type="button"
                     onClick={() => {
-                      const detectedType = cert?.application_id?.application_type || cert?.certificate_type || form.certificate_type || 'NE';
-                      const typeCode = normalizeHfaTypeCode(detectedType);
-                      setForm(f => ({ ...f, certificate_number: generateHfaId(f.company_name || 'HFA', typeCode) }));
+                      const newId = generateHfaId(form.company_name || 'HFA', 'NE');
+                      setForm(f => ({ ...f, certificate_number: newId }));
+                      toast.success(`Generated ID: ${newId}`);
                     }}
-                    style={{ background: 'none', border: 'none', color: '#0d9488', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
                     Regenerate ID
                   </button>
@@ -790,17 +822,27 @@ export default function AdminReviewCertificate() {
                   className="form-control"
                   value={form.certificate_number}
                   onChange={e => setForm({ ...form, certificate_number: e.target.value })}
-                  placeholder="e.g. HFA-CERT-2026-001"
-                  style={{ fontWeight: 700 }}
+                  style={{ fontWeight: 700, color: '#0f172a' }}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Certificate Scheme / Type <span style={{ color: '#dc2626' }}>*</span></label>
+                <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type <span style={{ color: '#dc2626' }}>*</span></label>
                 <select
                   className="form-control"
                   value={form.certificate_type}
-                  onChange={e => setForm({ ...form, certificate_type: e.target.value })}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setForm(f => ({
+                      ...f,
+                      certificate_type: val,
+                      expiry_date: val.includes('GSO') ? (() => {
+                        const d = new Date(f.issue_date || new Date());
+                        d.setFullYear(d.getFullYear() + 3);
+                        return d.toISOString().split('T')[0];
+                      })() : f.expiry_date
+                    }));
+                  }}
                   style={{ fontWeight: 600 }}
                 >
                   <option value="GSO MEAT">GSO MEAT</option>
@@ -849,55 +891,154 @@ export default function AdminReviewCertificate() {
             </div>
           </div>
 
-          {/* Card 2: Validity Dates & Cycle */}
+          {/* Card 2: Validity Dates & Cycle (4 Dates for GSO, Standard for Non-GSO) */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
             <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
               <Calendar size={16} style={{ color: '#047857' }} />
-              2. Validity Period &amp; Dates
+              2. Validity Period &amp; Dates {isGso && <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 GSO Dates</span>}
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Certificate Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
-                <input
-                  type="date"
-                  required
-                  className="form-control"
-                  value={form.issue_date}
-                  onChange={e => setForm({ ...form, issue_date: e.target.value })}
-                />
-              </div>
+            {isGso ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {/* 1. Issue Date */}
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.issue_date}
+                    onChange={e => setForm({ ...form, issue_date: e.target.value })}
+                  />
+                </div>
 
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Certificate Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                {/* 2. Current Cycle Start Date */}
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
                     <button
                       type="button"
-                      onClick={() => handleSetYears(1)}
-                      style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      onClick={() => setForm(f => ({ ...f, current_cycle_start_date: f.issue_date }))}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                     >
-                      +1 Yr
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetYears(3)}
-                      style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      +3 Yrs
+                      Match Issue Date
                     </button>
                   </div>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.current_cycle_start_date || form.issue_date}
+                    onChange={e => setForm({ ...form, current_cycle_start_date: e.target.value })}
+                  />
                 </div>
-                <input
-                  type="date"
-                  required
-                  className="form-control"
-                  value={form.expiry_date}
-                  onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-                  style={{ fontWeight: 700, color: '#dc2626' }}
-                />
+
+                {/* 3. Expiry Date */}
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(3)}
+                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +3 Yrs (GSO)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(1)}
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +1 Yr
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.expiry_date}
+                    onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                    style={{ fontWeight: 700, color: '#dc2626' }}
+                  />
+                </div>
+
+                {/* 4. Original Cycle Start Date */}
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, original_cycle_start_date: f.issue_date }))}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Match Issue Date
+                    </button>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.original_cycle_start_date || form.issue_date}
+                    onChange={e => setForm({ ...form, original_cycle_start_date: e.target.value })}
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.issue_date}
+                    onChange={e => setForm({ ...form, issue_date: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(1)}
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +1 Yr
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(3)}
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +3 Yrs
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    className="form-control"
+                    value={form.expiry_date}
+                    onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                    style={{ fontWeight: 700, color: '#dc2626' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={form.certification_start_date || form.issue_date}
+                    onChange={e => setForm({ ...form, certification_start_date: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card 3: Certified Products Management */}

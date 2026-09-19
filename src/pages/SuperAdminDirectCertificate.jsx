@@ -39,7 +39,7 @@ const PRODUCT_CATEGORIES = [
 const getPdfUrl = (url) => {
   if (!url) return '#';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
   const cleanApi = API_URL.replace(/\/$/, '');
   const cleanPath = url.startsWith('/') ? url : `/${url}`;
   return `${cleanApi}${cleanPath}`;
@@ -132,12 +132,55 @@ export default function SuperAdminDirectCertificate() {
   const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [sendInAppNotification, setSendInAppNotification] = useState(true);
 
+  // Live Preview State
+  const [livePreviewUrl, setLivePreviewUrl] = useState('');
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
   // Success Modal State
   const [successResult, setSuccessResult] = useState(null);
 
   // History Inspect Modal
   const [inspectCert, setInspectCert] = useState(null);
   const [historySearch, setHistorySearch] = useState('');
+
+  // Live Certificate Document Preview Generator
+  const generateLivePreview = async (silent = false) => {
+    const validProducts = products.filter(p => p.name && p.name.trim());
+    const companyName = clientMode === 'existing'
+      ? (selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client')
+      : (newClient.company_name || newClient.full_name || 'Valued Halal Client');
+    const businessAddr = (customSiteAddress || resolvedBusinessAddress || newClient.address || '').trim();
+
+    setGeneratingPreview(true);
+    try {
+      const res = await api.post('/api/certificates/preview-live', {
+        certificate_type: certType,
+        certificate_number: certNumber,
+        company_name: companyName,
+        company_address: businessAddr || 'Registered Business Address',
+        manufacturing_address: manufacturerAddress || businessAddr || 'Manufacturing Facility Address',
+        issue_date: issueDate,
+        current_cycle_start_date: isGso ? currentCycleStartDate : issueDate,
+        original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,
+        certification_start_date: certificationStartDate || issueDate,
+        expiry_date: expiryDate,
+        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
+      });
+
+      const url = res.previewUrl || res.data?.previewUrl;
+      if (url) {
+        setLivePreviewUrl(getPdfUrl(url));
+        setPreviewTimestamp(Date.now());
+        if (!silent) toast.success('Live certificate preview updated!');
+      }
+    } catch (err) {
+      if (!silent) toast.error('Preview generation failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setGeneratingPreview(false);
+    }
+  };
 
   // Fetch Existing Clients & Sites
   const fetchInitialData = async () => {
@@ -608,6 +651,7 @@ export default function SuperAdminDirectCertificate() {
     setSuccessResult(null);
     setProducts([{ id: 1, name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
     setUploadedPdfFile(null);
+    setLivePreviewUrl('');
     setNotes('Directly issued with certified products by Superadmin.');
     const today = new Date().toISOString().split('T')[0];
     setIssueDate(today);
@@ -1699,25 +1743,124 @@ export default function SuperAdminDirectCertificate() {
               </div>
             </div>
 
-            {/* Right Column: Live Certificate Summary Card & Action Bar */}
-            <div style={{ position: 'sticky', top: 20 }}>
+            {/* Right Column: Live Certificate Document Review & Summary Action Bar */}
+            <div style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Document Review Pane */}
+              <div className="card" style={{ padding: 18, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FileText size={17} style={{ color: '#16a34a' }} />
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>Live Certificate Document</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => generateLivePreview(false)}
+                      disabled={generatingPreview}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a', borderColor: '#dcfce7' }}
+                      title="Re-render PDF with current form values"
+                    >
+                      <RefreshCw size={12} className={generatingPreview ? 'spinner' : ''} />
+                      {generatingPreview ? 'Syncing...' : 'Sync & Refresh'}
+                    </button>
+                    {livePreviewUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPreviewModal(true)}
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#334155' }}
+                        title="View Fullscreen Preview"
+                      >
+                        <ExternalLink size={12} /> Fullscreen
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Document Viewer Frame */}
+                <div style={{
+                  background: '#f8fafc',
+                  borderRadius: 10,
+                  border: '1.5px solid #cbd5e1',
+                  height: '460px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {livePreviewUrl ? (
+                    <iframe
+                      key={`${livePreviewUrl}-${previewTimestamp}`}
+                      src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
+                      title="Direct Certificate Live Preview"
+                      style={{ width: '100%', height: '100%', border: 'none' }}
+                    />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>
+                      <Award size={40} style={{ color: '#cbd5e1', margin: '0 auto 10px' }} />
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>Live Review Not Loaded</div>
+                      <p style={{ fontSize: 11.5, margin: '4px 0 14px', lineHeight: 1.4 }}>
+                        Click below to generate and preview how this certificate and product schedule will look.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => generateLivePreview(false)}
+                        disabled={generatingPreview}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <RefreshCw size={12} className={generatingPreview ? 'spinner' : ''} />
+                        {generatingPreview ? 'Rendering Preview...' : 'Generate Live Preview'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Document details strip */}
+                <div style={{ display: 'grid', gridTemplateColumns: isGso ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 8, marginTop: 12, fontSize: 11.5 }}>
+                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Scheme</div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      {certType}
+                    </div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Issue Date</div>
+                    <div style={{ fontWeight: 700, color: '#16a34a', marginTop: 2 }}>{issueDate || '—'}</div>
+                  </div>
+                  {isGso && (
+                    <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Cycle Start</div>
+                      <div style={{ fontWeight: 700, color: '#2563eb', marginTop: 2 }}>{currentCycleStartDate || issueDate || '—'}</div>
+                    </div>
+                  )}
+                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
+                    <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{expiryDate || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary & Issue Card */}
               <div className="card" style={{ padding: 20, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Live Certificate Summary
+                    Certificate Summary
                   </span>
                   <span className="badge badge-green">DIRECT ISSUANCE</span>
                 </div>
 
                 {/* Summary Box */}
-                <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: 16, marginBottom: 18 }}>
-                  <div style={{ textAlign: 'center', paddingBottom: 12, borderBottom: '1px solid #e2e8f0', marginBottom: 12 }}>
+                <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, marginBottom: 16 }}>
+                  <div style={{ textAlign: 'center', paddingBottom: 10, borderBottom: '1px solid #e2e8f0', marginBottom: 10 }}>
                     <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Certificate Number</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d', letterSpacing: 0.5 }}>{certNumber}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#15803d', letterSpacing: 0.5 }}>{certNumber}</div>
                     <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{certType}</div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Client Company:</span>
                       <strong style={{ color: '#0f172a', maxWidth: 170, textAlign: 'right', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
@@ -2068,6 +2211,47 @@ export default function SuperAdminDirectCertificate() {
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-primary" onClick={() => setInspectCert(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* FULLSCREEN LIVE PREVIEW MODAL                                */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      {showPreviewModal && livePreviewUrl && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPreviewModal(false)}>
+          <div className="modal" style={{ maxWidth: 960, width: '92vw', height: '88vh', display: 'flex', flexDirection: 'column', padding: 20 }}>
+            <div className="modal-header" style={{ paddingBottom: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileText size={18} style={{ color: '#16a34a' }} />
+                <span className="modal-title">Live Certificate Document Preview ({certNumber})</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <a
+                  href={livePreviewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-ghost btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a' }}
+                >
+                  <ExternalLink size={13} /> Open in New Tab
+                </a>
+                <button className="modal-close" onClick={() => setShowPreviewModal(false)}><X size={16}/></button>
+              </div>
+            </div>
+            <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid #cbd5e1' }}>
+              <iframe
+                src={`${livePreviewUrl}#toolbar=1&navpanes=0`}
+                title="Fullscreen Preview"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'space-between', marginTop: 12, paddingTop: 12 }}>
+              <span style={{ fontSize: 12, color: '#64748b' }}>
+                Scheme: <strong>{certType}</strong> • Issue: <strong>{issueDate}</strong> • Expiry: <strong>{expiryDate}</strong>
+              </span>
+              <button type="button" className="btn btn-primary" onClick={() => setShowPreviewModal(false)}>Close Preview</button>
             </div>
           </div>
         </div>

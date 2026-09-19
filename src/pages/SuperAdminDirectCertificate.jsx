@@ -122,6 +122,38 @@ export default function SuperAdminDirectCertificate() {
     { id: 1, name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }
   ]);
 
+  // Existing Products for selected client
+  const [clientExistingProducts, setClientExistingProducts] = useState([]);
+
+  useEffect(() => {
+    if (selectedClient?._id || selectedClient?.id) {
+      const cId = selectedClient._id || selectedClient.id;
+      api.get(`/api/products?client_id=${cId}`)
+        .then(res => {
+          const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          setClientExistingProducts(list);
+        })
+        .catch(() => setClientExistingProducts([]));
+    } else {
+      setClientExistingProducts([]);
+    }
+  }, [selectedClient]);
+
+  const handleImportClientProducts = () => {
+    if (!clientExistingProducts.length) return;
+    const imported = clientExistingProducts.map((p, idx) => ({
+      id: Date.now() + idx,
+      name: p.name || '',
+      code: p.code || `PRD-${String(idx + 1).padStart(2, '0')}`,
+      category: p.category || 'General Food Products',
+      product_type: p.product_type || 'Processed',
+      barcode: p.barcode || '',
+      ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || '')
+    }));
+    setProducts(imported);
+    toast.success(`Loaded ${imported.length} existing products for ${selectedClient.company_name || selectedClient.full_name}!`);
+  };
+
   // Bulk Import Modal
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState('');
@@ -1455,7 +1487,7 @@ export default function SuperAdminDirectCertificate() {
                   </div>
                 )}
 
-                {/* ── Active Products on Certificate Table ── */}
+                {/* ── Active Products on Certificate Table (Compact Scroll Box with Sticky Header) ── */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1469,12 +1501,18 @@ export default function SuperAdminDirectCertificate() {
                     </span>
                   </div>
 
-                  <div className="table-wrap" style={{ border: '1px solid #e2e8f0', borderRadius: 10 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                  <div className="table-wrap" style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 10,
+                    maxHeight: 340,
+                    overflowY: 'auto',
+                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                        <tr style={{ color: '#475569', textAlign: 'left' }}>
                           <th style={{ width: 40, padding: '10px 8px', textAlign: 'center' }}>#</th>
-                          <th style={{ width: '30%', padding: '10px 8px' }}>Product Name <span>*</span></th>
+                          <th style={{ width: '32%', padding: '10px 8px' }}>Product Name <span>*</span></th>
                           <th style={{ width: '18%', padding: '10px 8px' }}>Code / SKU</th>
                           <th style={{ width: '22%', padding: '10px 8px' }}>Category</th>
                           <th style={{ width: '18%', padding: '10px 8px' }}>Type / State</th>
@@ -1483,33 +1521,33 @@ export default function SuperAdminDirectCertificate() {
                       </thead>
                       <tbody>
                         {products.map((prod, index) => (
-                          <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#fafdfa' : '#ffffff' }}>
-                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{index + 1}</td>
-                            <td style={{ padding: '8px 6px' }}>
+                          <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#fafdfa' : (index % 2 === 0 ? '#ffffff' : '#fafafa') }}>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11.5 }}>{index + 1}</td>
+                            <td style={{ padding: '6px 6px' }}>
                               <input
                                 type="text"
                                 className="form-control"
-                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                style={{ padding: '5px 8px', fontSize: 12, height: 32 }}
                                 placeholder="e.g. Frozen Halal Beef Burger"
                                 value={prod.name}
                                 onChange={e => updateProductRow(prod.id, 'name', e.target.value)}
                                 required
                               />
                             </td>
-                            <td style={{ padding: '8px 6px' }}>
+                            <td style={{ padding: '6px 6px' }}>
                               <input
                                 type="text"
                                 className="form-control"
-                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                style={{ padding: '5px 8px', fontSize: 12, height: 32 }}
                                 placeholder="e.g. PRD-001"
                                 value={prod.code}
                                 onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
                               />
                             </td>
-                            <td style={{ padding: '8px 6px' }}>
+                            <td style={{ padding: '6px 6px' }}>
                               <select
                                 className="form-control"
-                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                style={{ padding: '5px 8px', fontSize: 12, height: 32 }}
                                 value={prod.category}
                                 onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
                               >
@@ -1518,10 +1556,10 @@ export default function SuperAdminDirectCertificate() {
                                 ))}
                               </select>
                             </td>
-                            <td style={{ padding: '8px 6px' }}>
+                            <td style={{ padding: '6px 6px' }}>
                               <select
                                 className="form-control"
-                                style={{ padding: '6px 10px', fontSize: 12.5 }}
+                                style={{ padding: '5px 8px', fontSize: 12, height: 32 }}
                                 value={prod.product_type}
                                 onChange={e => updateProductRow(prod.id, 'product_type', e.target.value)}
                               >
@@ -1533,13 +1571,13 @@ export default function SuperAdminDirectCertificate() {
                                 <option value="Ingredient">Ingredient</option>
                               </select>
                             </td>
-                            <td style={{ textAlign: 'center', padding: '8px 6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            <td style={{ textAlign: 'center', padding: '6px 6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-sm"
                                   title="Duplicate Row"
-                                  style={{ padding: 4, color: '#64748b' }}
+                                  style={{ padding: '4px 6px', color: '#64748b' }}
                                   onClick={() => duplicateProductRow(prod)}
                                 >
                                   <Copy size={13} />
@@ -1548,7 +1586,7 @@ export default function SuperAdminDirectCertificate() {
                                   type="button"
                                   className="btn btn-ghost btn-sm"
                                   title="Delete Row"
-                                  style={{ padding: 4, color: '#ef4444' }}
+                                  style={{ padding: '4px 6px', color: '#ef4444' }}
                                   onClick={() => removeProductRow(prod.id)}
                                 >
                                   <Trash2 size={13} />
@@ -1565,14 +1603,29 @@ export default function SuperAdminDirectCertificate() {
                     <span style={{ fontSize: 12, color: '#64748b' }}>
                       💡 All products listed above will be certified and printed on the official certificate.
                     </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={addProductRow}
-                      style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}
-                    >
-                      + Add Another Product Row
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {products.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11, color: '#ef4444', padding: '2px 8px' }}
+                          onClick={() => {
+                            setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                            toast.success('Product list cleared.');
+                          }}
+                        >
+                          Clear All Rows
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={addProductRow}
+                        style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}
+                      >
+                        + Add Another Product Row
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

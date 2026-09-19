@@ -168,9 +168,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       }
       formData.append('application_id', appId);
       formData.append('client_id', clientId);
-      if (app.site_id) {
-        formData.append('site_id', app.site_id);
+      const siteId = getCleanId(app.site_id?._id || app.site_id);
+      if (!siteId) {
+        throw new Error('Site selection is compulsory. This application has no associated site.');
       }
+      formData.append('site_id', siteId);
       formData.append('company_name', app.establishment_name || app.profiles?.company_name || '');
       formData.append('company_address', app.establishment_address || app.profiles?.address || '');
       formData.append('manufacturing_address', app.manufacturer_address || app.establishment_address || '');

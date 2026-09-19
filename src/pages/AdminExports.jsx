@@ -105,8 +105,10 @@ export default function AdminExports() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(e => (
-                  <tr key={e.id}>
+                {filtered.map(e => {
+                  const itemId = e.id || e._id;
+                  return (
+                  <tr key={itemId}>
                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{e.reference_number}</td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{e.profiles?.company_name || '—'}</div>
@@ -139,7 +141,7 @@ export default function AdminExports() {
                           <button 
                             className="btn btn-ghost btn-sm" 
                             style={{ color: 'var(--primary)' }}
-                            onClick={() => handleStatusUpdate(e.id, 'approved')}
+                            onClick={() => handleStatusUpdate(itemId, 'approved')}
                             title="Accept"
                           >
                             <CheckCircle size={14} />
@@ -147,7 +149,7 @@ export default function AdminExports() {
                           <button 
                             className="btn btn-ghost btn-sm" 
                             style={{ color: 'var(--danger)' }}
-                            onClick={() => handleStatusUpdate(e.id, 'rejected')}
+                            onClick={() => handleStatusUpdate(itemId, 'rejected')}
                             title="Reject"
                           >
                             <XCircle size={14} />
@@ -161,7 +163,8 @@ export default function AdminExports() {
                       )}
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           )}

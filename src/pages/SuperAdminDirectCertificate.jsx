@@ -143,6 +143,7 @@ export default function SuperAdminDirectCertificate() {
     if (!clientExistingProducts.length) return;
     const imported = clientExistingProducts.map((p, idx) => ({
       id: Date.now() + idx,
+      _sourceId: p._id || p.id,
       name: p.name || '',
       code: p.code || `PRD-${String(idx + 1).padStart(2, '0')}`,
       category: p.category || 'General Food Products',
@@ -292,9 +293,24 @@ export default function SuperAdminDirectCertificate() {
       const rawList = Array.isArray(res?.data)
         ? res.data
         : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
-      setClientCatalog(rawList);
-      if (rawList.length > 0) {
-        const catalogItems = rawList.map((p, idx) => ({
+
+      // Deduplicate rawList by product name & code
+      const uniqueCatalog = [];
+      const seenCatalogKeys = new Set();
+      for (const p of rawList) {
+        const nameStr = (p.name || '').trim();
+        if (!nameStr) continue;
+        const codeStr = (p.code || p.barcode || '').trim();
+        const key = `${nameStr.toLowerCase()}|${codeStr.toLowerCase()}`;
+        if (!seenCatalogKeys.has(key)) {
+          seenCatalogKeys.add(key);
+          uniqueCatalog.push(p);
+        }
+      }
+
+      setClientCatalog(uniqueCatalog);
+      if (uniqueCatalog.length > 0) {
+        const catalogItems = uniqueCatalog.map((p, idx) => ({
           id: Date.now() + idx + Math.random(),
           _sourceId: p._id || p.id,
           name: p.name || '',
@@ -535,20 +551,43 @@ export default function SuperAdminDirectCertificate() {
     e.preventDefault();
 
     // Validations
-    if (clientMode === 'existing' && !selectedClient) {
-      return toast.error('Please select an existing client company.');
+    if (clientMode === 'existing') {
+      if (!selectedClient) {
+        return toast.error('Please select an existing client company.');
+      }
+      if (clientSites.length > 0 && !selectedSiteId) {
+        return toast.error('Site selection is compulsory. Please select a specific registered site for this certificate.');
+      }
+      if (clientSites.length === 0 && !selectedSiteId && !customSiteAddress.trim()) {
+        return toast.error('Site selection is compulsory. Please specify the facility/site address for this certificate.');
+      }
     }
 
     if (clientMode === 'new') {
       if (!newClient.company_name.trim()) return toast.error('Company Name is required.');
       if (!newClient.email.trim()) return toast.error('Client email is required.');
+      if (!customSiteName.trim() && !customSiteAddress.trim() && !newClient.address.trim()) {
+        return toast.error('Site selection/details are compulsory. Please specify the site name or address for this certificate.');
+      }
     }
 
     if (!certNumber.trim()) {
       return toast.error('Certificate number is required.');
     }
 
-    const validProducts = products.filter(p => p.name && p.name.trim());
+    // Deduplicate products by normalized name
+    const validProducts = [];
+    const seenProductKeys = new Set();
+    for (const p of products) {
+      const nameStr = (p.name || '').trim();
+      if (!nameStr) continue;
+      const key = nameStr.toLowerCase();
+      if (!seenProductKeys.has(key)) {
+        seenProductKeys.add(key);
+        validProducts.push(p);
+      }
+    }
+
     if (validProducts.length === 0) {
       return toast.error('Please specify at least one product name to certify.');
     }
@@ -929,10 +968,10 @@ export default function SuperAdminDirectCertificate() {
                             )}
                           </div>
                           <div>
-                            <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Registered Site (Optional)</label>
+                            <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Registered Site / Facility <span style={{ color: '#dc2626' }}>*</span></label>
                             <select
                               className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, marginTop: 2 }}
+                              style={{ padding: '4px 8px', fontSize: 12, marginTop: 2, borderColor: !selectedSiteId ? '#f87171' : undefined }}
                               value={selectedSiteId}
                               onChange={e => {
                                 const sId = e.target.value;
@@ -944,8 +983,9 @@ export default function SuperAdminDirectCertificate() {
                                   setCustomSiteAddress('');
                                 }
                               }}
+                              required
                             >
-                              <option value="">{clientSites.length > 0 ? 'Use Default / Company Address' : 'No registered sites (Use Company Address)'}</option>
+                              <option value="">{clientSites.length > 0 ? '-- Select Specific Certified Site * --' : 'No registered sites (Enter Address Below)'}</option>
                               {clientSites.map(s => (
                                 <option key={s._id} value={s._id}>{s.name} ({s.address_1}{s.city ? `, ${s.city}` : ''})</option>
                               ))}
@@ -1231,12 +1271,22 @@ export default function SuperAdminDirectCertificate() {
 
                       {/* Certification Start Date */}
                       <div className="form-group">
-                        <label className="form-label">Certification Start Date</label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label">Certification Start Date</label>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 10.5, color: '#16a34a' }}
+                            onClick={() => setCertificationStartDate(issueDate)}
+                          >
+                            Match Issue Date
+                          </button>
+                        </div>
                         <input
                           type="date"
                           className="form-control"
-                          value={certStartDate}
-                          onChange={e => setCertStartDate(e.target.value)}
+                          value={certificationStartDate}
+                          onChange={e => setCertificationStartDate(e.target.value)}
                         />
                       </div>
                     </>
@@ -1734,7 +1784,7 @@ export default function SuperAdminDirectCertificate() {
                       <span style={{ color: '#64748b' }}>Issue Date:</span>
                       <span>{issueDate ? new Date(issueDate).toLocaleDateString('en-GB') : '—'}</span>
                     </div>
-                    {isGso && (
+                    {isGso ? (
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: '#64748b' }}>Current Cycle Start:</span>
@@ -1745,6 +1795,11 @@ export default function SuperAdminDirectCertificate() {
                           <span>{originalCycleStartDate ? new Date(originalCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
                         </div>
                       </>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Certification Start:</span>
+                        <span>{certificationStartDate ? new Date(certificationStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                      </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Expiry Date:</span>

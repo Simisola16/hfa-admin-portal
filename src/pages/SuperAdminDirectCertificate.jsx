@@ -105,12 +105,17 @@ export default function SuperAdminDirectCertificate() {
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
   const [certType, setCertType] = useState('GSO MEAT');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentCycleStartDate, setCurrentCycleStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [originalCycleStartDate, setOriginalCycleStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [certificationStartDate, setCertificationStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [expiryDate, setExpiryDate] = useState(() => {
     const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
+    d.setFullYear(d.getFullYear() + 3);
     return d.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
+
+  const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT';
 
   // Product Builder State
   const [products, setProducts] = useState([
@@ -546,6 +551,9 @@ export default function SuperAdminDirectCertificate() {
       formData.append('certificate_type', certType);
       formData.append('issue_date', issueDate);
       formData.append('expiry_date', expiryDate);
+      formData.append('current_cycle_start_date', isGso ? (currentCycleStartDate || issueDate) : issueDate);
+      formData.append('original_cycle_start_date', isGso ? (originalCycleStartDate || issueDate) : issueDate);
+      formData.append('certification_start_date', !isGso ? (certificationStartDate || issueDate) : issueDate);
       formData.append('status', 'active');
       formData.append('notes', notes);
 
@@ -601,6 +609,14 @@ export default function SuperAdminDirectCertificate() {
     setProducts([{ id: 1, name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
     setUploadedPdfFile(null);
     setNotes('Directly issued with certified products by Superadmin.');
+    const today = new Date().toISOString().split('T')[0];
+    setIssueDate(today);
+    setCurrentCycleStartDate(today);
+    setOriginalCycleStartDate(today);
+    setCertificationStartDate(today);
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + (certType.includes('GSO') ? 3 : 1));
+    setExpiryDate(d.toISOString().split('T')[0]);
   };
 
   // Guard: Unauthorized view if not superadmin and has no privilege
@@ -1010,13 +1026,14 @@ export default function SuperAdminDirectCertificate() {
 
                   {/* Certificate Type */}
                   <div className="form-group">
-                    <label className="form-label">Certificate Standard / Type <span>*</span></label>
+                    <label className="form-label">Certificate Type <span>*</span></label>
                     <select
                       className="form-control"
                       value={certType}
                       onChange={e => {
-                        setCertType(e.target.value);
-                        if (e.target.value.includes('GSO')) {
+                        const val = e.target.value;
+                        setCertType(val);
+                        if (val.includes('GSO')) {
                           applyValidityPreset(3);
                         } else {
                           applyValidityPreset(1);
@@ -1030,48 +1047,155 @@ export default function SuperAdminDirectCertificate() {
                     </select>
                   </div>
 
-                  {/* Issue Date & Expiry Date */}
-                  <div className="form-group">
-                    <label className="form-label">Issue Date <span>*</span></label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={issueDate}
-                      onChange={e => setIssueDate(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label className="form-label">Expiry Date <span>*</span></label>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
-                          onClick={() => applyValidityPreset(1)}
-                        >
-                          +1 Year
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
-                          onClick={() => applyValidityPreset(3)}
-                        >
-                          +3 Years
-                        </button>
+                  {/* Dynamic Dates: 4 dates for GSO MEAT / GSO NON MEAT, Standard dates for Non-GSO */}
+                  {isGso ? (
+                    <>
+                      {/* 1. Issue Date */}
+                      <div className="form-group">
+                        <label className="form-label">Issue Date <span>*</span></label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={issueDate}
+                          onChange={e => setIssueDate(e.target.value)}
+                          required
+                        />
                       </div>
-                    </div>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={expiryDate}
-                      onChange={e => setExpiryDate(e.target.value)}
-                      required
-                    />
-                  </div>
+
+                      {/* 2. Current Cycle Start Date */}
+                      <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label">Current Cycle Start Date <span>*</span></label>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 10.5, color: '#16a34a' }}
+                            onClick={() => setCurrentCycleStartDate(issueDate)}
+                          >
+                            Match Issue Date
+                          </button>
+                        </div>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={currentCycleStartDate}
+                          onChange={e => setCurrentCycleStartDate(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      {/* 3. Expiry Date */}
+                      <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label">Expiry Date <span>*</span></label>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              onClick={() => applyValidityPreset(3)}
+                            >
+                              +3 Years (GSO)
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              onClick={() => applyValidityPreset(1)}
+                            >
+                              +1 Year
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={expiryDate}
+                          onChange={e => setExpiryDate(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      {/* 4. Original Cycle Start Date */}
+                      <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label">Original Cycle Start Date <span>*</span></label>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 10.5, color: '#16a34a' }}
+                            onClick={() => setOriginalCycleStartDate(issueDate)}
+                          >
+                            Match Issue Date
+                          </button>
+                        </div>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={originalCycleStartDate}
+                          onChange={e => setOriginalCycleStartDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Issue Date */}
+                      <div className="form-group">
+                        <label className="form-label">Issue Date <span>*</span></label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={issueDate}
+                          onChange={e => setIssueDate(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      {/* Expiry Date */}
+                      <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label">Expiry Date <span>*</span></label>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              onClick={() => applyValidityPreset(1)}
+                            >
+                              +1 Year
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              onClick={() => applyValidityPreset(3)}
+                            >
+                              +3 Years
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={expiryDate}
+                          onChange={e => setExpiryDate(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      {/* Certification Start Date */}
+                      <div className="form-group">
+                        <label className="form-label">Certification Start Date</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={certificationStartDate}
+                          onChange={e => setCertificationStartDate(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1608,6 +1732,18 @@ export default function SuperAdminDirectCertificate() {
                       <span style={{ color: '#64748b' }}>Issue Date:</span>
                       <span>{issueDate ? new Date(issueDate).toLocaleDateString('en-GB') : '—'}</span>
                     </div>
+                    {isGso && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Current Cycle Start:</span>
+                          <span>{currentCycleStartDate ? new Date(currentCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Original Cycle Start:</span>
+                          <span>{originalCycleStartDate ? new Date(originalCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                        </div>
+                      </>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Expiry Date:</span>
                       <span style={{ color: '#dc2626', fontWeight: 600 }}>{expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : '—'}</span>

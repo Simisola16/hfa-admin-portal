@@ -68,8 +68,6 @@ export default function SuperAdminDirectCertificate() {
   const [sites, setSites] = useState([]);
   const [directHistory, setDirectHistory] = useState([]);
 
-  // Client Selection Mode: 'existing' | 'new'
-  const [clientMode, setClientMode] = useState('existing');
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
 
@@ -79,23 +77,19 @@ export default function SuperAdminDirectCertificate() {
   const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('ALL');
 
-  // Quick-create Client Form
-  const [newClient, setNewClient] = useState({
-    company_name: '',
-    full_name: '',
-    email: '',
-    phone: '',
-    address: '',
-    postcode: '',
-    country: 'United Kingdom'
-  });
-
   // Facility / Site Details
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [customSiteName, setCustomSiteName] = useState('');
   const [customSiteAddress, setCustomSiteAddress] = useState('');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [manufacturerAddress, setManufacturerAddress] = useState('');
+
+  // Certificate Detail Fields (Section 2) - editable
+  const [certCompanyName, setCertCompanyName] = useState('');
+  const [certCompanyAddress, setCertCompanyAddress] = useState('');
+  const [certManufacturingFacility, setCertManufacturingFacility] = useState('');
+  const [certProductCategory, setCertProductCategory] = useState('');
+  const [loadingLogsheet, setLoadingLogsheet] = useState(false);
 
   // Certificate Parameters
   const generateRandomCertNo = (companyName, type = 'NE') => {
@@ -159,11 +153,7 @@ export default function SuperAdminDirectCertificate() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState('');
 
-  // PDF & Notification Options
-  const [pdfOption, setPdfOption] = useState('auto'); // 'auto' | 'upload'
-  const [uploadedPdfFile, setUploadedPdfFile] = useState(null);
-  const [sendEmailNotification, setSendEmailNotification] = useState(true);
-  const [sendInAppNotification, setSendInAppNotification] = useState(true);
+
 
   // Live Preview State
   const [livePreviewUrl, setLivePreviewUrl] = useState('');
@@ -181,10 +171,10 @@ export default function SuperAdminDirectCertificate() {
   // Live Certificate Document Preview Generator
   const generateLivePreview = async (silent = false) => {
     const validProducts = products.filter(p => p.name && p.name.trim());
-    const companyName = clientMode === 'existing'
-      ? (selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client')
-      : (newClient.company_name || newClient.full_name || 'Valued Halal Client');
-    const businessAddr = (customSiteAddress || resolvedBusinessAddress || newClient.address || '').trim();
+    const companyName = certCompanyName ||
+      (selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client');
+    const businessAddr = (certCompanyAddress || customSiteAddress || resolvedBusinessAddress || '').trim();
+    const mfgAddr = (certManufacturingFacility || businessAddr).trim();
 
     setGeneratingPreview(true);
     try {
@@ -193,7 +183,9 @@ export default function SuperAdminDirectCertificate() {
         certificate_number: certNumber,
         company_name: companyName,
         company_address: businessAddr || 'Registered Business Address',
-        manufacturing_address: manufacturerAddress || businessAddr || 'Manufacturing Facility Address',
+        manufacturing_address: mfgAddr || businessAddr || 'Manufacturing Facility Address',
+        scope: certProductCategory || 'PRODUCTION AND SUPPLY OF HALAL CERTIFIED PRODUCTS',
+        product_category: certProductCategory,
         issue_date: issueDate,
         current_cycle_start_date: isGso ? currentCycleStartDate : issueDate,
         original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,
@@ -270,15 +262,15 @@ export default function SuperAdminDirectCertificate() {
     setExpiryDate(end.toISOString().split('T')[0]);
   };
 
-  // Client Filtered List
+  // Client Filtered List — only show results when user has typed a query
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery.trim()) return clients.slice(0, 10);
+    if (!clientSearchQuery.trim()) return []; // hide all until user searches
     const q = clientSearchQuery.toLowerCase();
     return clients.filter(c =>
       (c.company_name && c.company_name.toLowerCase().includes(q)) ||
       (c.full_name && c.full_name.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q))
-    ).slice(0, 15);
+    ).slice(0, 20);
   }, [clients, clientSearchQuery]);
 
   // Sites belonging to selected client
@@ -374,12 +366,53 @@ export default function SuperAdminDirectCertificate() {
   };
 
   useEffect(() => {
-    if (clientMode === 'existing' && selectedClient?._id) {
+    if (selectedClient?._id) {
       fetchClientCatalog(selectedClient._id);
     } else {
       setClientCatalog([]);
     }
-  }, [clientMode, selectedClient?._id]);
+  }, [selectedClient?._id]);
+
+  // Auto-populate Section 2 fields when a client is selected
+  useEffect(() => {
+    if (selectedClient) {
+      const name = selectedClient.company_name || selectedClient.full_name || '';
+      const addr = formatClientAddress(selectedClient);
+      setCertCompanyName(name);
+      setCertCompanyAddress(addr);
+      setCertManufacturingFacility('');
+      // Fetch product_category from the client's latest logsheet
+      const cId = selectedClient._id || selectedClient.id;
+      if (cId) {
+        setLoadingLogsheet(true);
+        api.get(`/api/application-logsheets?client_id=${cId}&limit=1`)
+          .then(res => {
+            const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
+            if (list.length > 0) {
+              const logsheet = list[0];
+              const cat = logsheet.product_category || logsheet.productCategory || '';
+              if (cat) setCertProductCategory(cat);
+            }
+          })
+          .catch(() => { })
+          .finally(() => setLoadingLogsheet(false));
+      }
+    } else {
+      setCertCompanyName('');
+      setCertCompanyAddress('');
+      setCertManufacturingFacility('');
+      setCertProductCategory('');
+    }
+  }, [selectedClient]);
+
+  // Sync certCompanyAddress when site changes
+  useEffect(() => {
+    if (selectedSite) {
+      const siteAddr = formatSiteAddress(selectedSite);
+      setCertCompanyAddress(siteAddr);
+      setCertManufacturingFacility(siteAddr);
+    }
+  }, [selectedSite]);
 
   // Catalog Helper: Check if a client catalog product is currently selected
   const isProductSelected = (catalogItem) => {
@@ -594,24 +627,14 @@ export default function SuperAdminDirectCertificate() {
     e.preventDefault();
 
     // Validations
-    if (clientMode === 'existing') {
-      if (!selectedClient) {
-        return toast.error('Please select an existing client company.');
-      }
-      if (clientSites.length > 0 && !selectedSiteId) {
-        return toast.error('Site selection is compulsory. Please select a specific registered site for this certificate.');
-      }
-      if (clientSites.length === 0 && !selectedSiteId && !customSiteAddress.trim()) {
-        return toast.error('Site selection is compulsory. Please specify the facility/site address for this certificate.');
-      }
+    if (!selectedClient) {
+      return toast.error('Please select an existing client company.');
     }
-
-    if (clientMode === 'new') {
-      if (!newClient.company_name.trim()) return toast.error('Company Name is required.');
-      if (!newClient.email.trim()) return toast.error('Client email is required.');
-      if (!customSiteName.trim() && !customSiteAddress.trim() && !newClient.address.trim()) {
-        return toast.error('Site selection/details are compulsory. Please specify the site name or address for this certificate.');
-      }
+    if (clientSites.length > 0 && !selectedSiteId) {
+      return toast.error('Site selection is compulsory. Please select a specific registered site for this certificate.');
+    }
+    if (clientSites.length === 0 && !selectedSiteId && !customSiteAddress.trim()) {
+      return toast.error('Site selection is compulsory. Please specify the facility/site address for this certificate.');
     }
 
     if (!certNumber.trim()) {
@@ -635,9 +658,6 @@ export default function SuperAdminDirectCertificate() {
       return toast.error('Please specify at least one product name to certify.');
     }
 
-    if (pdfOption === 'upload' && !uploadedPdfFile) {
-      return toast.error('Please select the PDF file to upload, or switch to Auto-Generate PDF.');
-    }
 
     setSubmitting(true);
     const toastId = toast.loading('Generating official certificate & registering products...');
@@ -646,20 +666,11 @@ export default function SuperAdminDirectCertificate() {
       const formData = new FormData();
 
       // Client info
-      if (clientMode === 'existing') {
-        formData.append('client_id', selectedClient._id || selectedClient.id);
-      } else {
-        formData.append('new_client_company', newClient.company_name);
-        formData.append('new_client_name', newClient.full_name || newClient.company_name);
-        formData.append('new_client_email', newClient.email);
-        formData.append('new_client_phone', newClient.phone);
-        formData.append('new_client_address', newClient.address);
-        formData.append('new_client_postcode', newClient.postcode);
-        formData.append('new_client_country', newClient.country);
-      }
+      formData.append('client_id', selectedClient._id || selectedClient.id);
 
       // Facility info
-      const effectiveAddress = (customSiteAddress || resolvedBusinessAddress || '').trim();
+      const effectiveAddress = (certCompanyAddress || customSiteAddress || resolvedBusinessAddress || '').trim();
+      const effectiveMfgAddress = (certManufacturingFacility || effectiveAddress).trim();
       if (selectedSiteId) {
         formData.append('site_id', selectedSiteId);
       }
@@ -669,8 +680,16 @@ export default function SuperAdminDirectCertificate() {
       if (effectiveAddress) {
         formData.append('site_address', effectiveAddress);
       }
-      if (manufacturerAddress || effectiveAddress) {
-        formData.append('manufacturer_address', manufacturerAddress || effectiveAddress);
+      if (effectiveMfgAddress) {
+        formData.append('manufacturer_address', effectiveMfgAddress);
+      }
+      // Company name override from Section 2
+      if (certCompanyName) {
+        formData.append('company_name_override', certCompanyName);
+      }
+      // Product category from logsheet
+      if (certProductCategory) {
+        formData.append('product_category', certProductCategory);
       }
 
       // Certificate details
@@ -687,14 +706,8 @@ export default function SuperAdminDirectCertificate() {
       // Products JSON
       formData.append('products', JSON.stringify(validProducts));
 
-      // Options
-      formData.append('auto_generate_pdf', pdfOption === 'auto');
-      formData.append('send_email', sendEmailNotification);
-      formData.append('send_notification', sendInAppNotification);
-
-      if (pdfOption === 'upload' && uploadedPdfFile) {
-        formData.append('certificate_file', uploadedPdfFile);
-      }
+      // Options — certificate PDF is always auto-generated
+      formData.append('auto_generate_pdf', true);
 
       const res = await api.post('/api/certificates/direct-issue', formData, true);
 
@@ -734,9 +747,16 @@ export default function SuperAdminDirectCertificate() {
     setCertNumber(generateRandomCertNo());
     setSuccessResult(null);
     setProducts([{ id: 1, name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
-    setUploadedPdfFile(null);
     setLivePreviewUrl('');
     setNotes('Directly issued with certified products by Superadmin.');
+    setCertCompanyName('');
+    setCertCompanyAddress('');
+    setCertManufacturingFacility('');
+    setCertProductCategory('');
+    setSelectedClient(null);
+    setSelectedSiteId('');
+    setCustomSiteAddress('');
+    setClientSearchQuery('');
     const today = new Date().toISOString().split('T')[0];
     setIssueDate(today);
     setCurrentCycleStartDate(today);
@@ -864,7 +884,7 @@ export default function SuperAdminDirectCertificate() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: 24, alignItems: 'start' }}>
             {/* Left Column: Form Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              
+
               {/* CARD 1: Client & Company Information */}
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
@@ -878,251 +898,277 @@ export default function SuperAdminDirectCertificate() {
                     </div>
                   </div>
 
-                  {/* Mode switcher */}
-                  <div style={{ display: 'flex', background: '#f1f5f9', padding: 3, borderRadius: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => { setClientMode('existing'); }}
-                      style={{
-                        padding: '5px 12px', borderRadius: 6, border: 'none',
-                        background: clientMode === 'existing' ? '#ffffff' : 'transparent',
-                        color: clientMode === 'existing' ? '#0f172a' : '#64748b',
-                        fontWeight: 600, fontSize: 12, cursor: 'pointer'
-                      }}
-                    >
-                      Existing Client
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setClientMode('new');
-                        setSelectedClient(null);
-                        setClientCatalog([]);
-                        setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
-                      }}
-                      style={{
-                        padding: '5px 12px', borderRadius: 6, border: 'none',
-                        background: clientMode === 'new' ? '#ffffff' : 'transparent',
-                        color: clientMode === 'new' ? '#0f172a' : '#64748b',
-                        fontWeight: 600, fontSize: 12, cursor: 'pointer'
-                      }}
-                    >
-                      + Quick Register Client
-                    </button>
-                  </div>
+
                 </div>
 
-                {clientMode === 'existing' ? (
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 600 }}>Select Registered Client Company <span>*</span></label>
-                    <div style={{ position: 'relative', marginBottom: 14 }}>
-                      <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: '#94a3b8' }} />
+                <div>
+                    {/* ── Search Bar ── */}
+                    <label className="form-label" style={{ fontWeight: 700, marginBottom: 8, display: 'block' }}>
+                      Search Registered Company <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative', marginBottom: 10 }}>
+                      <Search size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="Search company by name or email..."
+                        placeholder="Type company name or email to search..."
                         value={clientSearchQuery}
-                        onChange={e => setClientSearchQuery(e.target.value)}
-                        style={{ paddingLeft: 36 }}
+                        onChange={e => {
+                          setClientSearchQuery(e.target.value);
+                          // Clear selection if they start a new search
+                          if (selectedClient && e.target.value.trim() !== (selectedClient.company_name || selectedClient.full_name)) {
+                            setSelectedClient(null);
+                            setSelectedSiteId('');
+                            setCustomSiteAddress('');
+                          }
+                        }}
+                        style={{ paddingLeft: 40, height: 44, fontSize: 14, fontWeight: 500 }}
+                        autoComplete="off"
                       />
+                      {clientSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => { setClientSearchQuery(''); setSelectedClient(null); setSelectedSiteId(''); setCustomSiteAddress(''); }}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, maxHeight: 180, overflowY: 'auto', padding: 2, marginBottom: 16 }}>
-                      {filteredClients.map(c => {
-                        const isSelected = selectedClient?._id === c._id;
-                        return (
-                          <div
-                            key={c._id}
-                            onClick={() => {
-                              if (selectedClient?._id !== c._id) {
+                    {/* ── Search Results List (only when query is active and no client selected) ── */}
+                    {clientSearchQuery.trim() && !selectedClient && (
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                        {filteredClients.length === 0 ? (
+                          <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                            <Search size={20} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
+                            No companies found matching "{clientSearchQuery}"
+                          </div>
+                        ) : (
+                          filteredClients.map((c, idx) => (
+                            <div
+                              key={c._id}
+                              onClick={() => {
                                 setSelectedClient(c);
+                                setClientSearchQuery(c.company_name || c.full_name || '');
                                 setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
                                 setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
-                              }
-                            }}
-                            style={{
-                              padding: '10px 14px',
-                              borderRadius: 10,
-                              border: isSelected ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                              background: isSelected ? '#f0fdf4' : '#ffffff',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            <div style={{ overflow: 'hidden' }}>
-                              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {c.company_name || c.full_name}
+                                setSelectedSiteId('');
+                                setCustomSiteAddress('');
+                              }}
+                              style={{
+                                padding: '12px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                borderBottom: idx < filteredClients.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                background: '#ffffff',
+                                cursor: 'pointer',
+                                transition: 'background 0.12s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 9, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Building2 size={17} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {c.company_name || c.full_name}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
+                                    {c.email}{c.country ? ` · ${c.country}` : ''}
+                                  </div>
+                                </div>
                               </div>
-                              <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {c.email} • {c.country || 'UK'}
-                              </div>
+                              <ArrowRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />
                             </div>
-                            {isSelected && <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />}
-                          </div>
-                        );
-                      })}
-                    </div>
+                          ))
+                        )}
+                      </div>
+                    )}
 
+                    {/* ── Selected Company Row + Site Picker ── */}
                     {selectedClient && (
-                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginTop: 10 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                          <div>
-                            <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Selected Company</span>
-                            <strong style={{ fontSize: 13, color: '#0f172a' }}>{selectedClient.company_name || selectedClient.full_name}</strong>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Contact Email</span>
-                            <span style={{ fontSize: 13, color: '#0f172a' }}>{selectedClient.email}</span>
-                          </div>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <span style={{ fontSize: 11, color: '#64748b' }}>Business / Facility Address</span>
-                              <button
-                                type="button"
-                                onClick={() => setIsEditingAddress(!isEditingAddress)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#16a34a',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  padding: 0
-                                }}
-                              >
-                                {isEditingAddress ? 'Done' : 'Edit'}
-                              </button>
+                      <div style={{ border: '1.5px solid #16a34a', borderRadius: 12, overflow: 'hidden', background: '#f0fdf4', marginTop: 4 }}>
+                        {/* Selected company row */}
+                        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid #dcfce7' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 9, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <CheckCircle2 size={18} />
                             </div>
-                            {isEditingAddress ? (
-                              <input
-                                type="text"
-                                className="form-control"
-                                style={{ padding: '4px 8px', fontSize: 12, marginTop: 4 }}
-                                placeholder="Enter address..."
-                                value={customSiteAddress !== '' ? customSiteAddress : resolvedBusinessAddress}
-                                onChange={e => setCustomSiteAddress(e.target.value)}
-                              />
-                            ) : (
-                              <span style={{ fontSize: 12, color: (customSiteAddress || resolvedBusinessAddress) ? '#0f172a' : '#94a3b8', display: 'block', marginTop: 2, fontWeight: (customSiteAddress || resolvedBusinessAddress) ? 500 : 400 }}>
-                                {customSiteAddress || resolvedBusinessAddress || 'No address specified (Click Edit to enter)'}
-                              </span>
-                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 800, fontSize: 14, color: '#15803d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {selectedClient.company_name || selectedClient.full_name}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#16a34a', marginTop: 1 }}>
+                                {selectedClient.email}{selectedClient.country ? ` · ${selectedClient.country}` : ''}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Registered Site / Facility <span style={{ color: '#dc2626' }}>*</span></label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClient(null);
+                              setClientSearchQuery('');
+                              setSelectedSiteId('');
+                              setCustomSiteAddress('');
+                            }}
+                            style={{ background: '#dcfce7', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', color: '#15803d', fontSize: 11.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}
+                          >
+                            <X size={13} /> Change
+                          </button>
+                        </div>
+
+                        {/* Site picker */}
+                        <div style={{ padding: '14px 16px', background: '#ffffff' }}>
+                          <label className="form-label" style={{ fontWeight: 700, marginBottom: 6, display: 'block', fontSize: 12.5 }}>
+                            Assign Certified Site / Facility <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          {clientSites.length > 0 ? (
                             <select
                               className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, marginTop: 2, borderColor: !selectedSiteId ? '#f87171' : undefined }}
+                              style={{ borderColor: !selectedSiteId ? '#fca5a5' : '#86efac', background: selectedSiteId ? '#f0fdf4' : undefined }}
                               value={selectedSiteId}
                               onChange={e => {
                                 const sId = e.target.value;
                                 setSelectedSiteId(sId);
                                 const foundSite = clientSites.find(s => String(s._id) === String(sId));
                                 if (foundSite) {
-                                  setCustomSiteAddress(formatSiteAddress(foundSite));
+                                  const siteAddr = formatSiteAddress(foundSite);
+                                  setCustomSiteAddress(siteAddr);
+                                  setCertCompanyAddress(siteAddr);
+                                  setCertManufacturingFacility(foundSite.name ? `${foundSite.name}, ${siteAddr}` : siteAddr);
                                 } else {
                                   setCustomSiteAddress('');
                                 }
                               }}
                               required
                             >
-                              <option value="">{clientSites.length > 0 ? '-- Select Specific Certified Site * --' : 'No registered sites (Enter Address Below)'}</option>
+                              <option value="">-- Select a registered site for this certificate *</option>
                               {clientSites.map(s => (
-                                <option key={s._id} value={s._id}>{s.name} ({s.address_1}{s.city ? `, ${s.city}` : ''})</option>
+                                <option key={s._id} value={s._id}>
+                                  {s.name}{s.address_1 ? ` — ${s.address_1}` : ''}{s.city ? `, ${s.city}` : ''}
+                                </option>
                               ))}
                             </select>
-                          </div>
+                          ) : (
+                            <div>
+                              <p style={{ fontSize: 12, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px', marginBottom: 8 }}>
+                                ⚠️ No registered sites found for this company. Enter the facility address below.
+                              </p>
+                              <input
+                                type="text"
+                                className="form-control"
+                                placeholder="e.g. Unit 4, Greenfield Industrial Estate, Birmingham, B12 4AB"
+                                value={customSiteAddress}
+                                onChange={e => { setCustomSiteAddress(e.target.value); setCertCompanyAddress(e.target.value); setCertManufacturingFacility(e.target.value); }}
+                              />
+                            </div>
+                          )}
+                          {selectedSiteId && selectedSite && (
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <CheckCircle2 size={13} />
+                              <span>{formatSiteAddress(selectedSite)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
+
+                    {/* Prompt when no query yet */}
+                    {!clientSearchQuery.trim() && !selectedClient && (
+                      <div style={{ textAlign: 'center', padding: '24px 16px', color: '#94a3b8', border: '1.5px dashed #e2e8f0', borderRadius: 12, marginTop: 4 }}>
+                        <Search size={28} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.3 }} />
+                        <p style={{ fontSize: 13, margin: 0, fontWeight: 500 }}>Start typing to search for a registered company</p>
+                        <p style={{ fontSize: 12, margin: '4px 0 0', opacity: 0.7 }}>Search by company name or email address</p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="form-grid" style={{ rowGap: 12 }}>
-                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                      <label className="form-label">Company Name <span>*</span></label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. Al-Barakah Foods Ltd"
-                        value={newClient.company_name}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setNewClient(prev => ({ ...prev, company_name: val }));
-                          if (val.trim().length >= 2) {
-                            setCertNumber(generateHfaId(val, 'NE'));
-                          }
-                        }}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Primary Contact Person</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. Tariq Mansoor"
-                        value={newClient.full_name}
-                        onChange={e => setNewClient({ ...newClient, full_name: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Client Email <span>*</span></label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        placeholder="e.g. qa@albarakahfoods.co.uk"
-                        value={newClient.email}
-                        onChange={e => setNewClient({ ...newClient, email: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Contact Phone</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. +44 7123 456789"
-                        value={newClient.phone}
-                        onChange={e => setNewClient({ ...newClient, phone: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Country</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={newClient.country}
-                        onChange={e => setNewClient({ ...newClient, country: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                      <label className="form-label">Business / Facility Address</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. Unit 4, Greenfield Industrial Estate, Birmingham"
-                        value={newClient.address}
-                        onChange={e => setNewClient({ ...newClient, address: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* CARD 2: Certificate Configuration */}
+              {/* CARD 2: Certificate Details (what appears on the certificate) */}
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Award size={18} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>2. Certificate Specification</h3>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Certificate number, type, and validity duration</p>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>2. Certificate Details</h3>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Information that will appear on the official certificate document</p>
                   </div>
                 </div>
+
+                {/* Company Info that goes on the certificate */}
+                <div style={{ marginBottom: 20, background: '#f8fafc', borderRadius: 12, padding: 16, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Company Information on Certificate</div>
+                  <div className="form-grid" style={{ rowGap: 14 }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: 12.5 }}>Company Name on Certificate <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Company name as it will appear on the certificate"
+                        value={certCompanyName}
+                        onChange={e => setCertCompanyName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: 12.5 }}>Product Category</label>
+                      <div style={{ position: 'relative' }}>
+                        {loadingLogsheet && (
+                          <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#94a3b8' }}>Loading...</div>
+                        )}
+                        <input
+                          type="text"
+                          className="form-control"
+                          list="direct-cert-category-list"
+                          placeholder="e.g. Meat & Poultry, Dairy, etc."
+                          value={certProductCategory}
+                          onChange={e => setCertProductCategory(e.target.value)}
+                          style={{ background: certProductCategory ? '#f0fdf4' : undefined, borderColor: certProductCategory ? '#86efac' : undefined }}
+                        />
+                        <datalist id="direct-cert-category-list">
+                          {PRODUCT_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat} />
+                          ))}
+                        </datalist>
+                      </div>
+                      {certProductCategory && (
+                        <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <CheckCircle2 size={11} /> Auto-filled from logsheet (editable)
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="form-label" style={{ fontSize: 12.5 }}>Registered Business Address</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Company registered address as it will appear on the certificate"
+                        value={certCompanyAddress}
+                        onChange={e => setCertCompanyAddress(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="form-label" style={{ fontSize: 12.5 }}>Manufacturing Facilities</label>
+                      <textarea
+                        className="form-control"
+                        rows={2}
+                        placeholder="Manufacturing facility address(es) as they will appear on the certificate"
+                        value={certManufacturingFacility}
+                        onChange={e => setCertManufacturingFacility(e.target.value)}
+                        style={{ resize: 'vertical', minHeight: 52 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Certificate Number & Type */}
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Certificate Reference</div>
 
                 <div className="form-grid" style={{ rowGap: 16 }}>
                   {/* Certificate Number */}
@@ -1134,9 +1180,7 @@ export default function SuperAdminDirectCertificate() {
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0 4px', fontSize: 11, color: '#16a34a', height: 'auto' }}
                         onClick={() => {
-                          const compName = clientMode === 'existing'
-                            ? (selectedClient?.company_name || selectedClient?.full_name || 'UK')
-                            : (newClient.company_name || 'UK');
+                          const compName = selectedClient?.company_name || selectedClient?.full_name || 'UK';
                           setCertNumber(generateHfaId(compName, 'NE'));
                         }}
                       >
@@ -1359,14 +1403,14 @@ export default function SuperAdminDirectCertificate() {
                         )}
                       </div>
                       <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
-                        {clientMode === 'existing' && selectedClient && clientCatalog.length > 0
+                        {selectedClient && clientCatalog.length > 0
                           ? `Select products from ${selectedClient.company_name || selectedClient.full_name}'s catalog to include on this certificate:`
                           : 'Add and certify products directly covered under this certificate'}
                       </p>
                     </div>
                   </div>
 
-                  {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                  {clientCatalog.length > 0 ? (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                       <button
                         type="button"
@@ -1416,7 +1460,7 @@ export default function SuperAdminDirectCertificate() {
                 </div>
 
                 {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
-                {clientMode === 'existing' && clientCatalog.length > 0 && (
+                {clientCatalog.length > 0 && (
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 260 }}>
                       <div style={{ position: 'relative', flex: 1 }}>
@@ -1447,7 +1491,7 @@ export default function SuperAdminDirectCertificate() {
                 )}
 
                 {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
-                {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                {clientCatalog.length > 0 ? (
                   <div className="table-wrap" style={{
                     border: '1px solid #e2e8f0',
                     borderRadius: 10,
@@ -1646,7 +1690,7 @@ export default function SuperAdminDirectCertificate() {
                   <span style={{ fontSize: 11.5, color: '#64748b' }}>
                     💡 Printed on certificate: <strong>{products.filter(p => p.name && p.name.trim()).length}</strong> item(s).
                   </span>
-                  {clientMode === 'existing' && clientCatalog.length > 0 ? (
+                  {clientCatalog.length > 0 ? (
                     <span style={{ fontSize: 11.5, color: '#166534', fontWeight: 600 }}>
                       ✓ Selecting from official client portal catalog
                     </span>
@@ -1677,328 +1721,216 @@ export default function SuperAdminDirectCertificate() {
                   )}
                 </div>
               </div>
-
-              {/* CARD 4: PDF & Distribution Options */}
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f3e8ff', color: '#9333ea', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <FileCheck2 size={18} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>4. PDF Generation & Dispatch Options</h3>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Certificate rendering and automated client communications</p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 18 }}>
-                  <div
-                    onClick={() => setPdfOption('auto')}
-                    style={{
-                      border: pdfOption === 'auto' ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                      background: pdfOption === 'auto' ? '#f0fdf4' : '#ffffff',
-                      borderRadius: 12,
-                      padding: 16,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12
-                    }}
-                  >
-                    <div style={{ marginTop: 2 }}>
-                      <input
-                        type="radio"
-                        name="pdf_option"
-                        checked={pdfOption === 'auto'}
-                        onChange={() => setPdfOption('auto')}
-                        style={{ accentColor: '#16a34a' }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>Auto-Generate Official PDF</div>
-                      <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0', lineHeight: 1.4 }}>
-                        Generates high-resolution vector PDF certificate with official HFA branding, dynamic QR code verification, and product schedule.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => setPdfOption('upload')}
-                    style={{
-                      border: pdfOption === 'upload' ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                      background: pdfOption === 'upload' ? '#f0fdf4' : '#ffffff',
-                      borderRadius: 12,
-                      padding: 16,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12
-                    }}
-                  >
-                    <div style={{ marginTop: 2 }}>
-                      <input
-                        type="radio"
-                        name="pdf_option"
-                        checked={pdfOption === 'upload'}
-                        onChange={() => setPdfOption('upload')}
-                        style={{ accentColor: '#16a34a' }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>Upload Custom PDF</div>
-                      <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0', lineHeight: 1.4 }}>
-                        Attach a pre-signed or scanned external PDF certificate file.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {pdfOption === 'upload' && (
-                  <div style={{ border: '2px dashed #cbd5e1', borderRadius: 12, padding: 20, textAlign: 'center', marginBottom: 16, background: '#f8fafc' }}>
-                    <FileText size={32} style={{ color: uploadedPdfFile ? '#16a34a' : '#94a3b8', margin: '0 auto 8px' }} />
-                    <div style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                      {uploadedPdfFile ? uploadedPdfFile.name : 'Select or drag & drop certificate PDF'}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>PDF documents only (max 15MB)</div>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      id="custom-pdf-input"
-                      style={{ display: 'none' }}
-                      onChange={e => setUploadedPdfFile(e.target.files[0])}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      style={{ marginTop: 10 }}
-                      onClick={() => document.getElementById('custom-pdf-input').click()}
-                    >
-                      Browse File
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#1e293b', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={sendEmailNotification}
-                      onChange={e => setSendEmailNotification(e.target.checked)}
-                      style={{ accentColor: '#16a34a', width: 16, height: 16 }}
-                    />
-                    <span><strong>Email Notification:</strong> Send official certificate ready email with download link to client</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#1e293b', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={sendInAppNotification}
-                      onChange={e => setSendInAppNotification(e.target.checked)}
-                      style={{ accentColor: '#16a34a', width: 16, height: 16 }}
-                    />
-                    <span><strong>In-Portal Notification:</strong> Create system notification banner in client dashboard</span>
-                  </label>
-                </div>
-              </div>
             </div>
 
-            {/* Right Column: Live Certificate Document Review & Summary Action Bar */}
-            <div style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Document Review Pane */}
-              <div className="card" style={{ padding: 18, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <FileText size={17} style={{ color: '#16a34a' }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>Live Certificate Document</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => generateLivePreview(false)}
-                      disabled={generatingPreview}
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a', borderColor: '#dcfce7' }}
-                      title="Re-render PDF with current form values"
-                    >
-                      <RefreshCw size={12} className={generatingPreview ? 'spinner' : ''} />
-                      {generatingPreview ? 'Syncing...' : 'Sync & Refresh'}
-                    </button>
-                    {livePreviewUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setShowPreviewModal(true)}
-                        className="btn btn-ghost btn-sm"
-                        style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#334155' }}
-                        title="View Fullscreen Preview"
-                      >
-                        <ExternalLink size={12} /> Fullscreen
-                      </button>
-                    )}
-                  </div>
-                </div>
 
-                {/* Document Viewer Frame */}
-                <div style={{
-                  background: '#f8fafc',
-                  borderRadius: 10,
-                  border: '1.5px solid #cbd5e1',
-                  height: '460px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {livePreviewUrl ? (
-                    <iframe
-                      key={`${livePreviewUrl}-${previewTimestamp}`}
-                      src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
-                      title="Direct Certificate Live Preview"
-                      style={{ width: '100%', height: '100%', border: 'none' }}
-                    />
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>
-                      <Award size={40} style={{ color: '#cbd5e1', margin: '0 auto 10px' }} />
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>Live Review Not Loaded</div>
-                      <p style={{ fontSize: 11.5, margin: '4px 0 14px', lineHeight: 1.4 }}>
-                        Click below to generate and preview how this certificate and product schedule will look.
-                      </p>
+            {/* Right Column: Live Certificate Document Review & Summary Action Bar */}
+              <div style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Document Review Pane */}
+                <div className="card" style={{ padding: 18, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FileText size={17} style={{ color: '#16a34a' }} />
+                      <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>Live Certificate Document</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <button
                         type="button"
                         onClick={() => generateLivePreview(false)}
                         disabled={generatingPreview}
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a', borderColor: '#dcfce7' }}
+                        title="Re-render PDF with current form values"
                       >
                         <RefreshCw size={12} className={generatingPreview ? 'spinner' : ''} />
-                        {generatingPreview ? 'Rendering Preview...' : 'Generate Live Preview'}
+                        {generatingPreview ? 'Syncing...' : 'Sync & Refresh'}
                       </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Document details strip */}
-                <div style={{ display: 'grid', gridTemplateColumns: isGso ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 8, marginTop: 12, fontSize: 11.5 }}>
-                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Scheme</div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                      {certType}
-                    </div>
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Issue Date</div>
-                    <div style={{ fontWeight: 700, color: '#16a34a', marginTop: 2 }}>{issueDate || '—'}</div>
-                  </div>
-                  {isGso && (
-                    <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                      <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Cycle Start</div>
-                      <div style={{ fontWeight: 700, color: '#2563eb', marginTop: 2 }}>{currentCycleStartDate || issueDate || '—'}</div>
-                    </div>
-                  )}
-                  <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
-                    <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{expiryDate || '—'}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary & Issue Card */}
-              <div className="card" style={{ padding: 20, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Certificate Summary
-                  </span>
-                  <span className="badge badge-green">DIRECT ISSUANCE</span>
-                </div>
-
-                {/* Summary Box */}
-                <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, marginBottom: 16 }}>
-                  <div style={{ textAlign: 'center', paddingBottom: 10, borderBottom: '1px solid #e2e8f0', marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Certificate Number</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#15803d', letterSpacing: 0.5 }}>{certNumber}</div>
-                    <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{certType}</div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Client Company:</span>
-                      <strong style={{ color: '#0f172a', maxWidth: 170, textAlign: 'right', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {clientMode === 'existing' ? (selectedClient?.company_name || 'Select Client') : (newClient.company_name || 'New Client')}
-                      </strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Products Covered:</span>
-                      <strong style={{ color: '#16a34a' }}>{products.filter(p => p.name).length} Product(s)</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Issue Date:</span>
-                      <span>{issueDate ? new Date(issueDate).toLocaleDateString('en-GB') : '—'}</span>
-                    </div>
-                    {isGso ? (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Current Cycle Start:</span>
-                          <span>{currentCycleStartDate ? new Date(currentCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Original Cycle Start:</span>
-                          <span>{originalCycleStartDate ? new Date(originalCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Certification Start:</span>
-                        <span>{certificationStartDate ? new Date(certificationStartDate).toLocaleDateString('en-GB') : '—'}</span>
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Expiry Date:</span>
-                      <span style={{ color: '#dc2626', fontWeight: 600 }}>{expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : '—'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>PDF Mode:</span>
-                      <span>{pdfOption === 'auto' ? '⚡ Auto-Generated' : '📎 Custom Upload'}</span>
+                      {livePreviewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPreviewModal(true)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11.5, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, color: '#334155' }}
+                          title="View Fullscreen Preview"
+                        >
+                          <ExternalLink size={12} /> Fullscreen
+                        </button>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Direct Action Button */}
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    fontSize: 14,
-                    fontWeight: 700,
+                  {/* Document Viewer Frame */}
+                  <div style={{
+                    background: '#f8fafc',
                     borderRadius: 10,
+                    border: '1.5px solid #cbd5e1',
+                    height: '460px',
+                    position: 'relative',
+                    overflow: 'hidden',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 14px rgba(21, 128, 61, 0.3)'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <span className="spinner" style={{ width: 16, height: 16, borderTopColor: '#fff' }} />
-                      <span>Issuing Certificate...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      <span>Issue Certificate & Products</span>
-                    </>
-                  )}
-                </button>
+                    justifyContent: 'center'
+                  }}>
+                    {livePreviewUrl ? (
+                      <iframe
+                        key={`${livePreviewUrl}-${previewTimestamp}`}
+                        src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
+                        title="Direct Certificate Live Preview"
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                      />
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>
+                        <Award size={40} style={{ color: '#cbd5e1', margin: '0 auto 10px' }} />
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>Live Review Not Loaded</div>
+                        <p style={{ fontSize: 11.5, margin: '4px 0 14px', lineHeight: 1.4 }}>
+                          Click below to generate and preview how this certificate and product schedule will look.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => generateLivePreview(false)}
+                          disabled={generatingPreview}
+                          className="btn btn-primary btn-sm"
+                          style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <RefreshCw size={12} className={generatingPreview ? 'spinner' : ''} />
+                          {generatingPreview ? 'Rendering Preview...' : 'Generate Live Preview'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-                <div style={{ textAlign: 'center', marginTop: 12 }}>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                    🔒 Superadmin bypass action recorded in audit log.
-                  </span>
+                  {/* Document details strip */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isGso ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 8, marginTop: 12, fontSize: 11.5 }}>
+                    <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Scheme</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {certType}
+                      </div>
+                    </div>
+                    <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Issue Date</div>
+                      <div style={{ fontWeight: 700, color: '#16a34a', marginTop: 2 }}>{issueDate || '—'}</div>
+                    </div>
+                    {isGso && (
+                      <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Cycle Start</div>
+                        <div style={{ fontWeight: 700, color: '#2563eb', marginTop: 2 }}>{currentCycleStartDate || issueDate || '—'}</div>
+                      </div>
+                    )}
+                    <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <div style={{ color: '#64748b', fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
+                      <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{expiryDate || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary & Issue Card */}
+                <div className="card" style={{ padding: 20, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Certificate Summary
+                    </span>
+                    <span className="badge badge-green">DIRECT ISSUANCE</span>
+                  </div>
+
+                  {/* Summary Box */}
+                  <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, marginBottom: 16 }}>
+                    <div style={{ textAlign: 'center', paddingBottom: 10, borderBottom: '1px solid #e2e8f0', marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Certificate Number</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#15803d', letterSpacing: 0.5 }}>{certNumber}</div>
+                      <div style={{ fontSize: 12, color: '#0f172a', fontWeight: 600, marginTop: 2 }}>{certType}</div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Client Company:</span>
+                        <strong style={{ color: '#0f172a', maxWidth: 170, textAlign: 'right', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {certCompanyName || selectedClient?.company_name || 'Select Client'}
+                        </strong>
+                      </div>
+                      {certProductCategory && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Product Category:</span>
+                          <strong style={{ color: '#0369a1', maxWidth: 170, textAlign: 'right', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {certProductCategory}
+                          </strong>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Products Covered:</span>
+                        <strong style={{ color: '#16a34a' }}>{products.filter(p => p.name).length} Product(s)</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Issue Date:</span>
+                        <span>{issueDate ? new Date(issueDate).toLocaleDateString('en-GB') : '—'}</span>
+                      </div>
+                      {isGso ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Current Cycle Start:</span>
+                            <span>{currentCycleStartDate ? new Date(currentCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Original Cycle Start:</span>
+                            <span>{originalCycleStartDate ? new Date(originalCycleStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Certification Start:</span>
+                          <span>{certificationStartDate ? new Date(certificationStartDate).toLocaleDateString('en-GB') : '—'}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Expiry Date:</span>
+                        <span style={{ color: '#dc2626', fontWeight: 600 }}>{expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>PDF Mode:</span>
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>⚡ Auto-Generated</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Direct Action Button */}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn btn-primary"
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      borderRadius: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 14px rgba(21, 128, 61, 0.3)'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="spinner" style={{ width: 16, height: 16, borderTopColor: '#fff' }} />
+                        <span>Issuing Certificate...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Issue Certificate & Products</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div style={{ textAlign: 'center', marginTop: 12 }}>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                      🔒 Superadmin bypass action recorded in audit log.
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
         </form>
       )}
 
@@ -2192,7 +2124,7 @@ export default function SuperAdminDirectCertificate() {
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">
               <span className="modal-title">Bulk Paste Product List</span>
-              <button className="modal-close" onClick={() => setShowBulkModal(false)}><X size={16}/></button>
+              <button className="modal-close" onClick={() => setShowBulkModal(false)}><X size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
@@ -2230,7 +2162,7 @@ export default function SuperAdminDirectCertificate() {
                 <span className="modal-title">Certified Products Schedule</span>
                 <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>#{inspectCert.certificate_number}</div>
               </div>
-              <button className="modal-close" onClick={() => setInspectCert(null)}><X size={16}/></button>
+              <button className="modal-close" onClick={() => setInspectCert(null)}><X size={16} /></button>
             </div>
             <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
               {inspectCert.products && inspectCert.products.length > 0 ? (
@@ -2299,7 +2231,7 @@ export default function SuperAdminDirectCertificate() {
                 >
                   <ExternalLink size={13} /> Open in New Tab
                 </a>
-                <button className="modal-close" onClick={() => setShowPreviewModal(false)}><X size={16}/></button>
+                <button className="modal-close" onClick={() => setShowPreviewModal(false)}><X size={16} /></button>
               </div>
             </div>
             <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid #cbd5e1' }}>

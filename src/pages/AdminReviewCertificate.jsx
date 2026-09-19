@@ -19,6 +19,19 @@ const getPdfUrl = (url) => {
   return `${cleanApi}${cleanPath}`;
 };
 
+const PRODUCT_CATEGORIES = [
+  'Meat & Poultry',
+  'Dairy & Eggs',
+  'Bakery & Confectionery',
+  'Beverages',
+  'Prepared Meals & Snacks',
+  'Sauces & Condiments',
+  'Ingredients & Flavours',
+  'Oils & Fats',
+  'Packaging & Processing Aids',
+  'General Food Products'
+];
+
 export default function AdminReviewCertificate() {
   const { id: certId } = useParams();
   const navigate = useNavigate();
@@ -31,6 +44,7 @@ export default function AdminReviewCertificate() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [logsheetCategory, setLogsheetCategory] = useState('');
 
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -43,6 +57,7 @@ export default function AdminReviewCertificate() {
     certificate_number: '',
     certificate_type: 'Halal Certification',
     company_name: '',
+    product_category: '',
     company_address: '',
     manufacturing_address: '',
     scope: '',
@@ -170,7 +185,8 @@ export default function AdminReviewCertificate() {
           c.application_id.products.forEach(p => addCandidate(p, 'application'));
         }
 
-        // Fallback C: Products from ApplicationLogsheet
+        // Fallback C: Products and Category from ApplicationLogsheet
+        let detectedLogsheetCat = '';
         const appId = c.application_id?._id || c.application_id;
         if (appId) {
           try {
@@ -178,6 +194,9 @@ export default function AdminReviewCertificate() {
             const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
             const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
             logsheets.forEach(l => {
+              if (l.product_category || l.productCategory) {
+                detectedLogsheetCat = l.product_category || l.productCategory;
+              }
               if (Array.isArray(l.products_list)) {
                 l.products_list.forEach(p => addCandidate(p, 'logsheet'));
               }
@@ -189,6 +208,22 @@ export default function AdminReviewCertificate() {
             console.warn('Fallback logsheet check notice:', err?.message);
           }
         }
+
+        // Check client logsheet if not detected from appId
+        if (!detectedLogsheetCat && clientId) {
+          try {
+            const clientIdStr = clientId._id ? clientId._id.toString() : clientId.toString();
+            const logsheetRes2 = await api.get(`/api/application-logsheets?client_id=${clientIdStr}&limit=1`).catch(() => null);
+            const logsheetData2 = logsheetRes2?.data?.data || logsheetRes2?.data;
+            const logsheets2 = Array.isArray(logsheetData2) ? logsheetData2 : (logsheetData2 ? [logsheetData2] : []);
+            if (logsheets2.length > 0 && (logsheets2[0].product_category || logsheets2[0].productCategory)) {
+              detectedLogsheetCat = logsheets2[0].product_category || logsheets2[0].productCategory;
+            }
+          } catch (err) {
+            console.warn('Fallback client logsheet check notice:', err?.message);
+          }
+        }
+        setLogsheetCategory(detectedLogsheetCat);
 
         // Fallback D: Products currently recorded on certificate
         if (Array.isArray(c.product_details)) {
@@ -246,13 +281,19 @@ export default function AdminReviewCertificate() {
 
       const finalProductsCovered = resolvedDetails.map(p => p.name);
 
+      const resolvedCategory = detectedLogsheetCat ||
+        (c.scope && c.scope !== 'Halal Food and Consumer Products Certification' && c.scope !== 'Halal Food Certification' ? c.scope : '') ||
+        c.application_id?.scope ||
+        'Meat & Poultry';
+
       setForm({
         certificate_number: c.certificate_number || '',
         certificate_type: c.certificate_type || 'Halal Certification',
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
+        product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
         manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
-        scope: c.scope || c.application_id?.scope || 'Halal Food and Consumer Products Certification',
+        scope: resolvedCategory,
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         original_cycle_start_date: c.original_cycle_start_date ? new Date(c.original_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -440,7 +481,8 @@ export default function AdminReviewCertificate() {
         company_name: form.company_name,
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
-        scope: form.scope,
+        scope: form.product_category || form.scope,
+        product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
@@ -476,7 +518,8 @@ export default function AdminReviewCertificate() {
         company_name: form.company_name,
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
-        scope: form.scope,
+        scope: form.product_category || form.scope,
+        product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
@@ -559,7 +602,8 @@ export default function AdminReviewCertificate() {
         company_name: form.company_name,
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
-        scope: form.scope,
+        scope: form.product_category || form.scope,
+        product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
@@ -793,252 +837,404 @@ export default function AdminReviewCertificate() {
         {/* RIGHT PANE: Review & Correction Editor */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           
-          {/* Card 1: Certificate & Organization Identity */}
+          {/* Card 1: Assigned Company & Manufacturing Facility */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              <Building size={16} style={{ color: '#047857' }} />
-              1. Certificate &amp; Company Identifiers
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <Building size={16} style={{ color: '#047857' }} />
+                  1. Assigned Company &amp; Manufacturing Facility
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                  The verified organization and facility site this certificate is assigned to, and where products are sourced from.
+                </p>
+              </div>
+              <span style={{ fontSize: 11, background: '#f0fdf4', color: '#166534', fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: '1px solid #bbf7d0' }}>
+                ✓ Assignment Verified
+              </span>
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newId = generateHfaId(form.company_name || 'HFA', 'NE');
-                      setForm(f => ({ ...f, certificate_number: newId }));
-                      toast.success(`Generated ID: ${newId}`);
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                  >
-                    Regenerate ID
-                  </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {/* Company Info Box */}
+              <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Building size={15} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Client Organization</span>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
+                      {clientUser?.company_name || form.company_name || 'Client Company'}
+                    </div>
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  required
-                  className="form-control"
-                  value={form.certificate_number}
-                  onChange={e => setForm({ ...form, certificate_number: e.target.value })}
-                  style={{ fontWeight: 700, color: '#0f172a' }}
-                />
+
+                <div style={{ fontSize: 11.5, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+                  {clientUser?.full_name && (
+                    <div><strong style={{ color: '#334155' }}>Contact:</strong> {clientUser.full_name}</div>
+                  )}
+                  {clientUser?.email && (
+                    <div><strong style={{ color: '#334155' }}>Email:</strong> {clientUser.email}</div>
+                  )}
+                  {clientUser?.phone && (
+                    <div><strong style={{ color: '#334155' }}>Phone:</strong> {clientUser.phone}</div>
+                  )}
+                  {(clientUser?.address || form.company_address) && (
+                    <div style={{ marginTop: 2 }}><strong style={{ color: '#334155' }}>Address:</strong> {clientUser?.address || form.company_address}</div>
+                  )}
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type <span style={{ color: '#dc2626' }}>*</span></label>
-                <select
-                  className="form-control"
-                  value={form.certificate_type}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setForm(f => ({
-                      ...f,
-                      certificate_type: val,
-                      expiry_date: val.includes('GSO') ? (() => {
-                        const d = new Date(f.issue_date || new Date());
-                        d.setFullYear(d.getFullYear() + 3);
-                        return d.toISOString().split('T')[0];
-                      })() : f.expiry_date
-                    }));
-                  }}
-                  style={{ fontWeight: 600 }}
-                >
-                  <option value="GSO MEAT">GSO MEAT</option>
-                  <option value="GSO NON MEAT">GSO NON MEAT</option>
-                  <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
-                  <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
-                  <option value="COSMETICS">COSMETICS</option>
-                  <option value="SMIIC">SMIIC</option>
-                </select>
-              </div>
+              {/* Site / Facility Info Box */}
+              <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MapPin size={15} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Production Facility / Site</span>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
+                      {siteData?.name || siteData?.trading_name || 'Manufacturing Facility'}
+                    </div>
+                  </div>
+                </div>
 
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Business / Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                <input
-                  type="text"
-                  required
-                  className="form-control"
-                  value={form.company_name}
-                  onChange={e => setForm({ ...form, company_name: e.target.value })}
-                  placeholder="Official registered company name"
-                  style={{ fontWeight: 700, fontSize: 14 }}
-                />
-              </div>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Registered Company Address <span style={{ color: '#dc2626' }}>*</span></label>
-                <textarea
-                  rows={2}
-                  className="form-control"
-                  value={form.company_address}
-                  onChange={e => setForm({ ...form, company_address: e.target.value })}
-                  placeholder="Head office / registered legal address"
-                />
-              </div>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
-                <textarea
-                  rows={2}
-                  className="form-control"
-                  value={form.manufacturing_address}
-                  onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                  placeholder="Physical site location where products are certified and manufactured"
-                />
+                <div style={{ fontSize: 11.5, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+                  <div>
+                    <strong style={{ color: '#334155' }}>Facility Address:</strong> {siteData?.address_1 || siteData?.address || form.manufacturing_address || 'Same as business address'}
+                  </div>
+                  {(siteData?.city || siteData?.postcode || siteData?.country) && (
+                    <div>
+                      <strong style={{ color: '#334155' }}>Location:</strong> {[siteData?.city, siteData?.postcode, siteData?.country].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 4, color: '#166534', fontWeight: 600, fontSize: 11 }}>
+                    ✓ Source of {siteProducts.length} approved site products
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Validity Dates & Cycle (4 Dates for GSO, Standard for Non-GSO) */}
+          {/* Card 2: Certificate Details & Document Schedule */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              <Calendar size={16} style={{ color: '#047857' }} />
-              2. Validity Period &amp; Dates {isGso && <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 GSO Dates</span>}
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <Award size={16} style={{ color: '#047857' }} />
+                  2. Certificate Details &amp; Printed Schedule
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                  All fields below print directly onto the official certificate document and can be modified.
+                </p>
+              </div>
+              <span style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+                Editable Fields
+              </span>
+            </div>
 
-            {isGso ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {/* 1. Issue Date */}
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input
-                    type="date"
-                    required
-                    className="form-control"
-                    value={form.issue_date}
-                    onChange={e => setForm({ ...form, issue_date: e.target.value })}
-                  />
-                </div>
+            {/* Sub-section: Company Information on Certificate */}
+            <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Building size={14} style={{ color: '#047857' }} />
+                Company Information on Certificate
+              </div>
 
-                {/* 2. Current Cycle Start Date */}
-                <div className="form-group">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {/* Company Name */}
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
-                    <button
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, current_cycle_start_date: f.issue_date }))}
-                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                    >
-                      Match Issue Date
-                    </button>
-                  </div>
-                  <input
-                    type="date"
-                    required
-                    className="form-control"
-                    value={form.current_cycle_start_date || form.issue_date}
-                    onChange={e => setForm({ ...form, current_cycle_start_date: e.target.value })}
-                  />
-                </div>
-
-                {/* 3. Expiry Date */}
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Company Name on Certificate <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    {clientUser?.company_name && form.company_name !== clientUser.company_name && (
                       <button
                         type="button"
-                        onClick={() => handleSetYears(3)}
-                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        onClick={() => setForm(f => ({ ...f, company_name: clientUser.company_name }))}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                       >
-                        +3 Yrs (GSO)
+                        Reset to "{clientUser.company_name}"
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetYears(1)}
-                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        +1 Yr
-                      </button>
-                    </div>
+                    )}
                   </div>
                   <input
-                    type="date"
+                    type="text"
                     required
                     className="form-control"
-                    value={form.expiry_date}
-                    onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-                    style={{ fontWeight: 700, color: '#dc2626' }}
+                    value={form.company_name}
+                    onChange={e => setForm({ ...form, company_name: e.target.value })}
+                    placeholder="Official registered company name printed on certificate"
+                    style={{ fontWeight: 700, fontSize: 13.5 }}
                   />
                 </div>
 
-                {/* 4. Original Cycle Start Date */}
-                <div className="form-group">
+                {/* Product Category (auto-filled from logsheet) */}
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
-                    <button
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, original_cycle_start_date: f.issue_date }))}
-                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                    >
-                      Match Issue Date
-                    </button>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Product Category / Scope <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    {logsheetCategory ? (
+                      <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                        ✓ Auto-filled from Logsheet ({logsheetCategory})
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Category / Scope</span>
+                    )}
                   </div>
                   <input
-                    type="date"
+                    type="text"
+                    list="review-cert-category-list"
+                    className="form-control"
+                    placeholder="e.g. Meat & Poultry, Dairy & Eggs, etc."
+                    value={form.product_category || form.scope || ''}
+                    onChange={e => setForm({ ...form, product_category: e.target.value, scope: e.target.value })}
+                    style={{ fontWeight: 600, fontSize: 13 }}
+                  />
+                  <datalist id="review-cert-category-list">
+                    {PRODUCT_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Registered Business Address */}
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    rows={2}
                     required
                     className="form-control"
-                    value={form.original_cycle_start_date || form.issue_date}
-                    onChange={e => setForm({ ...form, original_cycle_start_date: e.target.value })}
+                    value={form.company_address}
+                    onChange={e => setForm({ ...form, company_address: e.target.value })}
+                    placeholder="Head office / registered legal business address"
+                  />
+                </div>
+
+                {/* Manufacturing Site Address */}
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    Manufacturing Facilities / Production Site <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    className="form-control"
+                    value={form.manufacturing_address}
+                    onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
+                    placeholder="Physical site location where certified products are manufactured"
                   />
                 </div>
               </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input
-                    type="date"
-                    required
-                    className="form-control"
-                    value={form.issue_date}
-                    onChange={e => setForm({ ...form, issue_date: e.target.value })}
-                  />
-                </div>
+            </div>
 
+            {/* Sub-section: Certificate Reference & Validity Schedule */}
+            <div style={{ background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Calendar size={14} style={{ color: '#047857' }} />
+                Certificate Reference &amp; Validity Schedule {isGso && <span style={{ fontSize: 10.5, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 GSO Dates</span>}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => handleSetYears(1)}
-                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        +1 Yr
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetYears(3)}
-                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        +3 Yrs
-                      </button>
-                    </div>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newId = generateHfaId(form.company_name || 'HFA', 'NE');
+                        setForm(f => ({ ...f, certificate_number: newId }));
+                        toast.success(`Generated ID: ${newId}`);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Regenerate ID
+                    </button>
                   </div>
                   <input
-                    type="date"
+                    type="text"
                     required
                     className="form-control"
-                    value={form.expiry_date}
-                    onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-                    style={{ fontWeight: 700, color: '#dc2626' }}
+                    value={form.certificate_number}
+                    onChange={e => setForm({ ...form, certificate_number: e.target.value })}
+                    style={{ fontWeight: 700, color: '#0f172a' }}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
-                  <input
-                    type="date"
+                  <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type / Scheme <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select
                     className="form-control"
-                    value={form.certification_start_date || form.issue_date}
-                    onChange={e => setForm({ ...form, certification_start_date: e.target.value })}
-                  />
+                    value={form.certificate_type}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(f => ({
+                        ...f,
+                        certificate_type: val,
+                        expiry_date: val.includes('GSO') ? (() => {
+                          const d = new Date(f.issue_date || new Date());
+                          d.setFullYear(d.getFullYear() + 3);
+                          return d.toISOString().split('T')[0];
+                        })() : f.expiry_date
+                      }));
+                    }}
+                    style={{ fontWeight: 600 }}
+                  >
+                    <option value="GSO MEAT">GSO MEAT</option>
+                    <option value="GSO NON MEAT">GSO NON MEAT</option>
+                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
+                    <option value="COSMETICS">COSMETICS</option>
+                    <option value="SMIIC">SMIIC</option>
+                  </select>
                 </div>
               </div>
-            )}
+
+              {/* Dates Grid */}
+              {isGso ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  {/* 1. Issue Date */}
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.issue_date}
+                      onChange={e => setForm({ ...form, issue_date: e.target.value })}
+                    />
+                  </div>
+
+                  {/* 2. Current Cycle Start Date */}
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, current_cycle_start_date: f.issue_date }))}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Match Issue Date
+                      </button>
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.current_cycle_start_date || form.issue_date}
+                      onChange={e => setForm({ ...form, current_cycle_start_date: e.target.value })}
+                    />
+                  </div>
+
+                  {/* 3. Expiry Date */}
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSetYears(3)}
+                          style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          +3 Yrs (GSO)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetYears(1)}
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          +1 Yr
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.expiry_date}
+                      onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                      style={{ fontWeight: 700, color: '#dc2626' }}
+                    />
+                  </div>
+
+                  {/* 4. Original Cycle Start Date */}
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, original_cycle_start_date: f.issue_date }))}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Match Issue Date
+                      </button>
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.original_cycle_start_date || form.issue_date}
+                      onChange={e => setForm({ ...form, original_cycle_start_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.issue_date}
+                      onChange={e => setForm({ ...form, issue_date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSetYears(1)}
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          +1 Yr
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetYears(3)}
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          +3 Yrs
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={form.expiry_date}
+                      onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                      style={{ fontWeight: 700, color: '#dc2626' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={form.certification_start_date || form.issue_date}
+                      onChange={e => setForm({ ...form, certification_start_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Card 3: Certified Products Management */}
@@ -1532,6 +1728,12 @@ export default function AdminReviewCertificate() {
                   <span style={{ color: '#64748b' }}>Company Name:</span>
                   <strong style={{ color: '#0f172a' }}>{form.company_name}</strong>
                 </div>
+                {(form.product_category || form.scope) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Product Category:</span>
+                    <strong style={{ color: '#0369a1' }}>{form.product_category || form.scope}</strong>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Scheme:</span>
                   <strong style={{ color: '#0f172a' }}>{form.certificate_type}</strong>

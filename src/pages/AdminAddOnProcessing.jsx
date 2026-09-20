@@ -1346,6 +1346,7 @@ export default function AdminAddOnProcessing() {
         onClose={() => setShowCertificateModal(false)}
         app={app}
         appId={app?._id}
+        isAddOn={true}
         onSuccess={() => fetchApp(true)}
       />
 

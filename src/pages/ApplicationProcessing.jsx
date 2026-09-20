@@ -744,7 +744,7 @@ export default function ApplicationProcessing() {
       }
 
       // 5. Waiting for Letter / Certificate Stage (Post-Invoice Payment)
-      if (status === 'ready_for_certificate' || status === 'payment_received' || status === 'Waiting For Certificate' || (isFastTrackInvoicePaid && status !== 'certificate_issued')) {
+      if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isFastTrackInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate'].includes(status))) {
         if (isSurveillance) {
           return (
             <button
@@ -892,15 +892,15 @@ export default function ApplicationProcessing() {
       return (
         <button
           className="btn btn-primary"
-          style={{ gap: 8, background: '#ea580c' }}
+          style={{ gap: 8, background: status === 'dates_rejected' ? '#dc2626' : '#ea580c', borderColor: status === 'dates_rejected' ? '#b91c1c' : undefined }}
           onClick={() => setShowAuditModal(true)}
         >
           <Calendar size={16} /> {
             isDualStage
               ? (isStage1Complete
                   ? ((!stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending') ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit')
-                  : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : 'Manage Stage 1 Audit'))
-              : (audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit')
+                  : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : (stage1?.status === 'dates_rejected' ? 'Propose New Stage 1 Dates' : 'Manage Stage 1 Audit')))
+              : (status === 'dates_rejected' ? 'Propose New Audit Dates' : (audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit'))
           }
         </button>
       );
@@ -1165,7 +1165,9 @@ export default function ApplicationProcessing() {
               Application Action Required
             </div>
             <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-              {canActOnApplication
+              {status === 'dates_rejected'
+                ? 'Client indicated unavailability for proposed dates. Review their notes and propose alternative dates.'
+                : canActOnApplication
                 ? 'Review the application details and approve, put on hold, or reject below.'
                 : 'Use the actions below to proceed with the next phase of application processing.'}
             </div>
@@ -1173,6 +1175,49 @@ export default function ApplicationProcessing() {
           <div style={{ display: 'flex', gap: 10 }}>
             {renderPrimaryAction()}
           </div>
+        </div>
+      )}
+
+      {/* Dates Rejected Alert Banner */}
+      {status === 'dates_rejected' && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1.5px solid #fca5a5',
+          borderRadius: 12,
+          padding: '16px 20px',
+          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 280 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#991b1b' }}>
+                Client Unavailable — Proposed Dates Declined
+              </div>
+              <div style={{ fontSize: 13, color: '#7f1d1d', marginTop: 3 }}>
+                The client was unable to accept the proposed audit dates and submitted availability remarks.
+              </div>
+              {(app?.client_audit_availability_note || audits?.find(a => a.client_availability_note)?.client_availability_note) && (
+                <div style={{ marginTop: 8, background: '#ffffff', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#991b1b', lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 700 }}>Client Remarks / Alternative Dates: </span>
+                  <em>"{app?.client_audit_availability_note || audits?.find(a => a.client_availability_note)?.client_availability_note}"</em>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#dc2626', borderColor: '#dc2626', alignSelf: 'center' }}
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Calendar size={15} /> Propose New Dates
+          </button>
         </div>
       )}
 

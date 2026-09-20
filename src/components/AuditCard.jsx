@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -159,6 +159,19 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
           <div style={{ marginBottom: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Calendar size={15} style={{ color: '#15803d' }} />
             <span style={{ fontSize: 13, color: '#15803d', fontWeight: 700 }}>Confirmed Audit Date: {new Date(auditObj.finalized_date).toDateString()}</span>
+          </div>
+        ) : (auditObj.status === 'dates_rejected' || auditObj.client_unavailable) ? (
+          <div style={{ marginBottom: 12, padding: '12px 14px', background: '#fef2f2', borderRadius: 10, border: '1px solid #fecaca' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertTriangle size={14} />
+              <span>Client Unavailable / Proposed Dates Declined</span>
+            </div>
+            {(auditObj.client_availability_note || app?.client_audit_availability_note) && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#991b1b', background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #fca5a5', lineHeight: 1.4 }}>
+                <span style={{ fontWeight: 700 }}>Client Remarks / Alternative Dates: </span>
+                {auditObj.client_availability_note || app?.client_audit_availability_note}
+              </div>
+            )}
           </div>
         ) : auditObj.status === 'dates_proposed' ? (
           <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fefce8', borderRadius: 10, border: '1px solid #fde68a' }}>

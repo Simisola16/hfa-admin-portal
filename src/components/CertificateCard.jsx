@@ -1,23 +1,60 @@
 import React from 'react';
-import { Award, ShieldCheck, FileText, Download, ArrowRight, ExternalLink, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { Award, ShieldCheck, FileText, Download, ArrowRight, ExternalLink, Calendar, CheckCircle2, Clock, Lock, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getPdfUrl } from '../lib/pdfUtils';
 
 export default function CertificateCard({ app, certificate, status, isSurveillance, onIssueCertificate }) {
   const navigate = useNavigate();
 
-  const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
-  const isActive = certificate && certificate.status === 'active';
-  const pdfUrl = certificate ? getPdfUrl(certificate.certificate_url) : '';
+  const hasCertificate = Boolean(certificate && (certificate._id || certificate.id || certificate.certificate_number));
+  const isUnderReview = hasCertificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+  const isActive = hasCertificate && certificate.status === 'active';
+  const pdfUrl = hasCertificate ? getPdfUrl(certificate.certificate_url) : '';
 
-  if (!certificate && !['ready_for_certificate', 'certificate_issued', 'payment_received'].includes(status)) {
+  const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isReadyForCertificate = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
+
+  // If application was rejected or cancelled and has no certificate, do not render
+  if (!hasCertificate && ['rejected', 'cancelled'].includes(normStatus)) {
     return null;
   }
 
+  const headerBorder = isUnderReview 
+    ? '1.5px solid #fde68a' 
+    : isActive 
+      ? '1.5px solid #bbf7d0' 
+      : isReadyForCertificate
+        ? '1.5px solid #e9d5ff'
+        : '1px solid #e2e8f0';
+
+  const headerBg = isUnderReview 
+    ? '#fffbeb' 
+    : isActive 
+      ? '#f0fdf4' 
+      : isReadyForCertificate
+        ? '#faf5ff'
+        : '#f8fafc';
+
+  const iconBg = isUnderReview 
+    ? '#fef3c7' 
+    : isActive 
+      ? '#dcfce7' 
+      : isReadyForCertificate
+        ? '#f3e8ff'
+        : '#f1f5f9';
+
+  const iconColor = isUnderReview 
+    ? '#d97706' 
+    : isActive 
+      ? '#15803d' 
+      : isReadyForCertificate
+        ? '#7e22ce'
+        : '#64748b';
+
   return (
-    <div className="card" style={{ border: isUnderReview ? '1.5px solid #fde68a' : isActive ? '1.5px solid #bbf7d0' : '1px solid var(--border)' }}>
+    <div className="card" style={{ border: headerBorder }}>
       <div className="card-header" style={{
-        background: isUnderReview ? '#fffbeb' : isActive ? '#f0fdf4' : '#f8fafc',
+        background: headerBg,
         borderBottom: '1px solid #e2e8f0',
         padding: '16px 20px',
         display: 'flex',
@@ -31,20 +68,20 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
             width: 36,
             height: 36,
             borderRadius: 8,
-            background: isUnderReview ? '#fef3c7' : isActive ? '#dcfce7' : '#f1f5f9',
+            background: iconBg,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: isUnderReview ? '#d97706' : isActive ? '#15803d' : '#64748b'
+            color: iconColor
           }}>
-            {isUnderReview ? <ShieldCheck size={20} /> : <Award size={20} />}
+            {isUnderReview ? <ShieldCheck size={20} /> : (!hasCertificate && !isReadyForCertificate) ? <Lock size={18} /> : <Award size={20} />}
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
               {isSurveillance ? 'Official Surveillance Letter' : 'Halal Certification Certificate'}
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              {certificate ? `Ref: ${certificate.certificate_number || 'N/A'}` : 'Certificate Issuance Stage'}
+              {hasCertificate ? `Ref: ${certificate.certificate_number || 'N/A'}` : isReadyForCertificate ? 'Certificate Issuance Stage' : 'Certificate Issuance Stage (Locked)'}
             </div>
           </div>
         </div>
@@ -80,6 +117,38 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
               gap: 6
             }}>
               <CheckCircle2 size={13} /> Issued &amp; Active
+            </span>
+          )}
+          {!hasCertificate && isReadyForCertificate && (
+            <span style={{
+              background: '#f3e8ff',
+              color: '#7e22ce',
+              border: '1px solid #e9d5ff',
+              fontSize: 12,
+              fontWeight: 800,
+              padding: '4px 10px',
+              borderRadius: 20,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}>
+              <Sparkles size={13} /> Ready for Certificate
+            </span>
+          )}
+          {!hasCertificate && !isReadyForCertificate && (
+            <span style={{
+              background: '#f1f5f9',
+              color: '#64748b',
+              border: '1px solid #e2e8f0',
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '4px 10px',
+              borderRadius: 20,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}>
+              <Lock size={12} /> Stage Locked
             </span>
           )}
         </div>
@@ -166,20 +235,20 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
           </div>
         )}
 
-        {!certificate && (
+        {!hasCertificate && isReadyForCertificate && (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <Award size={36} style={{ color: '#94a3b8', margin: '0 auto 10px', display: 'block' }} />
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
+            <Award size={36} style={{ color: '#16a34a', margin: '0 auto 10px', display: 'block' }} />
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
               Certificate Not Yet Created
             </div>
-            <div style={{ fontSize: 12, color: '#64748b', maxWidth: 450, margin: '6px auto 16px' }}>
+            <div style={{ fontSize: 12.5, color: '#64748b', maxWidth: 450, margin: '6px auto 16px', lineHeight: 1.5 }}>
               Final payments and evaluations are completed. Create the certificate to enter the Review Certification workflow before sending it to the client.
             </div>
             {onIssueCertificate && (
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#16a34a', borderColor: '#15803d' }}
                 onClick={onIssueCertificate}
               >
                 <Award size={15} /> Issue Certificate
@@ -188,7 +257,50 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
           </div>
         )}
 
-        {certificate && (
+        {!hasCertificate && !isReadyForCertificate && (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: '#f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <Lock size={24} style={{ color: '#94a3b8' }} />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>
+              Certificate Issuance Locked
+            </div>
+            <div style={{ fontSize: 12.5, color: '#64748b', maxWidth: 460, margin: '6px auto 16px', lineHeight: 1.5 }}>
+              Certificate issuance unlocks once initial processing, evaluations, and approvals are complete.
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'not-allowed',
+                opacity: 0.65,
+                background: '#f8fafc',
+                borderColor: '#cbd5e1',
+                color: '#94a3b8',
+                fontWeight: 600
+              }}
+              title="Certificate issuance unlocks once initial processing, evaluations, and approvals are complete."
+            >
+              <Lock size={14} /> Issue Certificate
+            </button>
+          </div>
+        )}
+
+        {hasCertificate && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, fontSize: 13 }}>
             <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
               <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Certificate Number</span>

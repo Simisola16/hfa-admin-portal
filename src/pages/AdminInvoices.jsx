@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, FileBarChart, Eye, Download } from 'lucide-react';
+import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt } from 'lucide-react';
+import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -19,12 +20,13 @@ export default function AdminInvoices() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ client_id:'', description:'', amount:'', due_date:'', items:'' });
+  const [confirmPaymentModal, setConfirmPaymentModal] = useState({ isOpen: false, invoice: null, app: null });
 
   const fetch = () => {
     setLoading(true);
     Promise.all([api.get('/api/invoices'), api.get('/api/users')])
       .then(([inv,u])=>{setInvoices(inv.data||[]);setClients((u.data||[]).filter(u=>u.role==='client'));})
-      .catch(()=>toast.error('Failed')).finally(()=>setLoading(false));
+      .catch(()=>toast.error('Failed to load invoices')).finally(()=>setLoading(false));
   };
   useEffect(()=>{fetch();},[]);
 
@@ -34,9 +36,17 @@ export default function AdminInvoices() {
     catch(err){toast.error(err.message);} finally{setSubmitting(false);}
   };
 
-  const markPaid = async (id) => {
-    try{ await api.put(`/api/invoices/${id}/status`,{status:'paid',payment_date:new Date().toISOString()}); toast.success('Marked as paid'); fetch(); }
-    catch(err){toast.error(err.message);}
+  const handlePaymentConfirmed = (confirmedInvId) => {
+    if (confirmedInvId) {
+      setInvoices(prev => prev.map(inv => {
+        const id = inv._id || inv.id;
+        if (id === confirmedInvId) {
+          return { ...inv, status: 'paid', payment_date: new Date().toISOString(), paid_at: new Date().toISOString() };
+        }
+        return inv;
+      }));
+    }
+    fetch();
   };
 
   return (
@@ -52,49 +62,122 @@ export default function AdminInvoices() {
               <table>
                 <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {invoices.map(inv=>(
-                    <tr key={inv.id || inv._id}>
-                      <td style={{fontWeight:700}}>{inv.invoice_number}</td>
-                      <td>{inv.profiles?.company_name||'—'}</td>
-                      <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description || inv.title}</td>
-                      <td style={{fontWeight:700}}>£{parseFloat(inv.amount||0).toFixed(2)}</td>
-                      <td><span className={`badge ${inv.status==='paid'?'badge-green':inv.status==='client_paid'?'badge-orange':inv.status==='overdue'?'badge-red':'badge-yellow'}`}>{inv.status}</span></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {inv.invoice_url ? (
-                            <>
+                  {invoices.map(inv=>{
+                    const isPaid = inv.status === 'paid';
+                    const invId = inv._id || inv.id;
+                    return (
+                      <tr key={invId}>
+                        <td style={{fontWeight:700}}>{inv.invoice_number}</td>
+                        <td>{inv.profiles?.company_name||'—'}</td>
+                        <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description || inv.title}</td>
+                        <td style={{fontWeight:700}}>£{parseFloat(inv.amount||0).toFixed(2)}</td>
+                        <td>
+                          <span className={`badge ${
+                            isPaid
+                              ? 'badge-green'
+                              : inv.status === 'client_paid'
+                              ? 'badge-orange'
+                              : inv.status === 'overdue'
+                              ? 'badge-red'
+                              : 'badge-yellow'
+                          }`} style={isPaid ? { display: 'inline-flex', alignItems: 'center', gap: 4 } : {}}>
+                            {isPaid && <CheckCircle2 size={12} />}
+                            {inv.status === 'client_paid' ? 'Pending Verification' : inv.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {inv.invoice_url ? (
+                              <>
+                                <a
+                                  href={getPdfUrl(inv.invoice_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: '#16a34a', padding: '4px 8px', gap: 4 }}
+                                  title="View Invoice"
+                                >
+                                  <Eye size={14} /> View
+                                </a>
+                                <a
+                                  href={getPdfUrl(inv.invoice_url)}
+                                  download
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-outline btn-sm"
+                                  style={{ padding: '4px 8px', gap: 4 }}
+                                  title="Download Invoice"
+                                >
+                                  <Download size={14} /> Download
+                                </a>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 11, color: '#94a3b8' }}>No PDF</span>
+                            )}
+
+                            {/* Client Payment Receipt link */}
+                            {inv.payment_proof_url && (
                               <a
-                                href={getPdfUrl(inv.invoice_url)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-ghost btn-sm"
-                                style={{ color: '#16a34a', padding: '4px 8px', gap: 4 }}
-                                title="View Invoice"
-                              >
-                                <Eye size={14} /> View
-                              </a>
-                              <a
-                                href={getPdfUrl(inv.invoice_url)}
-                                download
+                                href={getPdfUrl(inv.payment_proof_url)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="btn btn-outline btn-sm"
-                                style={{ padding: '4px 8px', gap: 4 }}
-                                title="Download Invoice"
+                                style={{ padding: '4px 8px', gap: 4, color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                title="View Client Uploaded Payment Proof"
                               >
-                                <Download size={14} /> Download
+                                <Receipt size={14} /> Receipt
                               </a>
-                            </>
-                          ) : (
-                            <span style={{ fontSize: 11, color: '#94a3b8' }}>No PDF</span>
-                          )}
-                          {(inv.status === 'pending' || inv.status === 'issued' || inv.status === 'unpaid') && (
-                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--primary)' }} onClick={() => markPaid(inv.id || inv._id)}>Mark Paid</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            )}
+
+                            {/* Action: Paid badge or Confirm Payment trigger */}
+                            {isPaid ? (
+                              <span
+                                className="badge badge-green"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '4px 8px',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0'
+                                }}
+                                title="Payment confirmed by admin"
+                              >
+                                <CheckCircle2 size={13} /> Confirmed
+                              </span>
+                            ) : (
+                              <button
+                                className="btn btn-sm"
+                                style={{
+                                  background: '#16a34a',
+                                  color: '#ffffff',
+                                  borderColor: '#15803d',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  fontWeight: 600,
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => setConfirmPaymentModal({
+                                  isOpen: true,
+                                  invoice: inv,
+                                  app: inv.application_id && typeof inv.application_id === 'object' ? inv.application_id : null
+                                })}
+                                title="Confirm Client Payment"
+                              >
+                                <Check size={14} /> Confirm Payment
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )
@@ -127,6 +210,15 @@ export default function AdminInvoices() {
           </div>
         </div>
       )}
+
+      {/* Confirm Payment Modal */}
+      <ConfirmPaymentModal
+        isOpen={confirmPaymentModal.isOpen}
+        onClose={() => setConfirmPaymentModal({ isOpen: false, invoice: null, app: null })}
+        invoice={confirmPaymentModal.invoice}
+        app={confirmPaymentModal.app}
+        onSuccess={() => handlePaymentConfirmed(confirmPaymentModal.invoice?._id || confirmPaymentModal.invoice?.id)}
+      />
     </div>
   );
 }

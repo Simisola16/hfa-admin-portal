@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Award, ArrowLeft, Save, RefreshCw, Send, FileText, CheckCircle2, 
-  AlertTriangle, Building, MapPin, Calendar, Package, Plus, Trash2, 
+import {
+  Award, ArrowLeft, Save, RefreshCw, Send, FileText, CheckCircle2,
+  AlertTriangle, Building, MapPin, Calendar, Package, Plus, Trash2,
   ExternalLink, Download, Check, X, Lock, ShieldCheck, Eye, UploadCloud,
   Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle
 } from 'lucide-react';
@@ -123,7 +123,7 @@ export default function AdminReviewCertificate() {
           if (uData) {
             resolvedClient = { ...(resolvedClient || {}), ...uData };
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if ((!resolvedClient || !resolvedClient.email || !resolvedClient.full_name) && appId) {
@@ -152,7 +152,7 @@ export default function AdminReviewCertificate() {
               };
             }
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (resolvedClient) {
@@ -318,7 +318,7 @@ export default function AdminReviewCertificate() {
             const clientSite = allSites.find(s => s.client_id && s.client_id.toString() === clientIdStr);
             if (clientSite) resolvedSite = clientSite;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
       setSiteData(resolvedSite);
 
@@ -326,14 +326,14 @@ export default function AdminReviewCertificate() {
       let resolvedDetails = Array.isArray(c.product_details) && c.product_details.length > 0
         ? c.product_details
         : (resolvedProducts.length > 0
-            ? resolvedProducts.map((p, idx) => ({
-                name: typeof p === 'string' ? p : p.name,
-                code: typeof p === 'object' && p.code ? p.code : `GEN-${String(idx + 1).padStart(2, '0')}`,
-                category: typeof p === 'object' && p.category ? p.category : 'Halal Certified',
-                barcode: typeof p === 'object' && p.barcode ? p.barcode : ''
-              }))
-            : []
-          );
+          ? resolvedProducts.map((p, idx) => ({
+            name: typeof p === 'string' ? p : p.name,
+            code: typeof p === 'object' && p.code ? p.code : `GEN-${String(idx + 1).padStart(2, '0')}`,
+            category: typeof p === 'object' && p.category ? p.category : 'Halal Certified',
+            barcode: typeof p === 'object' && p.barcode ? p.barcode : ''
+          }))
+          : []
+        );
 
       // If certificate has NO products recorded yet, but site products are available, default to selecting all site products
       if (resolvedDetails.length === 0 && fetchedSiteProducts.length > 0) {
@@ -347,16 +347,10 @@ export default function AdminReviewCertificate() {
 
       const finalProductsCovered = resolvedDetails.map(p => p.name);
 
-      const resolvedSiteName = (
-        resolvedSite?.name ||
-        resolvedSite?.trading_name ||
-        resolvedSite?.est_name ||
-        c.site_id?.name ||
-        c.application_id?.site_name ||
-        ''
-      ).trim();
-
-      const autoFilledMfgSite = resolvedSiteName || c.manufacturing_address || 'Manufacturing Facility';
+      const resolvedCategory = detectedLogsheetCat ||
+        (c.scope && c.scope !== 'Halal Food and Consumer Products Certification' && c.scope !== 'Halal Food Certification' ? c.scope : '') ||
+        c.application_id?.scope ||
+        'Meat & Poultry';
 
       setForm({
         certificate_number: c.certificate_number || '',
@@ -364,7 +358,7 @@ export default function AdminReviewCertificate() {
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
-        manufacturing_address: autoFilledMfgSite,
+        manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
         scope: resolvedCategory,
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -733,7 +727,7 @@ export default function AdminReviewCertificate() {
   const filteredSiteProducts = useMemo(() => {
     return siteProducts.filter(p => {
       const q = productSearch.trim().toLowerCase();
-      const matchesSearch = !q || 
+      const matchesSearch = !q ||
         (p.name && p.name.toLowerCase().includes(q)) ||
         (p.code && p.code.toLowerCase().includes(q)) ||
         (p.category && p.category.toLowerCase().includes(q));
@@ -759,11 +753,10 @@ export default function AdminReviewCertificate() {
   const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || (form.certificate_type && form.certificate_type.includes('GSO'));
   const rawPdfUrl = getPdfUrl(cert?.certificate_url);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
-  const resolvedSiteName = (siteData?.name || siteData?.trading_name || siteData?.est_name || cert?.site_id?.name || cert?.application_id?.site_name || '').trim();
 
   return (
     <div style={{ padding: '24px 32px 100px', maxWidth: 1600, margin: '0 auto' }}>
-      
+
       {/* Top Header & Breadcrumb */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
         <div>
@@ -809,7 +802,7 @@ export default function AdminReviewCertificate() {
 
       {/* Main Dual-Pane Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(420px, 45%) 1fr', gap: 24, alignItems: 'start' }}>
-        
+
         {/* LEFT PANE: Live Certificate Document Preview */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 18, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
@@ -937,7 +930,7 @@ export default function AdminReviewCertificate() {
 
         {/* RIGHT PANE: Review & Correction Editor */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          
+
           {/* Card 1: Assigned Company & Manufacturing Facility */}
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16 }}>
@@ -1114,30 +1107,18 @@ export default function AdminReviewCertificate() {
                   />
                 </div>
 
-                {/* Manufacturing Site */}
+                {/* Manufacturing Site Address */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                      Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
-                    </label>
-                    {resolvedSiteName && form.manufacturing_address !== resolvedSiteName && (
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, manufacturing_address: resolvedSiteName }))}
-                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                      >
-                        Reset to "{resolvedSiteName}"
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    type="text"
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    rows={2}
                     required
                     className="form-control"
                     value={form.manufacturing_address}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Official manufacturing site name printed on certificate"
-                    style={{ fontWeight: 600, fontSize: 13 }}
+                    placeholder="Physical site location where certified products are manufactured"
                   />
                 </div>
               </div>

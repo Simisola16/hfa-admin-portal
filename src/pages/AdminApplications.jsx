@@ -726,7 +726,8 @@ export default function AdminApplications() {
                                 return;
                               }
                               if (step === 'SEND CERTIFICATE') {
-                                const certTypeCode = normalizeHfaTypeCode(manageModal?.application_type);
+                                const isAddOn = Boolean(manageModal?.is_add_on || manageModal?.application_type === 'addon' || manageModal?.application_type === 'add-on' || manageModal?.application_number?.includes('-AD-') || manageModal?.application_number?.startsWith('ADD-'));
+                                const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(manageModal?.application_type);
                                 setCertificateForm({
                                   certificate_type: 'Halal Certification',
                                   issue_date: new Date().toISOString().split('T')[0],

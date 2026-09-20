@@ -919,7 +919,7 @@ export default function AdminInitialProductProcessing() {
               </div>
 
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Production Facility / Site</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Manufacturing Site</div>
                 <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
                   <Building2 size={14} style={{ color: '#059669' }} /> {siteName}
                 </div>

@@ -33,10 +33,7 @@ export default function AdminInitialProductProcessing() {
   const [customFtNotes, setCustomFtNotes] = useState('');
   const [savingFt, setSavingFt] = useState(false);
 
-  // Enable Form Modal / Fields
-  const [showEnableFormModal, setShowEnableFormModal] = useState(false);
-  const [formText, setFormText] = useState('');
-  const [formFile, setFormFile] = useState(null);
+  // Enable Form
   const [savingEnableForm, setSavingEnableForm] = useState(false);
 
   // Request More Info Modal
@@ -334,7 +331,8 @@ export default function AdminInitialProductProcessing() {
                     <button
                       type="button"
                       className="btn btn-primary"
-                      onClick={() => setShowEnableFormModal(true)}
+                      disabled={savingEnableForm}
+                      onClick={handleEnableForm}
                       style={{
                         background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
                         borderColor: '#6d28d9',
@@ -343,10 +341,20 @@ export default function AdminInitialProductProcessing() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
-                        boxShadow: '0 4px 12px rgba(124,58,237,0.25)'
+                        boxShadow: '0 4px 12px rgba(124,58,237,0.25)',
+                        cursor: savingEnableForm ? 'not-allowed' : 'pointer',
+                        opacity: savingEnableForm ? 0.75 : 1
                       }}
                     >
-                      <Send size={16} /> Enable Product Form &rarr;
+                      {savingEnableForm ? (
+                        <>
+                          <span className="spinner-white" style={{ width: 16, height: 16 }} /> Enabling Product Form...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} /> Enable Product Form &rarr;
+                        </>
+                      )}
                     </button>
                   )}
 

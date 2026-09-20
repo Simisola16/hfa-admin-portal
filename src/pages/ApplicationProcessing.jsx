@@ -1873,15 +1873,7 @@ export default function ApplicationProcessing() {
                     <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Establishment Address</div>
                     <div style={{ fontSize: 13, color: '#334155', marginTop: 2, fontWeight: 400 }}>{app.establishment_address || '—'}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Registration Number</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.reg_number || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>VAT Number</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.vat_number || '—'}</div>
-                  </div>
-                  <div>
+                  <div style={{ gridColumn: 'span 2' }}>
                     <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Managing Director</div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.managing_director || '—'}</div>
                   </div>
@@ -1927,15 +1919,17 @@ export default function ApplicationProcessing() {
                   3. Operations & Product List
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: app.production_schedule ? '1fr 1fr' : '1fr', gap: 12 }}>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Total Employees</div>
                       <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.employee_count || '—'}</div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Production Schedule</div>
-                      <div style={{ fontSize: 13, color: '#0f172a', marginTop: 2, fontWeight: 400 }}>{app.production_schedule || '—'}</div>
-                    </div>
+                    {app.production_schedule && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Production Schedule</div>
+                        <div style={{ fontSize: 13, color: '#0f172a', marginTop: 2, fontWeight: 400 }}>{app.production_schedule}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Submitted Products Table */}

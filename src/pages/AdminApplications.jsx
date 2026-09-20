@@ -413,7 +413,9 @@ export default function AdminApplications() {
                       <div className="detail-item">
                         <label>Operational Stats</label>
                         <div>{selectedApp.employee_count} Employees</div>
-                        <div className="text-xs font-normal">Schedule: {selectedApp.production_schedule}</div>
+                        {selectedApp.production_schedule && (
+                          <div className="text-xs font-normal">Schedule: {selectedApp.production_schedule}</div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -564,9 +566,11 @@ export default function AdminApplications() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{manageModal.establishment_address}</div>
                     </div>
                     <div className="detail-item">
-                      <label>Employees / Schedule</label>
+                      <label>{manageModal.production_schedule ? 'Employees / Schedule' : 'Employees'}</label>
                       <div>{manageModal.employee_count} staff</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{manageModal.production_schedule}</div>
+                      {manageModal.production_schedule && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{manageModal.production_schedule}</div>
+                      )}
                     </div>
                   </div>
 

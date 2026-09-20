@@ -92,7 +92,14 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   );
   if (!app) return null;
 
+  const normAppStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isAppReadyForCert = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normAppStatus);
+
   const handleSubmit = async () => {
+    if (!isSurveillance && !isAppReadyForCert) {
+      toast.error('Certificate issuance unlocks once initial processing, evaluations, and approvals are complete.');
+      return;
+    }
     if (!certificateForm.certificate_number.trim()) {
       toast.error(isSurveillance ? 'Please enter a Surveillance Letter reference number.' : 'Please enter a certificate number.');
       return;

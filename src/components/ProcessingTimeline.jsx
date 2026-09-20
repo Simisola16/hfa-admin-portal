@@ -282,6 +282,33 @@ export default function ProcessingTimeline({
           (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful']) : null) ||
           (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null);
 
+        // For GSO dual-stage flows, resolve Stage 2 steps to the latest Stage 2 history entries
+        if (isGSO && isStage1Complete && !isStage2Complete) {
+          if (s === 'dates_proposed') {
+            const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'dates_proposed' || h.status === 'dates_rejected');
+            if (s2Entry) {
+              histEntry = {
+                ...s2Entry,
+                note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') || 'Admin proposed 3 audit dates to client for Stage 2.'
+              };
+            } else {
+              histEntry = {
+                changedAt: stage2?.updated_at || stage2?.created_at || histEntry?.changedAt || new Date(),
+                note: 'Admin proposed 3 audit dates to client for Stage 2.'
+              };
+            }
+          } else if (s === 'dates_accepted') {
+            const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'dates_accepted');
+            if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
+          } else if (s === 'date_finalized') {
+            const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'date_finalized');
+            if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
+          } else if (s === 'audit_assigned') {
+            const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'audit_assigned' || h.status === 'auditors_assigned');
+            if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
+          }
+        }
+
         let isComplete = false;
         let isCurrent = false;
         let isPending = false;

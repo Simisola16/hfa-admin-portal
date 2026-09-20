@@ -325,8 +325,13 @@ export default function ApplicationProcessing() {
       toast.error('Please enter Non-Conformity details.');
       return;
     }
-    const auditObj = audits?.[0] || audits?.data?.[0];
-    const auditId = auditObj?._id || auditObj?.id;
+    // For GSO dual-stage apps: NC must only be flagged against the Stage 2 audit
+    const auditsArr = Array.isArray(audits) ? audits : [];
+    const stage2Audit = auditsArr.find(a => a.stage === 2);
+    const stage1Audit = auditsArr.find(a => (a.stage || 1) === 1) || auditsArr[0];
+    const isStage1Complete = stage1Audit?.status === 'audit_completed' || stage1Audit?.status === 'audit_successful';
+    const targetAuditForNc = (isGSO && isStage1Complete && stage2Audit) ? stage2Audit : (auditsArr[0] || null);
+    const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     setFlaggingNc(true);
     try {
       const formData = new FormData();
@@ -343,7 +348,7 @@ export default function ApplicationProcessing() {
       setNcFile(null);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to flag NC report.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to flag NC report.');
     } finally {
       setFlaggingNc(false);
     }
@@ -380,36 +385,28 @@ export default function ApplicationProcessing() {
   const handleCloseNc = async () => {
     setActionSubmitting(true);
     try {
-      const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
-      const stage2 = audits?.find(a => a.stage === 2);
+      const auditsArr = Array.isArray(audits) ? audits : [];
+      const stage1 = auditsArr.find(a => (a.stage || 1) === 1) || auditsArr[0];
+      const stage2 = auditsArr.find(a => a.stage === 2);
       const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
       const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
+      // For GSO: NC close always targets Stage 2 once Stage 1 is done
       const targetAudit = (isGSO && isStage1Complete && stage2) ? stage2 : stage1;
       const auditId = targetAudit?._id || targetAudit?.id;
 
       const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
-      const nextStatus = res?.data?.application_status;
+      const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
 
-      if (isGSO && !isStage2Complete) {
-        const targetStatus = nextStatus || 'dates_proposed';
-        await api.put(`/api/applications/${appId}/status`, {
-          status: targetStatus,
-          note: 'Stage 1 NC closed — now proceed to Stage 2 audit scheduling.'
-        }).catch(() => {});
-        setApp(prev => ({ ...prev, status: targetStatus }));
-        toast.success('Stage 1 NC Closed! Please propose Stage 2 Audit Dates.');
-      } else {
-        await api.put(`/api/applications/${appId}/status`, {
-          status: 'nc_closed',
-          note: 'NC closed — non-conformities reviewed, verified, and closed.'
-        }).catch(() => {});
-        setApp(prev => ({ ...prev, status: 'nc_closed' }));
+      setApp(prev => ({ ...prev, status: nextStatus }));
+      if (nextStatus === 'nc_closed') {
         toast.success('NC Closed successfully! You can now create the LogSheet.');
+      } else {
+        toast.success('NC Closed successfully!');
       }
       setShowNcModal(false);
       await fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to close NC.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to close NC.');
     } finally {
       setActionSubmitting(false);
     }

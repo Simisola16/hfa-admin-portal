@@ -28,19 +28,25 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
 
   React.useEffect(() => {
     if (isOpen) {
-      if (!propInvoice && targetAppId) {
+      const invObj = propInvoice || null;
+      setInvoice(invObj);
+
+      if (propApp) {
+        setApp(propApp);
+      } else if (invObj?.application_id && typeof invObj.application_id === 'object') {
+        setApp(invObj.application_id);
+      } else if (targetAppId) {
         Promise.all([
-          api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null })),
-          !propApp ? api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: propApp })
+          !invObj ? api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: invObj }),
+          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null }))
         ]).then(([invRes, appRes]) => {
-          const invObj = invRes.data?.data || invRes.data || null;
+          if (!invObj) {
+            const fetchedInv = invRes.data?.data || invRes.data || null;
+            setInvoice(fetchedInv);
+          }
           const appObj = appRes.data?.data || appRes.data || null;
-          setInvoice(invObj);
           if (appObj) setApp(appObj);
         });
-      } else {
-        setInvoice(propInvoice || null);
-        setApp(propApp || null);
       }
     }
   }, [isOpen, propInvoice, propApp, targetAppId]);
@@ -64,15 +70,18 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
     }
   };
 
+  const formattedAmount = Number(invoice?.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 });
+  const companyName = invoice?.profiles?.company_name || app?.profiles?.company_name || app?.establishment_name || 'Client';
+
   return (
-    <div className="modal-overlay" style={{ zIndex: 1250 }} onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 1250 }} onClick={!submitting ? onClose : undefined}>
       <div className="modal" style={{ maxWidth: 520, width: '92%' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <ShieldCheck size={22} style={{ color: '#16a34a' }} />
             <div className="modal-title">Verify &amp; Confirm Client Payment</div>
           </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} disabled={submitting}><X size={18} /></button>
         </div>
 
         <div className="modal-body">
@@ -82,16 +91,25 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
             </div>
           ) : (
             <div>
-              <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 12, padding: 18, marginBottom: 20 }}>
+              {/* Prompt Confirmation Callout */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 14px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <AlertCircle size={18} style={{ color: '#0284c7', flexShrink: 0, marginTop: 2 }} />
+                <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>
+                  Confirm payment of <strong>£{formattedAmount}</strong> for Invoice <strong>#{invoice.invoice_number}</strong>? This will mark the invoice as paid and unlock the next stage for the client.
+                </div>
+              </div>
+
+              {/* Payment Details Card */}
+              <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 12, padding: 18, marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#15803d', letterSpacing: '0.05em' }}>
-                  Client Submitted Payment Proof
+                  {invoice.payment_proof_url ? 'Client Submitted Payment Proof' : 'Invoice Payment Details'}
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '4px 0 10px' }}>
-                  Invoice #{invoice.invoice_number} &middot; £{Number(invoice.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}
+                  Invoice #{invoice.invoice_number} &middot; £{formattedAmount}
                 </div>
 
                 <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5 }}>
-                  Company: <strong>{app?.profiles?.company_name || app?.establishment_name || 'Client'}</strong><br />
+                  Company: <strong>{companyName}</strong><br />
                   Application: <strong>#{app?.application_number || 'N/A'}</strong>
                 </div>
 
@@ -132,7 +150,15 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
             onClick={handleConfirm}
             disabled={submitting || !invoice}
           >
-            <ShieldCheck size={16} /> {submitting ? 'Confirming...' : 'Confirm Payment'}
+            {submitting ? (
+              <>
+                <span className="spinner" style={{ width: 14, height: 14 }} /> Confirming...
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} /> Confirm Payment
+              </>
+            )}
           </button>
         </div>
       </div>

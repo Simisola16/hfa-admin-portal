@@ -431,11 +431,27 @@ export default function AuditManageModal({
           {(!existingAudit || existingAudit?.status === 'dates_rejected') && (
             <div>
               {existingAudit?.status === 'dates_rejected' && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
-                  <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.4 }}>
-                    <strong>Dates Rejected by Client:</strong> The client was unavailable on the previously proposed dates. Please propose 3 new date options below.
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px 16px', borderRadius: 10, marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (existingAudit?.client_availability_note || currentApp?.client_audit_availability_note) ? 8 : 0 }}>
+                    <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.4, fontWeight: 700 }}>
+                      Dates Rejected by Client — Unavailable for Previous Proposal
+                    </div>
                   </div>
+                  {(existingAudit?.client_availability_note || currentApp?.client_audit_availability_note) ? (
+                    <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginTop: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
+                        Client's Availability & Alternative Dates Note:
+                      </div>
+                      <div style={{ fontSize: 13, color: '#7f1d1d', fontStyle: 'italic', lineHeight: 1.5 }}>
+                        "{existingAudit?.client_availability_note || currentApp?.client_audit_availability_note}"
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12.5, color: '#991b1b', marginTop: 4 }}>
+                      The client was unavailable on the previously proposed dates. Please review their schedule and propose 3 new date options below.
+                    </div>
+                  )}
                 </div>
               )}
               {isProposeBlockedByGsoInitial && (

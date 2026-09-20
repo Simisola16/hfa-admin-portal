@@ -32,24 +32,26 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasInitializedAutoOpen, setHasInitializedAutoOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'applications' | 'invoices' | 'initial_products' | 'addons'
+  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'applications' | 'ncs' | 'proposals' | 'invoices' | 'initial_products' | 'addons'
 
   // Active modal target
   const [activeModal, setActiveModal] = useState(null); // { type, app, invoice }
 
   const fetchAdminActions = useCallback(async () => {
     try {
-      const [appRes, invRes, addOnRes, initProdRes] = await Promise.all([
+      const [appRes, invRes, addOnRes, initProdRes, auditRes] = await Promise.all([
         api.get('/api/applications').catch(() => ({ data: [] })),
         api.get('/api/invoices').catch(() => ({ data: [] })),
         api.get('/api/add-on-applications').catch(() => ({ data: [] })),
-        api.get('/api/initial-products').catch(() => ({ data: [] }))
+        api.get('/api/initial-products').catch(() => ({ data: [] })),
+        api.get('/api/audits').catch(() => ({ data: [] }))
       ]);
 
       const allApps = appRes.data?.data || (Array.isArray(appRes.data) ? appRes.data : []);
       const allInvoices = invRes.data?.data || (Array.isArray(invRes.data) ? invRes.data : []);
       const allAddOns = addOnRes.data?.data || (Array.isArray(addOnRes.data) ? addOnRes.data : []);
       const allInitProds = initProdRes.data?.data || (Array.isArray(initProdRes.data) ? initProdRes.data : []);
+      const allAudits = auditRes.data?.data || (Array.isArray(auditRes.data) ? auditRes.data : []);
 
       const actionList = [];
 
@@ -85,6 +87,69 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
         const appNum = app.application_number || 'N/A';
         const estName = app.establishment_name || app.profiles?.company_name || 'Client Facility';
         const isRenewal = app.application_type === 'renewal';
+
+        // Find linked audits for this application
+        const linkedAudits = allAudits.filter(a => {
+          const aId = a.application_id?._id || a.application_id?.id || a.application_id;
+          return String(aId) === String(appId);
+        });
+
+        // Combine all NC reports from application and linked audits
+        const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
+        const auditNcList = linkedAudits.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
+        const combinedNcs = [...appNcList];
+        auditNcList.forEach(aNc => {
+          const exists = combinedNcs.some(c =>
+            (c._id && aNc._id && String(c._id) === String(aNc._id)) ||
+            (c.text && aNc.text && c.text.trim().toLowerCase() === aNc.text.trim().toLowerCase())
+          );
+          if (!exists) combinedNcs.push(aNc);
+        });
+
+        const hasOpenNc = app.status === 'nc_flagged' ||
+          combinedNcs.some(nc => nc.status && nc.status !== 'closed') ||
+          linkedAudits.some(a => Boolean(a.nc_text && !a.nc_closed) || a.status === 'nc_flagged');
+
+        const hasClientResponse = combinedNcs.some(nc =>
+          nc.status === 'client_responded' || nc.client_response || nc.client_response_url || nc.correction_document_url
+        );
+
+        // CRITICAL BUSINESS RULE: NC must be done before LogSheet!
+        // For all applications with open/unresolved NCs, NC action is mandatory and LogSheet is blocked.
+        const isAuditOrPostAuditStage = [
+          'audit_assigned',
+          'audit_successful',
+          'audit_completed',
+          'nc_flagged',
+          'nc_closed',
+          'audit_report_submitted',
+          'on_hold',
+          'logsheet_created',
+          'logsheet_sign_requested'
+        ].includes(app.status);
+
+        if (hasOpenNc && (isAuditOrPostAuditStage || app.status === 'nc_flagged')) {
+          actionList.push({
+            id: `app-nc-${appId}`,
+            category: 'ncs',
+            app,
+            type: 'review_app',
+            title: hasClientResponse
+              ? 'NC Corrective Response Submitted: Review & Close'
+              : 'Non-Conformance (NC) Action Required',
+            tag: hasClientResponse ? 'Client Responded' : 'NC Pending',
+            desc: hasClientResponse
+              ? `Client submitted corrective evidence for ${estName}. Review responses and close NCs before LogSheet.`
+              : `Non-Conformances flagged during audit for ${estName}. NC must be completed and closed before LogSheet generation.`,
+            buttonText: 'Review NCs',
+            buttonBg: '#dc2626',
+            isFullPage: true,
+            link: `/applications/${appId}/processing`,
+            icon: <AlertTriangle size={16} />
+          });
+          // Do not allow logsheet generation or conflicting tasks while NC is open!
+          continue;
+        }
 
         switch (app.status) {
           case 'submitted':
@@ -306,27 +371,29 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
               id: `app-auditdone-${appId}`,
               category: 'applications',
               app,
-              type: 'review_app',
-              title: isRenewal ? 'Renewal Audit Complete: Review & LogSheet' : 'Audit Complete: Review & LogSheet',
-              tag: 'Audit Complete',
-              desc: `Audit completed successfully for ${estName}. Proceed with logsheet.`,
-              buttonText: 'Process LogSheet',
-              buttonBg: '#16a34a',
+              type: 'create_logsheet',
+              title: isRenewal ? 'Renewal Audit Complete: Create LogSheet' : 'Audit Complete: Create LogSheet',
+              tag: 'LogSheet',
+              desc: `Audit completed successfully with no open NCs for ${estName}. Proceed with official logsheet.`,
+              buttonText: 'Create LogSheet',
+              buttonBg: '#0e7490',
               isFullPage: true,
               link: `/applications/${appId}/logsheet`,
-              icon: <CheckCircle size={16} />
+              icon: <ClipboardList size={16} />
             });
             break;
 
           case 'nc_flagged':
             actionList.push({
               id: `app-ncflag-${appId}`,
-              category: 'applications',
+              category: 'ncs',
               app,
               type: 'review_app',
-              title: 'NC Flagged: Review Responses',
-              tag: 'NC Review',
-              desc: `Review client corrective responses and close NCs for ${estName}`,
+              title: hasClientResponse ? 'NC Corrective Response Submitted: Review & Close' : 'NC Flagged: Review Responses',
+              tag: hasClientResponse ? 'Client Responded' : 'NC Review',
+              desc: hasClientResponse
+                ? `Review client corrective responses and close NCs for ${estName} before LogSheet.`
+                : `Review client corrective responses and close NCs for ${estName}. NC must be completed before LogSheet.`,
               buttonText: 'Review NCs',
               buttonBg: '#dc2626',
               isFullPage: true,
@@ -342,9 +409,9 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
               category: 'applications',
               app,
               type: 'create_logsheet',
-              title: isRenewal ? 'Renewal Audit Complete: Create LogSheet' : 'Audit Complete: Create LogSheet',
+              title: isRenewal ? 'Renewal NC Closed: Create LogSheet' : 'NC Closed: Create LogSheet',
               tag: 'LogSheet',
-              desc: `Generate & submit official logsheet for ${estName}`,
+              desc: `All Non-Conformances closed and verified. Generate & submit official logsheet for ${estName}.`,
               buttonText: 'Create LogSheet',
               buttonBg: '#0e7490',
               isFullPage: true,
@@ -727,6 +794,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
     return {
       all: items.length,
       applications: items.filter(i => i.category === 'applications').length,
+      ncs: items.filter(i => i.category === 'ncs').length,
       proposals: items.filter(i => i.category === 'proposals').length,
       invoices: items.filter(i => i.category === 'invoices').length,
       initial_products: items.filter(i => i.category === 'initial_products').length,
@@ -857,44 +925,60 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                 {[
                   { id: 'all', label: 'All Tasks', count: categoryCounts.all },
                   { id: 'applications', label: 'Applications', count: categoryCounts.applications },
+                  { id: 'ncs', label: 'Non-Conformances (NC)', count: categoryCounts.ncs },
                   { id: 'proposals', label: 'Proposals', count: categoryCounts.proposals },
                   { id: 'invoices', label: 'Payments / Invoices', count: categoryCounts.invoices },
                   { id: 'initial_products', label: 'Initial Products', count: categoryCounts.initial_products },
                   { id: 'addons', label: 'Add-Ons', count: categoryCounts.addons },
-                ].map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setActiveCategory(cat.id)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 20,
-                      border: '1px solid',
-                      borderColor: activeCategory === cat.id ? '#2563eb' : '#e2e8f0',
-                      background: activeCategory === cat.id ? '#eff6ff' : '#ffffff',
-                      color: activeCategory === cat.id ? '#1d4ed8' : '#64748b',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    <span>{cat.label}</span>
-                    <span style={{
-                      background: activeCategory === cat.id ? '#2563eb' : '#f1f5f9',
-                      color: activeCategory === cat.id ? '#ffffff' : '#64748b',
-                      borderRadius: 10,
-                      padding: '1px 6px',
-                      fontSize: 11,
-                      fontWeight: 800
-                    }}>
-                      {cat.count}
-                    </span>
-                  </button>
-                ))}
+                ].map(cat => {
+                  const isActive = activeCategory === cat.id;
+                  const isNc = cat.id === 'ncs';
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveCategory(cat.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 20,
+                        border: '1px solid',
+                        borderColor: isActive
+                          ? (isNc ? '#dc2626' : '#2563eb')
+                          : (isNc && cat.count > 0 ? '#fecaca' : '#e2e8f0'),
+                        background: isActive
+                          ? (isNc ? '#fef2f2' : '#eff6ff')
+                          : (isNc && cat.count > 0 ? '#fff5f5' : '#ffffff'),
+                        color: isActive
+                          ? (isNc ? '#b91c1c' : '#1d4ed8')
+                          : (isNc && cat.count > 0 ? '#dc2626' : '#64748b'),
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {isNc && <AlertTriangle size={12} style={{ color: isActive || cat.count > 0 ? '#dc2626' : '#94a3b8' }} />}
+                      <span>{cat.label}</span>
+                      <span style={{
+                        background: isActive
+                          ? (isNc ? '#dc2626' : '#2563eb')
+                          : (isNc && cat.count > 0 ? '#fee2e2' : '#f1f5f9'),
+                        color: isActive
+                          ? '#ffffff'
+                          : (isNc && cat.count > 0 ? '#b91c1c' : '#64748b'),
+                        borderRadius: 10,
+                        padding: '1px 6px',
+                        fontSize: 11,
+                        fontWeight: 800
+                      }}>
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Quick Search */}
@@ -940,6 +1024,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                       style={{
                         background: 'white',
                         border: '1px solid #e2e8f0',
+                        borderLeft: item.category === 'ncs' ? '4px solid #dc2626' : '1px solid #e2e8f0',
                         borderRadius: 12,
                         padding: '16px 20px',
                         display: 'flex',
@@ -947,15 +1032,15 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                         justifyContent: 'space-between',
                         gap: 16,
                         flexWrap: 'wrap',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        boxShadow: item.category === 'ncs' ? '0 2px 8px rgba(220,38,38,0.06)' : '0 1px 3px rgba(0,0,0,0.04)',
                         transition: 'transform 0.15s ease, border-color 0.15s ease'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; if (item.category === 'ncs') e.currentTarget.style.borderLeftColor = '#dc2626'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; if (item.category === 'ncs') e.currentTarget.style.borderLeftColor = '#dc2626'; e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
                       <div style={{ flex: 1, minWidth: 260 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: item.category === 'ncs' ? '#991b1b' : '#0f172a' }}>
                             {item.title}
                           </span>
                           <span style={{
@@ -967,7 +1052,9 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                           </span>
                           {item.tag && (
                             <span style={{
-                              background: '#eff6ff', color: '#1d4ed8',
+                              background: item.category === 'ncs' ? '#fef2f2' : '#eff6ff',
+                              color: item.category === 'ncs' ? '#b91c1c' : '#1d4ed8',
+                              border: item.category === 'ncs' ? '1px solid #fecaca' : 'none',
                               borderRadius: 6, padding: '2px 7px',
                               fontSize: 11, fontWeight: 700
                             }}>

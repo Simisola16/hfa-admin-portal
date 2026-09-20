@@ -111,6 +111,9 @@ export default function SuperAdminDirectCertificate() {
 
   const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT' || certType === 'SMIIC' || (certType && (certType.includes('GSO') || certType.includes('SMIIC')));
 
+  // Product Table Column Format (1 = Name Only, 2 = Code + Desc, 3 = Code + Desc + Category)
+  const [productTableColumns, setProductTableColumns] = useState(2);
+
   // Product Builder State
   const [products, setProducts] = useState([
     { id: 1, name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }

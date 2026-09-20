@@ -155,10 +155,10 @@ export default function ProcessingTimeline({
 
   const getStepLabel = (stepKey) => {
     if (stepKey === 'logsheet_created') {
-      return isGSO ? 'Waiting for Shari\'a Board Approval' : 'Under Committee Review';
+      return 'Logsheet Created';
     }
     if (stepKey === 'logsheet_signed') {
-      return 'Committee Endorsed';
+      return 'Logsheet Signed';
     }
     if (isSurveillance) {
       if (stepKey === 'submitted') return 'Surveillance Application Submitted';

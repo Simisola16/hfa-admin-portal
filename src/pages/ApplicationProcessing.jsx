@@ -1188,23 +1188,6 @@ export default function ApplicationProcessing() {
             Disconnected (Polling)
           </span>
         )}
-        {canActOnApplication && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button className="btn btn-danger btn-sm" style={{ gap: 6 }} onClick={() => setShowRejectModal(true)}>
-              <XCircle size={14} /> Reject
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ gap: 6, border: '1.5px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontWeight: 700 }}
-              onClick={() => setShowHoldModal(true)}
-            >
-              <Clock size={14} style={{ color: '#d97706' }} /> On Hold
-            </button>
-            <button className="btn btn-primary btn-sm" style={{ gap: 6 }} onClick={() => setShowApproveModal(true)}>
-              <CheckCircle size={14} /> Accept Application
-            </button>
-          </div>
-        )}
         {renderPrimaryAction()}
         <button
           className="btn btn-ghost btn-sm"

@@ -40,16 +40,59 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     
     // Extract products list if available
     let prods = '';
+    let existingProducts = existingCert?.products_covered || loadedApp.certificate_id?.products_covered;
+    let productList = [];
+    if (Array.isArray(existingProducts)) {
+      productList = [...existingProducts];
+    } else if (typeof existingProducts === 'string' && existingProducts.trim()) {
+      try {
+        const parsed = JSON.parse(existingProducts);
+        productList = Array.isArray(parsed) ? parsed : existingProducts.split(',').map(p => p.trim()).filter(Boolean);
+      } catch (_) {
+        productList = existingProducts.split(',').map(p => p.trim()).filter(Boolean);
+      }
+    }
+
     if (Array.isArray(loadedApp.products) && loadedApp.products.length > 0) {
-      prods = loadedApp.products.map(p => p.name || p.title).filter(Boolean).join(', ');
+      for (const p of loadedApp.products) {
+        if (!p) continue;
+        const pType = p.type || 'Add product';
+        const pName = (p.new_name || p.name || p.title || '').trim();
+        const origName = (p.original_name || p.name || '').trim();
+
+        if (pType === 'Add product' || !p.type) {
+          if (pName && !productList.includes(pName)) {
+            productList.push(pName);
+          }
+        } else if (pType === 'Remove product') {
+          if (origName) {
+            productList = productList.filter(item => item !== origName);
+          }
+        } else if (pType === 'Change name/code') {
+          if (origName && pName) {
+            const idx = productList.indexOf(origName);
+            if (idx !== -1) {
+              productList[idx] = pName;
+            } else if (!productList.includes(pName)) {
+              productList.push(pName);
+            }
+          }
+        }
+      }
+      prods = productList.join(', ');
+    } else if (productList.length > 0) {
+      prods = productList.join(', ');
     } else if (loadedApp.scope) {
       prods = loadedApp.scope;
     }
 
     const certTypeCode = normalizeHfaTypeCode(loadedApp.application_type);
+    const resolvedCertNo = existingCert?.certificate_number || loadedApp.certificate_id?.certificate_number || generateHfaId(companyName, certTypeCode);
+    const resolvedCertType = existingCert?.certificate_type || loadedApp.certificate_id?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : 'GSO MEAT');
+
     setCertificateForm({
-      certificate_number: existingCert?.certificate_number || generateHfaId(companyName, certTypeCode),
-      certificate_type: existingCert?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : (isThreeYear ? 'UAE/GSO Halal Certification' : 'Halal Certification')),
+      certificate_number: resolvedCertNo,
+      certificate_type: resolvedCertType,
       issue_date: existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       expiry_date: existingCert?.expiry_date ? new Date(existingCert.expiry_date).toISOString().split('T')[0] : expiryDate.toISOString().split('T')[0],
       products_covered: existingCert?.products_covered ? (Array.isArray(existingCert.products_covered) ? existingCert.products_covered.join(', ') : existingCert.products_covered) : prods,
@@ -62,13 +105,24 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
       if (appIdToUse) {
         setLoading(true);
+        const appFetchPromise = propApp
+          ? Promise.resolve({ data: propApp })
+          : api.get(`/api/applications/${appIdToUse}`).catch(() => api.get(`/api/add-on-applications/${appIdToUse}`));
+
         Promise.all([
-          !propApp ? api.get(`/api/applications/${appIdToUse}`) : Promise.resolve({ data: propApp }),
+          appFetchPromise,
           api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null }))
         ])
           .then(([appRes, certRes]) => {
             const loadedApp = appRes.data?.data || appRes.data || null;
-            const loadedCert = certRes.data?.data || certRes.data || null;
+            let loadedCert = certRes.data?.data || certRes.data || null;
+
+            if (!loadedCert && loadedApp?.certificate_id) {
+              if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
+                loadedCert = loadedApp.certificate_id;
+              }
+            }
+
             setApp(loadedApp);
             initForm(loadedApp, loadedCert);
           })
@@ -76,7 +130,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           .finally(() => setLoading(false));
       } else if (propApp) {
         setApp(propApp);
-        initForm(propApp);
+        initForm(propApp, propApp.certificate_id);
       }
     }
   }, [isOpen, propApp, targetAppId]);
@@ -162,35 +216,40 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         formData.append('certificate_file', certificateForm.file);
       }
 
-      const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
+      const clientId = getCleanId(app.client_id?._id || app.client_id?.id || app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
       if (!clientId) {
         throw new Error('Could not identify client ID for this application.');
       }
       formData.append('application_id', appId);
       formData.append('client_id', clientId);
-      const siteId = getCleanId(app.site_id?._id || app.site_id);
+      const siteId = getCleanId(app.site_id?._id || app.site_id?.id || app.site_id || app.certificate_id?.site_id || app.application_id?.site_id);
       if (!siteId) {
         throw new Error('Site selection is compulsory. This application has no associated site.');
       }
       formData.append('site_id', siteId);
-      formData.append('company_name', app.establishment_name || app.profiles?.company_name || '');
-      formData.append('company_address', app.establishment_address || app.profiles?.address || '');
-      formData.append('manufacturing_address', app.manufacturer_address || app.establishment_address || '');
-      formData.append('scope', app.scope || 'Halal Food Certification');
+      formData.append('company_name', app.establishment_name || app.client_id?.company_name || app.profiles?.company_name || app.client_id?.full_name || '');
+      formData.append('company_address', app.establishment_address || app.client_id?.address || app.profiles?.address || '');
+      formData.append('manufacturing_address', app.manufacturer_address || app.site_id?.address || app.establishment_address || '');
+      formData.append('scope', app.scope || app.application_id?.scope || 'Halal Food Certification');
       formData.append('status', 'under_review');
 
-      const res = await api.post('/api/certificates', formData, true);
-      const createdCert = res.data?.data || res.data;
+      await api.post('/api/certificates', formData, true);
 
       toast.success('Certificate issued successfully and sent to Review Certificates.');
       if (onSuccess) onSuccess();
       onClose();
+      navigate('/certificates?status=under_review');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to issue certificate.'));
     } finally {
       setSubmitting(false);
     }
   };
+
+  const displayCompanyName = app.establishment_name || app.profiles?.company_name || app.client_id?.company_name || app.client_id?.full_name || 'HFA Client';
+  const displayCategory = isSurveillance
+    ? 'UAE/GSO 3-Year Halal Scheme'
+    : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
@@ -207,7 +266,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                 {isSurveillance ? 'Issue Official Surveillance Letter' : 'Issue Certificate'}
               </div>
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                {app.profiles?.company_name || app.establishment_name} &bull; {isSurveillance ? 'UAE/GSO 3-Year Halal Scheme' : (app.category || 'Halal Certification')}
+                {displayCompanyName} &bull; {displayCategory}
               </div>
             </div>
           </div>

@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
+import CertificateModal from '../components/CertificateModal';
 
 const STATUS_LABELS = {
   submitted: 'Submit Add-On',
@@ -66,6 +67,7 @@ export default function AdminAddOnProcessing() {
 
   // Modal Action states
   const [actionType, setActionType] = useState(null); // 'review' | 'assign_ft' | 'enable_form' | 'approve_form' | 'complete'
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [decision, setDecision] = useState('accepted');
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -418,7 +420,7 @@ export default function AdminAddOnProcessing() {
 
     if (app.status === 'product_form_approved' || app.status === 'ready_for_certificate') {
       return (
-        <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setActionType('complete')}>
+        <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setShowCertificateModal(true)}>
           <Award size={16} style={{ marginRight: 6 }} /> Issue Certificate
         </button>
       );
@@ -1338,28 +1340,14 @@ export default function AdminAddOnProcessing() {
         </div>
       )}
 
-      {/* 5. Complete / Issue Certificate Modal */}
-      {actionType === 'complete' && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 520 }}>
-            <div className="modal-header">
-              <span className="modal-title">Issue Certificate</span>
-              <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
-            </div>
-            <div className="modal-body" style={{ padding: 24 }}>
-              <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>
-                Completing this application will automatically update the product list on Certificate <strong>{certNo}</strong> and regenerate the official certificate document.
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setActionType(null)} disabled={submitting}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleComplete} disabled={submitting}>
-                {submitting ? 'Issuing Certificate...' : 'Complete & Issue Certificate'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 5. Issue Certificate Modal (Matching New and Renewal Applications) */}
+      <CertificateModal
+        isOpen={showCertificateModal}
+        onClose={() => setShowCertificateModal(false)}
+        app={app}
+        appId={app?._id}
+        onSuccess={() => fetchApp(true)}
+      />
 
       {/* 6. Request for More Information Modal */}
       {actionType === 'request_more_info' && (

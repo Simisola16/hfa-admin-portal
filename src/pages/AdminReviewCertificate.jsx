@@ -107,10 +107,97 @@ export default function AdminReviewCertificate() {
       }
 
       setCert(c);
-      setClientUser(client);
 
       const clientId = c.client_id || c.application_id?.client_id;
       const targetSiteId = c.site_id?._id || c.site_id || c.application_id?.site_id;
+      const appId = c.application_id?._id || c.application_id;
+
+      // Robust client resolution (company_name, full_name, email, phone, address)
+      let resolvedClient = client;
+      const clientIdStr = (clientId && typeof clientId === 'object') ? (clientId._id || clientId.id) : clientId;
+      if ((!resolvedClient || !resolvedClient.email || !resolvedClient.full_name) && clientIdStr) {
+        try {
+          const uRes = await api.get(`/api/users/${clientIdStr}`).catch(() => null);
+          const uData = uRes?.data?.data || uRes?.data;
+          if (uData) {
+            resolvedClient = { ...(resolvedClient || {}), ...uData };
+          }
+        } catch (_) {}
+      }
+
+      if ((!resolvedClient || !resolvedClient.email || !resolvedClient.full_name) && appId) {
+        try {
+          const aRes = await api.get(`/api/applications/${appId}`).catch(() => api.get(`/api/add-on-applications/${appId}`));
+          const aData = aRes?.data?.data || aRes?.data;
+          if (aData) {
+            const aClient = aData.client_id;
+            if (aClient && typeof aClient === 'object') {
+              resolvedClient = {
+                company_name: aClient.company_name || aData.establishment_name || aClient.full_name,
+                full_name: aClient.full_name || aData.contact_name,
+                email: aClient.email || aData.contact_email,
+                phone: aClient.phone || aData.contact_phone,
+                address: aClient.address || aData.establishment_address,
+                ...(resolvedClient || {})
+              };
+            } else if (aData.contact_name || aData.contact_email) {
+              resolvedClient = {
+                company_name: aData.establishment_name || c.company_name,
+                full_name: aData.contact_name,
+                email: aData.contact_email,
+                phone: aData.contact_phone,
+                address: aData.establishment_address || c.company_address,
+                ...(resolvedClient || {})
+              };
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (resolvedClient) {
+        if (!resolvedClient.company_name && c.company_name) resolvedClient.company_name = c.company_name;
+        if (!resolvedClient.address && c.company_address) resolvedClient.address = c.company_address;
+      } else {
+        resolvedClient = {
+          company_name: c.company_name || 'Client Company',
+          full_name: '',
+          email: '',
+          phone: '',
+          address: c.company_address || ''
+        };
+      }
+      setClientUser(resolvedClient);
+
+      // Category detection from ApplicationLogsheet (available in full function scope)
+      let detectedLogsheetCat = '';
+      if (appId) {
+        try {
+          const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
+          const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
+          const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
+          logsheets.forEach(l => {
+            if (l.product_category || l.productCategory) {
+              detectedLogsheetCat = l.product_category || l.productCategory;
+            }
+          });
+        } catch (err) {
+          console.warn('Logsheet category check notice:', err?.message);
+        }
+      }
+
+      if (!detectedLogsheetCat && clientIdStr) {
+        try {
+          const logsheetRes2 = await api.get(`/api/application-logsheets?client_id=${clientIdStr}&limit=1`).catch(() => null);
+          const logsheetData2 = logsheetRes2?.data?.data || logsheetRes2?.data;
+          const logsheets2 = Array.isArray(logsheetData2) ? logsheetData2 : (logsheetData2 ? [logsheetData2] : []);
+          if (logsheets2.length > 0 && (logsheets2[0].product_category || logsheets2[0].productCategory)) {
+            detectedLogsheetCat = logsheets2[0].product_category || logsheets2[0].productCategory;
+          }
+        } catch (err) {
+          console.warn('Fallback client logsheet check notice:', err?.message);
+        }
+      }
+      setLogsheetCategory(detectedLogsheetCat);
 
       // Initial products from siteProdRes
       const siteProdData = siteProdRes?.data || {};
@@ -152,7 +239,6 @@ export default function AdminReviewCertificate() {
           const prodsRes = await api.get('/api/products?all=true').catch(() => null);
           const allProds = prodsRes?.data?.data || prodsRes?.data || [];
           if (Array.isArray(allProds) && allProds.length > 0) {
-            const clientIdStr = clientId ? (clientId._id ? clientId._id.toString() : clientId.toString()) : '';
             const targetSiteStr = targetSiteId ? (targetSiteId._id ? targetSiteId._id.toString() : targetSiteId.toString()) : '';
 
             // Filter products for this client
@@ -185,18 +271,13 @@ export default function AdminReviewCertificate() {
           c.application_id.products.forEach(p => addCandidate(p, 'application'));
         }
 
-        // Fallback C: Products and Category from ApplicationLogsheet
-        let detectedLogsheetCat = '';
-        const appId = c.application_id?._id || c.application_id;
+        // Fallback C: Products from ApplicationLogsheet
         if (appId) {
           try {
             const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
             const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
             const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
             logsheets.forEach(l => {
-              if (l.product_category || l.productCategory) {
-                detectedLogsheetCat = l.product_category || l.productCategory;
-              }
               if (Array.isArray(l.products_list)) {
                 l.products_list.forEach(p => addCandidate(p, 'logsheet'));
               }
@@ -208,22 +289,6 @@ export default function AdminReviewCertificate() {
             console.warn('Fallback logsheet check notice:', err?.message);
           }
         }
-
-        // Check client logsheet if not detected from appId
-        if (!detectedLogsheetCat && clientId) {
-          try {
-            const clientIdStr = clientId._id ? clientId._id.toString() : clientId.toString();
-            const logsheetRes2 = await api.get(`/api/application-logsheets?client_id=${clientIdStr}&limit=1`).catch(() => null);
-            const logsheetData2 = logsheetRes2?.data?.data || logsheetRes2?.data;
-            const logsheets2 = Array.isArray(logsheetData2) ? logsheetData2 : (logsheetData2 ? [logsheetData2] : []);
-            if (logsheets2.length > 0 && (logsheets2[0].product_category || logsheets2[0].productCategory)) {
-              detectedLogsheetCat = logsheets2[0].product_category || logsheets2[0].productCategory;
-            }
-          } catch (err) {
-            console.warn('Fallback client logsheet check notice:', err?.message);
-          }
-        }
-        setLogsheetCategory(detectedLogsheetCat);
 
         // Fallback D: Products currently recorded on certificate
         if (Array.isArray(c.product_details)) {
@@ -870,17 +935,17 @@ export default function AdminReviewCertificate() {
                 </div>
 
                 <div style={{ fontSize: 11.5, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
-                  {clientUser?.full_name && (
-                    <div><strong style={{ color: '#334155' }}>Contact:</strong> {clientUser.full_name}</div>
+                  {(clientUser?.full_name || cert?.contact_name) && (
+                    <div><strong style={{ color: '#334155' }}>Contact:</strong> {clientUser?.full_name || cert?.contact_name}</div>
                   )}
-                  {clientUser?.email && (
-                    <div><strong style={{ color: '#334155' }}>Email:</strong> {clientUser.email}</div>
+                  {(clientUser?.email || cert?.contact_email) && (
+                    <div><strong style={{ color: '#334155' }}>Email:</strong> {clientUser?.email || cert?.contact_email}</div>
                   )}
-                  {clientUser?.phone && (
-                    <div><strong style={{ color: '#334155' }}>Phone:</strong> {clientUser.phone}</div>
+                  {(clientUser?.phone || cert?.contact_phone) && (
+                    <div><strong style={{ color: '#334155' }}>Phone:</strong> {clientUser?.phone || cert?.contact_phone}</div>
                   )}
-                  {(clientUser?.address || form.company_address) && (
-                    <div style={{ marginTop: 2 }}><strong style={{ color: '#334155' }}>Address:</strong> {clientUser?.address || form.company_address}</div>
+                  {(clientUser?.address || form.company_address || cert?.company_address) && (
+                    <div style={{ marginTop: 2 }}><strong style={{ color: '#334155' }}>Address:</strong> {clientUser?.address || form.company_address || cert?.company_address}</div>
                   )}
                 </div>
               </div>

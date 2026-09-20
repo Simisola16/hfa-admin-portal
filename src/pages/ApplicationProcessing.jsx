@@ -444,8 +444,19 @@ export default function ApplicationProcessing() {
   const typeLower = String(app.application_type || '').toLowerCase();
   const schemeLower = String(app.scheme || '').toLowerCase();
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso') || isSurveillance;
-  const activeAudit = (Array.isArray(audits) ? audits[0] : audits?.data?.[0]) || null;
-  const hasActiveNc = status === 'nc_flagged' || (app.nc_reports && app.nc_reports.length > 0) || (activeAudit?.nc_reports && activeAudit.nc_reports.length > 0) || Boolean(activeAudit?.nc_text && !activeAudit?.nc_closed);
+  const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
+  const activeAudit = auditsArr[0] || null;
+  const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
+  const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
+  const allNcs = [...appNcList, ...auditNcList];
+  const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
+  const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
+  const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
+  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+    (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
+    auditsArr.some(a => Boolean(a.nc_closed)) ||
+    (app.statusHistory || []).some(h => h.status === 'nc_closed')
+  ));
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
@@ -575,7 +586,7 @@ export default function ApplicationProcessing() {
 
     if (isFastTrack) {
       // If NC is currently flagged, prioritize NC resolution
-      if (status === 'nc_flagged') {
+      if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc)) {
         return (
           <>
             <button
@@ -670,7 +681,7 @@ export default function ApplicationProcessing() {
       }
 
       // Post-Audit Decision (Flag NC / Close NC)
-      if (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0)) {
+      if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
         return (
           <>
             <button
@@ -696,7 +707,7 @@ export default function ApplicationProcessing() {
       // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
       const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
+      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
         if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
           const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
           return (
@@ -905,7 +916,7 @@ export default function ApplicationProcessing() {
 
     // 5. Post-Audit Decision (NC vs Clean Close & NC Reply)
     // If NC is currently flagged, prioritize NC resolution
-    if (status === 'nc_flagged') {
+    if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc)) {
       return (
         <>
           <button
@@ -964,7 +975,7 @@ export default function ApplicationProcessing() {
       );
     }
 
-    if (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold') {
+    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold')) {
       return (
         <>
           <button
@@ -990,7 +1001,7 @@ export default function ApplicationProcessing() {
     // 6. LogSheet Stage (Create / Sign LogSheet) - After All Audit Stages are Complete & NC Closed
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned))) {
+    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (status === 'application_successful' && !isLogsheetSigned))) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button

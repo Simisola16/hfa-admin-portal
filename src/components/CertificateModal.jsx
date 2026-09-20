@@ -423,6 +423,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   const displayCategory = isSurveillance
     ? 'UAE/GSO 3-Year Halal Scheme'
     : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
+  const isCurrentFourDate = isFourDateType(certificateForm.certificate_type);
+  const isSubmitDisabled = submitting || (!isSurveillance && !isAppReadyForCert);
 
   if (underReviewPopup) {
     return (

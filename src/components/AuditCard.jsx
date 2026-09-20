@@ -166,10 +166,10 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
               <AlertTriangle size={14} />
               <span>Client Unavailable / Proposed Dates Declined</span>
             </div>
-            {(auditObj.client_availability_note || app?.client_audit_availability_note) && (
+            {(auditObj.client_availability_note || app?.client_audit_availability_note || app?.client_availability_note) && (
               <div style={{ marginTop: 8, fontSize: 12, color: '#991b1b', background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #fca5a5', lineHeight: 1.4 }}>
                 <span style={{ fontWeight: 700 }}>Client Remarks / Alternative Dates: </span>
-                {auditObj.client_availability_note || app?.client_audit_availability_note}
+                {auditObj.client_availability_note || app?.client_audit_availability_note || app?.client_availability_note}
               </div>
             )}
           </div>

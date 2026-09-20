@@ -438,13 +438,13 @@ export default function AuditManageModal({
                       Dates Rejected by Client — Unavailable for Previous Proposal
                     </div>
                   </div>
-                  {(existingAudit?.client_availability_note || currentApp?.client_audit_availability_note) ? (
+                  {(existingAudit?.client_availability_note || currentApp?.client_audit_availability_note || currentApp?.client_availability_note) ? (
                     <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginTop: 4 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
                         Client's Availability & Alternative Dates Note:
                       </div>
                       <div style={{ fontSize: 13, color: '#7f1d1d', fontStyle: 'italic', lineHeight: 1.5 }}>
-                        "{existingAudit?.client_availability_note || currentApp?.client_audit_availability_note}"
+                        "{existingAudit?.client_availability_note || currentApp?.client_audit_availability_note || currentApp?.client_availability_note}"
                       </div>
                     </div>
                   ) : (

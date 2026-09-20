@@ -177,13 +177,13 @@ export default function ProcessingTimeline({
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
     if (isGSO) {
-      if (isStage1Complete && !isStage2Complete) {
+      if (isStage1Complete) {
         if (stepKey === 'dates_proposed') return 'Stage 2 Audit Dates Proposed';
         if (stepKey === 'dates_accepted') return 'Stage 2 Audit Dates Accepted';
         if (stepKey === 'date_finalized') return 'Stage 2 Audit Date Finalized';
         if (stepKey === 'audit_assigned') return 'Stage 2 Auditor Assigned';
         if (stepKey === 'audit_successful') return 'Stage 2 Audit Complete';
-      } else if (!isStage1Complete) {
+      } else {
         if (stepKey === 'dates_proposed') return 'Stage 1 Audit Dates Proposed';
         if (stepKey === 'dates_accepted') return 'Stage 1 Audit Dates Accepted';
         if (stepKey === 'date_finalized') return 'Stage 1 Audit Date Finalized';
@@ -283,7 +283,7 @@ export default function ProcessingTimeline({
           (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null);
 
         // For GSO dual-stage flows, resolve Stage 2 steps to the latest Stage 2 history entries
-        if (isGSO && isStage1Complete && !isStage2Complete) {
+        if (isGSO && isStage1Complete) {
           if (s === 'dates_proposed') {
             const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'dates_proposed' || h.status === 'dates_rejected');
             if (s2Entry) {
@@ -305,6 +305,9 @@ export default function ProcessingTimeline({
             if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
           } else if (s === 'audit_assigned') {
             const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'audit_assigned' || h.status === 'auditors_assigned');
+            if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
+          } else if (s === 'audit_successful') {
+            const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'audit_successful' || h.status === 'audit_completed');
             if (s2Entry) histEntry = { ...s2Entry, note: (s2Entry.note || '').replace(/Stage 1/gi, 'Stage 2') };
           }
         }

@@ -12,10 +12,11 @@ const getCleanId = (val) => {
   return String(val);
 };
 
-export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, onSuccess }) {
+export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, isAddOn: propIsAddOn, onSuccess }) {
   const navigate = useNavigate();
   const [app, setApp] = useState(propApp || null);
   const [loading, setLoading] = useState(false);
+  const [currentTypeCode, setCurrentTypeCode] = useState('NE');
   const [certificateForm, setCertificateForm] = useState({
     certificate_number: '',
     certificate_type: 'Halal Certification',
@@ -26,12 +27,24 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const checkIsAddOn = (item) => {
+    if (!item) return Boolean(propIsAddOn);
+    if (propIsAddOn || item.is_add_on) return true;
+    const typeStr = (item.application_type || '').toLowerCase();
+    if (typeStr.includes('add')) return true;
+    const num = item.application_number || '';
+    if (num.startsWith('ADD-') || num.includes('-AD-')) return true;
+    if (Array.isArray(item.products) && item.products.some(p => p && p.type && typeof p.type === 'string' && (p.type.includes('Add') || p.type.includes('Remove') || p.type.includes('Change')))) return true;
+    return false;
+  };
+
   const isSurveillance = app?.application_type === 'surveillance';
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
   const initForm = (loadedApp, existingCert = null) => {
     if (!loadedApp) return;
-    const isSurv = loadedApp.application_type === 'surveillance';
+    const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
+    const isSurv = !isAddOn && loadedApp.application_type === 'surveillance';
     const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurv;
     const yearsToAdd = isSurv ? 1 : (isThreeYear ? 3 : 1);
     const expiryDate = new Date();
@@ -86,8 +99,19 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       prods = loadedApp.scope;
     }
 
-    const certTypeCode = normalizeHfaTypeCode(loadedApp.application_type);
-    const resolvedCertNo = existingCert?.certificate_number || loadedApp.certificate_id?.certificate_number || generateHfaId(companyName, certTypeCode);
+    const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(loadedApp.application_type);
+    setCurrentTypeCode(certTypeCode);
+
+    let resolvedCertNo = existingCert?.certificate_number || loadedApp.certificate_id?.certificate_number;
+    if (resolvedCertNo) {
+      // Rectify legacy/accidental -NE- to -AD- for add-on applications
+      if (isAddOn && resolvedCertNo.includes('-NE-')) {
+        resolvedCertNo = resolvedCertNo.replace('-NE-', '-AD-');
+      }
+    } else {
+      resolvedCertNo = generateHfaId(companyName, certTypeCode);
+    }
+
     const resolvedCertType = existingCert?.certificate_type || loadedApp.certificate_id?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : 'GSO MEAT');
 
     setCertificateForm({
@@ -232,6 +256,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       formData.append('manufacturing_address', app.manufacturer_address || app.site_id?.address || app.establishment_address || '');
       formData.append('scope', app.scope || app.application_id?.scope || 'Halal Food Certification');
       formData.append('status', 'under_review');
+      if (checkIsAddOn(app)) {
+        formData.append('is_add_on', 'true');
+      }
 
       await api.post('/api/certificates', formData, true);
 
@@ -246,6 +273,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
   };
 
+  const isModalAddOn = checkIsAddOn(app);
   const displayCompanyName = app.establishment_name || app.profiles?.company_name || app.client_id?.company_name || app.client_id?.full_name || 'HFA Client';
   const displayCategory = isSurveillance
     ? 'UAE/GSO 3-Year Halal Scheme'
@@ -292,15 +320,29 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>
-              {isSurveillance ? 'Surveillance Letter Ref #' : 'Certificate Number'} <span style={{ color: '#dc2626' }}>*</span>
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                {isSurveillance ? 'Surveillance Letter Ref #' : 'Certificate Number'} <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              {!isSurveillance && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newId = generateHfaId(displayCompanyName || 'HFA', currentTypeCode);
+                    setCertificateForm(f => ({ ...f, certificate_number: newId }));
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                >
+                  Regenerate ID
+                </button>
+              )}
+            </div>
             <input
               type="text"
               className="form-control"
               value={certificateForm.certificate_number}
               onChange={e => setCertificateForm(f => ({ ...f, certificate_number: e.target.value }))}
-              placeholder={isSurveillance ? 'e.g. HFA-SURV-2026-001' : 'e.g. HFA-CERT-2026-001'}
+              placeholder={isSurveillance ? 'e.g. HFA-SURV-2026-001' : (isModalAddOn ? 'e.g. HFA-AN-AD-45029' : 'e.g. HFA-CERT-2026-001')}
               style={{ fontWeight: 700 }}
             />
           </div>

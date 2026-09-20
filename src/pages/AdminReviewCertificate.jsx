@@ -51,6 +51,7 @@ export default function AdminReviewCertificate() {
   const [approving, setApproving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [applicationData, setApplicationData] = useState(null);
 
   // Form State
   const [form, setForm] = useState({
@@ -126,30 +127,34 @@ export default function AdminReviewCertificate() {
         } catch (_) { }
       }
 
-      if ((!resolvedClient || !resolvedClient.email || !resolvedClient.full_name) && appId) {
+      let fetchedAppData = null;
+      if (appId) {
         try {
           const aRes = await api.get(`/api/applications/${appId}`).catch(() => api.get(`/api/add-on-applications/${appId}`));
-          const aData = aRes?.data?.data || aRes?.data;
-          if (aData) {
-            const aClient = aData.client_id;
-            if (aClient && typeof aClient === 'object') {
-              resolvedClient = {
-                company_name: aClient.company_name || aData.establishment_name || aClient.full_name,
-                full_name: aClient.full_name || aData.contact_name,
-                email: aClient.email || aData.contact_email,
-                phone: aClient.phone || aData.contact_phone,
-                address: aClient.address || aData.establishment_address,
-                ...(resolvedClient || {})
-              };
-            } else if (aData.contact_name || aData.contact_email) {
-              resolvedClient = {
-                company_name: aData.establishment_name || c.company_name,
-                full_name: aData.contact_name,
-                email: aData.contact_email,
-                phone: aData.contact_phone,
-                address: aData.establishment_address || c.company_address,
-                ...(resolvedClient || {})
-              };
+          fetchedAppData = aRes?.data?.data || aRes?.data || null;
+          if (fetchedAppData) {
+            setApplicationData(fetchedAppData);
+            const aClient = fetchedAppData.client_id;
+            if (!resolvedClient || !resolvedClient.email || !resolvedClient.full_name) {
+              if (aClient && typeof aClient === 'object') {
+                resolvedClient = {
+                  company_name: aClient.company_name || fetchedAppData.establishment_name || aClient.full_name,
+                  full_name: aClient.full_name || fetchedAppData.contact_name,
+                  email: aClient.email || fetchedAppData.contact_email,
+                  phone: aClient.phone || fetchedAppData.contact_phone,
+                  address: aClient.address || fetchedAppData.establishment_address,
+                  ...(resolvedClient || {})
+                };
+              } else if (fetchedAppData.contact_name || fetchedAppData.contact_email) {
+                resolvedClient = {
+                  company_name: fetchedAppData.establishment_name || c.company_name,
+                  full_name: fetchedAppData.contact_name,
+                  email: fetchedAppData.contact_email,
+                  phone: fetchedAppData.contact_phone,
+                  address: fetchedAppData.establishment_address || c.company_address,
+                  ...(resolvedClient || {})
+                };
+              }
             }
           }
         } catch (_) { }
@@ -352,8 +357,31 @@ export default function AdminReviewCertificate() {
         c.application_id?.scope ||
         'Meat & Poultry';
 
+      const isAddOnCert = Boolean(
+        c.is_add_on ||
+        c.certificate_type?.toLowerCase().includes('add') ||
+        c.application_id?.is_add_on ||
+        c.application_id?.application_type === 'addon' ||
+        c.application_id?.application_type === 'add-on' ||
+        c.application_id?.application_type === 'add_on' ||
+        c.application_id?.application_number?.includes('-AD-') ||
+        c.application_id?.application_number?.startsWith('ADD-') ||
+        c.certificate_number?.includes('-AD-') ||
+        fetchedAppData?.is_add_on ||
+        fetchedAppData?.application_type === 'addon' ||
+        fetchedAppData?.application_type === 'add-on' ||
+        fetchedAppData?.application_type === 'add_on' ||
+        fetchedAppData?.application_number?.includes('-AD-') ||
+        fetchedAppData?.application_number?.startsWith('ADD-')
+      );
+
+      let resolvedCertNo = c.certificate_number || '';
+      if (isAddOnCert && resolvedCertNo.includes('-NE-')) {
+        resolvedCertNo = resolvedCertNo.replace('-NE-', '-AD-');
+      }
+
       setForm({
-        certificate_number: c.certificate_number || '',
+        certificate_number: resolvedCertNo,
         certificate_type: c.certificate_type || 'Halal Certification',
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
@@ -1138,7 +1166,44 @@ export default function AdminReviewCertificate() {
                     <button
                       type="button"
                       onClick={() => {
-                        const newId = generateHfaId(form.company_name || 'HFA', 'NE');
+                        const isAddOn = Boolean(
+                          cert?.is_add_on ||
+                          cert?.certificate_type?.toLowerCase().includes('add') ||
+                          cert?.application_id?.is_add_on ||
+                          cert?.application_id?.application_type === 'addon' ||
+                          cert?.application_id?.application_type === 'add-on' ||
+                          cert?.application_id?.application_type === 'add_on' ||
+                          cert?.application_id?.application_number?.includes('-AD-') ||
+                          cert?.application_id?.application_number?.startsWith('ADD-') ||
+                          cert?.certificate_number?.includes('-AD-') ||
+                          applicationData?.is_add_on ||
+                          applicationData?.application_type === 'addon' ||
+                          applicationData?.application_type === 'add-on' ||
+                          applicationData?.application_type === 'add_on' ||
+                          applicationData?.application_number?.includes('-AD-') ||
+                          applicationData?.application_number?.startsWith('ADD-')
+                        );
+                        const isRenew = Boolean(
+                          cert?.certificate_type?.toLowerCase().includes('renew') ||
+                          cert?.application_id?.application_type === 'renewal' ||
+                          cert?.application_id?.application_number?.includes('-RE-') ||
+                          applicationData?.application_type === 'renewal' ||
+                          applicationData?.application_number?.includes('-RE-')
+                        );
+                        const isExt = Boolean(
+                          cert?.certificate_type?.toLowerCase().includes('ext') ||
+                          cert?.application_id?.application_type === 'extension' ||
+                          cert?.application_id?.application_number?.includes('-EX-') ||
+                          applicationData?.application_type === 'extension' ||
+                          applicationData?.application_number?.includes('-EX-')
+                        );
+                        const isSurv = Boolean(
+                          cert?.certificate_type?.toLowerCase().includes('surv') ||
+                          cert?.application_id?.application_type === 'surveillance' ||
+                          cert?.application_id?.application_number?.includes('-SU-')
+                        );
+                        const typeCode = isAddOn ? 'AD' : (isRenew ? 'RE' : (isExt ? 'EX' : (isSurv ? 'SU' : 'NE')));
+                        const newId = generateHfaId(form.company_name || 'HFA', typeCode);
                         setForm(f => ({ ...f, certificate_number: newId }));
                         toast.success(`Generated ID: ${newId}`);
                       }}

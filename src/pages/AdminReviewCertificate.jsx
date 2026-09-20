@@ -778,7 +778,7 @@ export default function AdminReviewCertificate() {
   }
 
   const isUnderReview = cert?.status === 'under_review' || cert?.status === 'draft';
-  const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || (form.certificate_type && form.certificate_type.includes('GSO'));
+  const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || form.certificate_type === 'SMIIC' || (form.certificate_type && (form.certificate_type.includes('GSO') || form.certificate_type.includes('SMIIC')));
   const rawPdfUrl = getPdfUrl(cert?.certificate_url);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
 
@@ -1156,7 +1156,7 @@ export default function AdminReviewCertificate() {
             <div style={{ background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Calendar size={14} style={{ color: '#047857' }} />
-                Certificate Reference &amp; Validity Schedule {isGso && <span style={{ fontSize: 10.5, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 GSO Dates</span>}
+                Certificate Reference &amp; Validity Schedule {isGso && <span style={{ fontSize: 10.5, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 {form.certificate_type?.includes('SMIIC') ? 'SMIIC' : 'GSO'} Dates</span>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>

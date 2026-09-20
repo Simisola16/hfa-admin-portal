@@ -109,7 +109,7 @@ export default function SuperAdminDirectCertificate() {
   });
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
 
-  const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT';
+  const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT' || certType === 'SMIIC' || (certType && (certType.includes('GSO') || certType.includes('SMIIC')));
 
   // Product Builder State
   const [products, setProducts] = useState([
@@ -763,7 +763,7 @@ export default function SuperAdminDirectCertificate() {
     setOriginalCycleStartDate(today);
     setCertificationStartDate(today);
     const d = new Date();
-    d.setFullYear(d.getFullYear() + (certType.includes('GSO') ? 3 : 1));
+    d.setFullYear(d.getFullYear() + (certType.includes('GSO') || certType.includes('SMIIC') ? 3 : 1));
     setExpiryDate(d.toISOString().split('T')[0]);
   };
 
@@ -1206,7 +1206,7 @@ export default function SuperAdminDirectCertificate() {
                       onChange={e => {
                         const val = e.target.value;
                         setCertType(val);
-                        if (val.includes('GSO')) {
+                        if (val.includes('GSO') || val.includes('SMIIC')) {
                           applyValidityPreset(3);
                         } else {
                           applyValidityPreset(1);
@@ -1220,7 +1220,7 @@ export default function SuperAdminDirectCertificate() {
                     </select>
                   </div>
 
-                  {/* Dynamic Dates: 4 dates for GSO MEAT / GSO NON MEAT, Standard dates for Non-GSO */}
+                  {/* Dynamic Dates: 4 dates for GSO MEAT / GSO NON MEAT / SMIIC, Standard dates for Non-GSO */}
                   {isGso ? (
                     <>
                       {/* 1. Issue Date */}
@@ -1268,7 +1268,7 @@ export default function SuperAdminDirectCertificate() {
                               style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
                               onClick={() => applyValidityPreset(3)}
                             >
-                              +3 Years (GSO)
+                              +3 Years (GSO / SMIIC)
                             </button>
                             <button
                               type="button"

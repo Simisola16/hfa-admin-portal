@@ -12,7 +12,24 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
   const pdfUrl = hasCertificate ? getPdfUrl(certificate.certificate_url) : '';
 
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
-  const isReadyForCertificate = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
+  const isRen = (
+    String(app?.application_type || '').toLowerCase().includes('renewal') ||
+    String(app?.type || '').toLowerCase().includes('renewal') ||
+    Boolean(app?.is_renewal) ||
+    Boolean(app?.renewed_certificate_id) ||
+    String(app?.application_number || '').includes('-RE-') ||
+    String(app?.category || '').toLowerCase().includes('renewal')
+  );
+  const isSurv = isSurveillance || (
+    String(app?.application_type || '').toLowerCase().includes('surveillance') ||
+    String(app?.type || '').toLowerCase().includes('surveillance') ||
+    Boolean(app?.is_surveillance) ||
+    String(app?.application_number || '').includes('-SU-') ||
+    String(app?.category || '').toLowerCase().includes('surveillance')
+  );
+  const isFastTrack = isRen || isSurv;
+  const isFastTrackPaid = isFastTrack && (normStatus === 'payment_received' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid));
+  const isReadyForCertificate = isFastTrackPaid || ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
 
   // If application was rejected or cancelled and has no certificate, do not render
   if (!hasCertificate && ['rejected', 'cancelled'].includes(normStatus)) {

@@ -438,8 +438,21 @@ export default function ApplicationProcessing() {
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const isTerminal = ['rejected', 'certificate_issued'].includes(status);
   const canActOnApplication = status === 'submitted' || status === 'under_review';
-  const isRenewal = app.application_type === 'renewal';
-  const isSurveillance = app.application_type === 'surveillance';
+  const isRenewal = (
+    String(app.application_type || '').toLowerCase().includes('renewal') ||
+    String(app.type || '').toLowerCase().includes('renewal') ||
+    Boolean(app.is_renewal) ||
+    Boolean(app.renewed_certificate_id) ||
+    String(app.application_number || '').includes('-RE-') ||
+    String(app.category || '').toLowerCase().includes('renewal')
+  );
+  const isSurveillance = (
+    String(app.application_type || '').toLowerCase().includes('surveillance') ||
+    String(app.type || '').toLowerCase().includes('surveillance') ||
+    Boolean(app.is_surveillance) ||
+    String(app.application_number || '').includes('-SU-') ||
+    String(app.category || '').toLowerCase().includes('surveillance')
+  );
   const isFastTrack = isRenewal || isSurveillance;
   const catLower = String(app.category || '').toLowerCase();
   const typeLower = String(app.application_type || '').toLowerCase();
@@ -586,8 +599,139 @@ export default function ApplicationProcessing() {
       : (status === 'audit_assigned' || stage1?.status === 'auditors_assigned' || (stage1?.status === 'date_finalized' && stage1?.auditors?.length > 0));
 
     if (isFastTrack) {
+      // 6. Complete
+      if (status === 'certificate_issued') {
+        if (isSurveillance) {
+          return (
+            <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
+              <CheckCircle size={15} /> ✓ Surveillance Letter Issued
+            </span>
+          );
+        }
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+            <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+
+      // 5. Post-Payment / Ready for Certificate Stage (Renewal / Surveillance)
+      const fastTrackInvoice = initialInvoice || invoice;
+      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid);
+
+      if (status === 'payment_received' || status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isFastTrackInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'payment_received'].includes(status))) {
+        if (isSurveillance) {
+          return (
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => setShowCertificateModal(true)}
+            >
+              <FileText size={16} /> Issue Surveillance Letter
+            </button>
+          );
+        }
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
+              onClick={() => setShowCertificateModal(true)}
+            >
+              <Award size={16} /> Issue Certificate
+            </button>
+            {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
+              <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+              </span>
+            )}
+          </div>
+        );
+      }
+
+      // 4. Invoice Stage (Post-Application Successful / LogSheet Signed)
+      if (status === 'invoice_sent' && !isFastTrackInvoicePaid) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#854d0e' }}
+            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
+          >
+            <Receipt size={16} /> {isSurveillance ? 'Resend Surveillance Invoice' : 'Resend Renewal Invoice'}
+          </button>
+        );
+      }
+
+      if (status === 'application_successful' && !fastTrackInvoice) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#854d0e' }}
+            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
+          >
+            <Receipt size={16} /> {isSurveillance ? 'Send Surveillance Invoice' : 'Send Renewal Invoice'}
+          </button>
+        );
+      }
+
+      if (status === 'logsheet_signed') {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleMarkLogsheetDone}
+            disabled={markingLogsheetDone}
+          >
+            <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
+          </button>
+        );
+      }
+
+      // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
+      const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
+
+      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
+        if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
+          const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+          return (
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0e7490' }}
+              onClick={() => navigate(`/applications/${appId}/logsheet`)}
+              title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            >
+              <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+            </button>
+          );
+        }
+      }
+
       // If NC is currently flagged, prioritize NC resolution
       if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc)) {
+        return (
+          <>
+            <button
+              className="btn btn-danger"
+              style={{ gap: 8 }}
+              onClick={() => setShowNcModal(true)}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleCloseNc}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> Close NC
+            </button>
+          </>
+        );
+      }
+
+      // Post-Audit Decision (Flag NC / Close NC)
+      if (!isNcClosed && (status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
         return (
           <>
             <button
@@ -678,137 +822,6 @@ export default function ApplicationProcessing() {
           >
             <Calendar size={16} /> Manage Audit {isDualStage ? '(2 Stages)' : ''}
           </button>
-        );
-      }
-
-      // Post-Audit Decision (Flag NC / Close NC)
-      if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
-        return (
-          <>
-            <button
-              className="btn btn-danger"
-              style={{ gap: 8 }}
-              onClick={() => setShowNcModal(true)}
-              disabled={actionSubmitting}
-            >
-              <AlertTriangle size={16} /> Flag NC
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleCloseNc}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> Close NC
-            </button>
-          </>
-        );
-      }
-
-      // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
-      const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
-
-      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
-        if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
-          const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
-          return (
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#0e7490' }}
-              onClick={() => navigate(`/applications/${appId}/logsheet`)}
-              title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-            >
-              <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-            </button>
-          );
-        }
-      }
-
-      // 4. Invoice Stage (Post-Application Successful / LogSheet Signed)
-      const fastTrackInvoice = initialInvoice || invoice;
-      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate';
-
-      if (status === 'logsheet_signed') {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={handleMarkLogsheetDone}
-            disabled={markingLogsheetDone}
-          >
-            <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
-          </button>
-        );
-      }
-
-      if (status === 'application_successful' && !fastTrackInvoice) {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#854d0e' }}
-            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
-          >
-            <Receipt size={16} /> {isSurveillance ? 'Send Surveillance Invoice' : 'Send Renewal Invoice'}
-          </button>
-        );
-      }
-
-      if (status === 'invoice_sent' && !isFastTrackInvoicePaid) {
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#854d0e' }}
-            onClick={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
-          >
-            <Receipt size={16} /> {isSurveillance ? 'Resend Surveillance Invoice' : 'Resend Renewal Invoice'}
-          </button>
-        );
-      }
-
-      // 5. Waiting for Letter / Certificate Stage (Post-Invoice Payment)
-      if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isFastTrackInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate'].includes(status))) {
-        if (isSurveillance) {
-          return (
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
-              onClick={() => setShowCertificateModal(true)}
-            >
-              <FileText size={16} /> Issue Surveillance Letter
-            </button>
-          );
-        }
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
-              onClick={() => setShowCertificateModal(true)}
-            >
-              <Award size={16} /> Issue Certificate
-            </button>
-            {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
-              <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
-              </span>
-            )}
-          </div>
-        );
-      }
-
-      // 6. Complete
-      if (status === 'certificate_issued') {
-        if (isSurveillance) {
-          return (
-            <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
-              <CheckCircle size={15} /> ✓ Surveillance Letter Issued
-            </span>
-          );
-        }
-        return (
-          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
-            <CheckCircle size={15} /> ✓ Certificate Issued
-          </span>
         );
       }
     }
@@ -1174,23 +1187,6 @@ export default function ApplicationProcessing() {
             <span className="spinner" style={{ width: 8, height: 8, borderTopColor: '#991b1b', display: 'inline-block' }} />
             Disconnected (Polling)
           </span>
-        )}
-        {canActOnApplication && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button className="btn btn-danger btn-sm" style={{ gap: 6 }} onClick={() => setShowRejectModal(true)}>
-              <XCircle size={14} /> Reject
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ gap: 6, border: '1.5px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontWeight: 700 }}
-              onClick={() => setShowHoldModal(true)}
-            >
-              <Clock size={14} style={{ color: '#d97706' }} /> On Hold
-            </button>
-            <button className="btn btn-primary btn-sm" style={{ gap: 6 }} onClick={() => setShowApproveModal(true)}>
-              <CheckCircle size={14} /> Accept Application
-            </button>
-          </div>
         )}
         {renderPrimaryAction()}
         <button

@@ -259,8 +259,25 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   if (!app) return null;
 
   const normAppStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isRen = (
+    String(app?.application_type || '').toLowerCase().includes('renewal') ||
+    String(app?.type || '').toLowerCase().includes('renewal') ||
+    Boolean(app?.is_renewal) ||
+    Boolean(app?.renewed_certificate_id) ||
+    String(app?.application_number || '').includes('-RE-') ||
+    String(app?.category || '').toLowerCase().includes('renewal')
+  );
+  const isSurv = isSurveillance || (
+    String(app?.application_type || '').toLowerCase().includes('surveillance') ||
+    String(app?.type || '').toLowerCase().includes('surveillance') ||
+    Boolean(app?.is_surveillance) ||
+    String(app?.application_number || '').includes('-SU-') ||
+    String(app?.category || '').toLowerCase().includes('surveillance')
+  );
+  const isFastTrack = isRen || isSurv;
+  const isFastTrackPaid = isFastTrack && (normAppStatus === 'payment_received' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid));
   const isFinalFeePaid = normAppStatus === 'final_invoice_paid' || Boolean(app?.final_payment_confirmed || app?.final_invoice_paid);
-  const isAppReadyForCert = isFinalFeePaid || ['final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normAppStatus);
+  const isAppReadyForCert = isFinalFeePaid || isFastTrackPaid || ['final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'waiting_for_certificate', 'payment_received'].includes(normAppStatus);
 
   const handleSubmit = async () => {
     if (!isSurveillance && !isAppReadyForCert) {

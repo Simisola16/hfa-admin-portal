@@ -82,6 +82,7 @@ export default function AdminReviewCertificate() {
   const [newProdName, setNewProdName] = useState('');
   const [newProdCode, setNewProdCode] = useState('');
   const [newProdCat, setNewProdCat] = useState('');
+  const [showAddCustomProduct, setShowAddCustomProduct] = useState(false);
 
   // Fetch certificate details & associated client site products with robust multi-tier fallback
   const fetchCertificate = async () => {
@@ -489,6 +490,23 @@ export default function AdminReviewCertificate() {
     }));
   };
 
+  // Handle Add Empty Product Row for manual entry
+  const handleAddProductRow = () => {
+    const nextIndex = form.product_details.length + 1;
+    const newItem = {
+      name: '',
+      code: `PRD-${String(nextIndex).padStart(2, '0')}`,
+      category: form.product_category || 'Halal Certified',
+      barcode: ''
+    };
+    const updatedDetails = [...form.product_details, newItem];
+    setForm(f => ({
+      ...f,
+      product_details: updatedDetails,
+      products_covered: updatedDetails.map(p => p.name).filter(Boolean)
+    }));
+  };
+
   // Handle Add Custom Product manually
   const handleAddProduct = () => {
     if (!newProdName.trim()) {
@@ -496,12 +514,18 @@ export default function AdminReviewCertificate() {
       return;
     }
     const newCode = newProdCode.trim() || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
-    const newCat = newProdCat.trim() || 'Halal Certified';
+    const newCat = newProdCat.trim() || form.product_category || 'Halal Certified';
 
-    const updatedDetails = [
-      ...form.product_details,
-      { name: newProdName.trim(), code: newCode, category: newCat, barcode: '' }
-    ];
+    const newItem = {
+      name: newProdName.trim(),
+      code: newCode,
+      category: newCat,
+      barcode: '',
+      source: 'custom'
+    };
+
+    setSiteProducts(prev => [newItem, ...prev]);
+    const updatedDetails = [...form.product_details, newItem];
     const updatedCovered = [...form.products_covered, newProdName.trim()];
 
     setForm(f => ({
@@ -513,6 +537,7 @@ export default function AdminReviewCertificate() {
     setNewProdName('');
     setNewProdCode('');
     setNewProdCat('');
+    setShowAddCustomProduct(false);
     toast.success('Product added to certificate.');
   };
 
@@ -710,6 +735,10 @@ export default function AdminReviewCertificate() {
       return matchesSearch && matchesCat;
     });
   }, [siteProducts, productSearch, categoryFilter]);
+
+  const selectedSiteCount = useMemo(() => {
+    return siteProducts.filter(p => isProductSelected(p.name)).length;
+  }, [siteProducts, form.product_details]);
 
   if (loading) {
     return (
@@ -957,7 +986,7 @@ export default function AdminReviewCertificate() {
                     <MapPin size={15} />
                   </div>
                   <div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Production Facility / Site</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Manufacturing Site</span>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
                       {siteData?.name || siteData?.trading_name || 'Manufacturing Facility'}
                     </div>
@@ -1037,14 +1066,14 @@ export default function AdminReviewCertificate() {
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                      Product Category / Scope <span style={{ color: '#dc2626' }}>*</span>
+                      Product Category <span style={{ color: '#dc2626' }}>*</span>
                     </label>
                     {logsheetCategory ? (
                       <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                         ✓ Auto-filled from Logsheet ({logsheetCategory})
                       </span>
                     ) : (
-                      <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Category / Scope</span>
+                      <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Product Category</span>
                     )}
                   </div>
                   <input
@@ -1081,7 +1110,7 @@ export default function AdminReviewCertificate() {
                 {/* Manufacturing Site Address */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label" style={{ fontWeight: 700 }}>
-                    Manufacturing Facilities / Production Site <span style={{ color: '#dc2626' }}>*</span>
+                    Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <textarea
                     rows={2}
@@ -1302,309 +1331,114 @@ export default function AdminReviewCertificate() {
             </div>
           </div>
 
-          {/* Card 3: Certified Products Management */}
-          <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  <Package size={16} style={{ color: '#047857' }} />
-                  3. Certified Products Selection
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
-                  Pick products belonging to this client site to appear on the official certificate document.
-                </p>
+          {/* Card 3: Certified Products Schedule */}
+          <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={20} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>3. Certified Products Schedule</h3>
+                    <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11.5, fontWeight: 800, padding: '2px 9px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Check size={12} strokeWidth={3} />
+                      {form.product_details.filter(p => p.name && p.name.trim()).length} Product(s) Selected
+                    </span>
+                    {siteProducts.length > 0 && (
+                      <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12 }}>
+                        {selectedSiteCount} / {siteProducts.length} Client Items Picked
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                    {siteProducts.length > 0
+                      ? `Select products from ${(siteData?.name || clientUser?.company_name || 'client')}'s catalog to include on this certificate:`
+                      : 'Add and certify products directly covered under this certificate'}
+                  </p>
+                </div>
               </div>
 
-              {/* Site indicator badge */}
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                borderRadius: 8,
-                padding: '6px 12px',
-                fontSize: 12
-              }}>
-                <MapPin size={14} style={{ color: '#16a34a' }} />
-                <span style={{ color: '#15803d', fontWeight: 700 }}>
-                  {siteData?.name || siteData?.trading_name || siteData?.est_name || cert?.application_id?.site_name || 'Manufacturing Facility Site'}
-                </span>
-                {(siteData?.address || form.manufacturing_address) && (
-                  <span style={{ color: '#64748b', fontSize: 11 }}>• {siteData?.address || form.manufacturing_address}</span>
-                )}
-              </div>
+              {siteProducts.length > 0 ? (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => handleSelectAllSiteProducts(filteredSiteProducts)}
+                    style={{ fontSize: 11.5, padding: '4px 10px' }}
+                  >
+                    Select All ({filteredSiteProducts.length})
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={handleDeselectAllSiteProducts}
+                    style={{ fontSize: 11.5, padding: '4px 10px', color: '#dc2626' }}
+                  >
+                    Deselect All
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setShowAddCustomProduct(prev => !prev)}
+                    style={{ fontSize: 11.5, padding: '4px 10px' }}
+                  >
+                    <Plus size={13} style={{ marginRight: 3 }} /> Add Custom Product
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddProductRow}
+                    style={{ fontSize: 11.5, padding: '4px 10px' }}
+                  >
+                    <Plus size={13} style={{ marginRight: 3 }} /> Add Product Row
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* SECTION A: SITE PRODUCTS PICKER */}
-            <div style={{
-              background: '#f8fafc',
-              borderRadius: 10,
-              border: '1px solid #e2e8f0',
-              padding: 16,
-              marginBottom: 20
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Layers size={16} style={{ color: '#047857' }} />
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
-                      Products Available for this Site ({siteProducts.length})
-                    </span>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      background: form.product_details.length > 0 ? '#dcfce7' : '#fee2e2',
-                      color: form.product_details.length > 0 ? '#15803d' : '#b91c1c',
-                      padding: '2px 8px',
-                      borderRadius: 12,
-                      border: `1px solid ${form.product_details.length > 0 ? '#bbf7d0' : '#fecaca'}`
-                    }}>
-                      {form.product_details.length} Selected for Certificate
-                    </span>
+            {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
+            {siteProducts.length > 0 && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 260 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ paddingLeft: 30, fontSize: 12, height: 32 }}
+                      placeholder="Search site catalog by product name or code..."
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                    />
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
-                    Check or uncheck products to include or exclude them from this certificate.
-                  </div>
-                </div>
-
-                {/* Bulk selection buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectAllSiteProducts(filteredSiteProducts)}
-                    disabled={siteProducts.length === 0}
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#047857', borderColor: '#bbf7d0', background: '#ffffff' }}
-                  >
-                    <CheckSquare size={13} /> Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeselectAllSiteProducts}
-                    disabled={form.product_details.length === 0}
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#64748b', borderColor: '#cbd5e1', background: '#ffffff' }}
-                  >
-                    <Square size={13} /> Deselect All
-                  </button>
-                </div>
-              </div>
-
-              {/* Filters toolbar */}
-              <div style={{ display: 'grid', gridTemplateColumns: uniqueCategories.length > 2 ? '1fr auto' : '1fr', gap: 10, marginBottom: 12 }}>
-                <div style={{ position: 'relative' }}>
-                  <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input
-                    type="text"
-                    placeholder="Search site products by name, code, or category..."
-                    className="form-control"
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
-                    style={{ paddingLeft: 32, fontSize: 12, height: 34 }}
-                  />
-                  {productSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setProductSearch('')}
-                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                  {uniqueCategories.length > 2 && (
+                    <select
+                      className="form-control"
+                      style={{ width: 150, fontSize: 12, height: 32 }}
+                      value={categoryFilter}
+                      onChange={e => setCategoryFilter(e.target.value)}
                     >
-                      <X size={13} />
-                    </button>
+                      {uniqueCategories.map(c => (
+                        <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>
+                      ))}
+                    </select>
                   )}
                 </div>
-
-                {uniqueCategories.length > 2 && (
-                  <select
-                    className="form-control"
-                    value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
-                    style={{ fontSize: 12, height: 34, width: 170 }}
-                  >
-                    {uniqueCategories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat === 'ALL' ? 'All Categories' : cat}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
+            )}
 
-              {/* Products selection list */}
-              {loadingProducts ? (
-                <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 12 }}>
-                  <RefreshCw size={16} className="spinner" style={{ margin: '0 auto 8px', color: '#047857' }} />
-                  Loading site products...
-                </div>
-              ) : siteProducts.length === 0 ? (
-                <div style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  background: '#ffffff',
-                  borderRadius: 8,
-                  border: '1px dashed #cbd5e1',
-                  color: '#64748b',
-                  fontSize: 12.5
-                }}>
-                  <Package size={28} style={{ color: '#cbd5e1', margin: '0 auto 8px' }} />
-                  <div style={{ fontWeight: 600, color: '#334155' }}>No pre-registered products found for this site.</div>
-                  <div style={{ marginTop: 4 }}>You can manually add custom products in the table below to be issued on this certificate.</div>
-                </div>
-              ) : filteredSiteProducts.length === 0 ? (
-                <div style={{ padding: 18, textAlign: 'center', color: '#64748b', fontSize: 12 }}>
-                  No site products match "<strong>{productSearch}</strong>".
-                </div>
-              ) : (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: 8,
-                  maxHeight: 260,
-                  overflowY: 'auto',
-                  paddingRight: 4
-                }}>
-                  {filteredSiteProducts.map((p) => {
-                    const isSelected = isProductSelected(p.name);
-                    return (
-                      <div
-                        key={p.id || p.name}
-                        onClick={() => handleToggleProduct(p)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 10,
-                          padding: '10px 12px',
-                          borderRadius: 8,
-                          background: isSelected ? '#f0fdf4' : '#ffffff',
-                          border: `1.5px solid ${isSelected ? '#86efac' : '#e2e8f0'}`,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 1px 3px rgba(34,197,94,0.1)' : 'none'
-                        }}
-                      >
-                        <div style={{ marginTop: 2, color: isSelected ? '#16a34a' : '#cbd5e1' }}>
-                          {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: 12.5,
-                            fontWeight: isSelected ? 700 : 600,
-                            color: isSelected ? '#15803d' : '#1e293b',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {p.name}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                            {p.code && (
-                              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: isSelected ? '#dcfce7' : '#f1f5f9', color: isSelected ? '#166534' : '#475569' }}>
-                                {p.code}
-                              </span>
-                            )}
-                            <span style={{ fontSize: 10.5, color: '#64748b' }}>
-                              {p.category || 'Halal Certified'}
-                            </span>
-                            {p.source && p.source !== 'site_inventory' && (
-                              <span style={{ fontSize: 9.5, color: '#0369a1', background: '#e0f2fe', padding: '1px 4px', borderRadius: 3 }}>
-                                {p.source}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* SECTION B: PRODUCTS THAT WILL APPEAR ON CERTIFICATE ANNEX */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
-                    Certified Products Annex ({form.product_details.length})
-                  </span>
-                  <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>
-                    Official products printed on the certificate schedule
-                  </span>
-                </div>
-                {form.product_details.length > 0 && (
-                  <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
-                    ✓ Click "Sync &amp; Refresh" above to preview on PDF
-                  </span>
-                )}
-              </div>
-
-              {form.product_details.length === 0 ? (
-                <div style={{ padding: 18, background: '#fffbeb', borderRadius: 8, border: '1px solid #fef08a', textAlign: 'center', color: '#854d0e', fontSize: 12.5 }}>
-                  <AlertTriangle size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
-                  No products selected yet. Please check the products above or add custom products below so they appear on the certificate.
-                </div>
-              ) : (
-                <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, background: '#ffffff' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 2 }}>
-                      <tr>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 35 }}>#</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569' }}>Product Name</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 120 }}>Code</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', width: 150 }}>Category</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: 45 }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {form.product_details.map((prod, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '6px 12px', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
-                          <td style={{ padding: '6px 12px', fontWeight: 600, color: '#0f172a' }}>
-                            {prod.name}
-                          </td>
-                          <td style={{ padding: '6px 12px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={prod.code || ''}
-                              onChange={e => handleUpdateProductDetail(idx, 'code', e.target.value)}
-                              style={{ fontSize: 11.5, padding: '3px 6px', height: 26 }}
-                              placeholder="Code"
-                            />
-                          </td>
-                          <td style={{ padding: '6px 12px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={prod.category || ''}
-                              onChange={e => handleUpdateProductDetail(idx, 'category', e.target.value)}
-                              style={{ fontSize: 11.5, padding: '3px 6px', height: 26 }}
-                              placeholder="Category"
-                            />
-                          </td>
-                          <td style={{ padding: '6px 12px', textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveProduct(idx)}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}
-                              title="Remove product from certificate"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Add custom / unlisted product mini-form */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
+            {/* CUSTOM PRODUCT ADDER INLINE FORM (WHEN TOGGLED) */}
+            {showAddCustomProduct && (
+              <div style={{ marginBottom: 14, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input
                   type="text"
-                  placeholder="Add custom product name..."
+                  placeholder="Custom product name..."
                   className="form-control"
-                  style={{ fontSize: 12, height: 34 }}
+                  style={{ fontSize: 12, height: 32, flex: 2 }}
                   value={newProdName}
                   onChange={e => setNewProdName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProduct(); } }}
@@ -1613,27 +1447,203 @@ export default function AdminReviewCertificate() {
                   type="text"
                   placeholder="Code (optional)"
                   className="form-control"
-                  style={{ fontSize: 12, height: 34 }}
+                  style={{ fontSize: 12, height: 32, flex: 1 }}
                   value={newProdCode}
                   onChange={e => setNewProdCode(e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder="Category"
-                  className="form-control"
-                  style={{ fontSize: 12, height: 34 }}
-                  value={newProdCat}
-                  onChange={e => setNewProdCat(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProduct(); } }}
                 />
                 <button
                   type="button"
+                  className="btn btn-primary btn-sm"
                   onClick={handleAddProduct}
-                  className="btn btn-ghost"
-                  style={{ padding: '6px 14px', fontSize: 12, height: 34, display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9' }}
+                  style={{ fontSize: 11.5, height: 32, padding: '0 12px' }}
                 >
-                  <Plus size={14} /> Add
+                  <Plus size={13} style={{ marginRight: 2 }} /> Add
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowAddCustomProduct(false)}
+                  style={{ fontSize: 11.5, height: 32, padding: '0 8px', color: '#64748b' }}
+                >
+                  Cancel
                 </button>
               </div>
+            )}
+
+            {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
+            {siteProducts.length > 0 ? (
+              <div className="table-wrap" style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: 10,
+                maxHeight: 280,
+                overflowY: 'auto',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                    <tr style={{ color: '#475569', textAlign: 'left' }}>
+                      <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item.name))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              handleSelectAllSiteProducts(filteredSiteProducts);
+                            } else {
+                              handleDeselectAllSiteProducts();
+                            }
+                          }}
+                          style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                          title="Select/Deselect All Displayed Products"
+                        />
+                      </th>
+                      <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '8px 6px' }}>Product Name</th>
+                      <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSiteProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                          No products found matching "{productSearch}".
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSiteProducts.map((prod, index) => {
+                        const selected = isProductSelected(prod.name);
+                        return (
+                          <tr
+                            key={prod._id || prod.id || index}
+                            onClick={() => handleToggleProduct(prod)}
+                            style={{
+                              borderBottom: '1px solid #f1f5f9',
+                              background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                          >
+                            <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => handleToggleProduct(prod)}
+                                style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                              />
+                            </td>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
+                              {prod.name}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                              {prod.code || prod.barcode || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* FALLBACK EDITABLE TABLE FOR CLIENTS / SITES WITHOUT CATALOG */
+              <div className="table-wrap" style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: 10,
+                maxHeight: 280,
+                overflowY: 'auto',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                    <tr style={{ color: '#475569', textAlign: 'left' }}>
+                      <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                      <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
+                      <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
+                      <th style={{ width: 40, padding: '8px 6px', textAlign: 'center' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.product_details.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                          No products added yet. Click "+ Add Product Row" above to add products.
+                        </td>
+                      </tr>
+                    ) : (
+                      form.product_details.map((prod, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                          <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                              placeholder="e.g. Frozen Halal Beef Burger"
+                              value={prod.name}
+                              onChange={e => handleUpdateProductDetail(index, 'name', e.target.value)}
+                              required
+                            />
+                          </td>
+                          <td style={{ padding: '4px 6px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                              placeholder="e.g. PRD-001"
+                              value={prod.code}
+                              onChange={e => handleUpdateProductDetail(index, 'code', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProduct(index)}
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}
+                              title="Remove row"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                💡 Printed on certificate: <strong>{form.product_details.filter(p => p.name && p.name.trim()).length}</strong> item(s).
+              </span>
+              {siteProducts.length > 0 ? (
+                <span style={{ fontSize: 11.5, color: '#166534', fontWeight: 600 }}>
+                  ✓ Selecting from official client portal catalog
+                </span>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {form.product_details.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11, color: '#ef4444', padding: '2px 6px' }}
+                      onClick={handleDeselectAllSiteProducts}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleAddProductRow}
+                    style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600, padding: '2px 6px' }}
+                  >
+                    + Add Product Row
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

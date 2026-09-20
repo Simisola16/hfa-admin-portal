@@ -36,6 +36,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     file: null
   });
   const [submitting, setSubmitting] = useState(false);
+  const [underReviewPopup, setUnderReviewPopup] = useState(null);
 
   const checkIsAddOn = (item) => {
     if (!item) return Boolean(propIsAddOn);
@@ -387,10 +388,12 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
       await api.post('/api/certificates', formData, true);
 
-      toast.success('Certificate issued successfully and sent to Review Certificates.');
+      toast.success('Certificate created! It is now under committee review.');
       if (onSuccess) onSuccess();
-      onClose();
-      navigate('/certificates?status=under_review');
+      setUnderReviewPopup({
+        certNumber: certificateForm.certificate_number,
+        companyName: app.establishment_name || app.profiles?.company_name || 'Client'
+      });
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to issue certificate.'));
     } finally {
@@ -404,15 +407,49 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     ? 'UAE/GSO 3-Year Halal Scheme'
     : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
 
-  const isCurrentFourDate = isFourDateType(certificateForm.certificate_type);
-
-  const isSubmitDisabled = submitting ||
-    !certificateForm.certificate_number ||
-    !certificateForm.issue_date ||
-    !certificateForm.expiry_date ||
-    (isSurveillance && !certificateForm.file) ||
-    (!isSurveillance && isCurrentFourDate && (!certificateForm.current_cycle_start_date || !certificateForm.original_cycle_start_date)) ||
-    (!isSurveillance && !isCurrentFourDate && !certificateForm.certification_start_date);
+  if (underReviewPopup) {
+    return (
+      <div className="modal-overlay" style={{ zIndex: 1250 }} onClick={() => { setUnderReviewPopup(null); onClose(); }}>
+        <div className="modal" style={{ maxWidth: 460, borderRadius: 16, padding: 0, overflow: 'hidden', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fffbeb', padding: '32px 24px 20px', borderBottom: '1px solid #fef3c7' }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: '#fef3c7',
+              border: '2px solid #fde68a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#d97706'
+            }}>
+              <ShieldCheck size={30} />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#92400e', margin: '0 0 8px' }}>
+              Certificate is Under Review
+            </h3>
+            <p style={{ fontSize: 13.5, color: '#b45309', margin: 0, lineHeight: 1.6 }}>
+              Certificate <strong>{underReviewPopup.certNumber}</strong> has been created and submitted for Committee Review. It is not yet live to the client until approved.
+            </p>
+          </div>
+          <div style={{ padding: '20px 24px', display: 'flex', gap: 10, justifyContent: 'center', background: 'white' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: '10px 28px', fontWeight: 700, background: '#d97706', borderColor: '#b45309' }}
+              onClick={() => {
+                setUnderReviewPopup(null);
+                onClose();
+              }}
+            >
+              OK, Got It
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>

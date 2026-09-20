@@ -380,9 +380,21 @@ export default function SuperAdminDirectCertificate() {
       const addr = formatClientAddress(selectedClient);
       setCertCompanyName(name);
       setCertCompanyAddress(addr);
-      setCertManufacturingFacility('');
-      // Fetch product_category from the client's latest logsheet
+
+      // Auto-fill Manufacturing Site name from client's sites
       const cId = selectedClient._id || selectedClient.id;
+      const matchedSites = sites.filter(s => {
+        const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
+        return String(sClientId) === String(cId);
+      });
+      const firstSite = matchedSites.length > 0 ? matchedSites[0] : null;
+      const initialSiteName = firstSite?.name || firstSite?.trading_name || firstSite?.est_name || '';
+      setCertManufacturingFacility(initialSiteName);
+      if (firstSite?._id && !selectedSiteId) {
+        setSelectedSiteId(String(firstSite._id));
+      }
+
+      // Fetch product_category from the client's latest logsheet
       if (cId) {
         setLoadingLogsheet(true);
         api.get(`/api/application-logsheets?client_id=${cId}&limit=1`)
@@ -403,16 +415,25 @@ export default function SuperAdminDirectCertificate() {
       setCertManufacturingFacility('');
       setCertProductCategory('');
     }
-  }, [selectedClient]);
+  }, [selectedClient, sites]);
 
-  // Sync certCompanyAddress when site changes
+  // Sync certCompanyAddress and Manufacturing Site name when site changes
   useEffect(() => {
     if (selectedSite) {
       const siteAddr = formatSiteAddress(selectedSite);
       setCertCompanyAddress(siteAddr);
-      setCertManufacturingFacility(siteAddr);
+      const siteName = selectedSite.name || selectedSite.trading_name || selectedSite.est_name || '';
+      if (siteName) {
+        setCertManufacturingFacility(siteName);
+      }
+    } else if (clientSites.length > 0 && !certManufacturingFacility) {
+      const firstSite = clientSites[0];
+      const siteName = firstSite.name || firstSite.trading_name || firstSite.est_name || '';
+      if (siteName) {
+        setCertManufacturingFacility(siteName);
+      }
     }
-  }, [selectedSite]);
+  }, [selectedSite, clientSites]);
 
   // Catalog Helper: Check if a client catalog product is currently selected
   const isProductSelected = (catalogItem) => {
@@ -670,18 +691,19 @@ export default function SuperAdminDirectCertificate() {
 
       // Facility info
       const effectiveAddress = (certCompanyAddress || customSiteAddress || resolvedBusinessAddress || '').trim();
-      const effectiveMfgAddress = (certManufacturingFacility || effectiveAddress).trim();
+      const effectiveMfgSite = (certManufacturingFacility || customSiteName || selectedSite?.name || '').trim();
       if (selectedSiteId) {
         formData.append('site_id', selectedSiteId);
       }
-      if (customSiteName || selectedSite?.name) {
-        formData.append('site_name', customSiteName || selectedSite?.name);
+      if (effectiveMfgSite) {
+        formData.append('site_name', effectiveMfgSite);
       }
       if (effectiveAddress) {
         formData.append('site_address', effectiveAddress);
       }
-      if (effectiveMfgAddress) {
-        formData.append('manufacturer_address', effectiveMfgAddress);
+      if (effectiveMfgSite) {
+        formData.append('manufacturer_address', effectiveMfgSite);
+        formData.append('manufacturing_address', effectiveMfgSite);
       }
       // Company name override from Section 2
       if (certCompanyName) {
@@ -1040,9 +1062,11 @@ export default function SuperAdminDirectCertificate() {
                                   const siteAddr = formatSiteAddress(foundSite);
                                   setCustomSiteAddress(siteAddr);
                                   setCertCompanyAddress(siteAddr);
-                                  setCertManufacturingFacility(foundSite.name ? `${foundSite.name}, ${siteAddr}` : siteAddr);
+                                  const siteName = foundSite.name || foundSite.trading_name || foundSite.est_name || '';
+                                  setCertManufacturingFacility(siteName);
                                 } else {
                                   setCustomSiteAddress('');
+                                  setCertManufacturingFacility('');
                                 }
                               }}
                               required
@@ -1154,14 +1178,29 @@ export default function SuperAdminDirectCertificate() {
                       />
                     </div>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                      <label className="form-label" style={{ fontSize: 12.5 }}>Manufacturing Facilities</label>
-                      <textarea
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ fontSize: 12.5, margin: 0, fontWeight: 700 }}>
+                          Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        {(selectedSite?.name || clientSites[0]?.name || customSiteName) && certManufacturingFacility !== (selectedSite?.name || clientSites[0]?.name || customSiteName) && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 11, color: '#16a34a', height: 'auto' }}
+                            onClick={() => setCertManufacturingFacility(selectedSite?.name || clientSites[0]?.name || customSiteName)}
+                          >
+                            Reset to "{selectedSite?.name || clientSites[0]?.name || customSiteName}"
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
                         className="form-control"
-                        rows={2}
-                        placeholder="Manufacturing facility address(es) as they will appear on the certificate"
+                        placeholder="Manufacturing site name printed on certificate"
                         value={certManufacturingFacility}
                         onChange={e => setCertManufacturingFacility(e.target.value)}
-                        style={{ resize: 'vertical', minHeight: 52 }}
+                        style={{ fontWeight: 600, fontSize: 13 }}
+                        required
                       />
                     </div>
                   </div>

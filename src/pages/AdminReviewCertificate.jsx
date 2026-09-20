@@ -347,10 +347,16 @@ export default function AdminReviewCertificate() {
 
       const finalProductsCovered = resolvedDetails.map(p => p.name);
 
-      const resolvedCategory = detectedLogsheetCat ||
-        (c.scope && c.scope !== 'Halal Food and Consumer Products Certification' && c.scope !== 'Halal Food Certification' ? c.scope : '') ||
-        c.application_id?.scope ||
-        'Meat & Poultry';
+      const resolvedSiteName = (
+        resolvedSite?.name ||
+        resolvedSite?.trading_name ||
+        resolvedSite?.est_name ||
+        c.site_id?.name ||
+        c.application_id?.site_name ||
+        ''
+      ).trim();
+
+      const autoFilledMfgSite = resolvedSiteName || c.manufacturing_address || 'Manufacturing Facility';
 
       setForm({
         certificate_number: c.certificate_number || '',
@@ -358,7 +364,7 @@ export default function AdminReviewCertificate() {
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
-        manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
+        manufacturing_address: autoFilledMfgSite,
         scope: resolvedCategory,
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -753,6 +759,7 @@ export default function AdminReviewCertificate() {
   const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || (form.certificate_type && form.certificate_type.includes('GSO'));
   const rawPdfUrl = getPdfUrl(cert?.certificate_url);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
+  const resolvedSiteName = (siteData?.name || siteData?.trading_name || siteData?.est_name || cert?.site_id?.name || cert?.application_id?.site_name || '').trim();
 
   return (
     <div style={{ padding: '24px 32px 100px', maxWidth: 1600, margin: '0 auto' }}>
@@ -1107,18 +1114,30 @@ export default function AdminReviewCertificate() {
                   />
                 </div>
 
-                {/* Manufacturing Site Address */}
+                {/* Manufacturing Site */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontWeight: 700 }}>
-                    Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <textarea
-                    rows={2}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    {resolvedSiteName && form.manufacturing_address !== resolvedSiteName && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, manufacturing_address: resolvedSiteName }))}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Reset to "{resolvedSiteName}"
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
                     required
                     className="form-control"
                     value={form.manufacturing_address}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Physical site location where certified products are manufactured"
+                    placeholder="Official manufacturing site name printed on certificate"
+                    style={{ fontWeight: 600, fontSize: 13 }}
                   />
                 </div>
               </div>

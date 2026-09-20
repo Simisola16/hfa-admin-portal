@@ -462,38 +462,14 @@ export default function AdminAddOnProcessing() {
           </div>
         </div>
 
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          {renderPrimaryActionButtons()}
+        </div>
+
         <button className="btn btn-ghost btn-sm" onClick={() => fetchApp(true)} title="Refresh">
           <RefreshCw size={14} />
         </button>
       </div>
-
-      {/* ─── Top Action Required Banner matching ApplicationProcessing.jsx ─── */}
-      {app.status !== 'completed' && (
-        <div style={{
-          background: 'white', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '20px 24px', marginBottom: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 4 }}>
-              Add-On Application Action Required
-            </div>
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-              {app.status === 'submitted' && 'Review the requested product list and accept or reject the application below.'}
-              {app.status === 'accepted' && 'Assign Food Technologies staff member(s) to verify product formulations and ingredients.'}
-              {app.status === 'ft_assigned' && 'Configure and enable the Product Approval Form for client submission.'}
-              {app.status === 'product_approval_form_enabled' && 'The Product Approval Form has been enabled. Awaiting client product details submission.'}
-              {app.status === 'all_forms_received' && 'All product forms have been received from client. Generate Halal Logsheet to proceed to Shariah committee review.'}
-              {['logsheet_created', 'waiting_sharia_signature'].includes(app.status) && 'Halal Logsheet is in technical & Shariah committee review.'}
-              {['product_form_approved', 'ready_for_certificate'].includes(app.status) && 'Product approval complete. Issue updated certificate to finalize application.'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {renderPrimaryActionButtons()}
-          </div>
-        </div>
-      )}
 
       {/* ─── Main 2-Column Grid (1fr 380px) ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>

@@ -141,9 +141,9 @@ export default function LogsheetCard({ logsheet, status, appId, isRenewal = fals
                 borderRadius: 8,
                 boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
               }}
-              title="Mark Logsheet as completed and advance application to Agreement stage"
+              title="Confirm committee sign-off and mark Application Successful"
             >
-              <CheckCircle size={14} /> {markingDone ? 'Marking Done...' : 'Mark Logsheet Done'}
+              <CheckCircle size={14} /> {markingDone ? 'Confirming...' : 'Application Successful'}
             </button>
           )}
 

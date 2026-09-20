@@ -19,6 +19,7 @@ export default function AdminInvoices() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingId, setConfirmingId] = useState(null);
   const [form, setForm] = useState({ client_id:'', description:'', amount:'', due_date:'', items:'' });
   const [confirmPaymentModal, setConfirmPaymentModal] = useState({ isOpen: false, invoice: null, app: null });
 
@@ -47,6 +48,21 @@ export default function AdminInvoices() {
       }));
     }
     fetch();
+  };
+
+  const handleOneClickConfirm = async (inv) => {
+    const invId = inv._id || inv.id;
+    if (!invId) return;
+    setConfirmingId(invId);
+    try {
+      await api.put(`/api/invoices/${invId}/confirm-payment`);
+      toast.success(`Payment confirmed for Invoice #${inv.invoice_number}`);
+      handlePaymentConfirmed(invId);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm payment');
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   return (
@@ -161,16 +177,22 @@ export default function AdminInvoices() {
                                   fontWeight: 600,
                                   padding: '4px 10px',
                                   borderRadius: 6,
-                                  cursor: 'pointer'
+                                  cursor: confirmingId === invId ? 'not-allowed' : 'pointer',
+                                  opacity: confirmingId === invId ? 0.75 : 1
                                 }}
-                                onClick={() => setConfirmPaymentModal({
-                                  isOpen: true,
-                                  invoice: inv,
-                                  app: inv.application_id && typeof inv.application_id === 'object' ? inv.application_id : null
-                                })}
-                                title="Confirm Client Payment"
+                                disabled={confirmingId === invId}
+                                onClick={() => handleOneClickConfirm(inv)}
+                                title="One-Click Confirm Client Payment"
                               >
-                                <Check size={14} /> Confirm Payment
+                                {confirmingId === invId ? (
+                                  <>
+                                    <span className="spinner-white" style={{ width: 12, height: 12 }} /> Confirming...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check size={14} /> Confirm Payment
+                                  </>
+                                )}
                               </button>
                             )}
                           </div>

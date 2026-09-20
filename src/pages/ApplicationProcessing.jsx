@@ -727,7 +727,20 @@ export default function ApplicationProcessing() {
       const fastTrackInvoice = initialInvoice || invoice;
       const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate';
 
-      if (['logsheet_signed', 'application_successful'].includes(status) && !fastTrackInvoice) {
+      if (status === 'logsheet_signed') {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleMarkLogsheetDone}
+            disabled={markingLogsheetDone}
+          >
+            <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
+          </button>
+        );
+      }
+
+      if (status === 'application_successful' && !fastTrackInvoice) {
         return (
           <button
             className="btn btn-primary"
@@ -1001,7 +1014,7 @@ export default function ApplicationProcessing() {
     // 6. LogSheet Stage (Create / Sign LogSheet) - After All Audit Stages are Complete & NC Closed
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (status === 'application_successful' && !isLogsheetSigned))) {
+    if (!hasActiveNc && !isLogsheetSigned && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed)) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -1015,8 +1028,21 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // 7. Send Agreement Stage (Logsheet signed / application_successful -> Send Agreement)
-    if (status === 'logsheet_signed' || status === 'application_successful' || status === 'agreement_sent') {
+    if (status === 'logsheet_signed') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+          onClick={handleMarkLogsheetDone}
+          disabled={markingLogsheetDone}
+        >
+          <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
+        </button>
+      );
+    }
+
+    // 7. Send Agreement Stage (application_successful -> Send Agreement)
+    if (status === 'application_successful' || status === 'agreement_sent') {
       return (
         <button
           className="btn btn-primary"
@@ -1148,6 +1174,23 @@ export default function ApplicationProcessing() {
             Disconnected (Polling)
           </span>
         )}
+        {canActOnApplication && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button className="btn btn-danger btn-sm" style={{ gap: 6 }} onClick={() => setShowRejectModal(true)}>
+              <XCircle size={14} /> Reject
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ gap: 6, border: '1.5px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontWeight: 700 }}
+              onClick={() => setShowHoldModal(true)}
+            >
+              <Clock size={14} style={{ color: '#d97706' }} /> On Hold
+            </button>
+            <button className="btn btn-primary btn-sm" style={{ gap: 6 }} onClick={() => setShowApproveModal(true)}>
+              <CheckCircle size={14} /> Accept Application
+            </button>
+          </div>
+        )}
         <button
           className="btn btn-ghost btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e2e8f0', background: 'white', fontWeight: 700, color: 'var(--text-primary)' }}
@@ -1160,31 +1203,6 @@ export default function ApplicationProcessing() {
           <RefreshCw size={14} />
         </button>
       </div>
-
-      {/* Action Panel */}
-      {!isTerminal && (
-        <div style={{
-          background: 'white', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '20px 24px', marginBottom: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-        }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 4 }}>
-              Application Action Required
-            </div>
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-              {status === 'dates_rejected'
-                ? 'Client indicated unavailability for proposed dates. Review their notes and propose alternative dates.'
-                : canActOnApplication
-                ? 'Review the application details and approve, put on hold, or reject below.'
-                : 'Use the actions below to proceed with the next phase of application processing.'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {renderPrimaryAction()}
-          </div>
-        </div>
-      )}
 
       {/* Dates Rejected Alert Banner */}
       {status === 'dates_rejected' && (
@@ -1234,7 +1252,14 @@ export default function ApplicationProcessing() {
         {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
           {/* For non-fast-track, show proposal card and initial invoice */}
-          {!isFastTrack && <ProposalCard app={app} proposal={proposal} />}
+          {!isFastTrack && (
+            <ProposalCard
+              app={app}
+              proposal={proposal}
+              status={status}
+              onSendProposal={() => setShowProposalModal(true)}
+            />
+          )}
 
           {!isFastTrack && (
             <InvoiceCard
@@ -1244,6 +1269,7 @@ export default function ApplicationProcessing() {
               isInitial={true}
               onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
               confirmingPayment={confirmingPayment}
+              onSendInvoice={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
             />
           )}
 
@@ -1298,6 +1324,7 @@ export default function ApplicationProcessing() {
               isSurveillance={isSurveillance}
               onConfirmPayment={(initialInvoice || invoice)?.status === 'client_paid' ? handleConfirmPayment : undefined}
               confirmingPayment={confirmingPayment}
+              onSendInvoice={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
             />
           )}
 
@@ -1322,6 +1349,7 @@ export default function ApplicationProcessing() {
               isFinal={true}
               onConfirmPayment={finalInvoice?.status === 'client_paid' ? handleConfirmFinalPayment : undefined}
               confirmingPayment={confirmingPayment}
+              onSendInvoice={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
             />
           )}
 

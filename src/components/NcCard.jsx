@@ -96,17 +96,17 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
       {/* Header */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: isNcFlagged ? '#fef2f2' : isNcClosed ? '#f0fdf4' : '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {isNcFlagged ? (
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: isNcClosed ? '#ecfdf5' : (isNcFlagged ? '#fef2f2' : '#fffbeb'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {isNcClosed ? (
+              <CheckCircle size={18} style={{ color: '#059669' }} />
+            ) : isNcFlagged ? (
               <AlertTriangle size={18} style={{ color: '#dc2626' }} />
-            ) : isNcClosed ? (
-              <CheckCircle size={18} style={{ color: '#16a34a' }} />
             ) : (
               <AlertCircle size={18} style={{ color: '#d97706' }} />
             )}
           </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Non-Conformity (NC) &amp; Findings</div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: isNcClosed ? '#059669' : 'var(--text-primary)' }}>Non-Conformity (NC) &amp; Findings</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {isNcClosed
                 ? 'All audit observations & findings have been cleared.'
@@ -187,12 +187,12 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
-                          color: isClosedOrRectified ? '#16a34a' : '#dc2626',
-                          borderColor: isClosedOrRectified ? '#bbf7d0' : '#fecaca',
-                          background: isClosedOrRectified ? '#f0fdf4' : '#fff'
+                          color: isClosedOrRectified ? '#059669' : '#dc2626',
+                          borderColor: isClosedOrRectified ? '#a7f3d0' : '#fecaca',
+                          background: isClosedOrRectified ? '#ecfdf5' : '#fff'
                         }}
                       >
-                        <Download size={12} style={{ color: isClosedOrRectified ? '#16a34a' : '#dc2626' }} /> View Auditor NC Document
+                        <Download size={12} style={{ color: isClosedOrRectified ? '#059669' : '#dc2626' }} /> View Auditor NC Document
                       </a>
                     </div>
                   )}

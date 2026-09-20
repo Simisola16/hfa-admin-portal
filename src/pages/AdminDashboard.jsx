@@ -6,7 +6,6 @@ import {
   RefreshCw, ArrowRight, AlertTriangle, TrendingUp, ChevronRight,
   Layers, Users, FileText, XCircle, Bell,
 } from 'lucide-react';
-import AdminActionsNeededWidget from '../components/AdminActionsNeededWidget';
 
 /* ─── Status display helpers ─────────────────────────────────── */
 const STATUS_META = {
@@ -205,8 +204,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Persistent Admin Actions Needed Widget & Pop-Up */}
-      <AdminActionsNeededWidget onActionCompleted={fetchData} />
+
 
       {/* ── 4 KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>

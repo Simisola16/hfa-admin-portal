@@ -10,7 +10,7 @@ const getPdfUrl = (url) => {
   return url;
 };
 
-export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment }) {
+export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment, onSendInvoice }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
   const isSurv = isSurveillance || app?.application_type === 'surveillance';
   const isRen = !isSurv && (isRenewal || app?.application_type === 'renewal');
@@ -55,9 +55,14 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
       <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', padding: 24, textAlign: 'center' }}>
         <Receipt size={28} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
         <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>{cardTitle} Pending</div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, marginBottom: onSendInvoice ? 14 : 0 }}>
           {isSurv ? 'Surveillance invoice will be generated once application is successful.' : isRen ? 'Renewal invoice will be generated once application is successful.' : isFinal ? 'Final certificate invoice will be sent after agreement is finalized.' : 'Initial invoice will be generated once proposal is accepted.'}
         </div>
+        {onSendInvoice && (
+          <button className="btn btn-primary btn-sm" onClick={onSendInvoice} style={{ background: '#854d0e', borderColor: '#854d0e', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+            <Receipt size={14} /> Send {isSurv ? 'Surveillance' : isRen ? 'Renewal' : isFinal ? 'Final' : 'Initial'} Invoice
+          </button>
+        )}
       </div>
     );
   }
@@ -107,11 +112,18 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
             </div>
           </div>
         </div>
-        {invoice.invoice_url && (
-          <a href={getPdfUrl(invoice.invoice_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: isPaid ? '#15803d' : '#ea580c', borderColor: isPaid ? '#86efac' : '#fed7aa' }}>
-            <Download size={13} /> View Invoice
-          </a>
-        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {onSendInvoice && !isPaid && (
+            <button onClick={onSendInvoice} className="btn btn-ghost btn-sm" style={{ border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Resend Invoice
+            </button>
+          )}
+          {invoice.invoice_url && (
+            <a href={getPdfUrl(invoice.invoice_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: isPaid ? '#15803d' : '#ea580c', borderColor: isPaid ? '#86efac' : '#fed7aa' }}>
+              <Download size={13} /> View Invoice
+            </a>
+          )}
+        </div>
       </div>
       <div style={{ padding: '20px 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>

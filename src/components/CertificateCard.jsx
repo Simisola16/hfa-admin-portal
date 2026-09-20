@@ -12,7 +12,8 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
   const pdfUrl = hasCertificate ? getPdfUrl(certificate.certificate_url) : '';
 
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
-  const isReadyForCertificate = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
+  const isFinalFeePaid = normStatus === 'final_invoice_paid' || Boolean(app?.final_payment_confirmed || app?.final_invoice_paid);
+  const isReadyForCertificate = isFinalFeePaid || ['final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
 
   // If application was rejected or cancelled and has no certificate, do not render
   if (!hasCertificate && ['rejected', 'cancelled'].includes(normStatus)) {

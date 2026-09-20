@@ -17,10 +17,20 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   const [app, setApp] = useState(propApp || null);
   const [loading, setLoading] = useState(false);
   const [currentTypeCode, setCurrentTypeCode] = useState('NE');
+
+  const isFourDateType = (type) => {
+    if (!type) return false;
+    const t = type.toUpperCase().trim();
+    return t.includes('GSO') || t === 'SMIIC' || t.includes('SMIIC');
+  };
+
   const [certificateForm, setCertificateForm] = useState({
     certificate_number: '',
-    certificate_type: 'Halal Certification',
+    certificate_type: 'GSO MEAT',
     issue_date: '',
+    current_cycle_start_date: '',
+    original_cycle_start_date: '',
+    certification_start_date: '',
     expiry_date: '',
     products_covered: '',
     file: null
@@ -45,10 +55,55 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     if (!loadedApp) return;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
     const isSurv = !isAddOn && loadedApp.application_type === 'surveillance';
-    const isThreeYear = loadedApp.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' || isSurv;
-    const yearsToAdd = isSurv ? 1 : (isThreeYear ? 3 : 1);
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + yearsToAdd);
+
+    // Resolve Certificate Type
+    let resolvedCertType = existingCert?.certificate_type || loadedApp.certificate_id?.certificate_type;
+    if (!resolvedCertType) {
+      if (isSurv) {
+        resolvedCertType = 'UAE/GSO Halal Surveillance Letter';
+      } else {
+        const cat = ((loadedApp.category || '') + ' ' + (loadedApp.scope || '')).toLowerCase();
+        if (cat.includes('smiic')) {
+          resolvedCertType = 'SMIIC';
+        } else if (cat.includes('cosmetic')) {
+          resolvedCertType = 'COSMETICS';
+        } else if (cat.includes('gso') || cat.includes('uae')) {
+          resolvedCertType = (cat.includes('meat') && !cat.includes('non')) ? 'GSO MEAT' : 'GSO NON MEAT';
+        } else if (cat.includes('meat') && !cat.includes('non')) {
+          resolvedCertType = 'HFA SCHEME MEAT';
+        } else if (cat.includes('non-meat') || cat.includes('non meat')) {
+          resolvedCertType = 'HFA SCHEME NON MEAT';
+        } else {
+          resolvedCertType = 'GSO MEAT';
+        }
+      }
+    }
+
+    const isFour = isFourDateType(resolvedCertType);
+    const yearsToAdd = isSurv ? 1 : (isFour ? 3 : 1);
+
+    const resolvedIssueDate = existingCert?.issue_date
+      ? new Date(existingCert.issue_date).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const expDate = new Date(resolvedIssueDate);
+    expDate.setFullYear(expDate.getFullYear() + yearsToAdd);
+    const resolvedExpiryDate = existingCert?.expiry_date
+      ? new Date(existingCert.expiry_date).toISOString().split('T')[0]
+      : expDate.toISOString().split('T')[0];
+
+    const resolvedCurrentCycle = existingCert?.current_cycle_start_date
+      ? new Date(existingCert.current_cycle_start_date).toISOString().split('T')[0]
+      : (existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : resolvedIssueDate);
+
+    const resolvedOrigCycle = existingCert?.original_cycle_start_date
+      ? new Date(existingCert.original_cycle_start_date).toISOString().split('T')[0]
+      : (existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : resolvedIssueDate);
+
+    const resolvedCertStart = existingCert?.certification_start_date
+      ? new Date(existingCert.certification_start_date).toISOString().split('T')[0]
+      : (existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : resolvedIssueDate);
+
     const companyName = loadedApp.establishment_name || loadedApp.client_id?.company_name || loadedApp.profiles?.company_name || loadedApp.client_id?.full_name || 'HFA Client';
     
     // Extract products list if available
@@ -112,16 +167,46 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       resolvedCertNo = generateHfaId(companyName, certTypeCode);
     }
 
-    const resolvedCertType = existingCert?.certificate_type || loadedApp.certificate_id?.certificate_type || (isSurv ? 'UAE/GSO Halal Surveillance Letter' : 'GSO MEAT');
-
     setCertificateForm({
       certificate_number: resolvedCertNo,
       certificate_type: resolvedCertType,
-      issue_date: existingCert?.issue_date ? new Date(existingCert.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      expiry_date: existingCert?.expiry_date ? new Date(existingCert.expiry_date).toISOString().split('T')[0] : expiryDate.toISOString().split('T')[0],
+      issue_date: resolvedIssueDate,
+      expiry_date: resolvedExpiryDate,
+      current_cycle_start_date: resolvedCurrentCycle,
+      original_cycle_start_date: resolvedOrigCycle,
+      certification_start_date: resolvedCertStart,
       products_covered: existingCert?.products_covered ? (Array.isArray(existingCert.products_covered) ? existingCert.products_covered.join(', ') : existingCert.products_covered) : prods,
       file: null
     });
+  };
+
+  const handleSetYears = (years) => {
+    const baseDate = certificateForm.issue_date ? new Date(certificateForm.issue_date) : new Date();
+    if (isNaN(baseDate.getTime())) return;
+    const d = new Date(baseDate);
+    d.setFullYear(d.getFullYear() + years);
+    setCertificateForm(f => ({ ...f, expiry_date: d.toISOString().split('T')[0] }));
+  };
+
+  const handleTypeChange = (newType) => {
+    const isFour = isFourDateType(newType);
+    const years = isFour ? 3 : 1;
+    const baseDate = certificateForm.issue_date ? new Date(certificateForm.issue_date) : new Date();
+    let newExpiry = certificateForm.expiry_date;
+    if (!isNaN(baseDate.getTime())) {
+      const d = new Date(baseDate);
+      d.setFullYear(d.getFullYear() + years);
+      newExpiry = d.toISOString().split('T')[0];
+    }
+
+    setCertificateForm(f => ({
+      ...f,
+      certificate_type: newType,
+      expiry_date: newExpiry,
+      current_cycle_start_date: f.current_cycle_start_date || f.issue_date,
+      original_cycle_start_date: f.original_cycle_start_date || f.issue_date,
+      certification_start_date: f.certification_start_date || f.issue_date
+    }));
   };
 
   useEffect(() => {
@@ -178,6 +263,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       toast.error('Certificate issuance unlocks once initial processing, evaluations, and approvals are complete.');
       return;
     }
+    const isFour = isFourDateType(certificateForm.certificate_type);
     if (!certificateForm.certificate_number.trim()) {
       toast.error(isSurveillance ? 'Please enter a Surveillance Letter reference number.' : 'Please enter a certificate number.');
       return;
@@ -190,6 +276,25 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       toast.error(isSurveillance ? 'Please enter the next audit / milestone date.' : 'Please enter the expiry date.');
       return;
     }
+
+    if (!isSurveillance) {
+      if (isFour) {
+        if (!certificateForm.current_cycle_start_date) {
+          toast.error('Please enter the current cycle start date for GSO/SMIIC scheme.');
+          return;
+        }
+        if (!certificateForm.original_cycle_start_date) {
+          toast.error('Please enter the original cycle start date for GSO/SMIIC scheme.');
+          return;
+        }
+      } else {
+        if (!certificateForm.certification_start_date) {
+          toast.error('Please enter the certification start date.');
+          return;
+        }
+      }
+    }
+
     if (isSurveillance && !certificateForm.file) {
       toast.error('Please upload the official Surveillance Letter PDF document.');
       return;
@@ -211,7 +316,6 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
           await api.post(`/api/applications/${appId}/issue-surveillance-letter`, formData, true);
         } catch (postErr) {
-          // If remote server has not yet restarted (404), fall back to direct file upload + status update
           console.warn('POST /issue-surveillance-letter error, attempting resilient status update fallback:', postErr);
           
           if (certificateForm.file) {
@@ -240,6 +344,17 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       formData.append('certificate_type', certificateForm.certificate_type);
       formData.append('issue_date', certificateForm.issue_date);
       formData.append('expiry_date', certificateForm.expiry_date);
+
+      if (isFour) {
+        formData.append('current_cycle_start_date', certificateForm.current_cycle_start_date || certificateForm.issue_date);
+        formData.append('original_cycle_start_date', certificateForm.original_cycle_start_date || certificateForm.issue_date);
+        formData.append('certification_start_date', certificateForm.current_cycle_start_date || certificateForm.issue_date);
+      } else {
+        formData.append('certification_start_date', certificateForm.certification_start_date || certificateForm.issue_date);
+        formData.append('current_cycle_start_date', certificateForm.certification_start_date || certificateForm.issue_date);
+        formData.append('original_cycle_start_date', certificateForm.certification_start_date || certificateForm.issue_date);
+      }
+
       if (certificateForm.products_covered) {
         formData.append('products_covered', certificateForm.products_covered);
       }
@@ -286,9 +401,19 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     ? 'UAE/GSO 3-Year Halal Scheme'
     : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
 
+  const isCurrentFourDate = isFourDateType(certificateForm.certificate_type);
+
+  const isSubmitDisabled = submitting ||
+    !certificateForm.certificate_number ||
+    !certificateForm.issue_date ||
+    !certificateForm.expiry_date ||
+    (isSurveillance && !certificateForm.file) ||
+    (!isSurveillance && isCurrentFourDate && (!certificateForm.current_cycle_start_date || !certificateForm.original_cycle_start_date)) ||
+    (!isSurveillance && !isCurrentFourDate && !certificateForm.certification_start_date);
+
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 540, borderRadius: 14 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 580, borderRadius: 14 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ padding: '18px 24px', background: isSurveillance ? '#f0f9ff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {isSurveillance ? (
@@ -360,42 +485,236 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
               <select
                 className="form-control"
                 value={certificateForm.certificate_type}
-                onChange={e => setCertificateForm(f => ({ ...f, certificate_type: e.target.value }))}
+                onChange={e => handleTypeChange(e.target.value)}
               >
                 <option value="GSO MEAT">GSO MEAT</option>
                 <option value="GSO NON MEAT">GSO NON MEAT</option>
+                <option value="SMIIC">SMIIC</option>
                 <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
                 <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
                 <option value="COSMETICS">COSMETICS</option>
-                <option value="SMIIC">SMIIC</option>
               </select>
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                {isSurveillance ? 'Letter Date' : 'Issue Date'} <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input
-                type="date"
-                className="form-control"
-                value={certificateForm.issue_date}
-                onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))}
-              />
+          {/* Dates Section */}
+          {isSurveillance ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Letter Date <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={certificateForm.issue_date}
+                  onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Next Audit / Milestone Date <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={certificateForm.expiry_date}
+                  onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))}
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                {isSurveillance ? 'Next Audit / Renewal Date' : 'Expiry Date'} <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input
-                type="date"
-                className="form-control"
-                value={certificateForm.expiry_date}
-                onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))}
-              />
+          ) : isCurrentFourDate ? (
+            <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 6 }}>
+                  4 Dates Required &bull; {certificateForm.certificate_type.includes('SMIIC') ? 'SMIIC' : 'GSO'} Scheme
+                </span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>Cycle validity: 3 Years</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {/* 1. Issue Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12 }}>
+                    Issue Date <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.issue_date}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setCertificateForm(f => ({
+                        ...f,
+                        issue_date: val,
+                        current_cycle_start_date: f.current_cycle_start_date || val,
+                        original_cycle_start_date: f.original_cycle_start_date || val
+                      }));
+                    }}
+                  />
+                </div>
+
+                {/* 2. Current Cycle Start Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                      Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCertificateForm(f => ({ ...f, current_cycle_start_date: f.issue_date }))}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Match Issue
+                    </button>
+                  </div>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.current_cycle_start_date || certificateForm.issue_date}
+                    onChange={e => setCertificateForm(f => ({ ...f, current_cycle_start_date: e.target.value }))}
+                  />
+                </div>
+
+                {/* 3. Expiry Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                      Expiry Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(3)}
+                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +3 Yrs
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(1)}
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +1 Yr
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.expiry_date}
+                    onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))}
+                    style={{ fontWeight: 700, color: '#dc2626' }}
+                  />
+                </div>
+
+                {/* 4. Original Cycle Start Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                      Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCertificateForm(f => ({ ...f, original_cycle_start_date: f.issue_date }))}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Match Issue
+                    </button>
+                  </div>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.original_cycle_start_date || certificateForm.issue_date}
+                    onChange={e => setCertificateForm(f => ({ ...f, original_cycle_start_date: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: 6 }}>
+                  3 Dates Required &bull; {certificateForm.certificate_type.includes('COSMETICS') ? 'Cosmetics' : 'HFA'} Scheme
+                </span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>Cycle validity: 1 Year</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {/* 1. Issue Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12 }}>
+                    Issue Date <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.issue_date}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setCertificateForm(f => ({
+                        ...f,
+                        issue_date: val,
+                        certification_start_date: f.certification_start_date || val
+                      }));
+                    }}
+                  />
+                </div>
+
+                {/* 2. Certification Start Date */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                      Certification Start Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCertificateForm(f => ({ ...f, certification_start_date: f.issue_date }))}
+                      style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Match Issue
+                    </button>
+                  </div>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.certification_start_date || certificateForm.issue_date}
+                    onChange={e => setCertificateForm(f => ({ ...f, certification_start_date: e.target.value }))}
+                  />
+                </div>
+
+                {/* 3. Expiry Date */}
+                <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                      Expiry Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(1)}
+                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +1 Yr (Standard)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetYears(3)}
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        +3 Yrs
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={certificateForm.expiry_date}
+                    onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))}
+                    style={{ fontWeight: 700, color: '#dc2626' }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {!isSurveillance && (
             <div className="form-group">
@@ -449,7 +768,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !certificateForm.certificate_number || !certificateForm.issue_date || !certificateForm.expiry_date || (isSurveillance && !certificateForm.file)}
+            disabled={isSubmitDisabled}
             style={{
               display: 'flex',
               alignItems: 'center',

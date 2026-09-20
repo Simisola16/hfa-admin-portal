@@ -14,7 +14,7 @@ import AuditManageModal from '../components/AuditManageModal';
 const getPdfUrl = (url) => {
   if (!url) return '#';
   if (url.startsWith('/api/files/') || url.startsWith('/uploads/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
     return `${API_URL}${url}`;
   }
   return url;

@@ -584,8 +584,10 @@ export default function AdminReviewCertificate() {
   // Set date helpers
   const handleSetYears = (years) => {
     if (!form.issue_date) return;
+    const isFour = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || form.certificate_type === 'SMIIC' || (form.certificate_type && (form.certificate_type.includes('GSO') || form.certificate_type.includes('SMIIC')));
+    const enforcedYears = isFour ? 3 : 1;
     const d = new Date(form.issue_date);
-    d.setFullYear(d.getFullYear() + years);
+    d.setFullYear(d.getFullYear() + enforcedYears);
     setForm(f => ({ ...f, expiry_date: d.toISOString().split('T')[0] }));
   };
 
@@ -1295,16 +1297,9 @@ export default function AdminReviewCertificate() {
                         <button
                           type="button"
                           onClick={() => handleSetYears(3)}
-                          style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
                         >
-                          +3 Yrs (GSO)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSetYears(1)}
-                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          +1 Yr
+                          +3 Yrs (Standard)
                         </button>
                       </div>
                     </div>
@@ -1359,16 +1354,9 @@ export default function AdminReviewCertificate() {
                         <button
                           type="button"
                           onClick={() => handleSetYears(1)}
-                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
                         >
-                          +1 Yr
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSetYears(3)}
-                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          +3 Yrs
+                          +1 Yr (Standard)
                         </button>
                       </div>
                     </div>

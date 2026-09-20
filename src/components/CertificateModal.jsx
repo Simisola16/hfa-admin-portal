@@ -147,7 +147,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   if (!app) return null;
 
   const normAppStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
-  const isAppReadyForCert = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normAppStatus);
+  const isFinalFeePaid = normAppStatus === 'final_invoice_paid' || Boolean(app?.final_payment_confirmed || app?.final_invoice_paid);
+  const isAppReadyForCert = isFinalFeePaid || ['final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normAppStatus);
 
   const handleSubmit = async () => {
     if (!isSurveillance && !isAppReadyForCert) {

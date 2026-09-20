@@ -125,7 +125,8 @@ export default function ApplicationProcessing() {
       const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
 
       // Sanitize status ONLY if application was falsely jumped to application_successful or ready_for_certificate without a main logsheet
-      if (fetchedApp && !fetchedLogsheet && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
+      const hasPostLogsheetHistory = Array.isArray(fetchedApp?.statusHistory) && fetchedApp.statusHistory.some(h => ['agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'certificate_issued'].includes(h.status));
+      if (fetchedApp && !fetchedLogsheet && !hasPostLogsheetHistory && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
         if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
           const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
           fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
@@ -1087,17 +1088,26 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // 10. Mark Ready for Certificate Stage
+    // 10. Mark Ready for Certificate Stage & Issue Certificate
     if (status === 'final_invoice_paid' || status === 'agreement_finalised') {
       return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
-          onClick={handleMarkReadyForCertificate}
-          disabled={actionSubmitting}
-        >
-          <Award size={16} /> Mark Ready for Certificate
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
+            onClick={() => setShowCertificateModal(true)}
+          >
+            <Award size={16} /> Issue Certificate
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+            onClick={handleMarkReadyForCertificate}
+            disabled={actionSubmitting}
+          >
+            <Award size={16} /> Mark Ready for Certificate
+          </button>
+        </div>
       );
     }
 
@@ -1191,6 +1201,7 @@ export default function ApplicationProcessing() {
             </button>
           </div>
         )}
+        {renderPrimaryAction()}
         <button
           className="btn btn-ghost btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e2e8f0', background: 'white', fontWeight: 700, color: 'var(--text-primary)' }}

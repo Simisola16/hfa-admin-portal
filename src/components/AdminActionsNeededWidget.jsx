@@ -86,7 +86,14 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
         const appId = app._id || app.id;
         const appNum = app.application_number || 'N/A';
         const estName = app.establishment_name || app.profiles?.company_name || 'Client Facility';
-        const isRenewal = app.application_type === 'renewal';
+        const isRenewal = (
+          String(app.application_type || '').toLowerCase().includes('renewal') ||
+          String(app.type || '').toLowerCase().includes('renewal') ||
+          Boolean(app.is_renewal) ||
+          Boolean(app.renewed_certificate_id) ||
+          String(app.application_number || '').includes('-RE-') ||
+          String(app.category || '').toLowerCase().includes('renewal')
+        );
 
         // Find linked audits for this application
         const linkedAudits = allAudits.filter(a => {

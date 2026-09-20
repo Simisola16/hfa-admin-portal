@@ -1088,26 +1088,17 @@ export default function ApplicationProcessing() {
       );
     }
 
-    // 10. Mark Ready for Certificate Stage & Issue Certificate
+    // 10. Mark Ready for Certificate Stage
     if (status === 'final_invoice_paid' || status === 'agreement_finalised') {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
-            onClick={() => setShowCertificateModal(true)}
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
-            onClick={handleMarkReadyForCertificate}
-            disabled={actionSubmitting}
-          >
-            <Award size={16} /> Mark Ready for Certificate
-          </button>
-        </div>
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+          onClick={handleMarkReadyForCertificate}
+          disabled={actionSubmitting}
+        >
+          <Award size={16} /> Mark Ready for Certificate
+        </button>
       );
     }
 

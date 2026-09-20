@@ -13,33 +13,61 @@ const getPdfUrl = (url) => {
 export default function NcCard({ app, audits = [], status = '', onFlagNc, onCloseNc, actionSubmitting = false }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
 
-  // Collect all NC reports across app and audit objects
+  // Detect GSO / UAE schemes (Dual Stage schemes)
+  const catLower = String(app?.category || '').toLowerCase();
+  const typeLower = String(app?.application_type || '').toLowerCase();
+  const schemeLower = String(app?.scheme || '').toLowerCase();
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso');
+
+  const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
+  const stage1 = auditsArr.find(a => (a.stage || 1) === 1) || auditsArr[0];
+  const stage2 = auditsArr.find(a => a.stage === 2);
+  const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+  const isStage2Conducted = stage2 && ['audit_completed', 'audit_successful', 'completed'].includes(stage2.status);
+  const hasStage2Nc = Boolean(
+    (stage2?.nc_reports && stage2.nc_reports.length > 0) ||
+    (normStatus === 'nc_flagged' && isStage1Complete)
+  );
+
+  // For GSO applications: Stage 1 is an initial assessment where NC findings should not be raised.
+  // Hide the Non-Conformity (NC) & Findings section during Stage 1 and until Stage 2 audit session is conducted.
+  if (isGSO && !isStage2Conducted && !hasStage2Nc) {
+    return null;
+  }
+
+  // Collect NC reports: For GSO, strictly scope to Stage 2
   const appNcReports = app?.nc_reports || [];
-  const auditNcReports = (Array.isArray(audits) ? audits : []).flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
-  const allNcReports = appNcReports.length > 0 ? appNcReports : auditNcReports;
+  const auditNcReports = auditsArr.flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
+  const relevantNcReports = isGSO
+    ? (stage2?.nc_reports || []).map(r => ({ ...r, auditStage: 2 }))
+    : (appNcReports.length > 0 ? appNcReports : auditNcReports);
+  const allNcReports = relevantNcReports;
   const hasNc = allNcReports.length > 0;
   const isNcFlagged = normStatus === 'nc_flagged';
   const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
 
   const isFastTrack = app?.application_type === 'renewal' || app?.application_type === 'surveillance';
-  const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
-  const hasCompletedAudit = auditsArr.some(a => ['audit_completed', 'completed', 'audit_successful'].includes(a.status));
+  const hasCompletedAudit = isGSO
+    ? isStage2Conducted
+    : auditsArr.some(a => ['audit_completed', 'completed', 'audit_successful'].includes(a.status));
   const isAuditCompletedStatus = ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted'].includes(normStatus);
 
-  const isPostAuditStage = isFastTrack
-    ? ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
-    : (isAuditCompletedStatus || hasCompletedAudit || [
-        'logsheet_created',
-        'logsheet_signed',
-        'application_successful',
-        'agreement_sent',
-        'agreement_signed',
-        'agreement_finalised',
-        'final_invoice_sent',
-        'final_invoice_paid',
-        'ready_for_certificate',
-        'certificate_issued'
-      ].includes(normStatus));
+  const isPostAuditStage = isGSO
+    ? (isStage2Conducted || hasStage2Nc || ['nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+    : (isFastTrack
+        ? ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
+        : (isAuditCompletedStatus || hasCompletedAudit || [
+            'logsheet_created',
+            'logsheet_signed',
+            'application_successful',
+            'agreement_sent',
+            'agreement_signed',
+            'agreement_finalised',
+            'final_invoice_sent',
+            'final_invoice_paid',
+            'ready_for_certificate',
+            'certificate_issued'
+          ].includes(normStatus)));
 
   const isNcClosed = isPostAuditStage && !hasActiveNc && (
     normStatus === 'nc_closed' ||
@@ -52,7 +80,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
 
   const hasClientCorrection = allNcReports.some(r => r.status === 'corrected' || r.client_response || r.correction_document_url || r.client_response_url);
 
-  // If before audit and no NC exists
+  // If before audit and no NC exists (Non-GSO flow)
   if (!isPostAuditStage && !hasNc) {
     return (
       <div style={{ background: '#f8fafc', opacity: 0.7, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>

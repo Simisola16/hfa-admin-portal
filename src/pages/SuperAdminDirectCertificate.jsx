@@ -1519,14 +1519,13 @@ export default function SuperAdminDirectCertificate() {
                           </th>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
                           <th style={{ padding: '8px 6px' }}>Product Name</th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
-                          <th style={{ width: 90, padding: '8px 10px', textAlign: 'center' }}>Status</th>
+                          <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCatalog.length === 0 ? (
                           <tr>
-                            <td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                            <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
                               No products found matching "{catalogSearchQuery}".
                             </td>
                           </tr>
@@ -1559,17 +1558,7 @@ export default function SuperAdminDirectCertificate() {
                                 <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
                                   {prod.code || prod.barcode || '—'}
                                 </td>
-                                <td style={{ textAlign: 'center', padding: '6px 8px' }}>
-                                  {selected ? (
-                                    <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
-                                      Included
-                                    </span>
-                                  ) : (
-                                    <span style={{ background: '#f1f5f9', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
-                                      Excluded
-                                    </span>
-                                  )}
-                                </td>
+
                               </tr>
                             );
                           })

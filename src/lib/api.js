@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://hfa-portal-backend.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
 
 function getToken() {
   return localStorage.getItem('hfa_token');

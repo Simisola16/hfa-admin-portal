@@ -25,6 +25,8 @@ export default function AdminCreateLogsheet() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
+  const [hasOpenNc, setHasOpenNc] = useState(false);
+  const [openNcCount, setOpenNcCount] = useState(0);
   const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
 
   const [signatures, setSignatures] = useState([]);
@@ -582,9 +584,31 @@ export default function AdminCreateLogsheet() {
           const auditsArr = Array.isArray(auditData) ? auditData : (auditData ? [auditData] : []);
           const primaryAudit = auditsArr[0] || null;
 
+          // Gather all NC reports from application and audits
+          const appNcReports = Array.isArray(appData?.nc_reports) ? appData.nc_reports : [];
+          const auditNcReports = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
+          const allNcs = [...appNcReports];
+          auditNcReports.forEach(aNc => {
+            const exists = allNcs.some(c =>
+              (c._id && aNc._id && String(c._id) === String(aNc._id)) ||
+              (c.text && aNc.text && c.text.trim().toLowerCase() === aNc.text.trim().toLowerCase())
+            );
+            if (!exists) allNcs.push(aNc);
+          });
+
+          const unclosedNcs = allNcs.filter(nc => nc.status && nc.status !== 'closed');
+          const isNcBlocked = appData?.status === 'nc_flagged' ||
+            unclosedNcs.length > 0 ||
+            auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed) || a.status === 'nc_flagged');
+
+          setHasOpenNc(isNcBlocked);
+          setOpenNcCount(unclosedNcs.length || (appData?.status === 'nc_flagged' ? 1 : 0));
+
           let autoAuditDate = '';
           let autoAuditors = '';
-          let autoNcsClose = 'No NCs flagged';
+          let autoNcsClose = isNcBlocked
+            ? `${unclosedNcs.length || 1} NC(s) outstanding - Must resolve before LogSheet`
+            : (allNcs.length > 0 ? 'All NCs closed and verified' : 'No NCs flagged');
 
           if (primaryAudit) {
             if (primaryAudit.finalized_date) {
@@ -597,17 +621,6 @@ export default function AdminCreateLogsheet() {
 
             if (primaryAudit.auditors && primaryAudit.auditors.length > 0) {
               autoAuditors = primaryAudit.auditors.map(a => a.name || a.full_name).filter(Boolean).join(', ');
-            }
-
-            if (primaryAudit.nc_reports) {
-              const outstanding = primaryAudit.nc_reports.filter(nc => nc.status !== 'corrected' && nc.status !== 'closed');
-              if (primaryAudit.nc_reports.length === 0) {
-                autoNcsClose = 'No NCs flagged';
-              } else if (outstanding.length === 0) {
-                autoNcsClose = 'All NCs closed and verified';
-              } else {
-                autoNcsClose = `${outstanding.length} NC(s) outstanding`;
-              }
             }
           } else if (appData?.audit_date) {
             autoAuditDate = new Date(appData.audit_date).toISOString().split('T')[0];
@@ -994,6 +1007,12 @@ export default function AdminCreateLogsheet() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // CRITICAL: NC must be done before LogSheet
+    if (!isProductLogsheet && hasOpenNc && !currentLogsheet?._id) {
+      toast.error('All Non-Conformances (NC) must be completed and closed before creating a LogSheet.');
+      return;
+    }
 
     // 1. Validate Tab 1: Company & Site Details
     if (!form.company_name?.trim()) {
@@ -2003,6 +2022,60 @@ export default function AdminCreateLogsheet() {
         ) : (
           /* FORM VIEW FOR CREATING NEW LOGSHEET */
           <form onSubmit={handleSubmit} noValidate style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* NC Blocking Warning Banner */}
+            {hasOpenNc && !currentLogsheet?._id && !isProductLogsheet && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1.5px solid #f87171',
+                borderRadius: 12,
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+                boxShadow: '0 2px 8px rgba(220,38,38,0.08)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: 10,
+                    background: '#dc2626', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <AlertTriangle size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14.5, fontWeight: 800, color: '#991b1b' }}>
+                      Non-Conformance (NC) Resolution Required Before LogSheet
+                    </div>
+                    <div style={{ fontSize: 13, color: '#b91c1c', marginTop: 2, lineHeight: 1.4 }}>
+                      This facility has {openNcCount > 0 ? `${openNcCount} active Non-Conformance(s)` : 'active Non-Conformances'} that must be completed and closed before an official LogSheet can be generated.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/applications/${appId}/processing`)}
+                  style={{
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '9px 18px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Review &amp; Close NCs <ArrowRight size={14} />
+                </button>
+              </div>
+            )}
+
             {activeTab === 1 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Auto-populated Indicator Banner */}
@@ -2584,12 +2657,23 @@ export default function AdminCreateLogsheet() {
                 </span>
               </label>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
+                {hasOpenNc && !currentLogsheet?._id && !isProductLogsheet && (
+                  <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={15} /> All NCs must be resolved and closed before creating LogSheet
+                  </span>
+                )}
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={submitting || !form.confirmed}
-                  style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700 }}
+                  disabled={submitting || !form.confirmed || (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet)}
+                  style={{
+                    padding: '10px 24px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    opacity: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 0.6 : 1,
+                    cursor: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
                 </button>

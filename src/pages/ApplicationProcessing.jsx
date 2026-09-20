@@ -670,7 +670,7 @@ export default function ApplicationProcessing() {
       }
 
       // Post-Audit Decision (Flag NC / Close NC)
-      if (status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0)) {
+      if (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0)) {
         return (
           <>
             <button
@@ -696,7 +696,7 @@ export default function ApplicationProcessing() {
       // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
       const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-      if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status))) {
+      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
         if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
           const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
           return (
@@ -964,7 +964,7 @@ export default function ApplicationProcessing() {
       );
     }
 
-    if (status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold') {
+    if (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold') {
       return (
         <>
           <button
@@ -990,7 +990,7 @@ export default function ApplicationProcessing() {
     // 6. LogSheet Stage (Create / Sign LogSheet) - After All Audit Stages are Complete & NC Closed
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned)) {
+    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (status === 'application_successful' && !isLogsheetSigned))) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -1271,6 +1271,7 @@ export default function ApplicationProcessing() {
             appId={appId} 
             isRenewal={isRenewal}
             isSurveillance={isSurveillance}
+            hasActiveNc={hasActiveNc}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

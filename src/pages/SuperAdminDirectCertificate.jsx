@@ -256,9 +256,11 @@ export default function SuperAdminDirectCertificate() {
 
   // Validity Preset Helper
   const applyValidityPreset = (years, months = 0) => {
+    const isFour = certType.includes('GSO') || certType.includes('SMIIC');
+    const enforcedYears = isFour ? 3 : 1;
     const start = issueDate ? new Date(issueDate) : new Date();
     const end = new Date(start);
-    if (years) end.setFullYear(end.getFullYear() + years);
+    if (years !== undefined) end.setFullYear(end.getFullYear() + enforcedYears);
     if (months) end.setMonth(end.getMonth() + months);
     setExpiryDate(end.toISOString().split('T')[0]);
   };
@@ -1269,18 +1271,10 @@ export default function SuperAdminDirectCertificate() {
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
-                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              style={{ padding: '0 6px', fontSize: 10.5, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', fontWeight: 700 }}
                               onClick={() => applyValidityPreset(3)}
                             >
-                              +3 Years (GSO / SMIIC)
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
-                              onClick={() => applyValidityPreset(1)}
-                            >
-                              +1 Year
+                              +3 Years (Standard)
                             </button>
                           </div>
                         </div>
@@ -1337,18 +1331,10 @@ export default function SuperAdminDirectCertificate() {
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
-                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
+                              style={{ padding: '0 6px', fontSize: 10.5, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', fontWeight: 700 }}
                               onClick={() => applyValidityPreset(1)}
                             >
-                              +1 Year
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: '0 4px', fontSize: 10.5, color: '#2563eb' }}
-                              onClick={() => applyValidityPreset(3)}
-                            >
-                              +3 Years
+                              +1 Year (Standard)
                             </button>
                           </div>
                         </div>

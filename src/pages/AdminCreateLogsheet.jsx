@@ -2653,7 +2653,7 @@ export default function AdminCreateLogsheet() {
                   style={{ width: 18, height: 18, cursor: 'pointer' }}
                 />
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                  I confirm that all product matrix and audit compliance details above have been verified. <span style={{ color: '#dc2626' }}>*</span>
+                  I confirm that all product and audit compliance details above have been verified. <span style={{ color: '#dc2626' }}>*</span>
                 </span>
               </label>
 

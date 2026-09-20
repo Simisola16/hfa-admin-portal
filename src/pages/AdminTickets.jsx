@@ -57,6 +57,24 @@ export default function AdminTickets() {
     }
   };
 
+  const handleOpenTicket = async (tkt) => {
+    if (!tkt) return;
+    setSelectedTicket(tkt);
+    const tktId = (tkt._id || tkt.id)?.toString();
+    if (!tktId) return;
+
+    try {
+      const res = await api.post(`/api/tickets/${tktId}/view`);
+      if (res.data?.data) {
+        const updated = res.data.data;
+        setSelectedTicket(updated);
+        setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === tktId ? updated : t));
+      }
+    } catch (err) {
+      console.error('Error recording ticket view:', err);
+    }
+  };
+
   useEffect(() => {
     fetchTickets();
 
@@ -120,7 +138,7 @@ export default function AdminTickets() {
       if (isSupportManager) {
         toast((t) => (
           <div 
-            onClick={() => { setSelectedTicket(ticket); toast.dismiss(t.id); }} 
+            onClick={() => { handleOpenTicket(ticket); toast.dismiss(t.id); }} 
             style={{ cursor: 'pointer' }}
           >
             <div style={{ fontWeight: 800, color: '#b45309', fontSize: 13 }}>🚨 Human Support Requested!</div>
@@ -132,7 +150,20 @@ export default function AdminTickets() {
     };
 
     const handleTicketAssigned = ({ ticketId, ticket, ticketNumber }) => {
-      toast.success(`You were assigned to Ticket ${ticketNumber}!`, { icon: '📋' });
+      toast((t) => (
+        <div 
+          onClick={() => { 
+            if (ticket) handleOpenTicket(ticket); 
+            toast.dismiss(t.id); 
+          }} 
+          style={{ cursor: 'pointer' }}
+        >
+          <div style={{ fontWeight: 800, color: '#047857', fontSize: 13 }}>📋 Ticket Assigned to You!</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>Ticket {ticketNumber}</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Click to view and connect with client</div>
+        </div>
+      ), { duration: 9000, icon: '🎫' });
+
       if (ticket) {
         setTickets(prev => prev.map(t => (t._id || t.id)?.toString() === ticketId?.toString() ? ticket : t));
       }
@@ -518,9 +549,21 @@ export default function AdminTickets() {
                     </td>
                     <td>
                       {t.assigned_staff ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#047857' }}>
-                          <UserCheck size={14} />
-                          <span>{t.assigned_staff.full_name || t.assigned_staff.email}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#047857' }}>
+                            <UserCheck size={14} />
+                            <span>{t.assigned_staff.full_name || t.assigned_staff.email}</span>
+                          </div>
+                          {t.agent_connected ? (
+                            <span style={{ fontSize: 10, color: '#15803d', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+                              Connected (Live)
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, color: '#94a3b8' }}>
+                              Awaiting view
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span style={{
@@ -561,7 +604,7 @@ export default function AdminTickets() {
                     <td style={{ textAlign: 'right' }}>
                       <button 
                         className="btn btn-primary btn-sm" 
-                        onClick={() => setSelectedTicket(t)}
+                        onClick={() => handleOpenTicket(t)}
                         style={{ borderRadius: 8, fontWeight: 700 }}
                       >
                         Manage
@@ -689,6 +732,12 @@ export default function AdminTickets() {
                       <span style={{ color: selectedTicket.assigned_staff ? '#047857' : '#d97706', fontWeight: 800 }}>
                         {selectedTicket.assigned_staff ? (selectedTicket.assigned_staff.full_name || selectedTicket.assigned_staff.email) : '⚠️ Unassigned'}
                       </span>
+                      {selectedTicket.agent_connected && (
+                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '1px 8px', borderRadius: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+                          Connected to Client
+                        </span>
+                      )}
                       {selectedTicket.source === 'chat_widget' && (
                         <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 8px', borderRadius: 10, fontWeight: 700 }}>
                           💬 Client Chatbox Request

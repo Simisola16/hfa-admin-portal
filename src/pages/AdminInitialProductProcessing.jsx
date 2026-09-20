@@ -121,23 +121,21 @@ export default function AdminInitialProductProcessing() {
     }
   };
 
-  // Handler: Enable Form
+  // Handler: Enable Form (Direct 1-click activation, bypassing modal)
   const handleEnableForm = async () => {
     if (!hasFtAssigned) {
       toast.error('A Food Technologist (FT) must be assigned before enabling the Product Approval Form.');
-      setShowEnableFormModal(false);
       setShowFtModal(true);
       return;
     }
     setSavingEnableForm(true);
     try {
       const fd = new FormData();
-      fd.append('form_text', formText);
-      if (formFile) fd.append('form_file', formFile);
+      fd.append('form_text', '');
+      fd.append('is_draft', false);
 
       await api.put(`/api/initial-products/${id}/enable-form`, fd, true);
-      toast.success('Product Approval Form enabled for client!');
-      setShowEnableFormModal(false);
+      toast.success('Product approval form enabled for client.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to enable form');
@@ -575,10 +573,28 @@ export default function AdminInitialProductProcessing() {
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
-                      onClick={() => setShowEnableFormModal(true)}
-                      style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      disabled={savingEnableForm}
+                      onClick={handleEnableForm}
+                      style={{
+                        background: '#7c3aed',
+                        borderColor: '#7c3aed',
+                        fontWeight: 800,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: savingEnableForm ? 'not-allowed' : 'pointer',
+                        opacity: savingEnableForm ? 0.75 : 1
+                      }}
                     >
-                      <Send size={14} /> Enable Form for Client
+                      {savingEnableForm ? (
+                        <>
+                          <span className="spinner-white" style={{ width: 14, height: 14 }} /> Enabling...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={14} /> Enable Form for Client
+                        </>
+                      )}
                     </button>
                   ) : (
                     <button
@@ -609,17 +625,6 @@ export default function AdminInitialProductProcessing() {
                       <Clock size={12} /> Awaiting Client Response
                     </span>
                   )
-                )}
-
-                {isFormEnabled && (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowEnableFormModal(true)}
-                    style={{ fontSize: 12, fontWeight: 700 }}
-                  >
-                    Edit Form Settings
-                  </button>
                 )}
               </div>
             </div>
@@ -983,41 +988,6 @@ export default function AdminInitialProductProcessing() {
         </div>
       )}
 
-      {/* ─── MODAL: ENABLE FORM ─── */}
-      {showEnableFormModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowEnableFormModal(false)} style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 540, width: '95%', padding: 0, borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', padding: '20px 24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <FileText size={22} />
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#fff' }}>Enable Product Approval Form</h3>
-              </div>
-              <button onClick={() => setShowEnableFormModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ padding: '22px 24px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: 12.5, fontWeight: 800 }}>Instructions / Custom Remarks for Client:</label>
-                <textarea className="form-control" rows={3} placeholder="Provide instructions on required formulation breakdown..." value={formText} onChange={e => setFormText(e.target.value)} />
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: 12.5, fontWeight: 800 }}>Optional Reference Document (PDF):</label>
-                <input type="file" onChange={e => setFormFile(e.target.files[0])} style={{ fontSize: 12.5 }} />
-              </div>
-            </div>
-
-            <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowEnableFormModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" disabled={savingEnableForm} onClick={handleEnableForm} style={{ background: '#7c3aed', borderColor: '#7c3aed', fontWeight: 800 }}>
-                {savingEnableForm ? <span className="spinner-white" /> : 'Enable & Notify Client'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── MODAL: REQUEST MORE INFO ─── */}
       {showInfoModal && (

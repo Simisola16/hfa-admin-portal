@@ -744,7 +744,7 @@ export default function ApplicationProcessing() {
       }
 
       // 5. Waiting for Letter / Certificate Stage (Post-Invoice Payment)
-      if (status === 'ready_for_certificate' || status === 'payment_received' || status === 'Waiting For Certificate' || (isFastTrackInvoicePaid && status !== 'certificate_issued')) {
+      if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isFastTrackInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate'].includes(status))) {
         if (isSurveillance) {
           return (
             <button

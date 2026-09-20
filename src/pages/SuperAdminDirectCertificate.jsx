@@ -110,6 +110,7 @@ export default function SuperAdminDirectCertificate() {
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
 
   const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT';
+  const [productTableColumns, setProductTableColumns] = useState(2);
 
   // Product Builder State
   const [products, setProducts] = useState([
@@ -191,6 +192,7 @@ export default function SuperAdminDirectCertificate() {
         original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,
         certification_start_date: certificationStartDate || issueDate,
         expiry_date: expiryDate,
+        product_table_columns: productTableColumns,
         products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
       });
 
@@ -705,6 +707,7 @@ export default function SuperAdminDirectCertificate() {
 
       // Products JSON
       formData.append('products', JSON.stringify(validProducts));
+      formData.append('product_table_columns', productTableColumns);
 
       // Options — certificate PDF is always auto-generated
       formData.append('auto_generate_pdf', true);
@@ -1208,8 +1211,10 @@ export default function SuperAdminDirectCertificate() {
                         setCertType(val);
                         if (val.includes('GSO')) {
                           applyValidityPreset(3);
+                          setProductTableColumns(2);
                         } else {
                           applyValidityPreset(1);
+                          setProductTableColumns(1);
                         }
                       }}
                       required
@@ -1459,6 +1464,108 @@ export default function SuperAdminDirectCertificate() {
                   )}
                 </div>
 
+                {/* 1, 2, or 3 COLUMN SELECTOR */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
+                      <Layers size={15} style={{ color: '#2563eb' }} />
+                      <span>Product Schedule Table Layout</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                      Configure printed column layout on official certificate attachment
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {/* Option 1: 1 Value Column (NO. + NAME) */}
+                    <button
+                      type="button"
+                      onClick={() => setProductTableColumns(1)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: productTableColumns === 1 ? 700 : 500,
+                        border: productTableColumns === 1 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: productTableColumns === 1 ? '#eff6ff' : '#ffffff',
+                        color: productTableColumns === 1 ? '#1d4ed8' : '#475569',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>1 Column (Name Only)</span>
+                      {!isGso && (
+                        <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
+                          Recommended
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Option 2: 2 Value Columns (NO. + CODE + DESCRIPTION) */}
+                    <button
+                      type="button"
+                      onClick={() => setProductTableColumns(2)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: productTableColumns === 2 ? 700 : 500,
+                        border: productTableColumns === 2 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: productTableColumns === 2 ? '#eff6ff' : '#ffffff',
+                        color: productTableColumns === 2 ? '#1d4ed8' : '#475569',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>2 Columns (Code + Desc)</span>
+                      {isGso && (
+                        <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
+                          Recommended
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Option 3: 3 Value Columns (NO. + CODE + DESCRIPTION + CATEGORY) */}
+                    <button
+                      type="button"
+                      onClick={() => setProductTableColumns(3)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: productTableColumns === 3 ? 700 : 500,
+                        border: productTableColumns === 3 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: productTableColumns === 3 ? '#eff6ff' : '#ffffff',
+                        color: productTableColumns === 3 ? '#1d4ed8' : '#475569',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>3 Columns (+ Category)</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
                 {clientCatalog.length > 0 && (
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1579,14 +1686,32 @@ export default function SuperAdminDirectCertificate() {
                       <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                         <tr style={{ color: '#475569', textAlign: 'left' }}>
                           <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                          <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
-                          <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
+                          {productTableColumns >= 2 && (
+                            <th style={{ width: productTableColumns === 3 ? '16%' : '20%', padding: '8px 6px' }}>Code</th>
+                          )}
+                          <th style={{ padding: '8px 6px' }}>Product Name / Description <span>*</span></th>
+                          {productTableColumns === 3 && (
+                            <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
+                          )}
+                          <th style={{ width: 50, padding: '8px 6px', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {products.map((prod, index) => (
                           <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9', background: prod._sourceId ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa') }}>
                             <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                            {productTableColumns >= 2 && (
+                              <td style={{ padding: '4px 6px' }}>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                  placeholder="e.g. PRD-001"
+                                  value={prod.code || ''}
+                                  onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
+                                />
+                              </td>
+                            )}
                             <td style={{ padding: '4px 6px' }}>
                               <input
                                 type="text"
@@ -1598,15 +1723,30 @@ export default function SuperAdminDirectCertificate() {
                                 required
                               />
                             </td>
-                            <td style={{ padding: '4px 6px' }}>
-                              <input
-                                type="text"
-                                className="form-control"
-                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                                placeholder="e.g. PRD-001"
-                                value={prod.code}
-                                onChange={e => updateProductRow(prod.id, 'code', e.target.value)}
-                              />
+                            {productTableColumns === 3 && (
+                              <td style={{ padding: '4px 6px' }}>
+                                <select
+                                  className="form-control"
+                                  style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                  value={prod.category || 'Meat & Poultry'}
+                                  onChange={e => updateProductRow(prod.id, 'category', e.target.value)}
+                                >
+                                  {PRODUCT_CATEGORIES.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
+                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ color: '#ef4444', padding: '4px 6px' }}
+                                onClick={() => removeProductRow(prod.id)}
+                                title="Remove row"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             </td>
                           </tr>
                         ))}

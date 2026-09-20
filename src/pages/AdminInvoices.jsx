@@ -26,10 +26,16 @@ export default function AdminInvoices() {
   const fetch = () => {
     setLoading(true);
     Promise.all([api.get('/api/invoices'), api.get('/api/users')])
-      .then(([inv,u])=>{setInvoices(inv.data||[]);setClients((u.data||[]).filter(u=>u.role==='client'));})
-      .catch(()=>toast.error('Failed to load invoices')).finally(()=>setLoading(false));
+      .then(([inv, u]) => {
+        const invList = Array.isArray(inv) ? inv : (Array.isArray(inv?.data) ? inv.data : []);
+        const userList = Array.isArray(u) ? u : (Array.isArray(u?.data) ? u.data : []);
+        setInvoices(invList);
+        setClients(userList.filter(u => u.role === 'client'));
+      })
+      .catch(() => toast.error('Failed to load invoices'))
+      .finally(() => setLoading(false));
   };
-  useEffect(()=>{fetch();},[]);
+  useEffect(() => { fetch(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setSubmitting(true);

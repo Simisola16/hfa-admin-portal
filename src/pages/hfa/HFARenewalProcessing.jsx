@@ -60,7 +60,6 @@ export default function HFARenewalProcessing(props) {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  const [showClientModal, setShowClientModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
 

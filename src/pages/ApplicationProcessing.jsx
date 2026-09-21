@@ -586,7 +586,7 @@ export default function ApplicationProcessing() {
     // 5. Waiting for Certificate / Letter (Issue Certificate / Surveillance Letter)
     // 6. Complete (Certificate / Letter Issued)
     // =========================================================================
-    const isDualStage = isGSO;
+    const isDualStage = isGSO && !isFastTrack;
     const isInitialProductApproved = isFastTrack ? true : Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved);
     const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
     const stage2 = audits?.find(a => a.stage === 2);
@@ -755,7 +755,7 @@ export default function ApplicationProcessing() {
       }
 
       // If Dual-Stage and Stage 1 is complete but Stage 2 is NOT complete, manage Stage 2 audit
-      if (isDualStage && !isStage2Complete) {
+      if (isDualStage && isStage1Complete && !isStage2Complete) {
         if (canCompleteAudit) {
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

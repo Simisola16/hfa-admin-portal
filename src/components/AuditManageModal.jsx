@@ -61,8 +61,8 @@ export default function AuditManageModal({
   const type = String(currentApp?.application_type || '').toLowerCase();
   const scheme = String(currentApp?.scheme || '').toLowerCase();
   const isGso = cat.includes('gso') || cat.includes('uae') || type.includes('gso') || scheme.includes('gso');
-  const isDualStage = isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-  const isRenewalOrSurveillance = type === 'renewal' || type === 'surveillance';
+  const isRenewalOrSurveillance = type === 'renewal' || type === 'surveillance' || Boolean(currentApp?.is_renewal) || Boolean(currentApp?.is_surveillance);
+  const isDualStage = (isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE') && !isRenewalOrSurveillance;
   const isGsoInitial = isGso && !isRenewalOrSurveillance;
 
   const [initialProduct, setInitialProduct] = useState(null);
@@ -216,8 +216,7 @@ export default function AuditManageModal({
   // Setup initial auditors list depending on dual exporter or single
   useEffect(() => {
     if (existingAudit?.status === 'date_finalized' && auditForm.auditors.length === 0) {
-      const isDual = currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-      const numAuditors = isDual ? 2 : 1;
+      const numAuditors = isDualStage ? 2 : 1;
       const initialAuditors = Array(numAuditors).fill(null).map(() => ({
         name: '',
         email: '',

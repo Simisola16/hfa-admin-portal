@@ -11,51 +11,122 @@ const getPdfUrl = (url) => {
 };
 
 export default function NcCard({ app, audits = [], status = '', onFlagNc, onCloseNc, actionSubmitting = false }) {
-  const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
+  const appStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
+  const normStatus = (status || appStatus || '').toLowerCase().replace(/ /g, '_');
 
-  // Detect GSO / UAE schemes (Dual Stage schemes)
+  // Detect GSO / UAE schemes (Dual Stage schemes) vs Fast-Track (Surveillance / Renewal)
   const catLower = String(app?.category || '').toLowerCase();
   const typeLower = String(app?.application_type || '').toLowerCase();
   const schemeLower = String(app?.scheme || '').toLowerCase();
+  const isSurveillance = typeLower.includes('surveillance') || Boolean(app?.is_surveillance) || Boolean(app?.application_number?.includes('-SU-')) || catLower.includes('surveillance');
+  const isRenewal = typeLower.includes('renewal') || Boolean(app?.is_renewal) || Boolean(app?.application_number?.includes('-RE-')) || catLower.includes('renewal');
+  const isFastTrack = isSurveillance || isRenewal;
+
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso');
+  const isDualStage = isGSO && !isFastTrack;
 
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const stage1 = auditsArr.find(a => (a.stage || 1) === 1) || auditsArr[0];
   const stage2 = auditsArr.find(a => a.stage === 2);
+  const singleAudit = auditsArr[0];
+
   const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
   const isStage2Conducted = stage2 && ['audit_completed', 'audit_successful', 'completed'].includes(stage2.status);
+  const isStage2ReadyOrActive = Boolean(
+    isStage1Complete && (
+      isStage2Conducted ||
+      (stage2 && ['date_finalized', 'auditors_assigned', 'audit_assigned', 'scheduled', 'dates_accepted'].includes(stage2.status)) ||
+      Boolean(stage2?.finalized_date) ||
+      Boolean(stage2?.auditors && stage2.auditors.length > 0) ||
+      (normStatus === 'audit_assigned' && isStage1Complete)
+    )
+  );
   const hasStage2Nc = Boolean(
     (stage2?.nc_reports && stage2.nc_reports.length > 0) ||
-    (normStatus === 'nc_flagged' && isStage1Complete)
+    (normStatus === 'nc_flagged' && isStage1Complete) ||
+    ((app?.nc_reports && app.nc_reports.length > 0) && isStage1Complete)
   );
 
-  // For GSO applications: Stage 1 is an initial assessment where NC findings should not be raised.
-  // Hide the Non-Conformity (NC) & Findings section during Stage 1 and until Stage 2 audit session is conducted.
-  if (isGSO && !isStage2Conducted && !hasStage2Nc) {
+  const isSingleAuditScheduledOrActive = Boolean(
+    singleAudit && (
+      ['auditors_assigned', 'audit_assigned', 'audit_completed', 'audit_successful', 'completed'].includes(singleAudit.status) ||
+      Boolean(singleAudit.auditors && singleAudit.auditors.length > 0) ||
+      ['audit_assigned', 'nc_flagged', 'nc_closed', 'audit_completed', 'audit_successful', 'logsheet_created', 'logsheet_signed'].includes(normStatus)
+    )
+  );
+
+  // For GSO Dual-Stage applications: Stage 1 is an initial assessment where NC findings should not be raised.
+  // Unlock the Non-Conformity (NC) & Findings section once Stage 2 is scheduled or underway.
+  if (isDualStage && !isStage2ReadyOrActive && !hasStage2Nc) {
     return null;
   }
 
-  // Collect NC reports: For GSO, strictly scope to Stage 2
+  // Collect NC reports: For Dual-Stage GSO, scope to Stage 2
   const appNcReports = app?.nc_reports || [];
   const auditNcReports = auditsArr.flatMap(a => (a.nc_reports || []).map(r => ({ ...r, auditStage: a.stage })));
-  const relevantNcReports = isGSO
-    ? (stage2?.nc_reports || []).map(r => ({ ...r, auditStage: 2 }))
+  const relevantNcReports = isDualStage
+    ? (stage2?.nc_reports && stage2.nc_reports.length > 0
+        ? stage2.nc_reports.map(r => ({ ...r, auditStage: 2 }))
+        : (appNcReports.length > 0 ? appNcReports : auditNcReports))
     : (appNcReports.length > 0 ? appNcReports : auditNcReports);
   const allNcReports = relevantNcReports;
   const hasNc = allNcReports.length > 0;
   const isNcFlagged = normStatus === 'nc_flagged';
   const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
 
-  const isFastTrack = app?.application_type === 'renewal' || app?.application_type === 'surveillance';
-  const hasCompletedAudit = isGSO
+  const isNcClosed = !hasActiveNc && Boolean(
+    normStatus === 'nc_closed' ||
+    appStatus === 'nc_closed' ||
+    Boolean(app?.nc_closed) ||
+    Boolean(singleAudit?.nc_closed) ||
+    Boolean(stage2?.nc_closed) ||
+    auditsArr.some(a => Boolean(a.nc_closed)) ||
+    (Array.isArray(app?.statusHistory) && app.statusHistory.some(h => h.status === 'nc_closed')) ||
+    (Array.isArray(app?.status_history) && app.status_history.some(h => h.status === 'nc_closed')) ||
+    (allNcReports.length > 0 && allNcReports.every(r => r.status === 'closed')) ||
+    (isFastTrack
+      ? ['audit_completed', 'audit_successful', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
+      : ['audit_completed', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+  );
+
+  const isAuditMarkedCompleted = Boolean(
+    normStatus === 'audit_completed' ||
+    normStatus === 'audit_successful' ||
+    normStatus === 'nc_flagged' ||
+    normStatus === 'nc_closed' ||
+    hasActiveNc ||
+    hasNc ||
+    isNcClosed ||
+    ['logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus) ||
+    (singleAudit && ['audit_completed', 'audit_successful', 'completed'].includes(singleAudit.status)) ||
+    auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))
+  );
+
+  const hasAuditorAssigned = Boolean(
+    normStatus === 'audit_assigned' ||
+    normStatus === 'auditors_assigned' ||
+    isAuditMarkedCompleted ||
+    (singleAudit && (
+      (Array.isArray(singleAudit.auditors) && singleAudit.auditors.length > 0) ||
+      ['auditors_assigned', 'audit_assigned', 'audit_completed', 'audit_successful', 'completed'].includes(singleAudit.status)
+    )) ||
+    auditsArr.some(a => (Array.isArray(a.auditors) && a.auditors.length > 0) || ['auditors_assigned', 'audit_assigned', 'audit_completed', 'audit_successful', 'completed'].includes(a.status))
+  );
+
+  // For Fast-Track (Surveillance & Renewal): Unlock NC card only after the audit has been marked completed or NC is present
+  if (isFastTrack && !isAuditMarkedCompleted && !hasNc && !hasActiveNc && !isNcClosed) {
+    return null;
+  }
+
+  const hasCompletedAudit = isDualStage
     ? isStage2Conducted
     : auditsArr.some(a => ['audit_completed', 'completed', 'audit_successful'].includes(a.status));
   const isAuditCompletedStatus = ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted'].includes(normStatus);
 
-  const isPostAuditStage = isGSO
-    ? (isStage2Conducted || hasStage2Nc || ['nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+  const isPostAuditStage = isDualStage
+    ? (isStage2ReadyOrActive || hasStage2Nc || ['nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
     : (isFastTrack
-        ? ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
+        ? (hasAuditorAssigned || hasNc || ['audit_assigned', 'date_finalized', 'dates_accepted', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus))
         : (isAuditCompletedStatus || hasCompletedAudit || [
             'logsheet_created',
             'logsheet_signed',
@@ -68,15 +139,6 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
             'ready_for_certificate',
             'certificate_issued'
           ].includes(normStatus)));
-
-  const isNcClosed = isPostAuditStage && !hasActiveNc && (
-    normStatus === 'nc_closed' ||
-    normStatus === 'audit_report_submitted' ||
-    (allNcReports.length > 0 && allNcReports.every(r => r.status === 'closed')) ||
-    (isFastTrack
-      ? ['invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
-      : ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
-  );
 
   const hasClientCorrection = allNcReports.some(r => r.status === 'corrected' || r.client_response || r.correction_document_url || r.client_response_url);
 
@@ -238,7 +300,9 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
         ) : (
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px', marginBottom: 18 }}>
             <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
-              No Non-Conformities (NC) currently recorded for this audit. If any non-compliance issues were identified during audit inspection, click <strong>Flag NC</strong> to record findings and notify the client. Otherwise, click <strong>Close NC</strong> to complete and proceed to LogSheet creation.
+              {isNcClosed
+                ? 'All audit observations, findings, and Non-Conformities (NC) have been verified and officially closed.'
+                : 'No Non-Conformities (NC) currently recorded for this audit. If any non-compliance issues were identified during audit inspection, click Flag NC to record findings and notify the client. Otherwise, click Close NC to complete and proceed.'}
             </div>
           </div>
         )}
@@ -251,7 +315,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
               All Non-Conformities (NC) have been closed &amp; verified. Audit stage completed.
             </div>
           </div>
-        ) : (
+        ) : isAuditMarkedCompleted ? (
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
             <button
               type="button"
@@ -273,7 +337,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
               <CheckCircle size={16} /> Close NC
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -132,7 +132,7 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
             <div style={{ fontWeight: 700, fontSize: 14, color: isPaid ? '#14532d' : '#0f172a' }}>{invoice.title}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isPaid ? '#166534' : 'var(--text-muted)', marginBottom: 4 }}>Amount Paid</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isPaid ? '#166534' : 'var(--text-muted)', marginBottom: 4 }}>{isPaid ? 'Amount Paid' : 'Amount Due'}</div>
             <div style={{ fontWeight: 800, fontSize: 16, color: isPaid ? '#15803d' : 'var(--primary)' }}>£{Number(invoice.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</div>
           </div>
         </div>

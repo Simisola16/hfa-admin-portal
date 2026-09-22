@@ -880,9 +880,20 @@ export default function AdminCreateLogsheet() {
         finalizeSignOff: true
       });
 
-      toast.success('🎉 Application marked Successful! Committee Signatures finalized and ready for Certificate.');
+      toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
       fetchData();
-      navigate('/logsheet/waiting-certificate');
+
+      const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
+      if (isAddon) {
+        const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}` : '/addon-applications');
+      } else if (isInitialProduct) {
+        navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else if (targetAppId) {
+        navigate(`/applications/${targetAppId}`);
+      } else {
+        navigate('/applications');
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
     } finally {
@@ -965,8 +976,16 @@ export default function AdminCreateLogsheet() {
       fetchData();
       if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else if (isAddon) {
+        const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}` : '/addon-applications');
       } else {
-        navigate('/logsheet/waiting-certificate');
+        const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
+        if (targetAppId) {
+          navigate(`/applications/${targetAppId}`);
+        } else {
+          navigate('/applications');
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to approve products');

@@ -218,7 +218,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   );
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
-  const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null) => {
+  const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null, clientProducts = []) => {
     if (!loadedApp) return;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
     const isSurv = !isAddOn && (
@@ -228,6 +228,15 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       String(loadedApp.application_number || '').includes('-SU-') ||
       String(loadedApp.category || '').toLowerCase().includes('surveillance')
     );
+    const isRenApp = Boolean(
+      String(loadedApp.application_type || '').toLowerCase().includes('renewal') ||
+      String(loadedApp.type || '').toLowerCase().includes('renewal') ||
+      Boolean(loadedApp.is_renewal) ||
+      Boolean(loadedApp.renewed_certificate_id) ||
+      String(loadedApp.application_number || '').includes('-RE-') ||
+      String(loadedApp.category || '').toLowerCase().includes('renewal')
+    );
+    const isNewApp = !isRenApp && !isAddOn && !isSurv;
 
     // Automatically resolve Certificate Type strictly from application data
     const resolvedCertType = resolveCertificateType(loadedApp, existingCert, procDetails);
@@ -262,114 +271,126 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     const manufacturingAddress = existingCert?.manufacturing_address || loadedApp.manufacturer_address || loadedApp.site_id?.address || loadedApp.establishment_address || companyAddress;
     const scope = existingCert?.scope || loadedApp.scope || loadedApp.category || 'Production & Supply of Halal Certified Products';
 
-    // Resolve certified products strictly from Initial Products, application products, site products, and cert records
+    // Resolve certified products strictly based on application type
     let resolvedProductItems = [];
 
-    // 1. Check Initial Product Application (critical for new applications)
-    const initProd = loadedInitProd || loadedApp?.initial_product || loadedApp?.initialProduct || procDetails?.initialProduct || propApp?.initial_product || propApp?.initialProduct;
-    if (initProd) {
-      if (initProd.product && (initProd.product.name || initProd.product.title)) {
-        resolvedProductItems.push({
-          name: (initProd.product.name || initProd.product.title).trim(),
-          code: initProd.product.code || 'PRD-01',
-          category: initProd.product.category || loadedApp?.category || 'Halal Certified',
-          ingredients: initProd.product.ingredients || '',
-          description: initProd.product.description || ''
-        });
-      }
-      if (Array.isArray(initProd.products) && initProd.products.length > 0) {
-        initProd.products.forEach((p, idx) => {
-          const pName = (p.name || p.title || '').trim();
+    if (isRenApp) {
+      // 1. For Renewal applications: Show ALL products belonging to this client/site
+      const allProductSources = [
+        ...(Array.isArray(clientProducts) ? clientProducts : []),
+        ...(Array.isArray(procDetails?.products) ? procDetails.products : []),
+        ...(Array.isArray(procDetails?.allProducts) ? procDetails.allProducts : []),
+        ...(Array.isArray(loadedApp?.products) ? loadedApp.products : []),
+        ...(Array.isArray(loadedApp?.site?.products) ? loadedApp.site.products : []),
+        ...(Array.isArray(procDetails?.app?.site?.products) ? procDetails.app.site.products : []),
+        ...(Array.isArray(loadedApp?.site_id?.products) ? loadedApp.site_id.products : [])
+      ];
+
+      allProductSources.forEach((p, idx) => {
+        if (!p) return;
+        const pName = (p.name || p.title || p.new_name || '').trim();
+        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+          resolvedProductItems.push({
+            name: pName,
+            code: p.code || p.barcode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+            category: p.category || loadedApp?.category || 'Halal Certified',
+            ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
+            description: p.description || ''
+          });
+        }
+      });
+
+      // Fallback to previous/existing certificate products_covered if no product documents found
+      if (resolvedProductItems.length === 0 && existingCert?.products_covered) {
+        let ep = existingCert.products_covered;
+        let epList = [];
+        if (Array.isArray(ep)) {
+          epList = ep;
+        } else if (typeof ep === 'string' && ep.trim()) {
+          try {
+            const parsed = JSON.parse(ep);
+            epList = Array.isArray(parsed) ? parsed : ep.split(',').map(s => s.trim()).filter(Boolean);
+          } catch (_) {
+            epList = ep.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        }
+        epList.forEach((item, idx) => {
+          const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
           if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
             resolvedProductItems.push({
               name: pName,
-              code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
-              category: p.category || loadedApp?.category || 'Halal Certified',
-              ingredients: p.ingredients || '',
-              description: p.description || ''
+              code: typeof item === 'object' && item.code ? item.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+              category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified')
             });
           }
         });
       }
-    }
+    } else if (isNewApp) {
+      // 2. For New applications: Strictly show Initial Product Schedule
+      const initProd = loadedInitProd || loadedApp?.initial_product || loadedApp?.initialProduct || procDetails?.initialProduct || propApp?.initial_product || propApp?.initialProduct;
+      if (initProd) {
+        if (initProd.product && (initProd.product.name || initProd.product.title)) {
+          resolvedProductItems.push({
+            name: (initProd.product.name || initProd.product.title).trim(),
+            code: initProd.product.code || 'PRD-01',
+            category: initProd.product.category || loadedApp?.category || 'Halal Certified',
+            ingredients: Array.isArray(initProd.product.ingredients) ? initProd.product.ingredients.join(', ') : (initProd.product.ingredients || ''),
+            description: initProd.product.description || ''
+          });
+        }
+        if (Array.isArray(initProd.products) && initProd.products.length > 0) {
+          initProd.products.forEach((p, idx) => {
+            const pName = (p.name || p.title || '').trim();
+            if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+              resolvedProductItems.push({
+                name: pName,
+                code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                category: p.category || loadedApp?.category || 'Halal Certified',
+                ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
+                description: p.description || ''
+              });
+            }
+          });
+        }
+      }
+    } else if (isAddOn) {
+      // 3. For Add-On applications: Show updated product changes
+      if (Array.isArray(loadedApp?.products) && loadedApp.products.length > 0) {
+        for (const p of loadedApp.products) {
+          if (!p) continue;
+          const pType = p.type || 'Add product';
+          const pName = (p.new_name || p.name || p.title || '').trim();
+          const origName = (p.original_name || p.name || '').trim();
 
-    // 2. Check loadedApp.products
-    if (Array.isArray(loadedApp?.products) && loadedApp.products.length > 0) {
-      for (const p of loadedApp.products) {
-        if (!p) continue;
-        const pType = p.type || 'Add product';
-        const pName = (p.new_name || p.name || p.title || '').trim();
-        const origName = (p.original_name || p.name || '').trim();
-
-        if (pType === 'Add product' || !p.type) {
-          if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
-            resolvedProductItems.push({
-              name: pName,
-              code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
-              category: p.category || loadedApp?.category || 'Halal Certified'
-            });
-          }
-        } else if (pType === 'Remove product') {
-          if (origName) {
-            resolvedProductItems = resolvedProductItems.filter(item => item.name.toLowerCase() !== origName.toLowerCase());
-          }
-        } else if (pType === 'Change name/code') {
-          if (origName && pName) {
-            const idx = resolvedProductItems.findIndex(r => r.name.toLowerCase() === origName.toLowerCase());
-            if (idx !== -1) {
-              resolvedProductItems[idx].name = pName;
-              if (p.code) resolvedProductItems[idx].code = p.code;
-            } else if (!resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+          if (pType === 'Add product' || !p.type) {
+            if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
               resolvedProductItems.push({
                 name: pName,
                 code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
                 category: p.category || loadedApp?.category || 'Halal Certified'
               });
             }
+          } else if (pType === 'Remove product') {
+            if (origName) {
+              resolvedProductItems = resolvedProductItems.filter(item => item.name.toLowerCase() !== origName.toLowerCase());
+            }
+          } else if (pType === 'Change name/code') {
+            if (origName && pName) {
+              const idx = resolvedProductItems.findIndex(r => r.name.toLowerCase() === origName.toLowerCase());
+              if (idx !== -1) {
+                resolvedProductItems[idx].name = pName;
+                if (p.code) resolvedProductItems[idx].code = p.code;
+              } else if (!resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+                resolvedProductItems.push({
+                  name: pName,
+                  code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                  category: p.category || loadedApp?.category || 'Halal Certified'
+                });
+              }
+            }
           }
         }
       }
-    }
-
-    // 3. Check loadedApp.site?.products or procDetails?.app?.site?.products
-    const siteProducts = loadedApp?.site?.products || procDetails?.app?.site?.products || loadedApp?.site_id?.products;
-    if (resolvedProductItems.length === 0 && Array.isArray(siteProducts) && siteProducts.length > 0) {
-      siteProducts.forEach((p, idx) => {
-        const pName = (p.name || p.title || '').trim();
-        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
-          resolvedProductItems.push({
-            name: pName,
-            code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
-            category: p.category || loadedApp?.category || 'Halal Certified'
-          });
-        }
-      });
-    }
-
-    // 4. Check existingCert.products_covered
-    if (resolvedProductItems.length === 0 && existingCert?.products_covered) {
-      let ep = existingCert.products_covered;
-      let epList = [];
-      if (Array.isArray(ep)) {
-        epList = ep;
-      } else if (typeof ep === 'string' && ep.trim()) {
-        try {
-          const parsed = JSON.parse(ep);
-          epList = Array.isArray(parsed) ? parsed : ep.split(',').map(s => s.trim()).filter(Boolean);
-        } catch (_) {
-          epList = ep.split(',').map(s => s.trim()).filter(Boolean);
-        }
-      }
-      epList.forEach((item, idx) => {
-        const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
-        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
-          resolvedProductItems.push({
-            name: pName,
-            code: typeof item === 'object' && item.code ? item.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
-            category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified')
-          });
-        }
-      });
     }
 
     setScheduledProducts(resolvedProductItems);
@@ -377,15 +398,6 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
     const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(loadedApp.application_type);
     setCurrentTypeCode(certTypeCode);
-
-    const isRenApp = (
-      String(loadedApp.application_type || '').toLowerCase().includes('renewal') ||
-      String(loadedApp.type || '').toLowerCase().includes('renewal') ||
-      Boolean(loadedApp.is_renewal) ||
-      Boolean(loadedApp.renewed_certificate_id) ||
-      String(loadedApp.application_number || '').includes('-RE-') ||
-      String(loadedApp.category || '').toLowerCase().includes('renewal')
-    );
 
     // Only reuse existingCert.certificate_number if it is an in-progress draft/under-review certificate created for THIS specific application
     const isDraftForThisApp = existingCert && 
@@ -543,13 +555,15 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         appFetchPromise,
         api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null })),
         api.get(`/api/initial-products/by-application/${appIdToUse}`).catch(() => ({ data: null })),
-        api.get(`/api/applications/${appIdToUse}/processing-details`).catch(() => ({ data: null }))
+        api.get(`/api/applications/${appIdToUse}/processing-details`).catch(() => ({ data: null })),
+        api.get(`/api/products`).catch(() => ({ data: [] }))
       ])
-        .then(([appRes, certRes, initProdRes, procRes]) => {
+        .then(([appRes, certRes, initProdRes, procRes, prodsRes]) => {
           const loadedApp = appRes.data?.data || appRes.data || null;
           let loadedCert = certRes.data?.data || certRes.data || null;
           const loadedInitProd = initProdRes.data?.data !== undefined ? initProdRes.data.data : (initProdRes.data || null);
           const procDetails = procRes.data?.data || procRes.data || null;
+          const allDbProducts = prodsRes.data?.data || prodsRes.data || [];
 
           if (!loadedCert && loadedApp?.certificate_id) {
             if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
@@ -558,8 +572,18 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           }
 
           const finalApp = loadedApp || propApp;
+          const cId = finalApp?.client_id?._id || finalApp?.client_id;
+          const sId = finalApp?.site_id?._id || finalApp?.site_id;
+
+          const clientProducts = (Array.isArray(allDbProducts) ? allDbProducts : []).filter(p => {
+            if (!p) return false;
+            const pCId = p.client_id?._id || p.client_id;
+            const pSId = p.site_id?._id || p.site_id;
+            return (cId && String(pCId) === String(cId)) || (sId && String(pSId) === String(sId));
+          });
+
           setApp(finalApp);
-          initForm(finalApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails);
+          initForm(finalApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails, clientProducts);
         })
         .catch((err) => {
           console.error("Failed to load certificate modal details:", err);
@@ -673,6 +697,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     String(app?.application_number || '').includes('-SU-') ||
     String(app?.category || '').toLowerCase().includes('surveillance')
   );
+  const isRenApp = isRen;
+  const isNewApp = !isRen && !isSurv && !checkIsAddOn(app || propApp);
   const isFastTrack = isRen || isSurv;
   const isFastTrackPaid = isFastTrack && (normAppStatus === 'payment_received' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid));
   const isFinalFeePaid = normAppStatus === 'final_invoice_paid' || Boolean(app?.final_payment_confirmed || app?.final_invoice_paid);
@@ -1054,14 +1080,14 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
                 <div>
                   <label style={{ fontSize: 11.5, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
-                    Scope of Certification
+                    Product Category
                   </label>
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     value={certificateForm.scope}
                     onChange={e => setCertificateForm(f => ({ ...f, scope: e.target.value }))}
-                    placeholder="e.g. Production and distribution of Halal certified beef"
+                    placeholder="e.g. Food and Beverage, Meat Processing, etc."
                   />
                 </div>
               </div>
@@ -1214,10 +1240,14 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div>
                       <label className="form-label" style={{ margin: 0, fontWeight: 800, fontSize: 12.5, color: '#0f172a' }}>
-                        Products Covered Schedule
+                        {isRenApp ? 'Products' : (isNewApp ? 'Initial Products' : 'Products')}
                       </label>
                       <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
-                        {scheduledProducts.length} approved product{scheduledProducts.length !== 1 ? 's' : ''} linked to application
+                        {isRenApp
+                          ? `${scheduledProducts.length} product${scheduledProducts.length !== 1 ? 's' : ''} listed`
+                          : (isNewApp
+                              ? `${scheduledProducts.length} initial product${scheduledProducts.length !== 1 ? 's' : ''} linked to application`
+                              : `${scheduledProducts.length} approved product${scheduledProducts.length !== 1 ? 's' : ''} linked to application`)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1297,9 +1327,15 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                     ) : (
                       <div style={{ padding: '12px 8px', textAlign: 'center', color: '#64748b', fontSize: 12 }}>
                         <Package size={20} style={{ margin: '0 auto 4px', color: '#94a3b8' }} />
-                        <div style={{ fontWeight: 600 }}>Initial Product Schedule</div>
+                        <div style={{ fontWeight: 600 }}>
+                          {isRenApp ? 'No Products Found' : (isNewApp ? 'Initial Product Schedule' : 'Products Schedule')}
+                        </div>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          Initial product details from this application will be printed on the certificate schedule.
+                          {isRenApp
+                            ? 'Products from this client/site will be printed on the certificate schedule.'
+                            : (isNewApp
+                                ? 'Initial product details from this application will be printed on the certificate schedule.'
+                                : 'Product details will be printed on the certificate schedule.')}
                         </div>
                       </div>
                     )}

@@ -662,36 +662,6 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
       if (canCompleteAudit) {
         if (isStage1Complete) {
-          if (!isNcClosed) {
-            return (
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-ghost"
-                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-                  onClick={() => setShowAuditModal(true)}
-                >
-                  <Calendar size={16} /> Manage Stage 2 Audit
-                </button>
-                <button
-                  className="btn btn-danger"
-                  style={{ gap: 8 }}
-                  onClick={() => setShowNcModal(true)}
-                  disabled={actionSubmitting}
-                >
-                  <AlertTriangle size={16} /> Flag NC
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                  onClick={handleCloseNc}
-                  disabled={actionSubmitting}
-                >
-                  <CheckCircle size={16} /> Close NC
-                </button>
-              </div>
-            );
-          }
-
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
@@ -774,39 +744,9 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
       );
     }
 
-    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet!
+    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
     if (!isStage2Complete) {
-      if (!isNcClosed) {
-        return (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Stage 2 Audit
-            </button>
-            <button
-              className="btn btn-danger"
-              style={{ gap: 8 }}
-              onClick={() => setShowNcModal(true)}
-              disabled={actionSubmitting}
-            >
-              <AlertTriangle size={16} /> Flag NC
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleCloseNc}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> Close NC
-            </button>
-          </div>
-        );
-      }
-
-      if (canCompleteAudit || isNcClosed || status === 'nc_closed') {
+      if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
@@ -840,7 +780,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
       );
     }
 
-    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold')) {
+    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold' || isStage2Complete)) {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button

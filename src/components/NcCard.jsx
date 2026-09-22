@@ -100,8 +100,10 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
     hasNc ||
     isNcClosed ||
     ['logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus) ||
-    (singleAudit && ['audit_completed', 'audit_successful', 'completed'].includes(singleAudit.status)) ||
-    auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))
+    (isDualStage
+      ? isStage2Conducted
+      : ((singleAudit && ['audit_completed', 'audit_successful', 'completed'].includes(singleAudit.status)) ||
+         auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))))
   );
 
   const hasAuditorAssigned = Boolean(

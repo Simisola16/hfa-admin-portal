@@ -83,6 +83,21 @@ export default function HFARenewalProcessing(props) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
+      // 1. Ultra-fast single DB round-trip fetch
+      const detailsRes = await api.get(`/api/applications/${appId}/processing-details`).catch(() => null);
+      if (detailsRes?.data?.data) {
+        const d = detailsRes.data.data;
+        const fetchedApp = d.app;
+        setApp(fetchedApp);
+        setInvoice(d.invoice);
+        setAllInvoices(d.allInvoices || []);
+        setAudits(d.audits || []);
+        setLogsheet(d.logsheet);
+        setCertificate(d.certificate);
+        return;
+      }
+
+      // Fallback: parallel individual endpoints if processing-details is unavailable
       const [appRes, invRes, allInvRes, auditRes, logsheetRes, certRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
@@ -172,7 +187,10 @@ export default function HFARenewalProcessing(props) {
     const socket = getSocket(token);
     if (!socket) return;
 
-    const handleConnect = () => setSocketConnected(true);
+    const handleConnect = () => {
+      setSocketConnected(true);
+      socket.emit('join_application', appId);
+    };
     const handleDisconnect = () => setSocketConnected(false);
     const handleConnectError = () => setSocketConnected(false);
 
@@ -181,19 +199,41 @@ export default function HFARenewalProcessing(props) {
     socket.on('connect_error', handleConnectError);
     setSocketConnected(socket.connected);
 
+    socket.emit('join_application', appId);
+
     const handleUpdate = (data) => {
-      if (data?.appId === appId || data?.id === appId) {
+      if (String(data?.appId) === String(appId) || String(data?.id) === String(appId)) {
+        // INSTANT zero-latency local state sync
+        if (data.status) {
+          setApp(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: data.status,
+              statusHistory: data.statusHistory || prev.statusHistory
+            };
+          });
+        }
         fetchApp(true);
       }
     };
 
     socket.on('application_updated', handleUpdate);
 
+    // Fast liveness background refresh (every 5 seconds when window is focused)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchApp(true);
+      }
+    }, 5000);
+
     return () => {
+      socket.emit('leave_application', appId);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
       socket.off('application_updated', handleUpdate);
+      clearInterval(interval);
     };
   }, [appId, fetchApp]);
 

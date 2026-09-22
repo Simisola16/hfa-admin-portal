@@ -84,9 +84,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
     (Array.isArray(app?.statusHistory) && app.statusHistory.some(h => h.status === 'nc_closed')) ||
     (Array.isArray(app?.status_history) && app.status_history.some(h => h.status === 'nc_closed')) ||
     (allNcReports.length > 0 && allNcReports.every(r => r.status === 'closed')) ||
-    (isFastTrack
-      ? ['audit_completed', 'audit_successful', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
-      : ['audit_completed', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'invoice_sent', 'payment_received', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus)
   );
 
   const isAuditMarkedCompleted = Boolean(
@@ -195,9 +193,13 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
             <span className="badge badge-yellow" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
               <AlertCircle size={12} /> Client Corrected
             </span>
+          ) : isAuditMarkedCompleted ? (
+            <span className="badge badge-yellow" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+              <AlertTriangle size={12} /> Pending NC Verification
+            </span>
           ) : (
-            <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-              <CheckCircle size={12} /> Clean Audit
+            <span className="badge badge-gray" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+              Audit In-Progress
             </span>
           )}
         </div>

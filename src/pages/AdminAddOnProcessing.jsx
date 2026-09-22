@@ -12,6 +12,7 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 import CertificateModal from '../components/CertificateModal';
+import { getSocket } from '../lib/socket';
 
 const STATUS_LABELS = {
   submitted: 'Submit Add-On',
@@ -112,6 +113,44 @@ export default function AdminAddOnProcessing() {
   useEffect(() => {
     fetchApp();
   }, [fetchApp]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('hfa_token');
+    if (!token) return;
+
+    const socket = getSocket(token);
+    if (!socket) return;
+
+    socket.emit('join_application', addonId);
+
+    const handleUpdate = (data) => {
+      if (String(data?.addOnId) === String(addonId) || String(data?.appId) === String(addonId) || String(data?.id) === String(addonId)) {
+        if (data.status) {
+          setApp(prev => {
+            if (!prev) return prev;
+            return { ...prev, status: data.status, statusHistory: data.statusHistory || prev.statusHistory };
+          });
+        }
+        fetchApp(true);
+      }
+    };
+
+    socket.on('addon_updated', handleUpdate);
+    socket.on('application_updated', handleUpdate);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchApp(true);
+      }
+    }, 5000);
+
+    return () => {
+      socket.emit('leave_application', addonId);
+      socket.off('addon_updated', handleUpdate);
+      socket.off('application_updated', handleUpdate);
+      clearInterval(interval);
+    };
+  }, [addonId, fetchApp]);
 
   // Action handlers
   const handleReview = async () => {

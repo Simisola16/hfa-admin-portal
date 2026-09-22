@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, Calendar, AlertTriangle,
-  ClipboardList, Download, Receipt, Clock
+  ClipboardList, Download, Receipt, Clock, ShieldCheck
 } from 'lucide-react';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -255,8 +255,11 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const surveillanceInvoice =
     allInvoices.find(inv => inv.invoice_type === 'surveillance' || inv.stage === 'surveillance' || (inv.title && inv.title.toLowerCase().includes('surveillance'))) ||
-    null;
-  const isSurveillanceInvoicePaid = surveillanceInvoice ? (surveillanceInvoice.status === 'paid') : (status === 'payment_received');
+    invoice ||
+    (allInvoices.length > 0 ? allInvoices[0] : null);
+  const isSurveillanceInvoicePaid = surveillanceInvoice
+    ? (surveillanceInvoice.status === 'paid' || surveillanceInvoice.status === 'confirmed' || surveillanceInvoice.status === 'payment_received')
+    : (status === 'payment_received');
 
   const handleApprove = async () => {
     setActionSubmitting(true);
@@ -315,7 +318,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleConfirmPayment = async () => {
     setConfirmingPayment(true);
     try {
-      const activeInv = invoice || surveillanceInvoice;
+      const activeInv = surveillanceInvoice || invoice || allInvoices.find(i => i.status === 'client_paid') || allInvoices[0];
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
         invoice_id: activeInv?._id || activeInv?.id
@@ -513,7 +516,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     }
 
     // 6. Complete
-    if (status === 'certificate_issued') {
+    if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
           <CheckCircle size={15} /> ✓ Surveillance Letter Issued
@@ -522,7 +525,27 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     }
 
     // 5B. Ready for Surveillance Letter Stage (ONLY after marked ready for certificate)
-    if (status === 'ready_for_certificate') {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          </div>
+        );
+      }
+
       return (
         <button
           className="btn btn-primary"
@@ -530,6 +553,26 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
           onClick={() => setShowCertificateModal(true)}
         >
           <FileText size={16} /> Surveillance Letter
+        </button>
+      );
+    }
+
+    // 4. Invoice Stage (Client Paid - Awaiting Admin Confirmation)
+    const isSurvClientPaid = (
+      surveillanceInvoice?.status === 'client_paid' ||
+      invoice?.status === 'client_paid' ||
+      allInvoices.some(inv => inv.status === 'client_paid')
+    ) && !isSurveillanceInvoicePaid;
+
+    if (isSurvClientPaid) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+          onClick={handleConfirmPayment}
+          disabled={confirmingPayment}
+        >
+          <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
         </button>
       );
     }
@@ -548,7 +591,6 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
-    // 4. Invoice Stage
     if ((status === 'invoice_sent' || surveillanceInvoice) && !isSurveillanceInvoicePaid) {
       return (
         <button

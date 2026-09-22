@@ -255,8 +255,11 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
   const renewalInvoice =
     allInvoices.find(inv => inv.invoice_type === 'renewal' || inv.stage === 'renewal' || (inv.title && inv.title.toLowerCase().includes('renewal'))) ||
-    null;
-  const isRenewalInvoicePaid = renewalInvoice ? (renewalInvoice.status === 'paid') : (status === 'payment_received');
+    invoice ||
+    (allInvoices.length > 0 ? allInvoices[0] : null);
+  const isRenewalInvoicePaid = renewalInvoice
+    ? (renewalInvoice.status === 'paid' || renewalInvoice.status === 'confirmed' || renewalInvoice.status === 'payment_received')
+    : (status === 'payment_received');
 
   const handleApprove = async () => {
     setActionSubmitting(true);
@@ -315,7 +318,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const handleConfirmPayment = async () => {
     setConfirmingPayment(true);
     try {
-      const activeInv = invoice || renewalInvoice;
+      const activeInv = renewalInvoice || invoice || allInvoices.find(i => i.status === 'client_paid') || allInvoices[0];
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
         invoice_id: activeInv?._id || activeInv?.id
@@ -513,7 +516,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     // 6. Complete
-    if (status === 'certificate_issued') {
+    if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
           <CheckCircle size={15} /> ✓ Certificate Issued
@@ -522,22 +525,55 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     // 5B. Ready for Certificate Stage (ONLY after marked ready for certificate)
-    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
-            onClick={() => setShowCertificateModal(true)}
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
-          {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
             <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
             </span>
-          )}
-        </div>
+          </div>
+        );
+      }
+
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
+          onClick={() => setShowCertificateModal(true)}
+        >
+          <Award size={16} /> Issue Certificate
+        </button>
+      );
+    }
+
+    // 4. Renewal Fee Invoice Stage (Client Paid - Awaiting Admin Confirmation)
+    const isRenewalClientPaid = (
+      renewalInvoice?.status === 'client_paid' ||
+      invoice?.status === 'client_paid' ||
+      allInvoices.some(inv => inv.status === 'client_paid')
+    ) && !isRenewalInvoicePaid;
+
+    if (isRenewalClientPaid) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+          onClick={handleConfirmPayment}
+          disabled={confirmingPayment}
+        >
+          <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+        </button>
       );
     }
 
@@ -555,7 +591,6 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       );
     }
 
-    // 4. Renewal Fee Invoice Stage
     if (status === 'invoice_sent' && !isRenewalInvoicePaid) {
       return (
         <button

@@ -275,7 +275,13 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     let resolvedProductItems = [];
 
     if (isRenApp) {
-      // 1. For Renewal applications: Show ALL products belonging to this client/site
+      // 1. For Renewal applications: Show products belonging specifically to the renewal site
+      const appSiteIdStr = String(
+        (loadedApp.site_id && typeof loadedApp.site_id === 'object' ? loadedApp.site_id._id : loadedApp.site_id) ||
+        (loadedApp.site && typeof loadedApp.site === 'object' ? loadedApp.site._id : loadedApp.site) ||
+        ''
+      );
+
       const allProductSources = [
         ...(Array.isArray(clientProducts) ? clientProducts : []),
         ...(Array.isArray(procDetails?.products) ? procDetails.products : []),
@@ -286,16 +292,33 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         ...(Array.isArray(loadedApp?.site_id?.products) ? loadedApp.site_id.products : [])
       ];
 
-      allProductSources.forEach((p, idx) => {
+      // Filter products belonging to this specific renewal site if site ID exists
+      let candidateProducts = allProductSources;
+      if (appSiteIdStr) {
+        const siteSpecific = allProductSources.filter(p => {
+          if (!p) return false;
+          const pSiteId = String(
+            (p.site_id && typeof p.site_id === 'object' ? p.site_id._id : p.site_id) || ''
+          );
+          return pSiteId === appSiteIdStr;
+        });
+        if (siteSpecific.length > 0) {
+          candidateProducts = siteSpecific;
+        }
+      }
+
+      candidateProducts.forEach((p, idx) => {
         if (!p) return;
         const pName = (p.name || p.title || p.new_name || '').trim();
         if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
           resolvedProductItems.push({
+            id: p._id ? String(p._id) : (p.id ? String(p.id) : `prd-${idx}`),
             name: pName,
             code: p.code || p.barcode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
             category: p.category || loadedApp?.category || 'Halal Certified',
             ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
-            description: p.description || ''
+            description: p.description || '',
+            isSelected: true
           });
         }
       });
@@ -318,9 +341,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
           if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
             resolvedProductItems.push({
+              id: `ep-${idx}`,
               name: pName,
               code: typeof item === 'object' && item.code ? item.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
-              category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified')
+              category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified'),
+              isSelected: true
             });
           }
         });
@@ -331,11 +356,13 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       if (initProd) {
         if (initProd.product && (initProd.product.name || initProd.product.title)) {
           resolvedProductItems.push({
+            id: 'init-0',
             name: (initProd.product.name || initProd.product.title).trim(),
             code: initProd.product.code || 'PRD-01',
             category: initProd.product.category || loadedApp?.category || 'Halal Certified',
             ingredients: Array.isArray(initProd.product.ingredients) ? initProd.product.ingredients.join(', ') : (initProd.product.ingredients || ''),
-            description: initProd.product.description || ''
+            description: initProd.product.description || '',
+            isSelected: true
           });
         }
         if (Array.isArray(initProd.products) && initProd.products.length > 0) {
@@ -343,11 +370,13 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             const pName = (p.name || p.title || '').trim();
             if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
               resolvedProductItems.push({
+                id: `init-${idx + 1}`,
                 name: pName,
                 code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
                 category: p.category || loadedApp?.category || 'Halal Certified',
                 ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
-                description: p.description || ''
+                description: p.description || '',
+                isSelected: true
               });
             }
           });
@@ -365,9 +394,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           if (pType === 'Add product' || !p.type) {
             if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
               resolvedProductItems.push({
+                id: p._id ? String(p._id) : `addon-${resolvedProductItems.length}`,
                 name: pName,
                 code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
-                category: p.category || loadedApp?.category || 'Halal Certified'
+                category: p.category || loadedApp?.category || 'Halal Certified',
+                isSelected: true
               });
             }
           } else if (pType === 'Remove product') {
@@ -382,9 +413,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                 if (p.code) resolvedProductItems[idx].code = p.code;
               } else if (!resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
                 resolvedProductItems.push({
+                  id: p._id ? String(p._id) : `addon-${resolvedProductItems.length}`,
                   name: pName,
                   code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
-                  category: p.category || loadedApp?.category || 'Halal Certified'
+                  category: p.category || loadedApp?.category || 'Halal Certified',
+                  isSelected: true
                 });
               }
             }
@@ -394,7 +427,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
 
     setScheduledProducts(resolvedProductItems);
-    const prods = resolvedProductItems.map(p => p.name).join(', ');
+    const prods = resolvedProductItems.filter(p => p.isSelected !== false).map(p => p.name).join(', ');
 
     const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(loadedApp.application_type);
     setCurrentTypeCode(certTypeCode);
@@ -471,6 +504,25 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }));
   };
 
+  const toggleProductSelect = (idx) => {
+    setScheduledProducts(prev => {
+      const next = prev.map((item, i) => i === idx ? { ...item, isSelected: !item.isSelected } : item);
+      const selectedNames = next.filter(p => p.isSelected !== false).map(p => p.name).join(', ');
+      setCertificateForm(f => ({ ...f, products_covered: selectedNames }));
+      return next;
+    });
+  };
+
+  const toggleSelectAllProducts = () => {
+    setScheduledProducts(prev => {
+      const anySelected = prev.some(p => p.isSelected !== false);
+      const next = prev.map(item => ({ ...item, isSelected: !anySelected }));
+      const selectedNames = next.filter(p => p.isSelected !== false).map(p => p.name).join(', ');
+      setCertificateForm(f => ({ ...f, products_covered: selectedNames }));
+      return next;
+    });
+  };
+
   // Generate Live PDF Preview function
   const generateLivePreview = useCallback(async (silent = false) => {
     if (isSurveillance) return; // Surveillance uses letter upload
@@ -480,8 +532,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     setPreviewError('');
 
     try {
-      const parsedProducts = scheduledProducts.length > 0
-        ? scheduledProducts
+      const selectedItems = scheduledProducts.filter(p => p.isSelected !== false);
+      const parsedProducts = selectedItems.length > 0
+        ? selectedItems
         : (certificateForm.products_covered
             ? certificateForm.products_covered.split(',').map((p, idx) => ({
                 name: p.trim(),
@@ -801,9 +854,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         formData.append('original_cycle_start_date', certificateForm.certification_start_date || certificateForm.issue_date);
       }
 
-      if (certificateForm.products_covered) {
-        formData.append('products_covered', certificateForm.products_covered);
-      }
+      const selectedItems = scheduledProducts.filter(p => p.isSelected !== false);
+      const selectedProdsStr = selectedItems.map(p => p.name).join(', ');
+
+      formData.append('products_covered', selectedProdsStr || certificateForm.products_covered || '');
+      formData.append('product_details', JSON.stringify(selectedItems));
       if (certificateForm.product_table_columns) {
         formData.append('product_table_columns', certificateForm.product_table_columns);
       }
@@ -1242,12 +1297,28 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                       <label className="form-label" style={{ margin: 0, fontWeight: 800, fontSize: 12.5, color: '#0f172a' }}>
                         {isRenApp ? 'Products' : (isNewApp ? 'Initial Products' : 'Products')}
                       </label>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
-                        {isRenApp
-                          ? `${scheduledProducts.length} product${scheduledProducts.length !== 1 ? 's' : ''} listed`
-                          : (isNewApp
-                              ? `${scheduledProducts.length} initial product${scheduledProducts.length !== 1 ? 's' : ''} linked to application`
-                              : `${scheduledProducts.length} approved product${scheduledProducts.length !== 1 ? 's' : ''} linked to application`)}
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>
+                          {scheduledProducts.filter(p => p.isSelected !== false).length} of {scheduledProducts.length} product{scheduledProducts.length !== 1 ? 's' : ''} selected
+                        </span>
+                        {scheduledProducts.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={toggleSelectAllProducts}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: '#047857',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            {scheduledProducts.every(p => p.isSelected !== false) ? 'Deselect All' : 'Select All'}
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1275,64 +1346,90 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                     </div>
                   </div>
 
-                  {/* Non-editable Scheduled Products Container */}
+                  {/* Scheduled Products Container with Selection Checkboxes */}
                   <div style={{
                     background: '#f8fafc',
                     border: '1px solid #e2e8f0',
                     borderRadius: 8,
                     padding: '8px 10px',
-                    maxHeight: 180,
+                    maxHeight: 200,
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 6
                   }}>
                     {scheduledProducts.length > 0 ? (
-                      scheduledProducts.map((p, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            background: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 6,
-                            padding: '6px 10px',
-                            fontSize: 12
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            <span style={{
-                              fontWeight: 800,
-                              fontSize: 10.5,
-                              color: '#047857',
-                              background: '#ecfdf5',
-                              border: '1px solid #a7f3d0',
-                              borderRadius: 4,
-                              padding: '1px 6px',
-                              flexShrink: 0
-                            }}>
-                              {p.code || `PRD-${String(idx + 1).padStart(2, '0')}`}
-                            </span>
-                            <span style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {p.name}
+                      scheduledProducts.map((p, idx) => {
+                        const isChecked = p.isSelected !== false;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => toggleProductSelect(idx)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              background: isChecked ? '#ffffff' : '#f1f5f9',
+                              border: isChecked ? '1px solid #047857' : '1px solid #cbd5e1',
+                              borderRadius: 6,
+                              padding: '6px 10px',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              opacity: isChecked ? 1 : 0.65
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleProductSelect(idx)}
+                                onClick={e => e.stopPropagation()}
+                                style={{
+                                  accentColor: '#047857',
+                                  width: 15,
+                                  height: 15,
+                                  cursor: 'pointer',
+                                  flexShrink: 0
+                                }}
+                              />
+                              <span style={{
+                                fontWeight: 800,
+                                fontSize: 10.5,
+                                color: isChecked ? '#047857' : '#64748b',
+                                background: isChecked ? '#ecfdf5' : '#e2e8f0',
+                                border: isChecked ? '1px solid #a7f3d0' : '1px solid #cbd5e1',
+                                borderRadius: 4,
+                                padding: '1px 6px',
+                                flexShrink: 0
+                              }}>
+                                {p.code || `PRD-${String(idx + 1).padStart(2, '0')}`}
+                              </span>
+                              <span style={{
+                                fontWeight: isChecked ? 700 : 500,
+                                color: isChecked ? '#0f172a' : '#64748b',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {p.name}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500, flexShrink: 0, marginLeft: 8 }}>
+                              {p.category || 'Halal Certified'}
                             </span>
                           </div>
-                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500, flexShrink: 0, marginLeft: 8 }}>
-                            {p.category || 'Halal Certified'}
-                          </span>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div style={{ padding: '12px 8px', textAlign: 'center', color: '#64748b', fontSize: 12 }}>
                         <Package size={20} style={{ margin: '0 auto 4px', color: '#94a3b8' }} />
                         <div style={{ fontWeight: 600 }}>
-                          {isRenApp ? 'No Products Found' : (isNewApp ? 'Initial Product Schedule' : 'Products Schedule')}
+                          {isRenApp ? 'No Site Products Found' : (isNewApp ? 'Initial Product Schedule' : 'Products Schedule')}
                         </div>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                           {isRenApp
-                            ? 'Products from this client/site will be printed on the certificate schedule.'
+                            ? 'No products registered under this renewal site.'
                             : (isNewApp
                                 ? 'Initial product details from this application will be printed on the certificate schedule.'
                                 : 'Product details will be printed on the certificate schedule.')}
@@ -1342,7 +1439,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                   </div>
 
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Check size={12} style={{ color: '#047857' }} /> Products are read-only and automatically mapped from application records.
+                    <Check size={12} style={{ color: '#047857' }} /> Check or uncheck products to select which items are included on this certificate.
                   </div>
                 </div>
               )}

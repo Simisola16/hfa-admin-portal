@@ -26,6 +26,137 @@ const getPdfUrl = (url) => {
   return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
+export const resolveCertificateType = (loadedApp, existingCert = null, procDetails = null) => {
+  if (!loadedApp && !existingCert) return 'GSO MEAT';
+
+  const checkAddOn = (item) => {
+    if (!item) return false;
+    if (item.is_add_on) return true;
+    const typeStr = (item.application_type || '').toLowerCase();
+    if (typeStr.includes('add')) return true;
+    const num = item.application_number || '';
+    if (num.startsWith('ADD-') || num.includes('-AD-')) return true;
+    return false;
+  };
+
+  const isAddOn = checkAddOn(loadedApp);
+  const isSurv = !isAddOn && (
+    loadedApp?.application_type === 'surveillance' ||
+    loadedApp?.type === 'surveillance' ||
+    Boolean(loadedApp?.is_surveillance) ||
+    String(loadedApp?.application_number || '').includes('-SU-') ||
+    String(loadedApp?.category || '').toLowerCase().includes('surveillance')
+  );
+
+  if (isSurv) {
+    return 'UAE/GSO Halal Surveillance Letter';
+  }
+
+  // 1. Check explicit raw type from certificate or application
+  const candidateTypes = [
+    existingCert?.certificate_type,
+    (typeof loadedApp?.certificate_id === 'object' ? loadedApp?.certificate_id?.certificate_type : null),
+    (typeof loadedApp?.renewed_certificate_id === 'object' ? loadedApp?.renewed_certificate_id?.certificate_type : null),
+    loadedApp?.certificate_type,
+    loadedApp?.scheme,
+    loadedApp?.standard_scheme,
+    loadedApp?.standard,
+    procDetails?.app?.certificate_type,
+    procDetails?.app?.scheme,
+    procDetails?.certificate?.certificate_type,
+    procDetails?.agreement?.certificate_type,
+    procDetails?.agreement?.scheme
+  ].filter(Boolean);
+
+  for (const raw of candidateTypes) {
+    if (typeof raw === 'string' && raw.trim()) {
+      const u = raw.toUpperCase().trim();
+      if (u === 'GSO MEAT' || u === 'GSO SCHEME (MEAT)' || u === 'GSO (MEAT)' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) {
+        return 'GSO MEAT';
+      }
+      if (u === 'GSO NON MEAT' || u === 'GSO NON-MEAT' || u === 'GSO SCHEME (NON-MEAT)' || u === 'GSO (NON-MEAT)' || u === 'GSO SCHEME NON MEAT' || (u.includes('GSO') && (u.includes('NON') || u.includes('FOOD')))) {
+        return 'GSO NON MEAT';
+      }
+      if (u === 'HFA SCHEME MEAT' || u === 'HFA SCHEME (MEAT)' || u === 'HFA MEAT SCHEME' || u === 'HFA MEAT' || (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON'))) {
+        return 'HFA SCHEME MEAT';
+      }
+      if (u === 'HFA SCHEME NON MEAT' || u === 'HFA SCHEME (NON-MEAT)' || u === 'HFA NON-MEAT SCHEME' || u === 'HFA SCHEME NON-MEAT' || u === 'HFA NON MEAT' || (u.includes('HFA') && (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')))) {
+        return 'HFA SCHEME NON MEAT';
+      }
+      if (u === 'COSMETICS' || u.includes('COSMETIC')) {
+        return 'COSMETICS';
+      }
+      if (u === 'SMIIC' || u.includes('SMIIC')) {
+        return 'SMIIC';
+      }
+    }
+  }
+
+  // 2. Deduce accurately from category, scope, nature of business, products, and route context
+  const cat = String(loadedApp?.category || '').toLowerCase();
+  const scope = String(loadedApp?.scope || '').toLowerCase();
+  const foodNature = String(loadedApp?.food_nature || '').toLowerCase();
+  const nonfoodNature = String(loadedApp?.nonfood_nature || '').toLowerCase();
+  const appType = String(loadedApp?.application_type || '').toLowerCase();
+  const appNum = String(loadedApp?.application_number || '').toUpperCase();
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+
+  const combined = `${cat} ${scope} ${foodNature} ${nonfoodNature}`;
+
+  if (nonfoodNature.includes('cosmetic') || combined.includes('cosmetic')) {
+    return 'COSMETICS';
+  }
+
+  if (combined.includes('smiic')) {
+    return 'SMIIC';
+  }
+
+  const isGSO = (
+    cat.includes('gso') ||
+    cat.includes('uae') ||
+    cat.includes('dual') ||
+    scope.includes('gso') ||
+    scope.includes('uae') ||
+    appType.includes('gso') ||
+    appNum.includes('-GS-') ||
+    appNum.includes('-GSO-') ||
+    currentPath.includes('/gso/')
+  );
+
+  const hasMeatSignal = (
+    (cat.includes('meat') && !cat.includes('non')) ||
+    foodNature.includes('meat') ||
+    (scope.includes('meat') && !scope.includes('non')) ||
+    scope.includes('slaughter') ||
+    scope.includes('abattoir') ||
+    scope.includes('poultry') ||
+    scope.includes('beef') ||
+    scope.includes('lamb') ||
+    scope.includes('chicken')
+  );
+
+  let prodsMeat = false;
+  const prods = loadedApp?.products || [];
+  if (Array.isArray(prods) && prods.length > 0) {
+    prodsMeat = prods.some(p => {
+      const pText = `${p?.name || ''} ${p?.category || ''} ${p?.description || ''}`.toLowerCase();
+      return (pText.includes('meat') && !pText.includes('non')) || pText.includes('beef') || pText.includes('poultry') || pText.includes('chicken') || pText.includes('lamb');
+    });
+  }
+
+  const isMeat = hasMeatSignal || prodsMeat;
+
+  if (isGSO) {
+    return isMeat ? 'GSO MEAT' : 'GSO NON MEAT';
+  }
+
+  // HFA standard schemes (Annual Certification - Food & General vs Meat Processing)
+  if (isMeat) {
+    return 'HFA SCHEME MEAT';
+  }
+  return 'HFA SCHEME NON MEAT';
+};
+
 export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, isAddOn: propIsAddOn, onSuccess }) {
   const navigate = useNavigate();
   const [app, setApp] = useState(propApp || null);
@@ -46,9 +177,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     return t.includes('GSO') || t === 'SMIIC' || t.includes('SMIIC');
   };
 
-  const [certificateForm, setCertificateForm] = useState({
+  const [certificateForm, setCertificateForm] = useState(() => ({
     certificate_number: '',
-    certificate_type: 'GSO MEAT',
+    certificate_type: resolveCertificateType(propApp),
     company_name: '',
     company_address: '',
     manufacturing_address: '',
@@ -61,7 +192,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     products_covered: '',
     product_table_columns: 1,
     file: null
-  });
+  }));
   const [scheduledProducts, setScheduledProducts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [underReviewPopup, setUnderReviewPopup] = useState(null);
@@ -77,36 +208,29 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     return false;
   };
 
-  const isSurveillance = app?.application_type === 'surveillance';
+  const isSurveillance = Boolean(
+    app?.application_type === 'surveillance' ||
+    propApp?.application_type === 'surveillance' ||
+    app?.type === 'surveillance' ||
+    app?.is_surveillance ||
+    String(app?.application_number || propApp?.application_number || '').includes('-SU-') ||
+    String(app?.category || propApp?.category || '').toLowerCase().includes('surveillance')
+  );
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
   const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null) => {
     if (!loadedApp) return;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
-    const isSurv = !isAddOn && loadedApp.application_type === 'surveillance';
+    const isSurv = !isAddOn && (
+      loadedApp.application_type === 'surveillance' ||
+      loadedApp.type === 'surveillance' ||
+      Boolean(loadedApp.is_surveillance) ||
+      String(loadedApp.application_number || '').includes('-SU-') ||
+      String(loadedApp.category || '').toLowerCase().includes('surveillance')
+    );
 
-    // Resolve Certificate Type
-    let resolvedCertType = existingCert?.certificate_type || loadedApp.certificate_id?.certificate_type;
-    if (!resolvedCertType) {
-      if (isSurv) {
-        resolvedCertType = 'UAE/GSO Halal Surveillance Letter';
-      } else {
-        const cat = ((loadedApp.category || '') + ' ' + (loadedApp.scope || '')).toLowerCase();
-        if (cat.includes('smiic')) {
-          resolvedCertType = 'SMIIC';
-        } else if (cat.includes('cosmetic')) {
-          resolvedCertType = 'COSMETICS';
-        } else if (cat.includes('gso') || cat.includes('uae')) {
-          resolvedCertType = (cat.includes('meat') && !cat.includes('non')) ? 'GSO MEAT' : 'GSO NON MEAT';
-        } else if (cat.includes('meat') && !cat.includes('non')) {
-          resolvedCertType = 'HFA SCHEME MEAT';
-        } else if (cat.includes('non-meat') || cat.includes('non meat')) {
-          resolvedCertType = 'HFA SCHEME NON MEAT';
-        } else {
-          resolvedCertType = 'GSO MEAT';
-        }
-      }
-    }
+    // Automatically resolve Certificate Type strictly from application data
+    const resolvedCertType = resolveCertificateType(loadedApp, existingCert, procDetails);
 
     const isFour = isFourDateType(resolvedCertType);
     const yearsToAdd = isSurv ? 1 : (isFour ? 3 : 1);
@@ -877,7 +1001,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                     <option value="GSO NON MEAT">GSO NON MEAT</option>
                     <option value="SMIIC">SMIIC</option>
                     <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
-                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT </option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
                     <option value="COSMETICS">COSMETICS</option>
                   </select>
                 </div>

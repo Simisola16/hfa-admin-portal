@@ -121,8 +121,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             fetchedApp.status = 'nc_closed';
           }
         } else if (hasCompletedAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(fetchedApp.status)) {
-          const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
-          fetchedApp.status = hasNcClosedInHistory ? 'nc_closed' : 'audit_completed';
+          const isAuditNcClosed = Boolean(fetchedApp.nc_closed) || loadedAudits.some(a => Boolean(a.nc_closed));
+          fetchedApp.status = isAuditNcClosed ? 'nc_closed' : 'audit_completed';
         }
       }
 
@@ -195,11 +195,39 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
   const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+  const isAuditUnderwayOrCompleted = ['audit_completed', 'audit_successful', 'audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(status);
+
+  const isNcClosed = !hasActiveNc && !isAuditUnderwayOrCompleted && Boolean(
+    status === 'nc_closed' ||
+    Boolean(app.nc_closed) ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
-    auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+    auditsArr.some(a => Boolean(a.nc_closed))
+  );
+
+  const POST_NC_STAGES = [
+    'nc_closed',
+    'audit_report_submitted',
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'invoice_sent',
+    'payment_received',
+    'application_successful',
+    'ready_for_certificate',
+    'certificate_issued'
+  ];
+
+  const hasLogsheetRecord = Boolean(
+    logsheet &&
+    !logsheet.error &&
+    (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
+  );
+
+  const isAfterNcClosed = !hasActiveNc && (
+    isNcClosed ||
+    POST_NC_STAGES.includes(status) ||
+    hasLogsheetRecord
+  );
 
   // Audit is completed when marked completed, nc is flagged/closed, or downstream stages reached
   const isAuditCompleted = Boolean(
@@ -760,17 +788,20 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             onCloseNc={handleCloseNc}
             actionSubmitting={actionSubmitting}
           />
-          <LogsheetCard
-            logsheet={logsheet}
-            status={status}
-            appId={appId}
-            isRenewal={true}
-            isSurveillance={false}
-            hasActiveNc={hasActiveNc}
-            isNcClosed={isNcClosed}
-            onMarkDone={handleMarkLogsheetDone}
-            markingDone={markingLogsheetDone}
-          />
+          {/* Facility Logsheet Card - Only shown after NC has been closed */}
+          {isAfterNcClosed && (
+            <LogsheetCard
+              logsheet={logsheet}
+              status={status}
+              appId={appId}
+              isRenewal={true}
+              isSurveillance={false}
+              hasActiveNc={hasActiveNc}
+              isNcClosed={isNcClosed}
+              onMarkDone={handleMarkLogsheetDone}
+              markingDone={markingLogsheetDone}
+            />
+          )}
           <InvoiceCard
             app={app}
             invoice={renewalInvoice}

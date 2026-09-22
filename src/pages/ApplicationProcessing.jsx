@@ -31,6 +31,11 @@ import LogsheetCard from '../components/LogsheetCard';
 import AgreementCard from '../components/AgreementCard';
 import CertificateCard from '../components/CertificateCard';
 
+// Dedicated GSO Subsystem Components
+import GSONewProcessing from './gso/GSONewProcessing';
+import GSORenewalProcessing from './gso/GSORenewalProcessing';
+import GSOSurveillanceProcessing from './gso/GSOSurveillanceProcessing';
+
 export default function ApplicationProcessing() {
   const { appId } = useParams();
   const navigate = useNavigate();
@@ -145,7 +150,7 @@ export default function ApplicationProcessing() {
           }
         } else if (fetchedApp.status === 'logsheet_created' || fetchedApp.status === 'logsheet_signed') {
           // Keep logsheet_created / logsheet_signed as valid current status
-        } else if (['audit_completed', 'audit_successful', 'nc_flagged'].includes(fetchedApp.status)) {
+        } else if (fetchedApp.status === 'nc_flagged') {
           const appNcReports = fetchedApp?.nc_reports || [];
           const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
           const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
@@ -395,15 +400,23 @@ export default function ApplicationProcessing() {
       const targetAudit = (isGSO && isStage1Complete && stage2) ? stage2 : stage1;
       const auditId = targetAudit?._id || targetAudit?.id;
 
-      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
+      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
       const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
 
-      setApp(prev => ({ ...prev, status: nextStatus }));
-      if (nextStatus === 'nc_closed') {
-        toast.success('NC Closed successfully! You can now create the LogSheet.');
-      } else {
-        toast.success('NC Closed successfully!');
-      }
+      setApp(prev => ({
+        ...prev,
+        status: nextStatus,
+        nc_closed: true,
+        nc_reports: (prev?.nc_reports || []).map(r => ({ ...r, status: 'closed' })),
+        statusHistory: [...(prev?.statusHistory || []), { status: 'nc_closed', changedAt: new Date() }]
+      }));
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => (a._id === auditId || a.id === auditId) ? {
+        ...a,
+        nc_closed: true,
+        nc_reports: (a.nc_reports || []).map(r => ({ ...r, status: 'closed' }))
+      } : a) : prev);
+
+      toast.success('NC Closed successfully!');
       setShowNcModal(false);
       await fetchApp(true);
     } catch (err) {
@@ -457,7 +470,31 @@ export default function ApplicationProcessing() {
   const catLower = String(app.category || '').toLowerCase();
   const typeLower = String(app.application_type || '').toLowerCase();
   const schemeLower = String(app.scheme || '').toLowerCase();
-  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso') || isSurveillance;
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso') || isSurveillance || isRenewal;
+
+  // Delegate cleanly to dedicated GSO processing subsystems
+  if (isGSO) {
+    const initialData = {
+      app,
+      proposal,
+      invoice,
+      allInvoices,
+      agreement,
+      audits,
+      logsheet,
+      initialProduct,
+      certificate
+    };
+
+    if (isSurveillance) {
+      return <GSOSurveillanceProcessing appId={appId} initialData={initialData} />;
+    }
+    if (isRenewal) {
+      return <GSORenewalProcessing appId={appId} initialData={initialData} />;
+    }
+    return <GSONewProcessing appId={appId} initialData={initialData} />;
+  }
+
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const activeAudit = auditsArr[0] || null;
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
@@ -484,15 +521,46 @@ export default function ApplicationProcessing() {
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
-        status: 'Waiting For Certificate',
+        status: 'Signed',
         force: true
       });
-      toast.success('Logsheet marked as Done! Application moved to Application Successful & Agreement unlocked.');
+      setApp(prev => ({
+        ...prev,
+        status: 'application_successful',
+        statusHistory: [...(prev?.statusHistory || []), { status: 'application_successful', changedAt: new Date() }]
+      }));
+      setLogsheet(prev => ({ ...prev, status: 'Signed' }));
+      toast.success('Logsheet marked as Done! Application moved to Application Successful.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
+    }
+  };
+
+  const [markingReadyForCert, setMarkingReadyForCert] = useState(false);
+
+  const handleMarkReadyForCertificate = async () => {
+    setMarkingReadyForCert(true);
+    try {
+      await api.put(`/api/applications/${appId}/ready-for-certificate`, {
+        note: 'Invoice payment confirmed. Application and LogSheet marked Ready for Certificate issuance.'
+      });
+      setApp(prev => ({
+        ...prev,
+        status: 'ready_for_certificate',
+        statusHistory: [...(prev?.statusHistory || []), { status: 'ready_for_certificate', changedAt: new Date() }]
+      }));
+      if (logsheet) {
+        setLogsheet(prev => ({ ...prev, status: 'Waiting For Certificate' }));
+      }
+      toast.success('Application and LogSheet marked Ready for Certificate!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark ready for certificate.');
+    } finally {
+      setMarkingReadyForCert(false);
     }
   };
 
@@ -517,25 +585,21 @@ export default function ApplicationProcessing() {
     }
   };
 
-  const handleMarkReadyForCertificate = async () => {
-    setActionSubmitting(true);
-    try {
-      await api.put(`/api/applications/${appId}/ready-for-certificate`);
-      toast.success('Application marked Ready for Certificate Issuance!');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to update status.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
+
 
   const handleMarkAuditCompleted = async () => {
+    const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
+    const stage2 = audits?.find(a => a.stage === 2);
+    const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+    const isStage2OrFastTrack = !isDualStage || isStage1Complete;
+
+    if (isStage2OrFastTrack && hasActiveNc) {
+      toast.error('Cannot mark audit as completed while there are open Non-Conformities (NC). Please resolve or close all NCs first.');
+      return;
+    }
+
     setActionSubmitting(true);
     try {
-      const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
-      const stage2 = audits?.find(a => a.stage === 2);
-      const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
       const targetAudit = (isGSO && isStage1Complete && stage2) ? stage2 : stage1;
 
       await api.post('/api/audits/complete-clean', {
@@ -616,10 +680,13 @@ export default function ApplicationProcessing() {
       }
 
       // 5. Post-Payment / Ready for Certificate Stage (Renewal / Surveillance)
-      const fastTrackInvoice = initialInvoice || invoice;
-      const isFastTrackInvoicePaid = fastTrackInvoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid);
+      const fastTrackInvoice = isSurveillance
+        ? (allInvoices?.find(inv => inv.invoice_type === 'surveillance' || inv.stage === 'surveillance' || (inv.title && inv.title.toLowerCase().includes('surveillance'))) || null)
+        : (allInvoices?.find(inv => inv.invoice_type === 'renewal' || inv.stage === 'renewal' || (inv.title && inv.title.toLowerCase().includes('renewal'))) || null);
+      const isFastTrackInvoicePaid = fastTrackInvoice ? (fastTrackInvoice.status === 'paid') : (status === 'payment_received');
 
-      if (status === 'payment_received' || status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isFastTrackInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'payment_received'].includes(status))) {
+      // 5B. Ready for Certificate Stage (ONLY after marked ready for certificate)
+      if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
         if (isSurveillance) {
           return (
             <button
@@ -627,7 +694,7 @@ export default function ApplicationProcessing() {
               style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
               onClick={() => setShowCertificateModal(true)}
             >
-              <FileText size={16} /> Issue Surveillance Letter
+              <FileText size={16} /> Surveillance Letter
             </button>
           );
         }
@@ -646,6 +713,20 @@ export default function ApplicationProcessing() {
               </span>
             )}
           </div>
+        );
+      }
+
+      // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
+      if (status === 'payment_received' || isFastTrackInvoicePaid) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleMarkReadyForCertificate}
+            disabled={markingReadyForCert}
+          >
+            <CheckCircle size={16} /> {markingReadyForCert ? 'Marking...' : 'Mark Ready for Certificate'}
+          </button>
         );
       }
 
@@ -690,7 +771,7 @@ export default function ApplicationProcessing() {
       // 3. LogSheet Stage (Post-Audit / NC Closed) - Only reached when all audit stages are complete
       const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-      if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
+      if (!hasActiveNc && status !== 'nc_closed' && (['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || (!isLogsheetSigned && ['audit_successful', 'audit_completed'].includes(status)))) {
         if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
           const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
           return (
@@ -756,7 +837,67 @@ export default function ApplicationProcessing() {
 
       // If Dual-Stage and Stage 1 is complete but Stage 2 is NOT complete, manage Stage 2 audit
       if (isDualStage && isStage1Complete && !isStage2Complete) {
+        if (hasActiveNc || status === 'nc_flagged') {
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 2 Audit
+              </button>
+              <button
+                className="btn btn-danger"
+                style={{ gap: 8 }}
+                onClick={() => setShowNcModal(true)}
+                disabled={actionSubmitting}
+              >
+                <AlertTriangle size={16} /> Flag NC
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleCloseNc}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> Close NC
+              </button>
+            </div>
+          );
+        }
+
         if (canCompleteAudit) {
+          if (!isNcClosed) {
+            return (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                  onClick={() => setShowAuditModal(true)}
+                >
+                  <Calendar size={16} /> Manage Stage 2 Audit
+                </button>
+                <button
+                  className="btn btn-danger"
+                  style={{ gap: 8 }}
+                  onClick={() => setShowNcModal(true)}
+                  disabled={actionSubmitting}
+                >
+                  <AlertTriangle size={16} /> Flag NC
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                  onClick={handleCloseNc}
+                  disabled={actionSubmitting}
+                >
+                  <CheckCircle size={16} /> Close NC
+                </button>
+              </div>
+            );
+          }
+
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
@@ -772,7 +913,7 @@ export default function ApplicationProcessing() {
                 onClick={handleMarkAuditCompleted}
                 disabled={actionSubmitting}
               >
-                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+                <CheckCircle size={16} /> Mark Stage 2 Audit Completed
               </button>
             </div>
           );
@@ -791,8 +932,60 @@ export default function ApplicationProcessing() {
       }
 
       // 2. Audit Scheduling & Execution (Directly after Accept — No Proposal, No Pre-Audit Invoice, No Agreement)
-      if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-        if (canCompleteAudit) {
+      if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged'].includes(status)) {
+        if (canCompleteAudit || isNcClosed || status === 'nc_closed') {
+          if (!isDualStage) {
+            if (!isNcClosed) {
+              return (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                    onClick={() => setShowAuditModal(true)}
+                  >
+                    <Calendar size={16} /> Manage Audit
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    style={{ gap: 8 }}
+                    onClick={() => setShowNcModal(true)}
+                    disabled={actionSubmitting}
+                  >
+                    <AlertTriangle size={16} /> Flag NC
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                    onClick={handleCloseNc}
+                    disabled={actionSubmitting}
+                  >
+                    <CheckCircle size={16} /> Close NC
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                  onClick={() => setShowAuditModal(true)}
+                >
+                  <Calendar size={16} /> Manage Audit
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                  onClick={handleMarkAuditCompleted}
+                  disabled={actionSubmitting}
+                >
+                  <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+                </button>
+              </div>
+            );
+          }
+
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
@@ -800,7 +993,7 @@ export default function ApplicationProcessing() {
                 style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
                 onClick={() => setShowAuditModal(true)}
               >
-                <Calendar size={16} /> Manage Audit {isDualStage ? '(Stage 1)' : ''}
+                <Calendar size={16} /> Manage Audit (Stage 1)
               </button>
               <button
                 className="btn btn-primary"
@@ -808,7 +1001,7 @@ export default function ApplicationProcessing() {
                 onClick={handleMarkAuditCompleted}
                 disabled={actionSubmitting}
               >
-                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed (Stage 1)'}
               </button>
             </div>
           );
@@ -968,6 +1161,36 @@ export default function ApplicationProcessing() {
 
     // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet!
     if (isDualStage && !isStage2Complete) {
+      if (hasActiveNc || status === 'nc_flagged') {
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Stage 2 Audit
+            </button>
+            <button
+              className="btn btn-danger"
+              style={{ gap: 8 }}
+              onClick={() => setShowNcModal(true)}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleCloseNc}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> Close NC
+            </button>
+          </div>
+        );
+      }
+
       if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -979,12 +1202,20 @@ export default function ApplicationProcessing() {
               <Calendar size={16} /> Manage Stage 2 Audit
             </button>
             <button
+              className="btn btn-danger"
+              style={{ gap: 8 }}
+              onClick={() => setShowNcModal(true)}
+              disabled={actionSubmitting}
+            >
+              <AlertTriangle size={16} /> Flag NC
+            </button>
+            <button
               className="btn btn-primary"
               style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
               onClick={handleMarkAuditCompleted}
               disabled={actionSubmitting}
             >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+              <CheckCircle size={16} /> Mark Stage 2 Audit Completed
             </button>
           </div>
         );
@@ -1544,7 +1775,17 @@ export default function ApplicationProcessing() {
         app={app}
         invoice={invoice}
         invoiceType={invoiceModalType}
-        onSuccess={() => fetchApp(true)}
+        onSuccess={(newInv) => {
+          if (newInv) {
+            if (invoiceModalType === 'final') {
+              setAllInvoices(prev => [newInv, ...prev.filter(i => (i._id || i.id) !== (newInv._id || newInv.id))]);
+            } else {
+              setInvoice(newInv);
+              setAllInvoices(prev => [newInv, ...prev.filter(i => (i._id || i.id) !== (newInv._id || newInv.id))]);
+            }
+          }
+          fetchApp(true);
+        }}
       />
 
       <AuditManageModal

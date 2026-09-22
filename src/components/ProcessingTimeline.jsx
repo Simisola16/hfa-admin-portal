@@ -33,6 +33,7 @@ export default function ProcessingTimeline({
   const catLower = String(category || '').toLowerCase();
   const typeLower = String(applicationType || '').toLowerCase();
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || isSurveillance;
+  const isDualStage = isGSO && !isRenewal;
   const isInitialProductApproved = Boolean(initialProduct && (initialProduct.status === 'initial_product_approved' || initialProduct.status === 'approved'));
 
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
@@ -163,6 +164,11 @@ export default function ProcessingTimeline({
     if (isSurveillance) {
       if (stepKey === 'submitted') return 'Surveillance Application Submitted';
       if (stepKey === 'approved') return 'Surveillance Application Accepted';
+      if (stepKey === 'dates_proposed') return 'Surveillance Audit Dates Proposed';
+      if (stepKey === 'dates_accepted') return 'Surveillance Audit Dates Accepted';
+      if (stepKey === 'date_finalized') return 'Surveillance Audit Date Finalized';
+      if (stepKey === 'audit_assigned') return 'Surveillance Auditor Assigned';
+      if (stepKey === 'audit_successful') return 'Surveillance Audit Complete';
       if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Surveillance Invoice Sent';
       if (stepKey === 'payment_received') return 'Surveillance Payment Received';
@@ -171,12 +177,17 @@ export default function ProcessingTimeline({
     if (isRenewal) {
       if (stepKey === 'submitted') return 'Renewal Application Submitted';
       if (stepKey === 'approved') return 'Renewal Application Accepted';
+      if (stepKey === 'dates_proposed') return 'Renewal Audit Dates Proposed';
+      if (stepKey === 'dates_accepted') return 'Renewal Audit Dates Accepted';
+      if (stepKey === 'date_finalized') return 'Renewal Audit Date Finalized';
+      if (stepKey === 'audit_assigned') return 'Renewal Auditor Assigned';
+      if (stepKey === 'audit_successful') return 'Renewal Audit Complete';
       if (stepKey === 'ready_for_certificate' || stepKey === 'application_successful') return 'Application Successful';
       if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
     }
-    if (isGSO) {
+    if (isDualStage) {
       if (isStage1Complete) {
         if (stepKey === 'dates_proposed') return 'Stage 2 Audit Dates Proposed';
         if (stepKey === 'dates_accepted') return 'Stage 2 Audit Dates Accepted';
@@ -209,7 +220,7 @@ export default function ProcessingTimeline({
 
   // Dual-stage audit tracking: If Stage 1 is complete, but Stage 2 has not completed:
   // Keep timeline on Stage 2 step, do NOT allow it to jump to nc_closed or logsheet_created!
-  if (isGSO && isStage1Complete && !isStage2Complete) {
+  if (isDualStage && isStage1Complete && !isStage2Complete) {
     if (normStatus === 'nc_flagged') {
       effectiveStatus = 'nc_flagged';
     } else if (stage2) {
@@ -230,6 +241,11 @@ export default function ProcessingTimeline({
     } else {
       effectiveStatus = 'initial_product';
     }
+  }
+
+  // Renewal / Surveillance audit tracking: If audit is completed, advance effectiveStatus to audit_successful
+  if (isRenewal && isStage1Complete && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(normStatus)) {
+    effectiveStatus = 'audit_successful';
   }
 
   // Helper to map status to step index in stepsToShow
@@ -283,7 +299,7 @@ export default function ProcessingTimeline({
           (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null);
 
         // For GSO dual-stage flows, resolve Stage 2 steps to the latest Stage 2 history entries
-        if (isGSO && isStage1Complete) {
+        if (isDualStage && isStage1Complete) {
           if (s === 'dates_proposed') {
             const s2Entry = [...(statusHistory || [])].reverse().find(h => h.status === 'dates_proposed' || h.status === 'dates_rejected');
             if (s2Entry) {
@@ -312,6 +328,31 @@ export default function ProcessingTimeline({
           }
         }
 
+        // Fallback for renewal/surveillance audit milestones if not present in historyMap
+        if (!histEntry && isRenewal && stage1) {
+          if (s === 'dates_accepted' && (stage1.selected_dates?.length > 0 || ['dates_accepted', 'date_finalized', 'auditors_assigned', 'audit_assigned', 'audit_completed'].includes(stage1.status))) {
+            histEntry = {
+              changedAt: stage1.updated_at || stage1.created_at,
+              note: 'Client selected preferred audit dates.'
+            };
+          } else if (s === 'date_finalized' && (stage1.finalized_date || ['date_finalized', 'auditors_assigned', 'audit_assigned', 'audit_completed'].includes(stage1.status))) {
+            histEntry = {
+              changedAt: stage1.updated_at || stage1.created_at,
+              note: `Audit date confirmed: ${stage1.finalized_date ? new Date(stage1.finalized_date).toLocaleDateString() : ''}`
+            };
+          } else if (s === 'audit_assigned' && (stage1.auditors?.length > 0 || ['auditors_assigned', 'audit_assigned', 'audit_completed'].includes(stage1.status))) {
+            histEntry = {
+              changedAt: stage1.updated_at || stage1.created_at,
+              note: 'Auditor(s) assigned to audit session.'
+            };
+          } else if (s === 'audit_successful' && isStage1Complete) {
+            histEntry = {
+              changedAt: stage1.completed_at || stage1.updated_at || stage1.created_at,
+              note: 'Renewal audit completed successfully.'
+            };
+          }
+        }
+
         let isComplete = false;
         let isCurrent = false;
         let isPending = false;
@@ -320,6 +361,21 @@ export default function ProcessingTimeline({
           isComplete = true;
           isCurrent = false;
           isPending = false;
+        } else if ((isRenewal || isSurveillance) && s === 'invoice_sent') {
+          if (currentIndex < idx) {
+            isPending = true;
+            isComplete = false;
+            isCurrent = false;
+            histEntry = null;
+          } else if (currentIndex === idx) {
+            isComplete = true;
+            isCurrent = false;
+            isPending = false;
+          } else {
+            isComplete = currentIndex > idx;
+            isCurrent = false;
+            isPending = !isComplete;
+          }
         } else if (s === 'payment_received') {
           if (!isRenewal) {
             // In standard flow: Initial Payment Received is marked complete once admin confirms payment
@@ -334,18 +390,20 @@ export default function ProcessingTimeline({
               isPending = true;
             }
           } else {
-            // In Renewal flow: Renewal Payment Received
-            const hasPaymentReceived = normStatus === 'payment_received' || normStatus === 'ready_for_certificate' || Boolean(historyMap['payment_received']);
-            if (hasPaymentReceived) {
+            // In Renewal / Surveillance flow: Renewal/Surveillance Payment Received
+            if (currentIndex < idx) {
+              isPending = true;
+              isComplete = false;
+              isCurrent = false;
+              histEntry = null;
+            } else if (currentIndex === idx) {
               isComplete = true;
               isCurrent = false;
               isPending = false;
-            } else if (currentIndex === idx) {
-              isCurrent = true;
-            } else if (currentIndex < idx) {
-              isPending = true;
             } else {
               isComplete = currentIndex > idx;
+              isCurrent = false;
+              isPending = !isComplete;
             }
           }
         } else if (s === 'initial_product') {

@@ -552,12 +552,13 @@ export default function HFANewProcessing(props) {
   const allNcs = [...appNcList, ...auditNcList];
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
-  const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+  const isNcClosed = !hasActiveNc && Boolean(
+    status === 'nc_closed' ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
     auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+    (app.statusHistory || []).some(h => h.status === 'nc_closed') ||
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)
+  );
 
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);

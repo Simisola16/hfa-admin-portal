@@ -82,7 +82,8 @@ export default function ProcessingTimeline({
       }
 
       const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
-      if (isNcClosedOrBeyond || isNcFlagged) {
+      const isAuditDone = status === 'audit_completed' || status === 'audit_successful' || isStage1Complete || statusHistory.some(h => h.status === 'audit_completed' || h.status === 'audit_successful');
+      if (isNcClosedOrBeyond || isNcFlagged || isAuditDone) {
         stepsToShow.push('nc_closed');
       }
 
@@ -131,7 +132,8 @@ export default function ProcessingTimeline({
       }
 
       const isNcClosedOrBeyond = status === 'nc_closed' || status === 'audit_report_submitted' || STATUS_ORDER.indexOf(status) >= STATUS_ORDER.indexOf('nc_closed');
-      if (isNcClosedOrBeyond || isNcFlagged) {
+      const isAuditDone = status === 'audit_completed' || status === 'audit_successful' || isStage1Complete || statusHistory.some(h => h.status === 'audit_completed' || h.status === 'audit_successful');
+      if (isNcClosedOrBeyond || isNcFlagged || isAuditDone) {
         stepsToShow.push('nc_closed');
       }
 

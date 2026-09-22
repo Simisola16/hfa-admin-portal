@@ -469,11 +469,13 @@ export default function HFARenewalProcessing(props) {
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
   const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+  const isNcClosed = !hasActiveNc && Boolean(
+    status === 'nc_closed' ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
     auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+    (app.statusHistory || []).some(h => h.status === 'nc_closed') ||
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'invoice_sent', 'payment_received', 'ready_for_certificate', 'certificate_issued'].includes(status)
+  );
 
   const isRenewalInvoicePaid = invoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid);
   const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
@@ -500,7 +502,7 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 6. Complete
+    // 6. Complete Certificate Issued
     if (status === 'certificate_issued') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
@@ -568,6 +570,7 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
+    // 3c. Logsheet Signed -> Application Successful Action
     if (status === 'logsheet_signed') {
       return (
         <button
@@ -581,27 +584,8 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 3. LogSheet Stage (Post-Audit / NC Closed)
-    const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
-
-    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
-      if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
-        const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#0e7490' }}
-            onClick={() => navigate(`/applications/${appId}/logsheet`)}
-            title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          >
-            <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          </button>
-        );
-      }
-    }
-
-    // NC Resolution
-    if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
+    // 3a. NC Resolution Stage (STRICTLY AFTER AUDIT COMPLETE and BEFORE LOGSHEET)
+    if (!isNcClosed && (status === 'audit_completed' || status === 'audit_successful' || status === 'nc_flagged' || hasActiveNc || (status === 'on_hold' && audits.length > 0))) {
       return (
         <>
           <button
@@ -621,6 +605,23 @@ export default function HFARenewalProcessing(props) {
             <CheckCircle size={16} /> Close NC
           </button>
         </>
+      );
+    }
+
+    // 3b. LogSheet Stage (STRICTLY UNLOCKED ONLY AFTER NC IS CLOSED)
+    const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
+
+    if (isNcClosed && !hasActiveNc && !isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
+      const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#0e7490' }}
+          onClick={() => navigate(`/applications/${appId}/logsheet`)}
+          title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        >
+          <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        </button>
       );
     }
 

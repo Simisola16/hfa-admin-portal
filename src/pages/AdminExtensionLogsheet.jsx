@@ -7,7 +7,7 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import {
   ArrowLeft, FileText, CheckCircle2, CheckCircle, Clock, Check,
   User, Building2, Calendar, MapPin, Printer, Download,
-  PenTool, AlertTriangle, ShieldCheck, RefreshCw, X, Save
+  PenTool, AlertTriangle, ShieldCheck, RefreshCw, X, Save, Lock
 } from 'lucide-react';
 
 export default function AdminExtensionLogsheet() {
@@ -106,6 +106,7 @@ export default function AdminExtensionLogsheet() {
   }, [id]);
 
   const handleDurationTypeChange = (type) => {
+    if (isSubmittedForSig) return;
     const days = type === '30_days' ? 30 : 60;
     setFormData(prev => ({
       ...prev,
@@ -113,6 +114,16 @@ export default function AdminExtensionLogsheet() {
       extension_days: days
     }));
   };
+
+  const isSubmittedForSig = Boolean(
+    logsheet && (
+      logsheet.status === 'Waiting for Signature' ||
+      logsheet.status === 'Signed' ||
+      logsheet.status === 'Approved' ||
+      app?.status === 'waiting_signature' ||
+      app?.status === 'extension_approved'
+    )
+  );
 
   const handleSave = async (submitForSig = false) => {
     setSaving(true);
@@ -122,10 +133,13 @@ export default function AdminExtensionLogsheet() {
         submit_for_signature: submitForSig
       };
       const res = await api.post(`/api/extension-applications/${id}/logsheet`, payload);
-      setLogsheet(res.data?.data || res.data);
+      const updatedLog = res.data?.data || res.data;
+      setLogsheet(updatedLog);
       toast.success(submitForSig ? 'Logsheet submitted for signatures!' : 'Logsheet draft saved successfully!');
       if (submitForSig) {
         navigate(`/extension-applications/${id}/processing`);
+      } else {
+        fetchDetails();
       }
     } catch (err) {
       console.error('Save error:', err);
@@ -264,6 +278,19 @@ export default function AdminExtensionLogsheet() {
     );
   }
 
+  const inputStyle = {
+    width: '100%',
+    padding: '9px 13px',
+    borderRadius: 7,
+    border: isSubmittedForSig ? '1px solid #e2e8f0' : '1px solid #94a3b8',
+    backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
+    fontSize: 13.5,
+    fontWeight: 600,
+    color: isSubmittedForSig ? '#334155' : '#0f172a',
+    cursor: isSubmittedForSig ? 'not-allowed' : 'text',
+    transition: 'all 0.2s ease'
+  };
+
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 60, fontFamily: 'Inter, "Segoe UI", sans-serif' }}>
       
@@ -291,29 +318,48 @@ export default function AdminExtensionLogsheet() {
           >
             <Printer size={14} /> Print
           </button>
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            style={{
+
+          {!isSubmittedForSig ? (
+            <>
+              <button
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'white', border: '1px solid #d1d5db', color: '#0f172a',
+                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                <Save size={14} /> Save Draft
+              </button>
+              <button
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#008744', border: 'none', color: 'white',
+                  padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,135,68,0.2)'
+                }}
+              >
+                <CheckCircle2 size={14} /> Submit for Signatures
+              </button>
+            </>
+          ) : (
+            <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'white', border: '1px solid #d1d5db', color: '#0f172a',
-              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
-            }}
-          >
-            <Save size={14} /> Save Draft
-          </button>
-          <button
-            onClick={() => handleSave(true)}
-            disabled={saving}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#008744', border: 'none', color: 'white',
-              padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,135,68,0.2)'
-            }}
-          >
-            <CheckCircle2 size={14} /> Submit for Signatures
-          </button>
+              background: isFullySigned ? '#ecfdf5' : '#fffbeb',
+              border: `1px solid ${isFullySigned ? '#a7f3d0' : '#fde68a'}`,
+              color: isFullySigned ? '#065f46' : '#92400e',
+              padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700
+            }}>
+              {isFullySigned ? (
+                <><CheckCircle2 size={15} color="#059669" /> All Signatures Completed</>
+              ) : (
+                <><Clock size={15} color="#d97706" /> Waiting for Signatures</>
+              )}
+            </span>
+          )}
         </div>
       </div>
 
@@ -336,7 +382,58 @@ export default function AdminExtensionLogsheet() {
           </div>
         </div>
 
-        {app?.status === 'submitted' && (
+        {/* ── Locked / Submitted Notice Banner ── */}
+        {isSubmittedForSig ? (
+          <div style={{
+            background: isFullySigned ? '#f0fdf4' : '#eff6ff',
+            border: `1px solid ${isFullySigned ? '#bbf7d0' : '#bfdbfe'}`,
+            borderRadius: 10,
+            padding: '12px 18px',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: isFullySigned ? '#dcfce7' : '#dbeafe',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <Lock size={16} color={isFullySigned ? '#16a34a' : '#1d4ed8'} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isFullySigned ? '#166534' : '#1e40af' }}>
+                  Logsheet Submitted &amp; Locked
+                </div>
+                <div style={{ fontSize: 11.5, color: isFullySigned ? '#15803d' : '#3b82f6' }}>
+                  {isFullySigned
+                    ? 'All committee signatures have been completed. You can now issue the certificate in Processing.'
+                    : 'Logsheet fields are locked. Signatures must now be recorded below by authorized officers.'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              background: isFullySigned ? '#dcfce7' : '#fef3c7',
+              color: isFullySigned ? '#166534' : '#92400e',
+              border: `1px solid ${isFullySigned ? '#86efac' : '#fde68a'}`,
+              padding: '4px 12px',
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}>
+              {isFullySigned ? <Check size={13} strokeWidth={3} /> : <Clock size={13} />}
+              {is30Days
+                ? (logsheet?.single_signature ? '1 / 1 Signed' : '0 / 1 Signed')
+                : `${totalSignedCount} / 4 Signatures Collected`}
+            </span>
+          </div>
+        ) : app?.status === 'submitted' ? (
           <div style={{
             background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 10,
             padding: '12px 16px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10
@@ -346,7 +443,7 @@ export default function AdminExtensionLogsheet() {
               Advisory: This extension request is in "Extension Form Received" status. Please approve the request on the processing page to officially unlock this stage.
             </span>
           </div>
-        )}
+        ) : null}
 
         {/* ── Section 1: Form Fields (Matches Image Spec) ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -358,13 +455,11 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
+              disabled={isSubmittedForSig}
               value={formData.company_name}
               onChange={(e) => setFormData(f => ({ ...f, company_name: e.target.value }))}
               placeholder="e.g. British Foods Ltd"
-              style={{
-                width: '100%', padding: '8px 12px', borderRadius: 6,
-                border: '1px solid #94a3b8', fontSize: 13.5, fontWeight: 600, color: '#0f172a'
-              }}
+              style={inputStyle}
             />
           </div>
 
@@ -375,12 +470,13 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
+              disabled={isSubmittedForSig}
               value={formData.facility_address}
               onChange={(e) => setFormData(f => ({ ...f, facility_address: e.target.value }))}
               placeholder="Full address of the manufacturing / processing facility"
               style={{
-                width: '100%', padding: '8px 12px', borderRadius: 6,
-                border: '1px solid #94a3b8', fontSize: 13.5, color: '#0f172a'
+                ...inputStyle,
+                fontWeight: 500
               }}
             />
           </div>
@@ -392,12 +488,13 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
+              disabled={isSubmittedForSig}
               value={formData.contact_person}
               onChange={(e) => setFormData(f => ({ ...f, contact_person: e.target.value }))}
               placeholder="Full name of representative"
               style={{
-                width: '100%', padding: '8px 12px', borderRadius: 6,
-                border: '1px solid #94a3b8', fontSize: 13.5, color: '#0f172a'
+                ...inputStyle,
+                fontWeight: 500
               }}
             />
           </div>
@@ -409,12 +506,13 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
+              disabled={isSubmittedForSig}
               value={formData.product_category}
               onChange={(e) => setFormData(f => ({ ...f, product_category: e.target.value }))}
               placeholder="e.g. Meat & Poultry / Confectionery / Flavours"
               style={{
-                width: '100%', padding: '8px 12px', borderRadius: 6,
-                border: '1px solid #94a3b8', fontSize: 13.5, color: '#0f172a'
+                ...inputStyle,
+                fontWeight: 500
               }}
             />
           </div>
@@ -425,9 +523,13 @@ export default function AdminExtensionLogsheet() {
               Scheme:
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
+                cursor: isSubmittedForSig ? 'not-allowed' : 'pointer', opacity: isSubmittedForSig ? 0.8 : 1
+              }}>
                 <input
                   type="checkbox"
+                  disabled={isSubmittedForSig}
                   checked={formData.scheme === 'GSO' || formData.scheme === 'Both'}
                   onChange={(e) => {
                     const isChecked = e.target.checked;
@@ -436,14 +538,18 @@ export default function AdminExtensionLogsheet() {
                       scheme: isChecked ? (f.scheme === 'HFA' ? 'Both' : 'GSO') : (f.scheme === 'Both' ? 'HFA' : 'HFA')
                     }));
                   }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'pointer' }}
+                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isSubmittedForSig ? 'not-allowed' : 'pointer' }}
                 />
                 GSO
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
+                cursor: isSubmittedForSig ? 'not-allowed' : 'pointer', opacity: isSubmittedForSig ? 0.8 : 1
+              }}>
                 <input
                   type="checkbox"
+                  disabled={isSubmittedForSig}
                   checked={formData.scheme === 'HFA' || formData.scheme === 'Both'}
                   onChange={(e) => {
                     const isChecked = e.target.checked;
@@ -452,7 +558,7 @@ export default function AdminExtensionLogsheet() {
                       scheme: isChecked ? (f.scheme === 'GSO' ? 'Both' : 'HFA') : (f.scheme === 'Both' ? 'GSO' : 'GSO')
                     }));
                   }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'pointer' }}
+                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isSubmittedForSig ? 'not-allowed' : 'pointer' }}
                 />
                 HFA
               </label>
@@ -466,11 +572,15 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="date"
+              disabled={isSubmittedForSig}
               value={formData.certificate_expiry_date}
               onChange={(e) => setFormData(f => ({ ...f, certificate_expiry_date: e.target.value }))}
               style={{
                 width: 240, padding: '8px 12px', borderRadius: 6,
-                border: '1px solid #94a3b8', fontSize: 13.5, color: '#0f172a'
+                border: isSubmittedForSig ? '1px solid #e2e8f0' : '1px solid #94a3b8',
+                backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
+                fontSize: 13.5, color: isSubmittedForSig ? '#334155' : '#0f172a',
+                cursor: isSubmittedForSig ? 'not-allowed' : 'text'
               }}
             />
           </div>
@@ -482,20 +592,26 @@ export default function AdminExtensionLogsheet() {
             </label>
             <textarea
               rows={6}
+              disabled={isSubmittedForSig}
               value={formData.justification}
               onChange={(e) => setFormData(f => ({ ...f, justification: e.target.value }))}
               placeholder="State the detailed operational, technical, or auditing justification for granting the certificate extension..."
               style={{
                 width: '100%', padding: '14px 16px', borderRadius: 8,
-                border: '1.5px solid #64748b', fontSize: 13.5, lineHeight: 1.6,
-                color: '#0f172a', resize: 'vertical'
+                border: isSubmittedForSig ? '1px solid #e2e8f0' : '1.5px solid #64748b',
+                backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
+                fontSize: 13.5, lineHeight: 1.6,
+                color: isSubmittedForSig ? '#334155' : '#0f172a',
+                cursor: isSubmittedForSig ? 'not-allowed' : 'text',
+                resize: isSubmittedForSig ? 'none' : 'vertical'
               }}
             />
           </div>
 
           {/* Extension required for: _____ days & 30 Days / >30 Days Toggle */}
           <div style={{
-            background: '#f8fafc', border: '1.5px dashed #cbd5e1',
+            background: isSubmittedForSig ? '#f8fafc' : '#f8fafc',
+            border: isSubmittedForSig ? '1px solid #e2e8f0' : '1.5px dashed #cbd5e1',
             borderRadius: 12, padding: '18px 22px', marginTop: 10
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -507,6 +623,7 @@ export default function AdminExtensionLogsheet() {
                   type="number"
                   min="1"
                   max="365"
+                  disabled={isSubmittedForSig}
                   value={formData.extension_days}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10) || 0;
@@ -518,8 +635,11 @@ export default function AdminExtensionLogsheet() {
                   }}
                   style={{
                     width: 90, padding: '6px 10px', borderRadius: 6,
-                    border: '2px solid #008744', fontSize: 15, fontWeight: 800,
-                    textAlign: 'center', color: '#008744'
+                    border: isSubmittedForSig ? '1px solid #cbd5e1' : '2px solid #008744',
+                    backgroundColor: isSubmittedForSig ? '#ffffff' : '#ffffff',
+                    fontSize: 15, fontWeight: 800,
+                    textAlign: 'center', color: isSubmittedForSig ? '#334155' : '#008744',
+                    cursor: isSubmittedForSig ? 'not-allowed' : 'text'
                   }}
                 />
                 <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a' }}>
@@ -531,26 +651,30 @@ export default function AdminExtensionLogsheet() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
+                  disabled={isSubmittedForSig}
                   onClick={() => handleDurationTypeChange('30_days')}
                   style={{
                     padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
                     border: is30Days ? '2px solid #008744' : '1px solid #cbd5e1',
                     background: is30Days ? '#ecfdf5' : 'white',
                     color: is30Days ? '#008744' : '#64748b',
-                    cursor: 'pointer'
+                    cursor: isSubmittedForSig ? 'not-allowed' : 'pointer',
+                    opacity: isSubmittedForSig && !is30Days ? 0.5 : 1
                   }}
                 >
                   ✓ 30 Days (1 Signature)
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmittedForSig}
                   onClick={() => handleDurationTypeChange('more_than_30_days')}
                   style={{
                     padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
                     border: !is30Days ? '2px solid #2563eb' : '1px solid #cbd5e1',
                     background: !is30Days ? '#eff6ff' : 'white',
                     color: !is30Days ? '#2563eb' : '#64748b',
-                    cursor: 'pointer'
+                    cursor: isSubmittedForSig ? 'not-allowed' : 'pointer',
+                    opacity: isSubmittedForSig && is30Days ? 0.5 : 1
                   }}
                 >
                   ✓ More than 30 Days (4 Signatures)
@@ -559,192 +683,231 @@ export default function AdminExtensionLogsheet() {
             </div>
           </div>
 
-          {/* ── Section 2: Committee Signatures & Approval Block ── */}
-          <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <PenTool size={18} style={{ color: 'var(--primary, #047857)' }} />
-                  {is30Days ? 'Authorized Signatory (30-Day Extension)' : 'Committee Signatures & Executive Approval'}
-                </h4>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)', margin: '2px 0 0' }}>
-                  {is30Days
-                    ? '1 Authorized Signature required for 30-day extension.'
-                    : '4 Committee Signatures required for extensions exceeding 30 days.'}
-                </p>
+          {/* ── Section 2: Committee Signatures & Approval Block (Visible ONLY in Waiting for Signatures / Locked state) ── */}
+          {isSubmittedForSig ? (
+            <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <PenTool size={18} style={{ color: 'var(--primary, #047857)' }} />
+                    {is30Days ? 'Authorized Signatory (30-Day Extension)' : 'Committee Signatures & Executive Approval'}
+                  </h4>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)', margin: '2px 0 0' }}>
+                    {is30Days
+                      ? '1 Authorized Signature required for 30-day extension.'
+                      : '4 Committee Signatures required for extensions exceeding 30 days.'}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    background: isFullySigned ? '#dcfce7' : '#eff6ff',
+                    color: isFullySigned ? '#166534' : '#1e40af',
+                    border: `1px solid ${isFullySigned ? '#86efac' : '#bfdbfe'}`,
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}>
+                    {isFullySigned ? <Check size={13} strokeWidth={3} /> : <Clock size={13} />}
+                    {is30Days
+                      ? (logsheet?.single_signature ? '1 / 1 Signed (Complete)' : '0 / 1 Signed (Pending)')
+                      : `${totalSignedCount} / 4 Signatures Collected`}
+                  </span>
+
+                  {!isFullySigned && (
+                    <button
+                      type="button"
+                      onClick={() => openSignModal()}
+                      className="btn btn-outline btn-sm"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontWeight: 600,
+                        borderRadius: 8
+                      }}
+                    >
+                      <PenTool size={14} /> Add Signature
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{
-                  background: isFullySigned ? '#dcfce7' : '#eff6ff',
-                  color: isFullySigned ? '#166534' : '#1e40af',
-                  border: `1px solid ${isFullySigned ? '#86efac' : '#bfdbfe'}`,
-                  padding: '4px 12px',
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}>
-                  {isFullySigned ? <Check size={13} strokeWidth={3} /> : <Clock size={13} />}
-                  {is30Days
-                    ? (logsheet?.single_signature ? '1 / 1 Signed (Complete)' : '0 / 1 Signed (Pending)')
-                    : `${totalSignedCount} / 4 Signatures Collected`}
-                </span>
-
-                {!isFullySigned && (
-                  <button
-                    type="button"
-                    onClick={() => openSignModal()}
-                    className="btn btn-outline btn-sm"
+              {/* Signatures Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: is30Days ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 16
+              }}>
+                {signatories.map((s, idx) => (
+                  <div
+                    key={idx}
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontWeight: 600,
-                      borderRadius: 8
+                      border: `1.5px solid ${s.signature ? '#86efac' : '#e2e8f0'}`,
+                      borderRadius: 10,
+                      padding: 16,
+                      background: s.signature ? '#f0fdf4' : '#fafafa',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: 170,
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    <PenTool size={14} /> Add Signature
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Signatures Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: is30Days ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: 16
-            }}>
-              {signatories.map((s, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    border: `1.5px solid ${s.signature ? '#86efac' : '#e2e8f0'}`,
-                    borderRadius: 10,
-                    padding: 16,
-                    background: s.signature ? '#f0fdf4' : '#fafafa',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    minHeight: 170,
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <div>
-                    {/* Header: Label + Status */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: s.signature ? '#166534' : '#64748b',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
-                      }}>
-                        {s.label}
-                      </span>
-                      {s.signature ? (
+                    <div>
+                      {/* Header: Label + Status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
                           fontSize: 11,
                           fontWeight: 700,
-                          color: '#16a34a',
-                          background: '#dcfce7',
-                          padding: '2px 8px',
-                          borderRadius: 10
+                          color: s.signature ? '#166534' : '#64748b',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
                         }}>
-                          <Check size={12} /> Signed
+                          {s.label}
                         </span>
+                        {s.signature ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#16a34a',
+                            background: '#dcfce7',
+                            padding: '2px 8px',
+                            borderRadius: 10
+                          }}>
+                            <Check size={12} /> Signed
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: '#94a3b8',
+                            background: '#f1f5f9',
+                            padding: '2px 8px',
+                            borderRadius: 10
+                          }}>
+                            Pending
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Body: Signature Image / Name / Date OR Dashed Box */}
+                      {s.signature ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{
+                            background: '#fff',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 6,
+                            padding: '8px 12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 50,
+                            marginBottom: 8
+                          }}>
+                            <img
+                              src={getPdfUrl(s.signature)}
+                              alt={`${s.label} Signature`}
+                              style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }}
+                            />
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                            {s.name || 'Authorised Signatory'}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          </div>
+                        </div>
                       ) : (
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: '#94a3b8',
-                          background: '#f1f5f9',
-                          padding: '2px 8px',
-                          borderRadius: 10
+                        <div style={{
+                          height: 80,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1.5px dashed #cbd5e1',
+                          borderRadius: 6,
+                          margin: '8px 0',
+                          background: '#fff'
                         }}>
-                          Pending
-                        </span>
+                          <PenTool size={18} style={{ color: '#94a3b8', marginBottom: 4 }} />
+                          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Awaiting Signature</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Body: Signature Image / Name / Date OR Dashed Box */}
-                    {s.signature ? (
+                    {/* Bottom Button */}
+                    {!s.signature && (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{
-                          background: '#fff',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: 6,
-                          padding: '8px 12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          height: 50,
-                          marginBottom: 8
-                        }}>
-                          <img
-                            src={getPdfUrl(s.signature)}
-                            alt={`${s.label} Signature`}
-                            style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }}
-                          />
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
-                          {s.name || 'Authorised Signatory'}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{
-                        height: 80,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1.5px dashed #cbd5e1',
-                        borderRadius: 6,
-                        margin: '8px 0',
-                        background: '#fff'
-                      }}>
-                        <PenTool size={18} style={{ color: '#94a3b8', marginBottom: 4 }} />
-                        <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Awaiting Signature</span>
+                        <button
+                          type="button"
+                          onClick={() => openSignModal(s.roleKey)}
+                          className="btn btn-outline btn-sm"
+                          style={{
+                            width: '100%',
+                            fontSize: 12,
+                            padding: '6px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            color: 'var(--primary, #047857)',
+                            borderColor: 'var(--primary, #047857)'
+                          }}
+                        >
+                          <PenTool size={13} /> Sign as {s.btnRole || s.label}
+                        </button>
                       </div>
                     )}
                   </div>
-
-                  {/* Bottom Button */}
-                  {!s.signature && (
-                    <div style={{ marginTop: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => openSignModal(s.roleKey)}
-                        className="btn btn-outline btn-sm"
-                        style={{
-                          width: '100%',
-                          fontSize: 12,
-                          padding: '6px 10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          color: 'var(--primary, #047857)',
-                          borderColor: 'var(--primary, #047857)'
-                        }}
-                      >
-                        <PenTool size={13} /> Sign as {s.btnRole || s.label}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{
+              borderTop: '2px solid #f1f5f9',
+              paddingTop: 24,
+              marginTop: 24
+            }}>
+              <div style={{
+                background: '#f8fafc',
+                border: '1.5px dashed #cbd5e1',
+                borderRadius: 12,
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16
+              }}>
+                <div style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '50%',
+                  background: '#e0f2fe',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <ShieldCheck size={22} color="#0369a1" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                    {is30Days ? 'Authorized Signatory Workflow' : 'Committee Signatures & Executive Approval Workflow'}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
+                    This signature section will automatically activate once you click <strong style={{ color: '#008744' }}>Submit for Signatures</strong> above. All logsheet fields will become locked and ready for committee sign-off ({is30Days ? '1 Authorized Signature' : '4 Committee Signatures'}).
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

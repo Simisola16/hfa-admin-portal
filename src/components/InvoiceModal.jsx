@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -23,54 +23,68 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propInvoice?.application_id);
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      const isFinal = invoiceType === 'final';
-      if (!propApp && targetAppId) {
-        setLoading(true);
-        Promise.all([
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-          api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([appRes, invRes]) => {
-          const loadedApp = appRes.data?.data || appRes.data || null;
-          const rawInv = invRes.data?.data || invRes.data || null;
-          const isMatchingInvoice = rawInv && (isFinal 
-            ? (rawInv.invoice_type === 'final' || rawInv.stage === 'final' || rawInv.target_status === 'final_invoice_sent') 
-            : (rawInv.invoice_type !== 'final' && rawInv.stage !== 'final' && rawInv.target_status !== 'final_invoice_sent'));
-          const loadedInvoice = isMatchingInvoice ? rawInv : null;
-          setApp(loadedApp);
-          setInvoice(loadedInvoice);
-          if (loadedApp) {
-            setInvoiceForm(f => ({
-              ...f,
-              title: loadedInvoice
-                ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`
-                : `${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`,
-              amount: loadedInvoice?.amount || '',
-              notes: loadedInvoice?.notes || '',
-              file: null
-            }));
-          }
-        }).finally(() => setLoading(false));
-      } else {
-        const isMatchingInvoice = propInvoice && (isFinal 
-          ? (propInvoice.invoice_type === 'final' || propInvoice.stage === 'final' || propInvoice.target_status === 'final_invoice_sent') 
-          : (propInvoice.invoice_type !== 'final' && propInvoice.stage !== 'final' && propInvoice.target_status !== 'final_invoice_sent'));
-        const activeInvoice = isMatchingInvoice ? propInvoice : null;
-        setApp(propApp || null);
-        setInvoice(activeInvoice);
-        setInvoiceForm({
-          title: activeInvoice
-            ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`
-            : `${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`,
-          amount: activeInvoice?.amount || '',
-          notes: activeInvoice?.notes || '',
-          file: null
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propApp, propInvoice, invoiceType, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    const isFinal = invoiceType === 'final';
+    if (!propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, invRes]) => {
+        const loadedApp = appRes.data?.data || appRes.data || null;
+        const rawInv = invRes.data?.data || invRes.data || null;
+        const isMatchingInvoice = rawInv && (isFinal 
+          ? (rawInv.invoice_type === 'final' || rawInv.stage === 'final' || rawInv.target_status === 'final_invoice_sent') 
+          : (rawInv.invoice_type !== 'final' && rawInv.stage !== 'final' && rawInv.target_status !== 'final_invoice_sent'));
+        const loadedInvoice = isMatchingInvoice ? rawInv : null;
+        setApp(loadedApp);
+        setInvoice(loadedInvoice);
+        if (loadedApp) {
+          setInvoiceForm(f => ({
+            ...f,
+            title: loadedInvoice
+              ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`
+              : `${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`,
+            amount: loadedInvoice?.amount || '',
+            notes: loadedInvoice?.notes || '',
+            file: null
+          }));
+        }
+      }).finally(() => setLoading(false));
+    } else {
+      const isMatchingInvoice = propInvoice && (isFinal 
+        ? (propInvoice.invoice_type === 'final' || propInvoice.stage === 'final' || propInvoice.target_status === 'final_invoice_sent') 
+        : (propInvoice.invoice_type !== 'final' && propInvoice.stage !== 'final' && propInvoice.target_status !== 'final_invoice_sent'));
+      const activeInvoice = isMatchingInvoice ? propInvoice : null;
+      setApp(propApp || null);
+      setInvoice(activeInvoice);
+      setInvoiceForm({
+        title: activeInvoice
+          ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`
+          : `${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`,
+        amount: activeInvoice?.amount || '',
+        notes: activeInvoice?.notes || '',
+        file: null
+      });
+    }
+  }, [isOpen, targetAppId, invoiceType]);
 
   if (!isOpen) return null;
   if (loading) return (

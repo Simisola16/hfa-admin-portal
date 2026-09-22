@@ -25,31 +25,45 @@ export default function ConfirmPaymentModal({ isOpen, onClose, invoice: propInvo
   const [app, setApp] = useState(propApp || null);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propInvoice?.application_id);
+  const hasInitializedRef = React.useRef(false);
+  const currentAppIdRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (isOpen) {
-      const invObj = propInvoice || null;
-      setInvoice(invObj);
-
-      if (propApp) {
-        setApp(propApp);
-      } else if (invObj?.application_id && typeof invObj.application_id === 'object') {
-        setApp(invObj.application_id);
-      } else if (targetAppId) {
-        Promise.all([
-          !invObj ? api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: invObj }),
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([invRes, appRes]) => {
-          if (!invObj) {
-            const fetchedInv = invRes.data?.data || invRes.data || null;
-            setInvoice(fetchedInv);
-          }
-          const appObj = appRes.data?.data || appRes.data || null;
-          if (appObj) setApp(appObj);
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propInvoice, propApp, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    const invObj = propInvoice || null;
+    setInvoice(invObj);
+
+    if (propApp) {
+      setApp(propApp);
+    } else if (invObj?.application_id && typeof invObj.application_id === 'object') {
+      setApp(invObj.application_id);
+    } else if (targetAppId) {
+      Promise.all([
+        !invObj ? api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null })) : Promise.resolve({ data: invObj }),
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([invRes, appRes]) => {
+        if (!invObj) {
+          const fetchedInv = invRes.data?.data || invRes.data || null;
+          setInvoice(fetchedInv);
+        }
+        const appObj = appRes.data?.data || appRes.data || null;
+        if (appObj) setApp(appObj);
+      });
+    }
+  }, [isOpen, targetAppId]);
 
   if (!isOpen) return null;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -25,43 +25,58 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propProposal?.application_id);
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (!propApp && targetAppId) {
-        setLoading(true);
-        Promise.all([
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-          api.get(`/api/proposals/application/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([appRes, pRes]) => {
-          const loadedApp = appRes.data?.data || appRes.data || null;
-          const loadedProposal = pRes.data?.data || pRes.data || null;
-          setApp(loadedApp);
-          setProposal(loadedProposal);
-          if (loadedApp) {
-            setProposalForm(f => ({
-              ...f,
-              title: loadedProposal ? `Revised Proposal for ${loadedApp.application_number}` : `Proposal for ${loadedApp.application_number}`,
-              estimated_cost: loadedProposal?.estimated_cost || '',
-              details: loadedProposal?.details || '',
-              admin_comment: loadedProposal?.admin_comment || '',
-            }));
-          }
-        }).finally(() => setLoading(false));
-      } else {
-        setApp(propApp || null);
-        setProposal(propProposal || null);
-        setProposalForm({
-          type: 'upload',
-          title: propProposal ? `Revised Proposal for ${propApp?.application_number}` : `Proposal for ${propApp?.application_number}`,
-          estimated_cost: propProposal?.estimated_cost || '',
-          details: propProposal?.details || '',
-          admin_comment: propProposal?.admin_comment || '',
-          file: null
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propApp, propProposal, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    if (!propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/proposals/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, pRes]) => {
+        const loadedApp = appRes.data?.data || appRes.data || null;
+        const loadedProposal = pRes.data?.data || pRes.data || null;
+        setApp(loadedApp);
+        setProposal(loadedProposal);
+        if (loadedApp) {
+          setProposalForm(f => ({
+            ...f,
+            title: loadedProposal ? `Revised Proposal for ${loadedApp.application_number}` : `Proposal for ${loadedApp.application_number}`,
+            estimated_cost: loadedProposal?.estimated_cost || '',
+            details: loadedProposal?.details || '',
+            admin_comment: loadedProposal?.admin_comment || '',
+            file: null
+          }));
+        }
+      }).finally(() => setLoading(false));
+    } else {
+      setApp(propApp || null);
+      setProposal(propProposal || null);
+      setProposalForm({
+        type: 'upload',
+        title: propProposal ? `Revised Proposal for ${propApp?.application_number}` : `Proposal for ${propApp?.application_number}`,
+        estimated_cost: propProposal?.estimated_cost || '',
+        details: propProposal?.details || '',
+        admin_comment: propProposal?.admin_comment || '',
+        file: null
+      });
+    }
+  }, [isOpen, targetAppId]);
 
   if (!isOpen) return null;
   if (loading) return (

@@ -319,41 +319,58 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
   }, [certificateForm, app, isSurveillance]);
 
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
+
   // Initial Load
   useEffect(() => {
-    if (isOpen) {
-      const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
-      if (appIdToUse) {
-        setLoading(true);
-        const appFetchPromise = propApp
-          ? Promise.resolve({ data: propApp })
-          : api.get(`/api/applications/${appIdToUse}`).catch(() => api.get(`/api/add-on-applications/${appIdToUse}`));
-
-        Promise.all([
-          appFetchPromise,
-          api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null }))
-        ])
-          .then(([appRes, certRes]) => {
-            const loadedApp = appRes.data?.data || appRes.data || null;
-            let loadedCert = certRes.data?.data || certRes.data || null;
-
-            if (!loadedCert && loadedApp?.certificate_id) {
-              if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
-                loadedCert = loadedApp.certificate_id;
-              }
-            }
-
-            setApp(loadedApp);
-            initForm(loadedApp, loadedCert);
-          })
-          .catch(() => setApp(null))
-          .finally(() => setLoading(false));
-      } else if (propApp) {
-        setApp(propApp);
-        initForm(propApp, propApp.certificate_id);
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      setUnderReviewPopup(null);
+      setLivePreviewUrl('');
+      setPreviewError('');
+      return;
     }
-  }, [isOpen, propApp, targetAppId]);
+
+    const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === appIdToUse) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = appIdToUse;
+
+    if (appIdToUse) {
+      setLoading(true);
+      const appFetchPromise = propApp
+        ? Promise.resolve({ data: propApp })
+        : api.get(`/api/applications/${appIdToUse}`).catch(() => api.get(`/api/add-on-applications/${appIdToUse}`));
+
+      Promise.all([
+        appFetchPromise,
+        api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null }))
+      ])
+        .then(([appRes, certRes]) => {
+          const loadedApp = appRes.data?.data || appRes.data || null;
+          let loadedCert = certRes.data?.data || certRes.data || null;
+
+          if (!loadedCert && loadedApp?.certificate_id) {
+            if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
+              loadedCert = loadedApp.certificate_id;
+            }
+          }
+
+          setApp(loadedApp);
+          initForm(loadedApp, loadedCert);
+        })
+        .catch(() => setApp(null))
+        .finally(() => setLoading(false));
+    } else if (propApp) {
+      setApp(propApp);
+      initForm(propApp, propApp.certificate_id);
+    }
+  }, [isOpen, targetAppId]);
 
   // Auto trigger preview generation on initial load when certificate number is ready
   useEffect(() => {
@@ -366,6 +383,52 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   }, [isOpen, loading, certificateForm.certificate_number, isSurveillance, livePreviewUrl, generateLivePreview]);
 
   if (!isOpen) return null;
+
+  if (underReviewPopup) {
+    return (
+      <div className="modal-overlay" style={{ zIndex: 1250, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }} onClick={() => { setUnderReviewPopup(null); onClose(); }}>
+        <div className="modal" style={{ maxWidth: 480, borderRadius: 20, padding: 0, overflow: 'hidden', textAlign: 'center', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '36px 28px 24px', borderBottom: '1px solid #fde68a' }}>
+            <div style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              background: '#ffffff',
+              border: '3px solid #f59e0b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#d97706',
+              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
+            }}>
+              <ShieldCheck size={32} />
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#78350f', margin: '0 0 8px' }}>
+              Certificate is Under Committee Review
+            </h3>
+            <p style={{ fontSize: 14, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
+              Official Certificate <strong>{underReviewPopup.certNumber}</strong> for <strong>{underReviewPopup.companyName}</strong> has been created and submitted for QA & Committee Review.
+            </p>
+          </div>
+          <div style={{ padding: '24px 28px', display: 'flex', gap: 12, justifyContent: 'center', background: 'white' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: '12px 32px', fontWeight: 800, background: '#d97706', borderColor: '#b45309', borderRadius: 10, fontSize: 14 }}
+              onClick={() => {
+                setUnderReviewPopup(null);
+                onClose();
+              }}
+            >
+              OK, Got It
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className="modal-overlay" style={{ zIndex: 1200, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)' }}>
       <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center', borderRadius: 16 }}>
@@ -547,51 +610,6 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
   const isCurrentFourDate = isFourDateType(certificateForm.certificate_type);
   const isSubmitDisabled = submitting || (!isSurveillance && !isAppReadyForCert);
-
-  if (underReviewPopup) {
-    return (
-      <div className="modal-overlay" style={{ zIndex: 1250, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }} onClick={() => { setUnderReviewPopup(null); onClose(); }}>
-        <div className="modal" style={{ maxWidth: 480, borderRadius: 20, padding: 0, overflow: 'hidden', textAlign: 'center', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
-          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '36px 28px 24px', borderBottom: '1px solid #fde68a' }}>
-            <div style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: '3px solid #f59e0b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              color: '#d97706',
-              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
-            }}>
-              <ShieldCheck size={32} />
-            </div>
-            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#78350f', margin: '0 0 8px' }}>
-              Certificate is Under Committee Review
-            </h3>
-            <p style={{ fontSize: 14, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
-              Official Certificate <strong>{underReviewPopup.certNumber}</strong> for <strong>{underReviewPopup.companyName}</strong> has been created and submitted for QA & Committee Review.
-            </p>
-          </div>
-          <div style={{ padding: '24px 28px', display: 'flex', gap: 12, justifyContent: 'center', background: 'white' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ padding: '12px 32px', fontWeight: 800, background: '#d97706', borderColor: '#b45309', borderRadius: 10, fontSize: 14 }}
-              onClick={() => {
-                setUnderReviewPopup(null);
-                onClose();
-              }}
-            >
-              OK, Got It
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div 

@@ -31,7 +31,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const navigate = useNavigate();
 
   const [app, setApp] = useState(initialData?.app || null);
-  const [loading, setLoading] = useState(!initialData?.app);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Core records
@@ -157,7 +157,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   }, [initialData]);
 
   useEffect(() => {
-    fetchApp(Boolean(initialData?.app));
+    fetchApp();
   }, [fetchApp]);
 
   useEffect(() => {

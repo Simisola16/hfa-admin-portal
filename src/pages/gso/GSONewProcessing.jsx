@@ -38,7 +38,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const navigate = useNavigate();
 
   const [app, setApp] = useState(initialData?.app || null);
-  const [loading, setLoading] = useState(!initialData?.app);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Core records
@@ -187,10 +187,22 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   }, [appId]);
 
   useEffect(() => {
-    if (!initialData?.app) {
-      fetchApp();
+    if (initialData) {
+      if (initialData.app) setApp(initialData.app);
+      if (initialData.proposal !== undefined) setProposal(initialData.proposal);
+      if (initialData.invoice !== undefined) setInvoice(initialData.invoice);
+      if (initialData.allInvoices !== undefined) setAllInvoices(initialData.allInvoices || []);
+      if (initialData.agreement !== undefined) setAgreement(initialData.agreement);
+      if (initialData.audits !== undefined) setAudits(initialData.audits || []);
+      if (initialData.logsheet !== undefined) setLogsheet(initialData.logsheet);
+      if (initialData.initialProduct !== undefined) setInitialProduct(initialData.initialProduct);
+      if (initialData.certificate !== undefined) setCertificate(initialData.certificate);
     }
-  }, [fetchApp, initialData]);
+  }, [initialData]);
+
+  useEffect(() => {
+    fetchApp();
+  }, [fetchApp]);
 
   useEffect(() => {
     const token = localStorage.getItem('hfa_token');

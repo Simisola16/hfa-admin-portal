@@ -26,11 +26,75 @@ export default function AdminLogsheetWaitingSignature() {
   const fetchLogsheets = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/application-logsheets');
+      const [res, extRes] = await Promise.all([
+        api.get('/api/application-logsheets'),
+        api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
+      ]);
+
       const allLogs = res.data?.data || res.data || [];
-      // Filter only "Waiting for Signature" on retrieval
+      const extApps = extRes.data?.data || (Array.isArray(extRes.data) ? extRes.data : []);
+
+      // Filter only "Waiting for Signature" on retrieval for normal logsheets
       const waitingLogs = allLogs.filter(l => l.status === 'Waiting for Signature');
-      setLogsheets(waitingLogs);
+
+      // Transform Extension Logsheets that are waiting for signature
+      const waitingExtLogs = extApps
+        .filter(extApp => {
+          const log = extApp.logsheet_id;
+          if (!log) return false;
+          // Show if logsheet or app is in waiting signature status
+          const isWaiting = log.status === 'Waiting for Signature' || extApp.status === 'waiting_signature';
+          if (!isWaiting) return false;
+          if (extApp.status === 'extension_approved' || extApp.status === 'rejected' || log.status === 'Approved') {
+            return false;
+          }
+
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          const isSigned = is30Days
+            ? Boolean(log.single_signature)
+            : Boolean(log.mufti_signature && log.ceo_signature && log.manager_signature && log.mufti2_signature);
+
+          return !isSigned;
+        })
+        .map(extApp => {
+          const log = extApp.logsheet_id;
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          return {
+            _id: log._id || extApp._id,
+            extension_application_id: extApp._id,
+            application_number: extApp.application_number,
+            source_type: 'extension_application',
+            company_name: log.company_name || extApp.company_name || extApp.client_id?.company_name || 'Client',
+            site_name: extApp.site_name || extApp.site_id?.name || log.facility_address || 'Main Facility',
+            manufacturing_address: log.facility_address || extApp.site_id?.address_1 || '',
+            contact_person: log.contact_person || extApp.contact_person || '—',
+            contact_email: extApp.contact_email || extApp.client_id?.email || '',
+            created_at: log.created_at || extApp.created_at || extApp.createdAt,
+            audit_type: `Extension (${log.extension_days || 30} Days)`,
+            status: 'Waiting for Signature',
+            signatures_required: is30Days ? 1 : 4,
+            extension_duration_type: log.extension_duration_type,
+            extension_days: log.extension_days,
+            single_signature: log.single_signature,
+            single_sign_name: log.single_sign_name,
+            single_sign_role: log.single_sign_role,
+            single_sign_date: log.single_sign_date,
+            mufti_signature: log.mufti_signature,
+            mufti_sign_name: log.mufti_sign_name,
+            mufti_sign_date: log.mufti_sign_date,
+            ceo_signature: log.ceo_signature,
+            ceo_sign_name: log.ceo_sign_name,
+            ceo_sign_date: log.ceo_sign_date,
+            manager_signature: log.manager_signature,
+            manager_sign_name: log.manager_sign_name,
+            manager_sign_date: log.manager_sign_date,
+            mufti2_signature: log.mufti2_signature,
+            mufti2_sign_name: log.mufti2_sign_name,
+            mufti2_sign_date: log.mufti2_sign_date
+          };
+        });
+
+      setLogsheets([...waitingLogs, ...waitingExtLogs]);
     } catch (err) {
       toast.error('Failed to load waiting logsheets');
       console.error(err);
@@ -46,10 +110,14 @@ export default function AdminLogsheetWaitingSignature() {
     return () => window.removeEventListener('click', handleClose);
   }, []);
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, e, item = null) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this logsheet? This action cannot be undone.')) return;
     try {
+      if (item?.source_type === 'extension_application' || item?.extension_application_id) {
+        toast.error('Extension applications must be managed on the Extension Applications page.');
+        return;
+      }
       await api.delete(`/api/application-logsheets/${id}`);
       toast.success('Logsheet deleted successfully');
       fetchLogsheets();
@@ -69,8 +137,18 @@ export default function AdminLogsheetWaitingSignature() {
     if (!currentUser) return false;
     const myName = (currentUser.full_name || currentUser.name || currentUser.username || '').trim().toLowerCase();
     const myRole = (currentUser.role || '').toLowerCase();
+
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const is30Days = l.signatures_required === 1 || l.extension_duration_type === '30_days' || Number(l.extension_days) <= 30;
+      if (is30Days && l.single_signature) {
+        const signer = (l.single_sign_name || '').trim().toLowerCase();
+        if (!myName || signer === myName || signer.includes(myName) || myName.includes(signer)) {
+          return true;
+        }
+      }
+    }
     
-    const signedNames = [l.mufti_sign_name, l.ceo_sign_name, l.manager_sign_name, l.mufti2_sign_name]
+    const signedNames = [l.mufti_sign_name, l.ceo_sign_name, l.manager_sign_name, l.mufti2_sign_name, l.single_sign_name]
       .filter(Boolean)
       .map(n => n.trim().toLowerCase());
 
@@ -88,6 +166,20 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getSignatoryProgress = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const is30Days = l.signatures_required === 1 || l.extension_duration_type === '30_days' || Number(l.extension_days) <= 30;
+      if (is30Days) {
+        const isSigned = Boolean(l.single_signature);
+        return {
+          count: isSigned ? 1 : 0,
+          total: 1,
+          signers: [
+            { role: 'Authorized Signatory', signed: isSigned, name: l.single_sign_name }
+          ]
+        };
+      }
+    }
+
     const signers = [
       { role: 'Mufti', signed: !!l.mufti_signature, name: l.mufti_sign_name },
       { role: 'CEO', signed: !!l.ceo_signature, name: l.ceo_sign_name },
@@ -112,6 +204,10 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const id = l.extension_application_id?._id || l.extension_application_id;
+      return `/extension-applications/${id}/logsheet`;
+    }
     if (l.source_type === 'direct') {
       return `/logsheet/direct/${l._id}`;
     }
@@ -128,6 +224,10 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getApplicationLink = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const id = l.extension_application_id?._id || l.extension_application_id;
+      return `/extension-applications/${id}/processing`;
+    }
     if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
       const id = l.initial_product_application_id?._id || l.initial_product_application_id;
       return `/initial-products/${id}/processing`;
@@ -151,7 +251,9 @@ export default function AdminLogsheetWaitingSignature() {
     const query = searchQuery.toLowerCase();
     
     if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || l.application_id?.application_number?.toLowerCase().includes(query);
+      return l._id?.toLowerCase().includes(query) || 
+        l.application_number?.toLowerCase().includes(query) ||
+        l.application_id?.application_number?.toLowerCase().includes(query);
     }
     if (searchField === 'company_name') {
       return l.company_name?.toLowerCase().includes(query);
@@ -591,7 +693,7 @@ export default function AdminLogsheetWaitingSignature() {
                                   <Mail size={14} /> Resend Emails
                                 </button>
                                 <button 
-                                  onClick={(e) => handleDelete(l._id, e)}
+                                  onClick={(e) => handleDelete(l._id, e, l)}
                                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', textAlign: 'left', padding: '8px 10px', fontSize: 13, color: '#dc2626', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontWeight: 500 }}
                                   className="dropdown-item"
                                 >
@@ -634,7 +736,7 @@ export default function AdminLogsheetWaitingSignature() {
                         to={getLogsheetLink(l)}
                         style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}
                       >
-                        #{l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
+                        #{l.application_number || l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
                       </Link>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -695,7 +797,7 @@ export default function AdminLogsheetWaitingSignature() {
                       </Link>
 
                       <button 
-                        onClick={(e) => handleDelete(l._id, e)}
+                        onClick={(e) => handleDelete(l._id, e, l)}
                         style={{ 
                           padding: '10px 14px', 
                           borderRadius: 8, 

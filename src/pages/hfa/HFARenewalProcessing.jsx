@@ -17,6 +17,7 @@ import { getSocket } from '../../lib/socket';
 import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
+import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 
 // Extracted Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -295,7 +296,7 @@ export default function HFARenewalProcessing(props) {
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
-        status: 'Waiting For Certificate',
+        status: 'Signed',
         force: true
       });
       toast.success('Renewal logsheet marked as Done! Application moved to Application Successful.');
@@ -304,6 +305,19 @@ export default function HFARenewalProcessing(props) {
       toast.error(err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
+    }
+  };
+
+  const handleMarkReadyForCertificate = async () => {
+    setActionSubmitting(true);
+    try {
+      await api.put(`/api/applications/${appId}/ready-for-certificate`);
+      toast.success('Renewal application marked Ready for Certificate Issuance!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update status.');
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
@@ -455,8 +469,8 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 5. Post-Payment / Ready for Certificate Stage (Direct Unlock for Renewal)
-    if (status === 'payment_received' || status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (isRenewalInvoicePaid && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'payment_received'].includes(status))) {
+    // 5b. Ready for Certificate Stage -> Issue Certificate
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -472,6 +486,20 @@ export default function HFARenewalProcessing(props) {
             </span>
           )}
         </div>
+      );
+    }
+
+    // 5a. Post-Payment -> Mark Ready for Certificate
+    if (status === 'payment_received' || (isRenewalInvoicePaid && status !== 'ready_for_certificate' && status !== 'certificate_issued')) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+          onClick={handleMarkReadyForCertificate}
+          disabled={actionSubmitting}
+        >
+          <Award size={16} /> Mark Ready for Certificate
+        </button>
       );
     }
 
@@ -1197,103 +1225,11 @@ export default function HFARenewalProcessing(props) {
       )}
 
       {/* Submission Modal */}
-      {showSubmissionModal && (
-        <div className="modal-overlay" style={{ zIndex: 1150 }} onClick={() => setShowSubmissionModal(false)}>
-          <div
-            className="modal"
-            style={{
-              maxWidth: 920,
-              width: '92%',
-              maxHeight: '88vh',
-              padding: 0,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              fontFamily: "'Inter', sans-serif"
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-                  <ClipboardList size={20} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 500, color: '#0f172a' }}>
-                    Renewal Application Submission Details — {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
-                    Renewal request submitted by client on {new Date(app.created_at).toLocaleDateString('en-GB')}
-                  </div>
-                </div>
-              </div>
-              <button className="modal-close" onClick={() => setShowSubmissionModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 6 }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'grid', gap: 20 }}>
-              {/* Facility Details */}
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Building2 size={15} style={{ color: '#2563eb' }} />
-                  1. Establishment & Renewal Scope
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Establishment Name</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.establishment_name || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Category</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginTop: 2 }}>{app.category || 'Annual Certification'}</div>
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>Establishment Address</div>
-                    <div style={{ fontSize: 13, color: '#334155', marginTop: 2 }}>{app.establishment_address || '—'}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Submitted Products Table */}
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <FileText size={15} style={{ color: '#2563eb' }} />
-                  2. Renewal Products ({app.products?.length || 0})
-                </div>
-                {!app.products || app.products.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No products listed</div>
-                ) : (
-                  <div style={{ overflowX: 'auto', border: '1px solid #f1f5f9', borderRadius: 8 }}>
-                    <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc', textAlign: 'left', color: '#64748b' }}>
-                          <th style={{ padding: '6px 10px', fontWeight: 500 }}>Product Name</th>
-                          <th style={{ padding: '6px 10px', fontWeight: 500 }}>Brand</th>
-                          <th style={{ padding: '6px 10px', fontWeight: 500 }}>Category</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {app.products.map((p, idx) => (
-                          <tr key={idx} style={{ borderTop: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '6px 10px', fontWeight: 500 }}>{p.name}</td>
-                            <td style={{ padding: '6px 10px', color: '#64748b' }}>{p.brand || '—'}</td>
-                            <td style={{ padding: '6px 10px', color: '#64748b' }}>{p.category || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ padding: '14px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'right', flexShrink: 0 }}>
-              <button className="btn btn-ghost" onClick={() => setShowSubmissionModal(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ApplicationSubmissionModal
+        isOpen={showSubmissionModal}
+        onClose={() => setShowSubmissionModal(false)}
+        app={app}
+      />
     </div>
   );
 }

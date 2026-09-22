@@ -880,9 +880,14 @@ export default function AdminCreateLogsheet() {
         finalizeSignOff: true
       });
 
-      toast.success('🎉 Application marked Successful! Committee Signatures finalized and ready for Certificate.');
+      toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
       fetchData();
-      navigate('/logsheet/waiting-certificate');
+      if (currentLogsheet?.application_id) {
+        const targetAppId = currentLogsheet.application_id._id || currentLogsheet.application_id;
+        navigate(`/applications/${targetAppId}/processing`);
+      } else {
+        navigate('/logsheet/manage');
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
     } finally {
@@ -965,8 +970,14 @@ export default function AdminCreateLogsheet() {
       fetchData();
       if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else if (currentLogsheet?.application_id) {
+        const targetAppId = currentLogsheet.application_id._id || currentLogsheet.application_id;
+        navigate(`/applications/${targetAppId}/processing`);
+      } else if (addonId || currentLogsheet?.addon_application_id) {
+        const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+        navigate(`/addon-applications/${targetAddonId}/processing`);
       } else {
-        navigate('/logsheet/waiting-certificate');
+        navigate('/logsheet/manage');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to approve products');

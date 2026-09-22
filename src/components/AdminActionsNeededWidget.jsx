@@ -39,12 +39,13 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
 
   const fetchAdminActions = useCallback(async () => {
     try {
-      const [appRes, invRes, addOnRes, initProdRes, auditRes] = await Promise.all([
+      const [appRes, invRes, addOnRes, initProdRes, auditRes, extRes] = await Promise.all([
         api.get('/api/applications').catch(() => ({ data: [] })),
         api.get('/api/invoices').catch(() => ({ data: [] })),
         api.get('/api/add-on-applications').catch(() => ({ data: [] })),
         api.get('/api/initial-products').catch(() => ({ data: [] })),
-        api.get('/api/audits').catch(() => ({ data: [] }))
+        api.get('/api/audits').catch(() => ({ data: [] })),
+        api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
       ]);
 
       const allApps = appRes.data?.data || (Array.isArray(appRes.data) ? appRes.data : []);
@@ -52,6 +53,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       const allAddOns = addOnRes.data?.data || (Array.isArray(addOnRes.data) ? addOnRes.data : []);
       const allInitProds = initProdRes.data?.data || (Array.isArray(initProdRes.data) ? initProdRes.data : []);
       const allAudits = auditRes.data?.data || (Array.isArray(auditRes.data) ? auditRes.data : []);
+      const allExtApps = extRes.data?.data || (Array.isArray(extRes.data) ? extRes.data : []);
 
       const actionList = [];
 
@@ -736,6 +738,78 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
         }
       }
 
+      // ─────────────────────────────────────────────────────────────
+      // 5. EXTENSION APPLICATIONS: Actionable Stages
+      // ─────────────────────────────────────────────────────────────
+      for (const ext of allExtApps) {
+        const extId = ext._id || ext.id;
+        const clientName = ext.company_name || ext.client_id?.company_name || ext.client_id?.full_name || 'Client';
+        const appNum = ext.application_number || `EXT-${String(extId).slice(-6).toUpperCase()}`;
+        const days = ext.logsheet_id?.extension_days || 30;
+
+        if (ext.status === 'submitted') {
+          actionList.push({
+            id: `ext-sub-${extId}`,
+            category: 'extensions',
+            app: { _id: extId, application_number: appNum, establishment_name: clientName },
+            type: 'review_extension',
+            title: 'New Extension Form: Review & Approve Request',
+            tag: 'Extension Form',
+            desc: `Review ${days}-day extension request justification for ${clientName}`,
+            buttonText: 'Review Request',
+            buttonBg: '#0284c7',
+            isFullPage: true,
+            link: `/extension-applications/${extId}/processing`,
+            icon: <Clock size={16} />
+          });
+        } else if (ext.status === 'request_approved') {
+          actionList.push({
+            id: `ext-log-${extId}`,
+            category: 'extensions',
+            app: { _id: extId, application_number: appNum, establishment_name: clientName },
+            type: 'create_extension_logsheet',
+            title: 'Extension Request Approved: Configure Logsheet',
+            tag: 'Logsheet',
+            desc: `Configure extension logsheet and submit for signatures for ${clientName}`,
+            buttonText: 'Configure Logsheet',
+            buttonBg: '#0e7490',
+            isFullPage: true,
+            link: `/extension-applications/${extId}/logsheet`,
+            icon: <ClipboardList size={16} />
+          });
+        } else if (ext.status === 'waiting_signature') {
+          actionList.push({
+            id: `ext-sig-${extId}`,
+            category: 'extensions',
+            app: { _id: extId, application_number: appNum, establishment_name: clientName },
+            type: 'manage_extension_logsheet',
+            title: 'Extension Logsheet: Waiting for Signatures',
+            tag: 'Signatures',
+            desc: `Extension logsheet is awaiting authorized signature(s) for ${clientName}`,
+            buttonText: 'Sign Logsheet',
+            buttonBg: '#ea580c',
+            isFullPage: true,
+            link: `/extension-applications/${extId}/logsheet`,
+            icon: <PenTool size={16} />
+          });
+        } else if (ext.status === 'logsheet_signed') {
+          actionList.push({
+            id: `ext-cert-${extId}`,
+            category: 'extensions',
+            app: { _id: extId, application_number: appNum, establishment_name: clientName },
+            type: 'issue_extension_certificate',
+            title: 'Extension Logsheet Signed: Issue Certificate',
+            tag: 'Issue Cert',
+            desc: `All signatures collected. Approve & issue extension certificate for ${clientName}`,
+            buttonText: 'Issue Certificate',
+            buttonBg: '#16a34a',
+            isFullPage: true,
+            link: `/extension-applications/${extId}/processing`,
+            icon: <Award size={16} />
+          });
+        }
+      }
+
       setItems(actionList);
 
       // Auto-open modal once on initial load if items exist and not previously dismissed in this session
@@ -806,6 +880,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       invoices: items.filter(i => i.category === 'invoices').length,
       initial_products: items.filter(i => i.category === 'initial_products').length,
       addons: items.filter(i => i.category === 'addons').length,
+      extensions: items.filter(i => i.category === 'extensions').length,
     };
   }, [items]);
 
@@ -937,6 +1012,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                   { id: 'invoices', label: 'Payments / Invoices', count: categoryCounts.invoices },
                   { id: 'initial_products', label: 'Initial Products', count: categoryCounts.initial_products },
                   { id: 'addons', label: 'Add-Ons', count: categoryCounts.addons },
+                  { id: 'extensions', label: 'Extensions', count: categoryCounts.extensions },
                 ].map(cat => {
                   const isActive = activeCategory === cat.id;
                   const isNc = cat.id === 'ncs';

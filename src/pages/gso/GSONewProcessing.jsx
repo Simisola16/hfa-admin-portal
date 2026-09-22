@@ -1067,6 +1067,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             isRenewal={false}
             isSurveillance={false}
             hasActiveNc={hasActiveNc}
+            isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

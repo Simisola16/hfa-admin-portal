@@ -751,6 +751,7 @@ export default function HFARenewalProcessing(props) {
             appId={appId} 
             isRenewal={true}
             hasActiveNc={hasActiveNc}
+            isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

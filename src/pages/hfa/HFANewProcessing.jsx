@@ -950,6 +950,7 @@ export default function HFANewProcessing(props) {
             appId={appId} 
             isRenewal={false}
             hasActiveNc={hasActiveNc}
+            isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

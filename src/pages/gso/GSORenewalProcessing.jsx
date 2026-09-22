@@ -767,6 +767,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             isRenewal={true}
             isSurveillance={false}
             hasActiveNc={hasActiveNc}
+            isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

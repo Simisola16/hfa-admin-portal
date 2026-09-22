@@ -760,6 +760,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             isRenewal={false}
             isSurveillance={true}
             hasActiveNc={hasActiveNc}
+            isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />

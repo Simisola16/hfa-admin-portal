@@ -20,8 +20,14 @@ import {
   HelpCircle,
   Layers,
   Sparkles,
-  Info
+  Info,
+  FileText,
+  Download,
+  ExternalLink,
+  Package,
+  FolderOpen
 } from 'lucide-react';
+import { getPdfUrl } from '../lib/pdfUtils';
 
 export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
   if (!isOpen || !app) return null;
@@ -29,7 +35,9 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
   const [activeTab, setActiveTab] = useState('all');
 
   const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
-  const isRenewal = String(app.application_type || '').toLowerCase() === 'renewal';
+  const appType = String(app.application_type || 'New').toLowerCase();
+  const isRenewal = appType === 'renewal';
+  const isSurveillance = appType.includes('surveillance');
 
   const formatBool = (val) => {
     if (val === true || val === 'yes' || val === 'true') return 'Yes';
@@ -54,7 +62,10 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
     { id: 'sec-b', label: 'Section B: Site Details', short: 'Sec B' },
     { id: 'sec-c', label: 'Section C: Manufacturer', short: 'Sec C' },
     { id: 'sec-d', label: 'Section D: Contact Details', short: 'Sec D' },
-    { id: 'sec-e', label: 'Section E: Process / Products', short: 'Sec E' }
+    { id: 'sec-e', label: 'Section E: Process / Products', short: 'Sec E' },
+    { id: 'sec-f', label: 'Section F: Products Schedule', short: 'Sec F' },
+    { id: 'sec-g', label: 'Section G: Uploaded Documents', short: 'Sec G' },
+    ...(isRenewal || isSurveillance ? [{ id: 'sec-h', label: isRenewal ? 'Section H: Renewal Details' : 'Section H: Surveillance Details', short: 'Sec H' }] : [])
   ];
 
   const scrollToSection = (id) => {
@@ -70,6 +81,21 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
     }
   };
 
+  // Products array
+  const productsList = Array.isArray(app.products) ? app.products : [];
+
+  // Documents map
+  const docs = app.documents || {};
+  const supportingDocs = Array.isArray(docs.supporting_docs) ? docs.supporting_docs : (Array.isArray(app.supporting_docs) ? app.supporting_docs : []);
+
+  const standardDocs = [
+    { key: 'halal_policy', label: 'Halal Policy Document', url: docs.halal_policy },
+    { key: 'ingredient_list', label: 'Raw Material / Ingredient List', url: docs.ingredient_list },
+    { key: 'floor_plan', label: 'Plant / Facility Floor Plan', url: docs.floor_plan },
+    { key: 'haccp_plan', label: 'HACCP Plan & Process Flow', url: docs.haccp_plan },
+    { key: 'surveillance_letter', label: 'Surveillance / Audit Letter', url: docs.surveillance_letter }
+  ].filter(d => Boolean(d.url));
+
   return (
     <div
       className="modal-overlay"
@@ -79,7 +105,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
       <div
         className="modal"
         style={{
-          maxWidth: 1000,
+          maxWidth: 1040,
           width: '95%',
           maxHeight: '92vh',
           display: 'flex',
@@ -135,6 +161,14 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 <span style={{ textTransform: 'capitalize', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11, color: '#475569' }}>
                   {app.application_type || 'New'} Application
                 </span>
+                {app.category && (
+                  <>
+                    <span>•</span>
+                    <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                      {app.category}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -217,7 +251,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Company Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Legal & General Entity Information</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Legal &amp; General Entity Information</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -280,7 +314,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Site / Factory Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Manufacturing Plant & Operational Specifications</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Manufacturing Plant &amp; Operational Specifications</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -429,7 +463,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Official Contact Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Primary, Technical, Finance & Production Contacts</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Primary, Technical, Finance &amp; Production Contacts</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
@@ -494,7 +528,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* Finance & Production Contacts */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#059669', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Briefcase size={15} /> Finance & Production Contacts
+                  <Briefcase size={15} /> Finance &amp; Production Contacts
                 </div>
                 <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
                   <div>
@@ -522,7 +556,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', color: '#be123c', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 8 }}>
                   Section E
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Process / Product Details & Declarations</div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Process / Product Details &amp; Declarations</div>
               </div>
               <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Official Questions 1 to 17</span>
             </div>
@@ -605,7 +639,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
 
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>9. No. of Products for Halal Approval</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#065f46', marginTop: 3 }}>{app.products_halal_count || (app.products?.length || '—')}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#065f46', marginTop: 3 }}>{app.products_halal_count || (productsList.length || '—')}</div>
                   </div>
 
                   <div>
@@ -627,7 +661,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                   </div>
                   {app.porcine_details && (
                     <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 8, lineHeight: 1.4, background: 'rgba(255,255,255,0.7)', padding: 10, borderRadius: 8 }}>
-                      <strong>Segregation & Controls:</strong> {app.porcine_details}
+                      <strong>Segregation &amp; Controls:</strong> {app.porcine_details}
                     </div>
                   )}
                 </div>
@@ -642,7 +676,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                   </div>
                   {app.intoxicants_details && (
                     <div style={{ fontSize: 12, color: '#78350f', marginTop: 8, lineHeight: 1.4, background: 'rgba(255,255,255,0.7)', padding: 10, borderRadius: 8 }}>
-                      <strong>Usage & Description:</strong> {app.intoxicants_details}
+                      <strong>Usage &amp; Description:</strong> {app.intoxicants_details}
                     </div>
                   )}
                 </div>
@@ -664,7 +698,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* 15 to 17: Signatory Details & Declaration */}
               <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', borderRadius: 12, padding: 18 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#065f46', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CheckCircle size={18} /> Declaration & Legal Authorization (Questions 15 – 17)
+                  <CheckCircle size={18} /> Declaration &amp; Legal Authorization (Questions 15 – 17)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 14 }}>
                   <div>
@@ -703,6 +737,214 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               )}
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════════
+              SECTION F: Products List / Covered Schedule
+          ══════════════════════════════════════════════════════════ */}
+          <div
+            id="sec-f"
+            style={{ background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: 16, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: '#f0fdfa', border: '1.5px solid #99f6e4', color: '#0f766e', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 8 }}>
+                  Section F
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Products Schedule ({productsList.length})</div>
+              </div>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Products Listed for Halal Certification</span>
+            </div>
+
+            {productsList.length > 0 ? (
+              <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
+                      <th style={{ padding: '10px 14px', fontWeight: 700, width: 40 }}>#</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700 }}>Product Name</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700 }}>Brand</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700 }}>Category / Type</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 700 }}>Details / Ingredients</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productsList.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: idx !== productsList.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                        <td style={{ padding: '10px 14px', color: '#94a3b8', fontWeight: 700 }}>{idx + 1}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>{p.name || p.product_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b' }}>{p.brand || p.brand_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#047857', fontWeight: 600 }}>{p.category || p.product_category || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#475569', fontSize: 12.5 }}>{p.description || p.ingredients || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '18px 22px', background: '#f8fafc', borderRadius: 10, border: '1px dashed #cbd5e1', color: '#64748b', fontSize: 13 }}>
+                No separate products were enumerated directly on the initial application submission. Products are submitted and reviewed in the Initial Products / Client Products catalog.
+              </div>
+            )}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════
+              SECTION G: Uploaded Documents & Attachments
+          ══════════════════════════════════════════════════════════ */}
+          <div
+            id="sec-g"
+            style={{ background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: 16, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', color: '#6d28d9', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 8 }}>
+                  Section G
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Uploaded Documents &amp; Attachments</div>
+              </div>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Compliance Documentation &amp; Uploads</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+              {[
+                { key: 'halal_policy', label: 'Halal Policy Document', url: docs.halal_policy },
+                { key: 'ingredient_list', label: 'Raw Material / Ingredient List', url: docs.ingredient_list },
+                { key: 'floor_plan', label: 'Plant / Facility Floor Plan', url: docs.floor_plan },
+                { key: 'haccp_plan', label: 'HACCP Plan & Process Flow', url: docs.haccp_plan },
+                { key: 'surveillance_letter', label: 'Surveillance Audit Letter', url: docs.surveillance_letter }
+              ].map((doc) => (
+                <div
+                  key={doc.key}
+                  style={{
+                    background: doc.url ? '#f0fdf4' : '#f8fafc',
+                    border: `1.5px solid ${doc.url ? '#bbf7d0' : '#e2e8f0'}`,
+                    borderRadius: 12,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 12
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                      {doc.label}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: doc.url ? '#166534' : '#94a3b8', marginTop: 4 }}>
+                      {doc.url ? '✓ Document Uploaded' : 'Not Provided'}
+                    </div>
+                  </div>
+
+                  {doc.url ? (
+                    <a
+                      href={getPdfUrl(doc.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: '#065f46',
+                        borderColor: '#a7f3d0',
+                        background: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: 12,
+                        textDecoration: 'none',
+                        width: 'fit-content'
+                      }}
+                    >
+                      <FileText size={14} /> View Document <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: 11.5, color: '#94a3b8', fontStyle: 'italic' }}>Optional / Not attached</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Supporting Docs List */}
+            {supportingDocs.length > 0 && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FolderOpen size={16} style={{ color: '#6d28d9' }} /> Additional Supporting Attachments ({supportingDocs.length})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                  {supportingDocs.map((docUrl, idx) => (
+                    <a
+                      key={idx}
+                      href={getPdfUrl(docUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        color: '#334155',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        padding: '6px 12px',
+                        borderRadius: 8
+                      }}
+                    >
+                      <Download size={13} style={{ color: '#047857' }} /> Supporting Document #{idx + 1}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════
+              SECTION H: Renewal / Surveillance Specific Details
+          ══════════════════════════════════════════════════════════ */}
+          {(isRenewal || isSurveillance) && (
+            <div
+              id="sec-h"
+              style={{ background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: 16, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ background: '#fef3c7', border: '1.5px solid #fde68a', color: '#92400e', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 8 }}>
+                    Section H
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+                    {isRenewal ? 'Renewal Specification & Previous Certificate' : 'Surveillance Specification & Audit Cycle'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Cycle Continuity Verification</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Application Workflow Category</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: isRenewal ? '#b45309' : '#0284c7', marginTop: 3 }}>
+                    {isRenewal ? 'Annual / 3-Year Renewal Cycle' : 'Annual Surveillance Audit Cycle'}
+                  </div>
+                </div>
+
+                {app.renewed_certificate_id && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Linked Certificate for Renewal</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>
+                      {typeof app.renewed_certificate_id === 'object' ? app.renewed_certificate_id.certificate_number : String(app.renewed_certificate_id)}
+                    </div>
+                  </div>
+                )}
+
+                {app.previous_cert_number && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Previous Certificate Number</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', marginTop: 3 }}>{app.previous_cert_number}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Modal Footer */}
@@ -718,7 +960,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
           }}
         >
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            Displaying complete Sections A through E submission data for <strong>{app.application_number}</strong>
+            Displaying complete submission data for <strong>{app.application_number}</strong>
           </div>
           <button className="btn btn-ghost" onClick={onClose} style={{ fontWeight: 800, padding: '8px 22px' }}>
             Close

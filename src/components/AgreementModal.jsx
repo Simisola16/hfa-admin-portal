@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -24,41 +24,55 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propAgreement?.application_id);
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (!propApp && targetAppId) {
-        setLoading(true);
-        Promise.all([
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-          api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([appRes, agRes]) => {
-          const loadedApp = appRes.data?.data || appRes.data || null;
-          const loadedAgreement = agRes.data?.data || agRes.data || null;
-          setApp(loadedApp);
-          setAgreement(loadedAgreement);
-          if (loadedApp) {
-            setAgreementForm(f => ({
-              ...f,
-              title: loadedAgreement ? `Revised Agreement for ${loadedApp.application_number}` : `Agreement for ${loadedApp.application_number}`,
-              details: loadedAgreement?.details || '',
-              admin_comment: loadedAgreement?.admin_comment || '',
-            }));
-          }
-        }).finally(() => setLoading(false));
-      } else {
-        setApp(propApp || null);
-        setAgreement(propAgreement || null);
-        setAgreementForm({
-          type: 'upload',
-          title: propAgreement ? `Revised Agreement for ${propApp?.application_number}` : `Agreement for ${propApp?.application_number}`,
-          details: propAgreement?.details || '',
-          admin_comment: propAgreement?.admin_comment || '',
-          file: null
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propApp, propAgreement, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    if (!propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/agreements/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, agRes]) => {
+        const loadedApp = appRes.data?.data || appRes.data || null;
+        const loadedAgreement = agRes.data?.data || agRes.data || null;
+        setApp(loadedApp);
+        setAgreement(loadedAgreement);
+        if (loadedApp) {
+          setAgreementForm(f => ({
+            ...f,
+            title: loadedAgreement ? `Revised Agreement for ${loadedApp.application_number}` : `Agreement for ${loadedApp.application_number}`,
+            details: loadedAgreement?.details || '',
+            admin_comment: loadedAgreement?.admin_comment || '',
+          }));
+        }
+      }).finally(() => setLoading(false));
+    } else {
+      setApp(propApp || null);
+      setAgreement(propAgreement || null);
+      setAgreementForm({
+        type: 'upload',
+        title: propAgreement ? `Revised Agreement for ${propApp?.application_number}` : `Agreement for ${propApp?.application_number}`,
+        details: propAgreement?.details || '',
+        admin_comment: propAgreement?.admin_comment || '',
+        file: null
+      });
+    }
+  }, [isOpen, targetAppId]);
 
   if (!isOpen) return null;
   if (loading) return (

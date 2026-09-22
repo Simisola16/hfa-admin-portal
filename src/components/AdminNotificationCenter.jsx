@@ -148,8 +148,9 @@ export default function AdminNotificationCenter({
     else if (titleLower.includes('invoice') || messageLower.includes('invoice')) modalType = 'send_initial_invoice';
     else if ((titleLower.includes('agreement') || messageLower.includes('agreement')) && (titleLower.includes('signed') || messageLower.includes('signed'))) modalType = 'send_final_agreement';
     else if (titleLower.includes('agreement') || messageLower.includes('agreement')) modalType = 'send_agreement';
-    else if (titleLower.includes('ready') || messageLower.includes('ready for certificate')) modalType = 'issue_certificate';
-    else if (titleLower.includes('nc') || messageLower.includes('nc') || titleLower.includes('audit') || messageLower.includes('audit')) modalType = 'manage_audit';
+    else if ((titleLower.includes('certificate') || messageLower.includes('certificate')) && (titleLower.includes('ready') || titleLower.includes('issue') || messageLower.includes('ready') || messageLower.includes('issue'))) modalType = 'issue_certificate';
+    else if (titleLower.includes('ready for cert') || messageLower.includes('ready for cert')) modalType = 'issue_certificate';
+    else if (titleLower.includes('audit') || messageLower.includes('audit') || titleLower.includes('nc') || messageLower.includes('nc')) modalType = 'manage_audit';
 
     const getCleanId = (val) => {
       if (!val) return '';
@@ -177,11 +178,6 @@ export default function AdminNotificationCenter({
 
     const targetAppId = extractAppId();
 
-    if (modalType && targetAppId && onOpenQuickModal) {
-      onOpenQuickModal(modalType, targetAppId);
-      return;
-    }
-
     if (n.link) {
       if (n.link.includes('appId=')) {
         const match = n.link.match(/appId=([a-fA-F0-9]{24})/);
@@ -195,7 +191,15 @@ export default function AdminNotificationCenter({
         return;
       }
       navigate(n.link);
-    } else if (targetAppId) {
+      return;
+    }
+
+    if (modalType && targetAppId && onOpenQuickModal) {
+      onOpenQuickModal(modalType, targetAppId);
+      return;
+    }
+
+    if (targetAppId) {
       navigate(`/applications/${targetAppId}/processing`);
     } else if (modalType && onOpenQuickModal) {
       onOpenQuickModal(modalType, null);

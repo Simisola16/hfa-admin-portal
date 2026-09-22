@@ -102,6 +102,24 @@ export default function HFANewProcessing(props) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
+      // 1. Ultra-fast single DB round-trip fetch
+      const detailsRes = await api.get(`/api/applications/${appId}/processing-details`).catch(() => null);
+      if (detailsRes?.data?.data) {
+        const d = detailsRes.data.data;
+        const fetchedApp = d.app;
+        setApp(fetchedApp);
+        setProposal(d.proposal);
+        setInvoice(d.invoice);
+        setAllInvoices(d.allInvoices || []);
+        setAgreement(d.agreement);
+        setAudits(d.audits || []);
+        setLogsheet(d.logsheet);
+        setInitialProduct(d.initialProduct);
+        setCertificate(d.certificate);
+        return;
+      }
+
+      // Fallback: parallel individual endpoints if processing-details is unavailable
       const [appRes, propRes, invRes, allInvRes, agreementRes, auditRes, logsheetRes, ipRes, certRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/proposals/application/${appId}`).catch(() => ({ data: null })),
@@ -215,7 +233,10 @@ export default function HFANewProcessing(props) {
     const socket = getSocket(token);
     if (!socket) return;
 
-    const handleConnect = () => setSocketConnected(true);
+    const handleConnect = () => {
+      setSocketConnected(true);
+      socket.emit('join_application', appId);
+    };
     const handleDisconnect = () => setSocketConnected(false);
     const handleConnectError = () => setSocketConnected(false);
 
@@ -224,19 +245,41 @@ export default function HFANewProcessing(props) {
     socket.on('connect_error', handleConnectError);
     setSocketConnected(socket.connected);
 
+    socket.emit('join_application', appId);
+
     const handleUpdate = (data) => {
-      if (data?.appId === appId || data?.id === appId) {
+      if (String(data?.appId) === String(appId) || String(data?.id) === String(appId)) {
+        // INSTANT zero-latency local state sync
+        if (data.status) {
+          setApp(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: data.status,
+              statusHistory: data.statusHistory || prev.statusHistory
+            };
+          });
+        }
         fetchApp(true);
       }
     };
 
     socket.on('application_updated', handleUpdate);
 
+    // Fast liveness background refresh (every 5 seconds when window is focused)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchApp(true);
+      }
+    }, 5000);
+
     return () => {
+      socket.emit('leave_application', appId);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
       socket.off('application_updated', handleUpdate);
+      clearInterval(interval);
     };
   }, [appId, fetchApp]);
 
@@ -509,12 +552,13 @@ export default function HFANewProcessing(props) {
   const allNcs = [...appNcList, ...auditNcList];
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
-  const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+  const isNcClosed = !hasActiveNc && Boolean(
+    status === 'nc_closed' ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
     auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+    (app.statusHistory || []).some(h => h.status === 'nc_closed') ||
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)
+  );
 
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);

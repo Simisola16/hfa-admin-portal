@@ -9,6 +9,8 @@ const POST_NC_STATUSES = [
   'logsheet_sign_requested',
   'logsheet_signed',
   'application_successful',
+  'invoice_sent',
+  'payment_received',
   'agreement_sent',
   'agreement_signed',
   'agreement_finalised',
@@ -18,7 +20,7 @@ const POST_NC_STATUSES = [
   'certificate_issued'
 ];
 
-export default function LogsheetCard({ logsheet, status, appId, isRenewal = false, isSurveillance = false, hasActiveNc = false, onMarkDone, markingDone = false }) {
+export default function LogsheetCard({ logsheet, status, appId, isRenewal = false, isSurveillance = false, hasActiveNc = false, isNcClosed = false, onMarkDone, markingDone = false }) {
   const navigate = useNavigate();
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
 
@@ -29,9 +31,9 @@ export default function LogsheetCard({ logsheet, status, appId, isRenewal = fals
   );
 
   const isAvailable = !hasActiveNc && (
-    (isRenewal || isSurveillance)
-      ? (['audit_successful', 'audit_completed', 'invoice_sent', 'payment_received', ...POST_NC_STATUSES].includes(normalizedStatus) || hasLogsheet)
-      : (POST_NC_STATUSES.includes(normalizedStatus) || hasLogsheet)
+    hasLogsheet ||
+    isNcClosed ||
+    POST_NC_STATUSES.includes(normalizedStatus)
   );
 
   const isAdvancedPastLogsheet = [

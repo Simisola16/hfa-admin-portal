@@ -882,11 +882,16 @@ export default function AdminCreateLogsheet() {
 
       toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
       fetchData();
-      if (currentLogsheet?.application_id) {
-        const targetAppId = currentLogsheet.application_id._id || currentLogsheet.application_id;
+      const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
+      if (isAddon || currentLogsheet?.addon_application_id) {
+        const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}/processing` : '/addon-applications');
+      } else if (isInitialProduct) {
+        navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+      } else if (targetAppId) {
         navigate(`/applications/${targetAppId}/processing`);
       } else {
-        navigate('/logsheet/manage');
+        navigate('/applications');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
@@ -970,14 +975,16 @@ export default function AdminCreateLogsheet() {
       fetchData();
       if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
-      } else if (currentLogsheet?.application_id) {
-        const targetAppId = currentLogsheet.application_id._id || currentLogsheet.application_id;
-        navigate(`/applications/${targetAppId}/processing`);
-      } else if (addonId || currentLogsheet?.addon_application_id) {
+      } else if (isAddon || addonId || currentLogsheet?.addon_application_id) {
         const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
-        navigate(`/addon-applications/${targetAddonId}/processing`);
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}/processing` : '/addon-applications');
       } else {
-        navigate('/logsheet/manage');
+        const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
+        if (targetAppId) {
+          navigate(`/applications/${targetAppId}/processing`);
+        } else {
+          navigate('/applications');
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to approve products');

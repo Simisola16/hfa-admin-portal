@@ -56,12 +56,15 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
         const loadedInvoice = isMatchingInvoice ? rawInv : null;
         setApp(loadedApp);
         setInvoice(loadedInvoice);
+        const isSurv = loadedApp?.application_type === 'surveillance';
+        const isRen = !isSurv && loadedApp?.application_type === 'renewal';
+        const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
         if (loadedApp) {
           setInvoiceForm(f => ({
             ...f,
             title: loadedInvoice
-              ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`
-              : `${isFinal ? 'Final ' : ''}Invoice for ${loadedApp.application_number}`,
+              ? `Revised ${prefix}Invoice for ${loadedApp.application_number}`
+              : `${prefix}Invoice for ${loadedApp.application_number}`,
             amount: loadedInvoice?.amount || '',
             notes: loadedInvoice?.notes || '',
             file: null
@@ -75,10 +78,13 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       const activeInvoice = isMatchingInvoice ? propInvoice : null;
       setApp(propApp || null);
       setInvoice(activeInvoice);
+      const isSurv = propApp?.application_type === 'surveillance';
+      const isRen = !isSurv && propApp?.application_type === 'renewal';
+      const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
       setInvoiceForm({
         title: activeInvoice
-          ? `Revised ${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`
-          : `${isFinal ? 'Final ' : ''}Invoice for ${propApp?.application_number}`,
+          ? `Revised ${prefix}Invoice for ${propApp?.application_number}`
+          : `${prefix}Invoice for ${propApp?.application_number}`,
         amount: activeInvoice?.amount || '',
         notes: activeInvoice?.notes || '',
         file: null
@@ -127,9 +133,10 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       formData.append('application_id', appId);
       if (clientId) formData.append('client_id', clientId);
 
-      await api.post('/api/invoices', formData, true);
+      const res = await api.post('/api/invoices', formData, true);
+      const createdInvoice = res?.data?.data || res?.data || null;
       toast.success('Invoice sent successfully!');
-      if (typeof onSuccess === 'function') onSuccess();
+      if (typeof onSuccess === 'function') onSuccess(createdInvoice);
       if (typeof onClose === 'function') onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to send invoice.');

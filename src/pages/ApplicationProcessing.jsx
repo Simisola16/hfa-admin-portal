@@ -2,16 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
+
+// Dedicated HFA Subsystems
 import HFANewProcessing from './hfa/HFANewProcessing';
 import HFARenewalProcessing from './hfa/HFARenewalProcessing';
+
+// Dedicated GSO Subsystems
+import GSONewProcessing from './gso/GSONewProcessing';
+import GSORenewalProcessing from './gso/GSORenewalProcessing';
+import GSOSurveillanceProcessing from './gso/GSOSurveillanceProcessing';
 
 /**
  * ApplicationProcessing
  * Master Route Delegator for /applications/:appId/processing
  * Detects application category, scheme, and type, delegating rendering to:
- * - HFARenewalProcessing for HFA Renewal Fast-Track applications
- * - HFANewProcessing for HFA New Initial Certification applications
- * - Seamless integration with GSO workflows
+ * - GSOSurveillanceProcessing for GSO / UAE Surveillance applications
+ * - GSORenewalProcessing for GSO / UAE Renewal applications
+ * - GSONewProcessing for GSO / UAE Initial / New applications
+ * - HFARenewalProcessing for Standard HFA Renewal Fast-Track applications
+ * - HFANewProcessing for Standard HFA New Initial Certification applications
  */
 export default function ApplicationProcessing() {
   const { appId } = useParams();
@@ -87,19 +96,23 @@ export default function ApplicationProcessing() {
   const schemeLower = String(app.scheme || '').toLowerCase();
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso') || isSurveillance;
 
-  // 1. HFA Renewal Fast-Track
-  if (isRenewal && !isGSO) {
+  // 1. GSO & Surveillance Subsystems
+  if (isGSO || isSurveillance) {
+    const initialData = { app };
+    if (isSurveillance) {
+      return <GSOSurveillanceProcessing appId={appId} initialData={initialData} />;
+    }
+    if (isRenewal) {
+      return <GSORenewalProcessing appId={appId} initialData={initialData} />;
+    }
+    return <GSONewProcessing appId={appId} initialData={initialData} />;
+  }
+
+  // 2. Standard HFA Renewal Fast-Track
+  if (isRenewal) {
     return <HFARenewalProcessing appId={appId} app={app} />;
   }
 
-  // 2. HFA New Initial Certification
-  if (!isGSO) {
-    return <HFANewProcessing appId={appId} app={app} />;
-  }
-
-  // 3. Fallback / GSO handling (compatible with fast-track or initial flow)
-  if (isRenewal || isSurveillance) {
-    return <HFARenewalProcessing appId={appId} app={app} />;
-  }
+  // 3. Standard HFA New Initial Certification
   return <HFANewProcessing appId={appId} app={app} />;
 }

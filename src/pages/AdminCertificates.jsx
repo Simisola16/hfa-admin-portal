@@ -17,18 +17,14 @@ const getPdfUrl = (url) => {
 export default function AdminCertificates({ defaultTab }) {
   const navigate = useNavigate();
   const [certs, setCerts] = useState([]);
-  const [survRequests, setSurvRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(defaultTab || 'certs'); // 'review' | 'certs' | 'surveillance'
+  const [activeTab, setActiveTab] = useState(defaultTab || 'certs'); // 'review' | 'certs'
   const [showModal, setShowModal] = useState(false);
-  const [showFulfillModal, setShowFulfillModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [viewingCert, setViewingCert] = useState(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [fulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
   const [searchParams] = useSearchParams();
 
@@ -58,28 +54,20 @@ export default function AdminCertificates({ defaultTab }) {
     products_covered: '' 
   });
 
-  const [fulfillForm, setFulfillForm] = useState({
-    file: null,
-    notes: ''
-  });
-
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [certsRes, appsRes, survRes] = await Promise.all([
+      const [certsRes, appsRes] = await Promise.all([
         api.get('/api/certificates').catch(() => ({ data: [] })),
-        api.get('/api/applications').catch(() => ({ data: [] })),
-        api.get('/api/surveillance').catch(() => ({ data: { data: [] } }))
+        api.get('/api/applications').catch(() => ({ data: [] }))
       ]);
       const rawCerts = Array.isArray(certsRes) ? certsRes : (Array.isArray(certsRes?.data) ? certsRes.data : []);
       const rawApps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : []);
-      const rawSurv = Array.isArray(survRes) ? survRes : (Array.isArray(survRes?.data?.data) ? survRes.data.data : (Array.isArray(survRes?.data) ? survRes.data : []));
 
       setCerts(rawCerts);
       setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'ready_for_certificate' || a.status === 'certificate_issued')));
-      setSurvRequests(rawSurv);
     } catch (err) {
-      toast.error('Failed to load certificates & requests.');
+      toast.error('Failed to load certificates.');
     } finally {
       setLoading(false);
     }
@@ -116,33 +104,6 @@ export default function AdminCertificates({ defaultTab }) {
     }
   };
 
-  const handleFulfillSubmit = async (e) => {
-    e.preventDefault();
-    if (!fulfillForm.file) {
-      toast.error('Please upload the surveillance letter PDF.');
-      return;
-    }
-    setFulfillSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append('letter_file', fulfillForm.file);
-      if (fulfillForm.notes) {
-        formData.append('notes', fulfillForm.notes);
-      }
-      
-      const reqId = selectedRequest._id || selectedRequest.id;
-      await api.put(`/api/surveillance/${reqId}/fulfill`, formData, true);
-      
-      toast.success('Surveillance letter uploaded and request fulfilled!');
-      setShowFulfillModal(false);
-      setFulfillForm({ file: null, notes: '' });
-      fetchAllData();
-    } catch (err) {
-      toast.error(err.message || 'Failed to fulfill request.');
-    } finally {
-      setFulfillSubmitting(false);
-    }
-  };
 
   const handleRevoke = async (id) => {
     const reason = window.prompt('Please enter the reason for certificate revocation:');
@@ -177,12 +138,6 @@ export default function AdminCertificates({ defaultTab }) {
     return certNo.includes(q) || comp.includes(q) || site.includes(q);
   });
 
-  const filteredSurv = survRequests.filter(r => {
-    const q = search.toLowerCase();
-    const certNo = (r.certificate_id?.certificate_number || '').toLowerCase();
-    const comp = (r.certificate_id?.profiles?.company_name || '').toLowerCase();
-    return certNo.includes(q) || comp.includes(q);
-  });
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
@@ -238,30 +193,13 @@ export default function AdminCertificates({ defaultTab }) {
         >
           🏅 All Certificates ({certs.length})
         </button>
-
-        <button
-          type="button"
-          style={{
-            padding: '12px 20px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'surveillance' ? '2.5px solid #047857' : 'none',
-            color: activeTab === 'surveillance' ? '#047857' : '#64748b',
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontSize: 14
-          }}
-          onClick={() => setActiveTab('surveillance')}
-        >
-          🗓️ Surveillance Requests
-        </button>
       </div>
 
       <div className="toolbar">
         <div className="search-box">
           <Search size={15} className="search-icon" />
           <input 
-            placeholder={activeTab === 'surveillance' ? "Search surveillance..." : "Search by cert no, company, site..."} 
+            placeholder="Search by cert no, company, site..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -282,8 +220,7 @@ export default function AdminCertificates({ defaultTab }) {
         )}
       </div>
 
-      {activeTab === 'review' || activeTab === 'certs' ? (
-        <div className="card">
+      <div className="card">
           <div className="card-header">
             <div className="card-title">
               {activeTab === 'review' ? `Certificates Awaiting Review & QA (${filteredCerts.length})` : `All Certificates (${filteredCerts.length})`}
@@ -615,70 +552,6 @@ export default function AdminCertificates({ defaultTab }) {
             }
           </div>
         </div>
-      ) : (
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Surveillance Visit Requests ({filteredSurv.length})</div>
-          </div>
-          <div className="table-wrap">
-            {loading ? <div className="loading-overlay"><div className="spinner" /></div> :
-              filteredSurv.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon"><Calendar /></div>
-                  <div className="empty-state-title">No Surveillance Requests</div>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Certificate No.</th>
-                      <th>Client</th>
-                      <th>Requested Date</th>
-                      <th>Fulfillment Date</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSurv.map(r => (
-                      <tr key={r.id || r._id}>
-                        <td style={{ fontWeight: 700 }}>{r.certificate_id?.certificate_number || '—'}</td>
-                        <td>{r.certificate_id?.profiles?.company_name || '—'}</td>
-                        <td style={{ fontSize: 12 }}>{r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-GB') : '—'}</td>
-                        <td style={{ fontSize: 12 }}>{r.fulfilled_at ? new Date(r.fulfilled_at).toLocaleDateString('en-GB') : '—'}</td>
-                        <td>
-                          <span className={`badge ${r.status === 'fulfilled' ? 'badge-green' : 'badge-orange'}`}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td>
-                          {r.status === 'requested' ? (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => {
-                                setSelectedRequest(r);
-                                setShowFulfillModal(true);
-                              }}
-                            >
-                              Fulfill Request
-                            </button>
-                          ) : (
-                            r.letter_file_url && (
-                              <a href={getPdfUrl(r.letter_file_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
-                                <Download size={13} style={{ marginRight: 4 }} /> Letter
-                              </a>
-                            )
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )
-            }
-          </div>
-        </div>
-      )}
 
       {/* Issue Modal */}
       {showModal && (
@@ -729,69 +602,6 @@ export default function AdminCertificates({ defaultTab }) {
         </div>
       )}
 
-      {/* Fulfill Surveillance Modal */}
-      {showFulfillModal && selectedRequest && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowFulfillModal(false)}>
-          <div className="modal" style={{ maxWidth: 500 }}>
-            <div className="modal-header">
-              <span className="modal-title">Fulfill Surveillance Letter</span>
-              <button className="modal-close" onClick={() => setShowFulfillModal(false)}><X size={16}/></button>
-            </div>
-            <form onSubmit={handleFulfillSubmit}>
-              <div className="modal-body">
-                <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
-                  Upload the annual surveillance approval letter for certificate <strong>#{selectedRequest.certificate_id?.certificate_number}</strong>. This will notify the client and show as completed.
-                </p>
-
-                <div className="form-group">
-                  <label className="form-label">Surveillance Letter (PDF) <span>*</span></label>
-                  <div
-                    onClick={() => document.getElementById('surv-letter-file').click()}
-                    style={{
-                      border: '2px dashed #e2e8f0', padding: '32px 24px', borderRadius: '12px',
-                      textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
-                      background: fulfillForm.file ? '#f0fdf4' : '#fff'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                    onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
-                  >
-                    <FileText size={40} style={{ color: fulfillForm.file ? '#22c55e' : '#94a3b8', marginBottom: 12, margin: '0 auto' }} />
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
-                      {fulfillForm.file ? fulfillForm.file.name : 'Click to select surveillance letter PDF'}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Only PDF allowed</div>
-                    <input
-                      id="surv-letter-file"
-                      type="file"
-                      hidden
-                      accept=".pdf"
-                      onChange={e => setFulfillForm(f => ({ ...f, file: e.target.files[0] }))}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Fulfillment Notes</label>
-                  <textarea 
-                    className="form-control" 
-                    rows={3} 
-                    value={fulfillForm.notes} 
-                    onChange={e => setFulfillForm(f => ({ ...f, notes: e.target.value }))}
-                    placeholder="Enter any notes or comments for the client..."
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowFulfillModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={fulfillSubmitting || !fulfillForm.file}>
-                  {fulfillSubmitting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Fulfill Request'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Read-Only View Certificate Modal */}
       <ViewCertificateModal

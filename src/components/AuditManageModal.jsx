@@ -86,10 +86,28 @@ export default function AuditManageModal({
   );
   const isProposeBlockedByGsoInitial = isGsoInitial && !isInitialProductApproved;
 
-  // Sync prop existingAudits with local state
+  // Sync prop existingAudits with local state without reverting recent transitions
   useEffect(() => {
-    if (propExistingAudits) {
-      setExistingAudits(propExistingAudits);
+    if (propExistingAudits && Array.isArray(propExistingAudits)) {
+      setExistingAudits(prev => {
+        if (!prev || prev.length === 0) return propExistingAudits;
+        return propExistingAudits.map(propAudit => {
+          const localMatch = prev.find(p =>
+            (p._id && propAudit._id && String(p._id) === String(propAudit._id)) ||
+            ((p.stage || 1) === (propAudit.stage || 1))
+          );
+          if (localMatch) {
+            const advancedStatuses = ['date_finalized', 'auditors_assigned', 'audit_completed'];
+            const localAdvIndex = advancedStatuses.indexOf(localMatch.status);
+            const propAdvIndex = advancedStatuses.indexOf(propAudit.status);
+            // If local state is at an advanced status and prop has not caught up yet, retain local state
+            if (localAdvIndex >= 0 && propAdvIndex < localAdvIndex) {
+              return { ...propAudit, ...localMatch };
+            }
+          }
+          return propAudit;
+        });
+      });
     } else if (audit) {
       setExistingAudits([audit]);
     }
@@ -215,18 +233,18 @@ export default function AuditManageModal({
 
   // Setup initial auditors list depending on dual exporter or single
   useEffect(() => {
-    if (existingAudit?.status === 'date_finalized' && auditForm.auditors.length === 0) {
+    if (existingAudit?.status === 'date_finalized' && (!auditForm.auditors || auditForm.auditors.length === 0)) {
       const numAuditors = isDualStage ? 2 : 1;
       const initialAuditors = Array(numAuditors).fill(null).map(() => ({
         name: '',
         email: '',
         contact_number: '',
-        purpose: '',
+        purpose: isRenewalOrSurveillance ? (type === 'surveillance' ? 'Surveillance Audit' : 'Renewal Audit') : 'Halal Facility & Systems Audit',
         inspector_id: '',
       }));
       setAuditForm(f => ({ ...f, auditors: initialAuditors }));
     }
-  }, [existingAudit, currentApp]);
+  }, [existingAudit?.status, currentApp, isDualStage, isRenewalOrSurveillance, type]);
 
   if (!isOpen) return null;
 
@@ -305,7 +323,51 @@ export default function AuditManageModal({
         application_id: targetAppId,
         finalized_date: auditForm.finalized_date
       });
-      toast.success('Audit date finalized successfully!');
+
+      const serverAudit = res.data?.data || res.data || {};
+      const updatedAudit = {
+        ...(existingAudit || {}),
+        ...serverAudit,
+        _id: currentAuditId || serverAudit._id || serverAudit.id,
+        status: 'date_finalized',
+        finalized_date: auditForm.finalized_date || serverAudit.finalized_date
+      };
+
+      // 1. Immediately update existingAudits locally so modal transitions immediately to assign auditors view
+      setExistingAudits(prev => {
+        const idToMatch = currentAuditId || updatedAudit._id || updatedAudit.id;
+        const idx = prev.findIndex(a => 
+          (idToMatch && (String(a._id) === String(idToMatch) || String(a.id) === String(idToMatch))) ||
+          ((a.stage || 1) === activeStage)
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...updatedAudit };
+          return next;
+        }
+        return [...prev, updatedAudit];
+      });
+
+      // 2. Pre-populate auditor slots if not yet set
+      const numAuditors = isDualStage ? 2 : 1;
+      setAuditForm(prevForm => {
+        const hasExisting = Array.isArray(prevForm.auditors) && prevForm.auditors.length > 0 && prevForm.auditors.some(a => a && (a.name || a.email));
+        return {
+          ...prevForm,
+          finalized_date: auditForm.finalized_date,
+          auditors: hasExisting
+            ? prevForm.auditors
+            : Array(numAuditors).fill(null).map(() => ({
+                name: '',
+                email: '',
+                contact_number: '',
+                purpose: isRenewalOrSurveillance ? (type === 'surveillance' ? 'Surveillance Audit' : 'Renewal Audit') : 'Halal Facility & Systems Audit',
+                inspector_id: ''
+              }))
+        };
+      });
+
+      toast.success('Audit date finalized successfully! Please assign auditor(s).');
       if (typeof onSuccess === 'function') onSuccess();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize date');
@@ -354,6 +416,21 @@ export default function AuditManageModal({
           sessionStorage.setItem(`stage2_auditors_${targetAppId}`, JSON.stringify(stage2Filled));
         } catch (_) {}
       }
+      // Update local existingAudits to auditors_assigned
+      setExistingAudits(prev => {
+        const idToMatch = currentAuditId;
+        const idx = prev.findIndex(a => 
+          (idToMatch && (String(a._id) === String(idToMatch) || String(a.id) === String(idToMatch))) ||
+          ((a.stage || 1) === activeStage)
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: 'auditors_assigned', auditors: auditForm.auditors };
+          return next;
+        }
+        return prev;
+      });
+
       toast.success('Auditors assigned successfully!' + (isDualStage && stage2Filled.length > 0 ? ' Stage 2 auditors will be applied when Stage 2 date is finalized.' : ''));
       if (typeof onSuccess === 'function') onSuccess();
       if (typeof onClose === 'function') onClose();
@@ -374,6 +451,21 @@ export default function AuditManageModal({
         audit_id: currentAuditId,
         application_id: targetAppId
       });
+
+      setExistingAudits(prev => {
+        const idToMatch = currentAuditId;
+        const idx = prev.findIndex(a => 
+          (idToMatch && (String(a._id) === String(idToMatch) || String(a.id) === String(idToMatch))) ||
+          ((a.stage || 1) === activeStage)
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: 'audit_completed' };
+          return next;
+        }
+        return prev;
+      });
+
       toast.success('Audit session marked as completed successfully!');
       if (typeof onSuccess === 'function') onSuccess();
       if (typeof onClose === 'function') onClose();
@@ -557,7 +649,9 @@ export default function AuditManageModal({
             <div>
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
                 <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 4, fontWeight: 700 }}>✓ Audit Date Finalized</h4>
-                <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>{new Date(existingAudit.finalized_date).toDateString()}</p>
+                <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>
+                  {new Date(existingAudit.finalized_date || auditForm.finalized_date).toDateString()}
+                </p>
               </div>
 
               {/* Stage 1 Auditors */}
@@ -747,7 +841,7 @@ export default function AuditManageModal({
                   <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12, lineHeight: 1.5 }}>
                     {isDualStage && activeStage === 1
                       ? 'Once Stage 1 audit has been conducted on site / remotely, mark it completed to proceed to Stage 2.'
-                      : 'Once the audit session has been conducted on site / remotely, mark it completed to advance the processing stage and unlock Findings & Non-Conformity (NC).'}
+                      : 'Once the audit session has been conducted on site / remotely, you can record Non-Conformity (NC) findings or mark the audit session as completed.'}
                   </div>
                   <button
                     type="button"

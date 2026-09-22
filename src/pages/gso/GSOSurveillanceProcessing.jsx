@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
-  Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertTriangle, ClipboardList, Download, Award, Receipt, ExternalLink, Clock,
-  ShieldCheck
+  Building2, FileText, Calendar, AlertTriangle,
+  ClipboardList, Download, Receipt, Clock
 } from 'lucide-react';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -13,59 +12,47 @@ import ProcessingTimeline from '../../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../../lib/applicationStatuses';
 import { getSocket } from '../../lib/socket';
 
-// Extracted Modals
+// Shared Modals
 import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
-import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
+import SubmissionModal from '../../components/SubmissionModal';
 
-// Extracted Detail Cards
+// Shared Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
 import AuditCard from '../../components/AuditCard';
 import NcCard from '../../components/NcCard';
 import LogsheetCard from '../../components/LogsheetCard';
 import CertificateCard from '../../components/CertificateCard';
 
-/**
- * HFARenewalProcessing
- * Dedicated fast-track renewal application processing component for HFA.
- * 6-Stage Lifecycle:
- * 1. Renewal Review & Accept (Approved)
- * 2. Renewal Single-Stage Facility Audit (Propose Dates -> Accept -> Finalize & Assign -> Complete)
- * 3. NC Resolution (Flag -> Client Corrective Proof -> Close NC)
- * 4. Renewal Logsheet (4 Signatures) -> Application Successful
- * 5. Post-Audit Renewal Fee Invoice (Send -> Client Paid -> Confirm Payment)
- * 6. Issue Renewed Certificate (Direct Unlock -> Committee Review -> Active Certificate & Old Marked Renewed)
- */
-export default function HFARenewalProcessing(props) {
-  const params = useParams();
+export default function GSOSurveillanceProcessing({ appId: propAppId, initialData }) {
+  const routeParams = useParams();
+  const appId = propAppId || routeParams.appId;
   const navigate = useNavigate();
-  const appId = props.appId || params.appId;
 
-  const [app, setApp] = useState(props.app || null);
-  const [loading, setLoading] = useState(!props.app);
+  const [app, setApp] = useState(initialData?.app || null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Core records
-  const [invoice, setInvoice] = useState(props.invoice || null);
-  const [allInvoices, setAllInvoices] = useState(props.allInvoices || []);
-  const [audits, setAudits] = useState(props.audits || []);
-  const [logsheet, setLogsheet] = useState(props.logsheet || null);
-  const [certificate, setCertificate] = useState(props.certificate || null);
+  const [invoice, setInvoice] = useState(initialData?.invoice || null);
+  const [allInvoices, setAllInvoices] = useState(initialData?.allInvoices || []);
+  const [audits, setAudits] = useState(initialData?.audits || []);
+  const [logsheet, setLogsheet] = useState(initialData?.logsheet || null);
+  const [certificate, setCertificate] = useState(initialData?.certificate || null);
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showHoldModal, setShowHoldModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
 
   // Inline forms/submission states
-  const [approveCategory, setApproveCategory] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [holdReason, setHoldReason] = useState('');
   const [ncText, setNcText] = useState('');
@@ -77,27 +64,12 @@ export default function HFARenewalProcessing(props) {
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [markingLogsheetDone, setMarkingLogsheetDone] = useState(false);
-  const [socketConnected, setSocketConnected] = useState(true);
+  const [markingReadyForCert, setMarkingReadyForCert] = useState(false);
 
   const fetchApp = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      // 1. Ultra-fast single DB round-trip fetch
-      const detailsRes = await api.get(`/api/applications/${appId}/processing-details`).catch(() => null);
-      if (detailsRes?.data?.data) {
-        const d = detailsRes.data.data;
-        const fetchedApp = d.app;
-        setApp(fetchedApp);
-        setInvoice(d.invoice);
-        setAllInvoices(d.allInvoices || []);
-        setAudits(d.audits || []);
-        setLogsheet(d.logsheet);
-        setCertificate(d.certificate);
-        return;
-      }
-
-      // Fallback: parallel individual endpoints if processing-details is unavailable
       const [appRes, invRes, allInvRes, auditRes, logsheetRes, certRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
@@ -106,7 +78,8 @@ export default function HFARenewalProcessing(props) {
         api.get(`/api/application-logsheets/application/${appId}`)
           .catch(() => api.get(`/api/application-logsheets?application_id=${appId}`))
           .catch(() => ({ data: null })),
-        api.get(`/api/certificates/application/${appId}`).catch(() => ({ data: null }))
+        api.get(`/api/certificates/application/${appId}`)
+          .catch(() => ({ data: null }))
       ]);
 
       const fetchedApp = appRes.data?.data || appRes.data || null;
@@ -132,25 +105,13 @@ export default function HFARenewalProcessing(props) {
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
       const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
 
-      // Sanitize status if application was falsely jumped to application_successful or ready_for_certificate without logsheet
-      const hasPostLogsheetHistory = Array.isArray(fetchedApp?.statusHistory) && fetchedApp.statusHistory.some(h => ['invoice_sent', 'payment_received', 'certificate_issued'].includes(h.status));
-      if (fetchedApp && !fetchedLogsheet && !hasPostLogsheetHistory && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
-        if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
-          const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
-          fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
-          if (Array.isArray(fetchedApp.statusHistory)) {
-            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'ready_for_certificate'].includes(h.status));
-          }
-        }
-      }
-
       if (fetchedApp) {
         if (fetchedLogsheet) {
           const isSigned = fetchedLogsheet.mufti_signature && fetchedLogsheet.ceo_signature && fetchedLogsheet.manager_signature && fetchedLogsheet.mufti2_signature;
           if (['audit_completed', 'audit_successful', 'nc_flagged', 'nc_closed', 'logsheet_created'].includes(fetchedApp.status)) {
             fetchedApp.status = isSigned ? 'logsheet_signed' : 'logsheet_created';
           }
-        } else if (['audit_completed', 'audit_successful', 'nc_flagged'].includes(fetchedApp.status)) {
+        } else if (fetchedApp.status === 'nc_flagged') {
           const appNcReports = fetchedApp?.nc_reports || [];
           const auditNcReports = loadedAudits.flatMap(a => a.nc_reports || []);
           const allNc = appNcReports.length > 0 ? appNcReports : auditNcReports;
@@ -159,22 +120,42 @@ export default function HFARenewalProcessing(props) {
           if (hasClosedAllNc || hasNcClosedInHistory) {
             fetchedApp.status = 'nc_closed';
           }
+        } else if (hasCompletedAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(fetchedApp.status)) {
+          const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
+          fetchedApp.status = hasNcClosedInHistory ? 'nc_closed' : 'audit_completed';
         }
       }
 
+      const rawInvoice = invRes?.data?.data !== undefined ? invRes.data.data : (invRes?.data || null);
+      const rawAllInvoices = allInvRes?.data?.data || (Array.isArray(allInvRes?.data) ? allInvRes.data : []) || [];
+      const effectiveAllInvoices = rawAllInvoices.length > 0
+        ? rawAllInvoices
+        : (rawInvoice ? [rawInvoice] : []);
+
       setApp(fetchedApp);
-      setInvoice(invRes.data?.data || invRes.data || null);
-      setAllInvoices(allInvRes.data?.data || allInvRes.data || []);
+      setInvoice(rawInvoice);
+      setAllInvoices(effectiveAllInvoices);
       setAudits(loadedAudits);
       setLogsheet(fetchedLogsheet);
       setCertificate(certRes?.data?.data || certRes?.data || null);
     } catch (err) {
-      if (!silent) toast.error('Failed to load renewal application details.');
+      if (!silent) toast.error('Failed to load GSO Surveillance details.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [appId]);
+
+  useEffect(() => {
+    if (initialData) {
+      if (initialData.app) setApp(initialData.app);
+      if (initialData.invoice !== undefined) setInvoice(initialData.invoice);
+      if (initialData.allInvoices !== undefined) setAllInvoices(initialData.allInvoices || []);
+      if (initialData.audits !== undefined) setAudits(initialData.audits || []);
+      if (initialData.logsheet !== undefined) setLogsheet(initialData.logsheet);
+      if (initialData.certificate !== undefined) setCertificate(initialData.certificate);
+    }
+  }, [initialData]);
 
   useEffect(() => {
     fetchApp();
@@ -183,279 +164,22 @@ export default function HFARenewalProcessing(props) {
   useEffect(() => {
     const token = localStorage.getItem('hfa_token');
     if (!token) return;
-
     const socket = getSocket(token);
     if (!socket) return;
-
-    const handleConnect = () => {
-      setSocketConnected(true);
-      socket.emit('join_application', appId);
-    };
-    const handleDisconnect = () => setSocketConnected(false);
-    const handleConnectError = () => setSocketConnected(false);
-
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('connect_error', handleConnectError);
-    setSocketConnected(socket.connected);
-
-    socket.emit('join_application', appId);
-
     const handleUpdate = (data) => {
-      if (String(data?.appId) === String(appId) || String(data?.id) === String(appId)) {
-        // INSTANT zero-latency local state sync
-        if (data.status) {
-          setApp(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              status: data.status,
-              statusHistory: data.statusHistory || prev.statusHistory
-            };
-          });
-        }
+      if (data?.appId === appId || data?.id === appId) {
         fetchApp(true);
       }
     };
-
     socket.on('application_updated', handleUpdate);
-
-    // Fast liveness background refresh (every 5 seconds when window is focused)
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchApp(true);
-      }
-    }, 5000);
-
-    return () => {
-      socket.emit('leave_application', appId);
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('connect_error', handleConnectError);
-      socket.off('application_updated', handleUpdate);
-      clearInterval(interval);
-    };
+    return () => socket.off('application_updated', handleUpdate);
   }, [appId, fetchApp]);
 
-  const handleApprove = async () => {
-    setActionSubmitting(true);
-    try {
-      const categoryToSet = approveCategory || app.category;
-      const res = await api.put(`/api/applications/${appId}/approve`, {
-        category: categoryToSet
-      });
-      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
-      setShowApproveModal(false);
-      toast.success('Renewal application accepted successfully!');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to accept renewal application.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!rejectReason.trim()) {
-      toast.error('Please enter a rejection reason.');
-      return;
-    }
-    setActionSubmitting(true);
-    try {
-      const res = await api.put(`/api/applications/${appId}/reject`, { note: rejectReason.trim() });
-      setApp(res.data?.data || res.data || { ...app, status: 'rejected' });
-      setShowRejectModal(false);
-      setRejectReason('');
-      toast.success('Renewal application rejected.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to reject renewal application.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handleHoldConfirm = async () => {
-    setActionSubmitting(true);
-    try {
-      await api.put(`/api/applications/${appId}/status`, {
-        status: 'under_review',
-        note: holdReason.trim() || 'Renewal application put on hold for client clarifications.'
-      });
-      setShowHoldModal(false);
-      setHoldReason('');
-      toast.success('Renewal application status updated to Under Review.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to update status.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handleConfirmPayment = async () => {
-    setConfirmingPayment(true);
-    try {
-      const activeInv = invoice || allInvoices[0];
-      await api.post(`/api/invoices/confirm-payment`, {
-        application_id: appId,
-        invoice_id: activeInv?._id || activeInv?.id
-      });
-      toast.success('Renewal payment confirmed! Direct certificate issuance unlocked.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to confirm renewal payment.');
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
-
-  const handleMarkAuditCompleted = async () => {
-    setActionSubmitting(true);
-    try {
-      const activeAudit = audits?.[0];
-      await api.post('/api/audits/complete-clean', {
-        audit_id: activeAudit?._id || activeAudit?.id,
-        application_id: appId
-      });
-      toast.success('Renewal audit marked as completed successfully!');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to complete audit');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handleMarkLogsheetDone = async () => {
-    const logsheetId = logsheet?._id || logsheet?.id;
-    if (!logsheetId) {
-      toast.error('No logsheet record found for this renewal application.');
-      return;
-    }
-    setMarkingLogsheetDone(true);
-    try {
-      await api.put(`/api/application-logsheets/${logsheetId}/status`, {
-        status: 'Signed',
-        force: true
-      });
-      toast.success('Renewal logsheet marked as Done! Application moved to Application Successful.');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
-    } finally {
-      setMarkingLogsheetDone(false);
-    }
-  };
-
-  const handleMarkReadyForCertificate = async () => {
-    setActionSubmitting(true);
-    try {
-      await api.put(`/api/applications/${appId}/ready-for-certificate`);
-      toast.success('Renewal application marked Ready for Certificate Issuance!');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to update status.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const handleFlagNc = async () => {
-    if (!ncText.trim()) {
-      toast.error('Please enter Non-Conformity details.');
-      return;
-    }
-    const targetAudit = audits?.[0] || null;
-    const auditId = targetAudit?._id || targetAudit?.id;
-    setFlaggingNc(true);
-    try {
-      const formData = new FormData();
-      if (auditId) formData.append('audit_id', auditId);
-      formData.append('application_id', appId);
-      formData.append('text', ncText.trim());
-      if (ncFile) {
-        formData.append('nc_document', ncFile);
-      }
-      await api.post('/api/audits/flag-nc', formData, true);
-      toast.success('NC Report flagged successfully. Client notified.');
-      setShowNcModal(false);
-      setNcText('');
-      setNcFile(null);
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to flag NC report.');
-    } finally {
-      setFlaggingNc(false);
-    }
-  };
-
-  const handleReplyNc = async () => {
-    if (!ncReplyText.trim()) {
-      toast.error('Please enter your reply comments or instructions.');
-      return;
-    }
-    const auditObj = audits?.[0];
-    const auditId = auditObj?._id || auditObj?.id;
-    setReplyingNc(true);
-    try {
-      const formData = new FormData();
-      if (auditId) formData.append('audit_id', auditId);
-      formData.append('application_id', appId);
-      formData.append('reply_text', ncReplyText.trim());
-      if (ncReplyFile) {
-        formData.append('reply_document', ncReplyFile);
-      }
-      await api.post('/api/audits/nc-reply', formData, true);
-      toast.success('Admin reply submitted successfully! Client notified.');
-      setNcReplyText('');
-      setNcReplyFile(null);
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit admin reply.');
-    } finally {
-      setReplyingNc(false);
-    }
-  };
-
-  const handleCloseNc = async () => {
-    setActionSubmitting(true);
-    try {
-      const auditObj = audits?.[0];
-      const auditId = auditObj?._id || auditObj?.id;
-
-      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId }).catch(() => {});
-      const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
-
-      setApp(prev => ({ ...prev, status: nextStatus }));
-      toast.success('NC Closed successfully! You can now create the Renewal LogSheet.');
-      setShowNcModal(false);
-      await fetchApp(true);
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to close NC.');
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || !app) {
     return (
-      <div className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-        <div className="spinner" />
-      </div>
-    );
-  }
-
-  if (!app) {
-    return (
-      <div className="page-content">
-        <div style={{ textAlign: 'center', padding: 80 }}>
-          <AlertTriangle size={40} style={{ color: '#f59e0b', margin: '0 auto 16px' }} />
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Renewal Application Not Found</div>
-          <button className="btn btn-primary" style={{ marginTop: 24 }} onClick={() => navigate('/applications')}>
-            <ArrowLeft size={16} /> Back to Applications
-          </button>
-        </div>
+      <div className="loading-spinner">
+        <RefreshCw size={24} className="animate-spin" />
+        <p style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 14 }}>Loading GSO Surveillance Application...</p>
       </div>
     );
   }
@@ -463,6 +187,8 @@ export default function HFARenewalProcessing(props) {
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const activeAudit = auditsArr[0] || null;
+  const isAuditReady = status === 'audit_assigned' || status === 'nc_flagged' || (activeAudit && (activeAudit.status === 'auditors_assigned' || activeAudit.status === 'audit_assigned' || (activeAudit.status === 'date_finalized' && activeAudit.auditors?.length > 0)));
+
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
   const allNcs = [...appNcList, ...auditNcList];
@@ -475,11 +201,269 @@ export default function HFARenewalProcessing(props) {
     (app.statusHistory || []).some(h => h.status === 'nc_closed')
   ));
 
-  const isRenewalInvoicePaid = invoice?.status === 'paid' || status === 'payment_received' || status === 'ready_for_certificate' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid);
-  const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
+  // Audit is completed when marked completed, nc is flagged/closed, or downstream stages reached
+  const isAuditCompleted = Boolean(
+    status === 'audit_completed' ||
+    status === 'audit_successful' ||
+    status === 'nc_flagged' ||
+    status === 'nc_closed' ||
+    isNcClosed ||
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'invoice_sent', 'payment_received'].includes(status) ||
+    (activeAudit && ['audit_completed', 'audit_successful', 'completed'].includes(activeAudit.status)) ||
+    auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))
+  );
+
+  // Auditor is assigned if auditors array has elements, or status is audit_assigned / auditors_assigned / nc_flagged / nc_closed
+  const hasAuditorAssigned = Boolean(
+    status === 'audit_assigned' ||
+    status === 'auditors_assigned' ||
+    isAuditCompleted ||
+    (activeAudit && (
+      (Array.isArray(activeAudit.auditors) && activeAudit.auditors.length > 0) ||
+      ['auditors_assigned', 'audit_assigned', 'audit_completed', 'audit_successful', 'completed'].includes(activeAudit.status)
+    )) ||
+    auditsArr.some(a => (Array.isArray(a.auditors) && a.auditors.length > 0) || ['auditors_assigned', 'audit_assigned', 'audit_completed', 'audit_successful', 'completed'].includes(a.status))
+  );
+
+  const surveillanceInvoice =
+    allInvoices.find(inv => inv.invoice_type === 'surveillance' || inv.stage === 'surveillance' || (inv.title && inv.title.toLowerCase().includes('surveillance'))) ||
+    null;
+  const isSurveillanceInvoicePaid = surveillanceInvoice ? (surveillanceInvoice.status === 'paid') : (status === 'payment_received');
+
+  const handleApprove = async () => {
+    setActionSubmitting(true);
+    try {
+      const res = await api.put(`/api/applications/${appId}/approve`, {
+        category: 'UAE/GSO Approved Halal Certification For Exporters To UAE'
+      });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
+      setShowApproveModal(false);
+      toast.success('GSO Surveillance Application accepted!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to accept surveillance application.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectReason.trim()) {
+      toast.error('Please enter a rejection reason.');
+      return;
+    }
+    setActionSubmitting(true);
+    try {
+      const res = await api.put(`/api/applications/${appId}/reject`, { reason: rejectReason.trim() });
+      setApp(res.data?.data || res.data || { ...app, status: 'rejected' });
+      setShowRejectModal(false);
+      setRejectReason('');
+      toast.success('Surveillance application rejected.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject application.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleHoldConfirm = async () => {
+    setActionSubmitting(true);
+    try {
+      await api.put(`/api/applications/${appId}/status`, {
+        status: 'on_hold',
+        note: holdReason || 'Application placed on hold pending client clarification'
+      });
+      setShowHoldModal(false);
+      toast.success('Application placed on hold.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to place on hold');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    setConfirmingPayment(true);
+    try {
+      const activeInv = invoice || surveillanceInvoice;
+      await api.post(`/api/invoices/confirm-payment`, {
+        application_id: appId,
+        invoice_id: activeInv?._id || activeInv?.id
+      });
+      toast.success('Surveillance payment confirmed!');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm surveillance payment.');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const handleFlagNc = async () => {
+    if (!ncText.trim()) {
+      toast.error('Please enter non-conformance details.');
+      return;
+    }
+    setFlaggingNc(true);
+    const auditId = audits?.[0]?._id || audits?.[0]?.id;
+    setFlaggingNc(true);
+    try {
+      const formData = new FormData();
+      if (auditId) formData.append('audit_id', auditId);
+      formData.append('application_id', appId);
+      formData.append('text', ncText.trim());
+      if (ncFile) formData.append('nc_document', ncFile);
+
+      await api.post('/api/audits/flag-nc', formData, true);
+      toast.success('Non-Conformance flagged successfully! Client has been notified.');
+      setShowNcModal(false);
+      setNcText('');
+      setNcFile(null);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to flag NC report.');
+    } finally {
+      setFlaggingNc(false);
+    }
+  };
+
+  const handleReplyNc = async () => {
+    if (!ncReplyText.trim()) return;
+    const auditObj = audits?.[0] || audits?.data?.[0];
+    const auditId = auditObj?._id || auditObj?.id;
+    setReplyingNc(true);
+    try {
+      const formData = new FormData();
+      if (auditId) formData.append('audit_id', auditId);
+      formData.append('application_id', appId);
+      formData.append('reply_text', ncReplyText.trim());
+      if (ncReplyFile) formData.append('reply_document', ncReplyFile);
+
+      await api.post('/api/audits/nc-reply', formData, true);
+      toast.success('NC remark sent to client.');
+      setNcReplyText('');
+      setNcReplyFile(null);
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to reply to NC');
+    } finally {
+      setReplyingNc(false);
+    }
+  };
+
+  const handleCloseNc = async () => {
+    setActionSubmitting(true);
+    try {
+      const activeAuditItem = audits?.[0] || audits?.data?.[0];
+      const auditId = activeAuditItem?._id || activeAuditItem?.id;
+      const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
+      const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
+      setApp(prev => ({
+        ...prev,
+        status: nextStatus,
+        nc_closed: true,
+        nc_reports: (prev?.nc_reports || []).map(r => ({ ...r, status: 'closed' })),
+        statusHistory: [...(prev?.statusHistory || []), { status: 'nc_closed', changedAt: new Date() }]
+      }));
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
+        ...a,
+        nc_closed: true,
+        nc_reports: (a.nc_reports || []).map(r => ({ ...r, status: 'closed' }))
+      })) : prev);
+      toast.success('NC Closed successfully!');
+      setShowNcModal(false);
+      await fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to close NC.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleMarkLogsheetDone = async () => {
+    const logsheetId = logsheet?._id || logsheet?.id;
+    if (!logsheetId) {
+      toast.error('No logsheet record found.');
+      return;
+    }
+    setMarkingLogsheetDone(true);
+    try {
+      await api.put(`/api/application-logsheets/${logsheetId}/status`, {
+        status: 'Signed',
+        force: true
+      });
+      setApp(prev => ({
+        ...prev,
+        status: 'application_successful',
+        statusHistory: [...(prev?.statusHistory || []), { status: 'application_successful', changedAt: new Date() }]
+      }));
+      setLogsheet(prev => ({ ...prev, status: 'Signed' }));
+      toast.success('Logsheet marked as Done! Application moved to Application Successful.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark logsheet as done.');
+    } finally {
+      setMarkingLogsheetDone(false);
+    }
+  };
+
+  const handleMarkReadyForCertificate = async () => {
+    setMarkingReadyForCert(true);
+    try {
+      await api.put(`/api/applications/${appId}/ready-for-certificate`, {
+        note: 'Invoice payment confirmed. Application and LogSheet marked Ready for Certificate issuance.'
+      });
+      setApp(prev => ({
+        ...prev,
+        status: 'ready_for_certificate',
+        statusHistory: [...(prev?.statusHistory || []), { status: 'ready_for_certificate', changedAt: new Date() }]
+      }));
+      if (logsheet) {
+        setLogsheet(prev => ({ ...prev, status: 'Waiting For Certificate' }));
+      }
+      toast.success('Application and LogSheet marked Ready for Certificate! You can now issue the Surveillance Letter.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark ready for certificate.');
+    } finally {
+      setMarkingReadyForCert(false);
+    }
+  };
+
+  const handleMarkAuditCompleted = async () => {
+    if (hasActiveNc) {
+      toast.error('Cannot mark audit as completed while there are open Non-Conformities (NC). Please resolve or close all NCs first.');
+      return;
+    }
+    setActionSubmitting(true);
+    try {
+      const activeAuditItem = audits?.[0] || audits?.data?.[0];
+      await api.post('/api/audits/complete-clean', {
+        audit_id: activeAuditItem?._id || activeAuditItem?.id,
+        application_id: appId
+      });
+      setApp(prev => ({
+        ...prev,
+        status: 'audit_completed',
+        statusHistory: [...(prev?.statusHistory || []), { status: 'audit_completed', changedAt: new Date() }]
+      }));
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
+        ...a,
+        status: 'audit_completed'
+      })) : prev);
+      toast.success('Surveillance audit session marked as completed successfully! You can now Flag NC or Close NC.');
+      fetchApp(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to complete surveillance audit');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
 
   const renderPrimaryAction = () => {
-    // 1. Review (Accept / Put On Hold / Reject)
+    // 1. Initial Review
     if (status === 'submitted' || status === 'under_review') {
       return (
         <>
@@ -503,67 +487,60 @@ export default function HFARenewalProcessing(props) {
     // 6. Complete
     if (status === 'certificate_issued') {
       return (
-        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
-          <CheckCircle size={15} /> ✓ Certificate Issued
+        <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
+          <CheckCircle size={15} /> ✓ Surveillance Letter Issued
         </span>
       );
     }
 
-    // 5b. Ready for Certificate Stage -> Issue Certificate
-    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
-            onClick={() => setShowCertificateModal(true)}
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
-          {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
-            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
-            </span>
-          )}
-        </div>
-      );
-    }
-
-    // 5a. Post-Payment -> Mark Ready for Certificate
-    if (status === 'payment_received' || (isRenewalInvoicePaid && status !== 'ready_for_certificate' && status !== 'certificate_issued')) {
+    // 5B. Ready for Surveillance Letter Stage (ONLY after marked ready for certificate)
+    if (status === 'ready_for_certificate') {
       return (
         <button
           className="btn btn-primary"
-          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+          style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+          onClick={() => setShowCertificateModal(true)}
+        >
+          <FileText size={16} /> Surveillance Letter
+        </button>
+      );
+    }
+
+    // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
+    if (status === 'payment_received' || isSurveillanceInvoicePaid) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
           onClick={handleMarkReadyForCertificate}
-          disabled={actionSubmitting}
+          disabled={markingReadyForCert}
         >
-          <Award size={16} /> Mark Ready for Certificate
+          <CheckCircle size={16} /> {markingReadyForCert ? 'Marking...' : 'Mark Ready for Certificate'}
         </button>
       );
     }
 
-    // 4. Invoice Stage (Post-Application Successful / LogSheet Signed)
-    if (status === 'invoice_sent' && !isRenewalInvoicePaid) {
+    // 4. Invoice Stage
+    if ((status === 'invoice_sent' || surveillanceInvoice) && !isSurveillanceInvoicePaid) {
       return (
         <button
           className="btn btn-primary"
           style={{ gap: 8, background: '#854d0e' }}
           onClick={() => setShowInvoiceModal(true)}
         >
-          <Receipt size={16} /> Resend Renewal Invoice
+          <Receipt size={16} /> {surveillanceInvoice ? 'Resend Surveillance Invoice' : 'Send Surveillance Invoice'}
         </button>
       );
     }
 
-    if (status === 'application_successful' && !invoice) {
+    if (status === 'application_successful' && !surveillanceInvoice) {
       return (
         <button
           className="btn btn-primary"
           style={{ gap: 8, background: '#854d0e' }}
           onClick={() => setShowInvoiceModal(true)}
         >
-          <Receipt size={16} /> Send Renewal Invoice
+          <Receipt size={16} /> Send Surveillance Invoice
         </button>
       );
     }
@@ -581,10 +558,10 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 3. LogSheet Stage (Post-Audit / NC Closed)
+    // 3. LogSheet Stage (AFTER audit is completed AND NC is closed)
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
+    if (!hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
       if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
         const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
         return (
@@ -600,10 +577,18 @@ export default function HFARenewalProcessing(props) {
       }
     }
 
-    // NC Resolution
-    if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
+    // Step A: ONLY AFTER audit has been marked completed (and NC not yet closed):
+    // Show [Manage Audit], [Flag NC], and [Close NC]
+    if (isAuditCompleted && !isNcClosed) {
       return (
-        <>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-ghost"
+            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Calendar size={16} /> Manage Audit
+          </button>
           <button
             className="btn btn-danger"
             style={{ gap: 8 }}
@@ -620,34 +605,40 @@ export default function HFARenewalProcessing(props) {
           >
             <CheckCircle size={16} /> Close NC
           </button>
-        </>
+        </div>
       );
     }
 
-    // 2. Audit Scheduling & Execution (Directly after Accept)
-    if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-      if (canCompleteAudit) {
-        return (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Renewal Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
-            </button>
-          </div>
-        );
-      }
+    // Step B: BEFORE audit is marked completed:
+    // If auditors are assigned or audit is underway:
+    // Show [Manage Audit] and [Mark Audit Completed]
+    if (!isAuditCompleted && (hasAuditorAssigned || status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || activeAudit?.status === 'audit_assigned' || activeAudit?.auditors?.length > 0)) {
+      return (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-ghost"
+            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+            onClick={() => setShowAuditModal(true)}
+          >
+            <Calendar size={16} /> Manage Audit
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleMarkAuditCompleted}
+            disabled={actionSubmitting}
+          >
+            <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+          </button>
+        </div>
+      );
+    }
 
+    // 2. Audit Scheduling fallback (when auditors not assigned yet, or dates proposed/rejected)
+    if (
+      ['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'date_selected', 'dates_selected'].includes(status) ||
+      (activeAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized'].includes(activeAudit.status))
+    ) {
       return (
         <button
           className="btn btn-primary"
@@ -671,38 +662,21 @@ export default function HFARenewalProcessing(props) {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: 2 }}>
-            HFA Renewal Application Processing (Fast-Track)
+            Application Processing
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
               {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
             </h1>
             <span className={`badge ${STATUS_BADGE[status] || 'badge-gray'}`} style={{ fontSize: 12 }}>
-              {status === 'payment_received' ? 'Renewal Fee Paid' : (STATUS_LABELS[status] || status.replace(/_/g, ' '))}
+              {STATUS_LABELS[status] || status.replace(/_/g, ' ')}
             </span>
             {refreshing && <RefreshCw size={14} style={{ color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-            {app.establishment_address || 'Facility'} &middot; Ref: <strong>{app.application_number || 'Renewal'}</strong> &middot; Submitted {new Date(app.created_at).toLocaleDateString('en-GB')}
+            {app.establishment_address || 'Facility'} &middot; Type: <strong>{app.application_type}</strong> &middot; Submitted {new Date(app.created_at).toLocaleDateString('en-GB')}
           </div>
         </div>
-        {!socketConnected && (
-          <span style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#991b1b',
-            padding: '4px 8px',
-            borderRadius: 6,
-            fontSize: 10,
-            fontWeight: 700
-          }}>
-            <span className="spinner" style={{ width: 8, height: 8, borderTopColor: '#991b1b', display: 'inline-block' }} />
-            Disconnected (Polling)
-          </span>
-        )}
         {renderPrimaryAction()}
         <button
           className="btn btn-ghost btn-sm"
@@ -740,12 +714,12 @@ export default function HFARenewalProcessing(props) {
                 Client Unavailable — Proposed Dates Declined
               </div>
               <div style={{ fontSize: 13, color: '#7f1d1d', marginTop: 3 }}>
-                The client was unable to accept the proposed renewal audit dates and submitted availability remarks.
+                The client was unable to accept the proposed audit dates and submitted availability remarks.
               </div>
-              {(app?.client_audit_availability_note || audits?.find(a => a.client_availability_note)?.client_availability_note) && (
+              {(app?.client_audit_availability_note || auditsArr?.find(a => a.client_availability_note)?.client_availability_note) && (
                 <div style={{ marginTop: 8, background: '#ffffff', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#991b1b', lineHeight: 1.4 }}>
                   <span style={{ fontWeight: 700 }}>Client Remarks / Alternative Dates: </span>
-                  <em>"{app?.client_audit_availability_note || audits?.find(a => a.client_availability_note)?.client_availability_note}"</em>
+                  <em>"{app?.client_audit_availability_note || auditsArr?.find(a => a.client_availability_note)?.client_availability_note}"</em>
                 </div>
               )}
             </div>
@@ -760,21 +734,17 @@ export default function HFARenewalProcessing(props) {
         </div>
       )}
 
-      {/* Main Grid */}
+      {/* Main Grid: Left Column Cards, Right Column Pipeline Timeline & Company Info */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
-        {/* Left Column: Fast-Track Detail Cards */}
+        {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* 1. Renewal Audit Card */}
-          <AuditCard 
-            app={app} 
-            audits={audits} 
+          <AuditCard
+            app={app}
+            audits={audits}
             status={status}
-            isInitialProductApproved={true}
             isFastTrack={true}
-            onManage={() => setShowAuditModal(true)} 
+            onManage={() => setShowAuditModal(true)}
           />
-
-          {/* 2. Non-Conformity (NC) & Findings Card */}
           <NcCard
             app={app}
             audits={audits}
@@ -783,53 +753,50 @@ export default function HFARenewalProcessing(props) {
             onCloseNc={handleCloseNc}
             actionSubmitting={actionSubmitting}
           />
-
-          {/* 3. Renewal Logsheet Card */}
-          <LogsheetCard 
-            logsheet={logsheet} 
-            status={status} 
-            appId={appId} 
-            isRenewal={true}
+          <LogsheetCard
+            logsheet={logsheet}
+            status={status}
+            appId={appId}
+            isRenewal={false}
+            isSurveillance={true}
             hasActiveNc={hasActiveNc}
             isNcClosed={isNcClosed}
             onMarkDone={handleMarkLogsheetDone}
             markingDone={markingLogsheetDone}
           />
-
-          {/* 4. Renewal Invoice Card (Post-Application Successful) */}
           <InvoiceCard
             app={app}
-            invoice={invoice}
+            invoice={surveillanceInvoice}
             status={app?.status}
-            isInitial={true}
-            isRenewal={true}
-            onConfirmPayment={invoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            isInitial={false}
+            isSurveillance={true}
+            onConfirmPayment={surveillanceInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
             onSendInvoice={() => setShowInvoiceModal(true)}
           />
-
-          {/* 5. Renewed Certificate Card */}
           <CertificateCard
             app={app}
             certificate={certificate}
             status={status}
+            isSurveillance={true}
             onIssueCertificate={() => setShowCertificateModal(true)}
           />
         </div>
 
-        {/* Right Column: Sidebar info */}
+        {/* Right Column: Processing Pipeline / Timeline & Company Info */}
         <div>
           {/* Stepper Timeline */}
           <div className="card" style={{ marginBottom: 20 }}>
             <div className="card-header">
-              <div className="card-title">Renewal Processing Timeline</div>
+              <div className="card-title">Processing Timeline</div>
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
               <ProcessingTimeline
                 status={status}
                 statusHistory={app.statusHistory || app.status_history || []}
                 category={app.category || ''}
-                applicationType="renewal"
+                applicationType={app.application_type || 'surveillance'}
+                initialProduct={null}
                 appId={appId}
                 audits={audits}
               />
@@ -849,7 +816,7 @@ export default function HFARenewalProcessing(props) {
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Certification Type</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.application_type || 'HFA Renewal'}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.application_type}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Address</div>
@@ -873,10 +840,13 @@ export default function HFARenewalProcessing(props) {
                       color: '#0f172a',
                       background: '#f8fafc'
                     }}
-                    onClick={() => setShowSubmissionModal(true)}
+                    onClick={() => {
+                      const query = app.profiles?.company_name || app.establishment_name || '';
+                      navigate(`/clients${query ? `?search=${encodeURIComponent(query)}` : ''}`);
+                    }}
                   >
                     <Building2 size={15} style={{ color: 'var(--primary)' }} />
-                    View Renewal Application Details
+                    View Full Client Profile
                   </button>
                 </div>
               </div>
@@ -885,7 +855,7 @@ export default function HFARenewalProcessing(props) {
         </div>
       </div>
 
-      {/* Accept Modal */}
+      {/* Approve Modal */}
       {showApproveModal && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowApproveModal(false)}>
           <div className="modal" style={{ maxWidth: 560, width: '92%', padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
@@ -895,8 +865,8 @@ export default function HFARenewalProcessing(props) {
                   <CheckCircle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Accept Renewal Application</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm renewal category to activate fast-track audit scheduling</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Accept Surveillance Application</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification category before proceeding</div>
                 </div>
               </div>
               <button className="modal-close" onClick={() => setShowApproveModal(false)}><X size={18} /></button>
@@ -905,17 +875,16 @@ export default function HFARenewalProcessing(props) {
             <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Renewal Category
+                  Selected Certification Category
                 </label>
-                <select 
-                  className="form-control" 
-                  value={approveCategory || app?.category} 
-                  onChange={e => setApproveCategory(e.target.value)}
-                  disabled={actionSubmitting}
-                >
-                  <option value="Annual Certification – Food and General processing">Annual Certification – Food and General processing</option>
-                  <option value="Annual Certification – Meat Processing">Annual Certification – Meat Processing</option>
-                </select>
+                <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 8 }}>
+                  <div style={{ fontWeight: 800, color: '#0369a1', fontSize: 13 }}>
+                    UAE/GSO Approved Halal Certification For Exporters To UAE
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#0284c7', marginTop: 4 }}>
+                    🔒 Category locked: Surveillance applications are exclusively applicable to the UAE/GSO 3-Year Certification Scheme.
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -939,7 +908,7 @@ export default function HFARenewalProcessing(props) {
                   <XCircle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#dc2626' }}>Reject Renewal Application</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#dc2626' }}>Reject Application</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Specify formal rejection reasons for client review</div>
                 </div>
               </div>
@@ -954,7 +923,7 @@ export default function HFARenewalProcessing(props) {
                 <textarea
                   className="form-control"
                   rows={4}
-                  placeholder="Provide clear reasons for renewal rejection..."
+                  placeholder="Provide clear reasons for rejection..."
                   value={rejectReason}
                   onChange={e => setRejectReason(e.target.value)}
                   disabled={actionSubmitting}
@@ -982,7 +951,7 @@ export default function HFARenewalProcessing(props) {
                   <Clock size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Put Renewal Application On Hold</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Put Application On Hold</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Pause application processing pending client clarifications</div>
                 </div>
               </div>
@@ -997,7 +966,7 @@ export default function HFARenewalProcessing(props) {
                 <textarea
                   className="form-control"
                   rows={4}
-                  placeholder="e.g. Awaiting client documentation clarification..."
+                  placeholder="e.g. Awaiting client documentation clarification on ingredient list..."
                   value={holdReason}
                   onChange={e => setHoldReason(e.target.value)}
                   disabled={actionSubmitting}
@@ -1015,32 +984,7 @@ export default function HFARenewalProcessing(props) {
         </div>
       )}
 
-      {/* Modals */}
-      <InvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        app={app}
-        invoice={invoice}
-        invoiceType="initial"
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <AuditManageModal
-        isOpen={showAuditModal}
-        onClose={() => setShowAuditModal(false)}
-        app={app}
-        existingAudits={audits}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      <CertificateModal
-        isOpen={showCertificateModal}
-        onClose={() => setShowCertificateModal(false)}
-        app={app}
-        onSuccess={() => fetchApp(true)}
-      />
-
-      {/* NC Management Modal */}
+      {/* NC Management Modal (Flag, Review, Reply & Close) */}
       {showNcModal && (
         <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => setShowNcModal(false)}>
           <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
@@ -1085,140 +1029,92 @@ export default function HFARenewalProcessing(props) {
                     padding: '12px 18px',
                     border: 'none',
                     background: 'none',
-                    borderBottom: ncModalTab === 'flag_new' ? '2.5px solid #dc2626' : 'none',
-                    color: ncModalTab === 'flag_new' ? '#dc2626' : '#64748b',
+                    borderBottom: ncModalTab === 'flag_new' ? '2.5px solid #0284c7' : 'none',
+                    color: ncModalTab === 'flag_new' ? '#0284c7' : '#64748b',
                     fontWeight: 700,
                     fontSize: 13,
                     cursor: 'pointer'
                   }}
                   onClick={() => setNcModalTab('flag_new')}
                 >
-                  ⚠️ Flag Additional Finding
+                  ➕ Flag Another NC
                 </button>
               </div>
             )}
 
-            <div style={{ padding: '24px', display: 'grid', gap: 18, flex: 1, overflowY: 'auto' }}>
-              {app.nc_reports && app.nc_reports.length > 0 && ncModalTab === 'review' && (
-                <div style={{ display: 'grid', gap: 14 }}>
-                  {app.nc_reports.map((nc, idx) => (
-                    <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: '#dc2626' }}>
-                          ⚠️ Flagged Observation #{idx + 1}
-                        </span>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>
-                          {nc.flagged_at ? new Date(nc.flagged_at).toLocaleDateString('en-GB') : ''}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.5, marginBottom: 8 }}>
-                        {nc.text || 'Non-Conformity flagged during renewal audit.'}
-                      </div>
-                      {nc.url && (
-                        <div style={{ marginTop: 6 }}>
-                          <a href={getPdfUrl(nc.url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#dc2626', borderColor: '#fecaca', gap: 6 }}>
-                            <Download size={13} /> View Flagged NC Sheet
-                          </a>
+            <div style={{ padding: '24px', display: 'grid', gap: 16, maxHeight: '60vh', overflowY: 'auto' }}>
+              {ncModalTab === 'review' && (app.nc_reports?.length > 0 || status === 'nc_flagged') ? (
+                <>
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    {(app.nc_reports || []).map((nc, idx) => (
+                      <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>NC Item #{idx + 1}</span>
+                          <span className={`badge ${nc.status === 'closed' ? 'badge-green' : nc.status === 'client_responded' ? 'badge-blue' : 'badge-amber'}`}>
+                            {nc.status === 'client_responded' ? 'Client Uploaded Proof' : nc.status?.replace(/_/g, ' ')}
+                          </span>
                         </div>
-                      )}
-
-                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #cbd5e1' }}>
-                        <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#15803d', marginBottom: 4 }}>
-                          🛠️ Client Rectification Response
-                        </div>
-                        {nc.client_response ? (
-                          <div style={{ fontSize: 13, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
-                            {nc.client_response}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>
-                            ⏳ Client has not yet submitted corrective explanation.
-                          </div>
-                        )}
-                        {(nc.client_response_url || nc.correction_document_url) && (
+                        <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600 }}>{nc.nc_text}</div>
+                        {nc.nc_document_url && (
                           <div style={{ marginTop: 8 }}>
-                            <a href={getPdfUrl(nc.client_response_url || nc.correction_document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#15803d', borderColor: '#bbf7d0', gap: 6 }}>
-                              <Download size={13} /> View Client Rectification Document
+                            <a href={getPdfUrl(nc.nc_document_url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none', fontWeight: 600 }}>
+                              <Download size={13} /> View Attached Audit Report
                             </a>
                           </div>
                         )}
+                        {nc.client_response_text && (
+                          <div style={{ marginTop: 10, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', marginBottom: 2 }}>Client Corrective Action Response:</div>
+                            <div style={{ fontSize: 12.5, color: '#1e3a8a' }}>{nc.client_response_text}</div>
+                            {nc.client_document_url && (
+                              <div style={{ marginTop: 6 }}>
+                                <a href={getPdfUrl(nc.client_document_url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+                                  <Download size={13} /> View Client Corrective Proof
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    ))}
+                  </div>
 
-                      {nc.admin_reply && (
-                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #cbd5e1' }}>
-                          <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#0369a1', marginBottom: 4 }}>
-                            💬 Previous Admin Reply
-                          </div>
-                          <div style={{ fontSize: 13, color: '#075985', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
-                            {nc.admin_reply}
-                          </div>
-                          {nc.admin_reply_document_url && (
-                            <div style={{ marginTop: 8 }}>
-                              <a href={getPdfUrl(nc.admin_reply_document_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ color: '#0284c7', borderColor: '#bae6fd', gap: 6 }}>
-                                <Download size={13} /> View Admin Reply Document
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {(app.nc_reports?.length > 0 || status === 'nc_flagged') && ncModalTab === 'review' && (
-                <div style={{ background: 'white', border: '1.5px solid #bae6fd', borderRadius: 12, padding: 18 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', marginBottom: 8 }}>
-                    Reply to NC / Provide Corrective Instructions
-                  </label>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    placeholder="Enter official feedback, guidance, or verification comments for the client..."
-                    value={ncReplyText}
-                    onChange={e => setNcReplyText(e.target.value)}
-                    disabled={replyingNc}
-                  />
-                  <div style={{ marginTop: 12 }}>
-                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
-                      Attach Admin Feedback Document (Optional)
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 6 }}>
+                      Send Additional Auditor Remark / Feedback to Client
                     </label>
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx,.png,.jpg"
-                      onChange={e => setNcReplyFile(e.target.files[0] || null)}
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      placeholder="e.g. Received proof. Please also attach updated sanitation register..."
+                      value={ncReplyText}
+                      onChange={e => setNcReplyText(e.target.value)}
                       disabled={replyingNc}
-                      style={{ fontSize: 13 }}
                     />
-                    {ncReplyFile && (
-                      <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, marginTop: 4 }}>
-                        Selected file: {ncReplyFile.name}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.png,.jpg"
+                        onChange={e => setNcReplyFile(e.target.files[0] || null)}
+                        disabled={replyingNc}
+                        style={{ fontSize: 12 }}
+                      />
+                      <button className="btn btn-ghost btn-sm" onClick={handleReplyNc} disabled={replyingNc || !ncReplyText.trim()}>
+                        {replyingNc ? 'Sending...' : 'Send Remark to Client'}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      style={{ background: '#0284c7', borderColor: '#0284c7' }}
-                      onClick={handleReplyNc}
-                      disabled={replyingNc}
-                    >
-                      {replyingNc ? 'Sending Reply...' : 'Send Admin Reply'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(!app.nc_reports || app.nc_reports.length === 0 || ncModalTab === 'flag_new') && (
+                </>
+              ) : (
                 <>
                   <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                      Non-Conformity Description &amp; Required Action *
+                      Non-Conformity (NC) Description *
                     </label>
                     <textarea
                       className="form-control"
                       rows={4}
-                      placeholder="Specify audit findings, clause non-compliance, and instructions for client correction..."
+                      placeholder="Specify the audit findings, standard violations, or corrective actions required from the client..."
                       value={ncText}
                       onChange={e => setNcText(e.target.value)}
                       disabled={flaggingNc}
@@ -1265,8 +1161,39 @@ export default function HFARenewalProcessing(props) {
         </div>
       )}
 
-      {/* Submission Modal */}
-      <ApplicationSubmissionModal
+      {/* Shared External Modals */}
+      <AuditManageModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        app={app}
+        existingAudits={audits}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <InvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        app={app}
+        invoice={surveillanceInvoice}
+        invoiceType="initial"
+        onSuccess={(newInv) => {
+          if (newInv) {
+            setInvoice(newInv);
+            setAllInvoices(prev => [newInv, ...prev.filter(i => (i._id || i.id) !== (newInv._id || newInv.id))]);
+            setApp(prev => prev ? { ...prev, status: 'invoice_sent' } : prev);
+          }
+          fetchApp(true);
+        }}
+      />
+
+      <CertificateModal
+        isOpen={showCertificateModal}
+        onClose={() => setShowCertificateModal(false)}
+        app={app}
+        onSuccess={() => fetchApp(true)}
+      />
+
+      <SubmissionModal
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}

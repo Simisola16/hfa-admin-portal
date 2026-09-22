@@ -16,7 +16,7 @@ import { getSocket } from '../../lib/socket';
 import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
-import SubmissionModal from '../../components/SubmissionModal';
+import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 
 // Shared Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -1231,7 +1231,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         onSuccess={() => fetchApp(true)}
       />
 
-      <SubmissionModal
+      <ApplicationSubmissionModal
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}

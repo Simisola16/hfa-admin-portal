@@ -20,7 +20,7 @@ import AgreementModal from '../../components/AgreementModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
-import SubmissionModal from '../../components/SubmissionModal';
+import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 
 // Shared Detail Cards
 import ProposalCard from '../../components/ProposalCard';
@@ -1559,7 +1559,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
         onSuccess={() => fetchApp(true)}
       />
 
-      <SubmissionModal
+      <ApplicationSubmissionModal
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}

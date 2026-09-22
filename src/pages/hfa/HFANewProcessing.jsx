@@ -552,6 +552,7 @@ export default function HFANewProcessing(props) {
   const allNcs = [...appNcList, ...auditNcList];
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
+  const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
   const isNcClosed = !hasActiveNc && Boolean(
     status === 'nc_closed' ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||

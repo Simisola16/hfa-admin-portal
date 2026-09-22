@@ -97,17 +97,6 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       toast.error('Please enter a valid Amount Due (£).');
       return;
     }
-    if (isFinal) {
-      if (!invoiceForm.file && !invoice?.invoice_url) {
-        toast.error('Please upload the Final Invoice PDF document before sending.');
-        return;
-      }
-    } else {
-      if (!invoiceForm.file && !invoice?.invoice_url) {
-        toast.error('Please upload an invoice PDF document.');
-        return;
-      }
-    }
 
     setSubmitting(true);
     try {
@@ -116,22 +105,18 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       formData.append('amount', invoiceForm.amount);
       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
-      const isFinal = invoiceType === 'final';
       formData.append('invoice_type', isFinal ? 'final' : 'initial');
       formData.append('target_status', isFinal ? 'final_invoice_sent' : 'invoice_sent');
 
       const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
-      if (!clientId) {
-        throw new Error('Could not identify client ID for this application.');
-      }
       const appId = getCleanId(app._id || app.id || app);
       formData.append('application_id', appId);
-      formData.append('client_id', clientId);
+      if (clientId) formData.append('client_id', clientId);
 
       await api.post('/api/invoices', formData, true);
       toast.success('Invoice sent successfully!');
-      onSuccess();
-      onClose();
+      if (typeof onSuccess === 'function') onSuccess();
+      if (typeof onClose === 'function') onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to send invoice.');
     } finally {
@@ -177,22 +162,22 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           </div>
 
           <div className="form-group">
-            <label className="form-label">Invoice Document (PDF) <span>*</span></label>
+            <label className="form-label">Invoice Document (PDF) <span style={{ fontSize: 11, fontWeight: 'normal', color: '#64748b' }}>(Optional — auto-generated if omitted)</span></label>
             <div
               onClick={() => document.getElementById('invoice-file-shared').click()}
               style={{
-                border: '2px dashed #e2e8f0', padding: '32px 24px', borderRadius: '12px',
+                border: '2px dashed #e2e8f0', padding: '24px 20px', borderRadius: '12px',
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
                 background: invoiceForm.file ? '#f0fdf4' : '#fff'
               }}
               onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
               onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
             >
-              <FileText size={40} style={{ color: invoiceForm.file ? '#22c55e' : '#94a3b8', marginBottom: 12, margin: '0 auto' }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
-                {invoiceForm.file ? invoiceForm.file.name : 'Click to select invoice document'}
+              <FileText size={36} style={{ color: invoiceForm.file ? '#22c55e' : '#94a3b8', marginBottom: 8, margin: '0 auto' }} />
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+                {invoiceForm.file ? invoiceForm.file.name : 'Click to select invoice document (PDF)'}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Only PDF allowed</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>PDF only (or leave empty to generate automatically)</div>
               <input
                 id="invoice-file-shared"
                 type="file"

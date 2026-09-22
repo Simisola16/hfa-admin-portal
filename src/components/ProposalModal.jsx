@@ -87,8 +87,12 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       toast.error('Please enter a valid Estimated Cost (£).');
       return;
     }
-    if (!proposalForm.file) {
+    if (proposalForm.type === 'upload' && !proposalForm.file) {
       toast.error('Please upload the Proposal PDF document.');
+      return;
+    }
+    if (proposalForm.type === 'write' && !proposalForm.details?.trim()) {
+      toast.error('Please write the proposal details.');
       return;
     }
 
@@ -97,11 +101,11 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       const formData = new FormData();
       formData.append('title', proposalForm.title.trim());
       formData.append('estimated_cost', proposalForm.estimated_cost);
-      formData.append('admin_comment', proposalForm.admin_comment);
+      formData.append('admin_comment', proposalForm.admin_comment || '');
       if (proposalForm.type === 'upload' && proposalForm.file) {
         formData.append('proposal_file', proposalForm.file);
       } else if (proposalForm.type === 'write' && proposalForm.details) {
-        formData.append('details', proposalForm.details);
+        formData.append('details', proposalForm.details.trim());
       }
 
       const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
@@ -246,7 +250,11 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !proposalForm.file}
+            disabled={
+              submitting ||
+              (proposalForm.type === 'upload' && !proposalForm.file) ||
+              (proposalForm.type === 'write' && !proposalForm.details?.trim())
+            }
           >
             {submitting ? 'Sending...' : 'Send Proposal'}
           </button>

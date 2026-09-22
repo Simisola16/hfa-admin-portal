@@ -131,32 +131,10 @@ export default function AdminApplications() {
 
   useEffect(() => {
     const appId = searchParams.get('appId');
-    const safeAppsList = Array.isArray(apps) ? apps : [];
-    if (appId && safeAppsList.length > 0) {
-      const targetApp = safeAppsList.find(a => a && (a._id === appId || a.id === appId));
-      if (targetApp) {
-        setManageModal(targetApp);
-        setModalTab('details');
-        setSearchParams({}, { replace: true });
-        // Check for existing proposal
-        api.get(`/api/proposals/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingProposal(res.data || null))
-          .catch(() => setExistingProposal(null));
-        // Check for existing invoice
-        api.get(`/api/invoices/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingInvoice(res.data || null))
-          .catch(() => setExistingInvoice(null));
-        // Check for existing audit
-        api.get(`/api/audits/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingAudit(res.data || null))
-          .catch(() => setExistingAudit(null));
-        // Check for existing agreement
-        api.get(`/api/agreements/application/${targetApp._id || targetApp.id}`)
-          .then(res => setExistingAgreement(res.data || null))
-          .catch(() => setExistingAgreement(null));
-      }
+    if (appId) {
+      navigate(`/applications/${appId}/processing`, { replace: true });
     }
-  }, [apps, searchParams, setSearchParams]);
+  }, [searchParams, navigate]);
 
   const typeParam = searchParams.get('type') || (location.pathname.includes('/certified') ? 'certified' : null);
 
@@ -505,7 +483,13 @@ export default function AdminApplications() {
             </div>
             <div className="modal-footer" style={{ background: '#f8fafc' }}>
               <button className="btn btn-ghost" onClick={() => setSelectedApp(null)}>Dismiss</button>
-              <button className="btn btn-primary" onClick={() => { setManageModal(selectedApp); setSelectedApp(null); }}>
+              <button className="btn btn-primary" onClick={() => {
+                const appId = selectedApp?._id || selectedApp?.id;
+                setSelectedApp(null);
+                if (appId) {
+                  navigate(`/applications/${appId}/processing`);
+                }
+              }}>
                 Proceed to Processing
               </button>
             </div>

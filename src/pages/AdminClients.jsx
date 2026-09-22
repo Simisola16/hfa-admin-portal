@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, CheckCircle, UserPlus } from 'lucide-react';
+import { Search, Eye, Users, Shield, Briefcase, Award, FileText, Trash2, X, AlertCircle, UserCheck, PlusCircle, History, CheckCircle, UserPlus, ChevronDown, Building2, MoreVertical } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminClients() {
@@ -15,6 +15,9 @@ export default function AdminClients() {
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const category = searchParams.get('category') || 'company';
+
+  // Company Action Pop-up Modal State
+  const [actionModalCompany, setActionModalCompany] = useState(null);
 
   // Suspension Modal State
   const [suspensionModal, setSuspensionModal] = useState(null);
@@ -418,87 +421,32 @@ export default function AdminClients() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
-                          {isAdmin && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{
-                                color: '#b45309',
-                                fontWeight: 800,
-                                border: '1.5px solid #fde68a',
-                                background: '#fef3c7',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 8,
-                                padding: '6px 12px'
-                              }}
-                              disabled={impersonatingId !== null}
-                              onClick={() => handleImpersonate(c._id)}
-                              title="Log into client dashboard as this client"
-                            >
-                              {impersonatingId === c._id ? (
-                                <span className="spinner" style={{ width: 12, height: 12, borderTopColor: '#d97706' }} />
-                              ) : (
-                                <>
-                                  <Eye size={13} /> Login as Client
-                                </>
-                              )}
-                            </button>
-                          )}
-
-                          {/* Suspended Client -> Reactivate button */}
-                          {c.suspension_reason && (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              style={{
-                                background: '#16a34a',
-                                borderColor: '#16a34a',
-                                fontWeight: 800,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 8,
-                                padding: '6px 12px'
-                              }}
-                              onClick={() => handleStatusChange(c._id, true)}
-                              title="Reactivate suspended client account"
-                            >
-                              <UserCheck size={13} /> Reactivate
-                            </button>
-                          )}
-
-                          {/* Unverified Email -> Verify Email button in case client did not receive email */}
-                          {!c.is_verified && !c.suspension_reason && (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              style={{
-                                background: '#0284c7',
-                                borderColor: '#0284c7',
-                                fontWeight: 800,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 8,
-                                padding: '6px 12px'
-                              }}
-                              onClick={() => handleVerifyEmail(c._id)}
-                              title="Manually verify email (in case client did not receive verification email)"
-                            >
-                              <CheckCircle size={13} /> Verify Email
-                            </button>
-                          )}
-
-                          {!c.suspension_reason && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{ color: '#ef4444', fontWeight: 600, border: '1px solid #fee2e2', borderRadius: 8, padding: '6px 10px' }}
-                              onClick={() => setSuspensionModal(c)}
-                            >
-                              Suspend
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 36,
+                            height: 32,
+                            padding: 0,
+                            borderRadius: 8,
+                            border: '1px solid #e2e8f0',
+                            background: '#ffffff',
+                            color: '#475569',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActionModalCompany(c);
+                          }}
+                          title="Actions"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -508,6 +456,208 @@ export default function AdminClients() {
           }
         </div>
       </div>
+
+      {/* Company Actions Pop-up Modal */}
+      {actionModalCompany && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setActionModalCompany(null)} 
+          style={{ zIndex: 1500 }}
+        >
+          <div 
+            className="modal" 
+            style={{ maxWidth: 440, padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }} 
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Building2 size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Company Actions</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1e293b', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {actionModalCompany.company_name || actionModalCompany.full_name || 'Company'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{actionModalCompany.email}</div>
+                </div>
+              </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setActionModalCompany(null)}
+                style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18}/>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Impersonate / Login as Client */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '1px solid #fde68a',
+                    background: '#fffbeb',
+                    color: '#92400e',
+                    textAlign: 'left',
+                    cursor: impersonatingId ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    width: '100%'
+                  }}
+                  disabled={impersonatingId !== null}
+                  onClick={() => {
+                    const cid = actionModalCompany._id;
+                    setActionModalCompany(null);
+                    handleImpersonate(cid);
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#fef3c7'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fffbeb'}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+                    {impersonatingId === actionModalCompany._id ? (
+                      <span className="spinner" style={{ width: 16, height: 16, borderTopColor: '#d97706' }} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#92400e' }}>Login as Client</div>
+                    <div style={{ fontSize: 11.5, color: '#b45309' }}>Access client portal as this company in a new tab</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Unverified Email -> Verify Email */}
+              {!actionModalCompany.is_verified && !actionModalCompany.suspension_reason && (
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '1px solid #bae6fd',
+                    background: '#f0f9ff',
+                    color: '#0369a1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    width: '100%'
+                  }}
+                  onClick={() => {
+                    const cid = actionModalCompany._id;
+                    setActionModalCompany(null);
+                    handleVerifyEmail(cid);
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#e0f2fe'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#f0f9ff'}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0 }}>
+                    <CheckCircle size={18} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0369a1' }}>Verify Email Address</div>
+                    <div style={{ fontSize: 11.5, color: '#0284c7' }}>Manually mark company email as verified</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Suspended -> Reactivate button */}
+              {actionModalCompany.suspension_reason && (
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '1px solid #bbf7d0',
+                    background: '#f0fdf4',
+                    color: '#15803d',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    width: '100%'
+                  }}
+                  onClick={() => {
+                    const cid = actionModalCompany._id;
+                    setActionModalCompany(null);
+                    handleStatusChange(cid, true);
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', flexShrink: 0 }}>
+                    <UserCheck size={18} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15803d' }}>Reactivate Company</div>
+                    <div style={{ fontSize: 11.5, color: '#16a34a' }}>Restore full account access and lift suspension</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Active -> Suspend Company */}
+              {!actionModalCompany.suspension_reason && (
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '1px solid #fecaca',
+                    background: '#fef2f2',
+                    color: '#b91c1c',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    width: '100%'
+                  }}
+                  onClick={() => {
+                    const comp = actionModalCompany;
+                    setActionModalCompany(null);
+                    setSuspensionModal(comp);
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
+                    <AlertCircle size={18} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#b91c1c' }}>Suspend Company</div>
+                    <div style={{ fontSize: 11.5, color: '#dc2626' }}>Temporarily disable account access with a reason</div>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setActionModalCompany(null)}
+                style={{ fontWeight: 600, color: '#64748b' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Staff Account Modal */}
       {showStaffModal && (

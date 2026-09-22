@@ -21,8 +21,42 @@ export default function AdminLogsheetManage() {
   const fetchLogsheets = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/application-logsheets');
-      setLogsheets(res.data?.data || res.data || []);
+      const [res, extRes] = await Promise.all([
+        api.get('/api/application-logsheets'),
+        api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
+      ]);
+      const allLogs = res.data?.data || res.data || [];
+      const extApps = extRes.data?.data || (Array.isArray(extRes.data) ? extRes.data : []);
+
+      const extLogs = extApps
+        .filter(extApp => Boolean(extApp.logsheet_id))
+        .map(extApp => {
+          const log = extApp.logsheet_id;
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          return {
+            _id: log._id || extApp._id,
+            extension_application_id: extApp._id,
+            application_number: extApp.application_number,
+            source_type: 'extension_application',
+            company_name: log.company_name || extApp.company_name || extApp.client_id?.company_name || 'Client',
+            site_name: extApp.site_name || extApp.site_id?.name || log.facility_address || 'Main Facility',
+            manufacturing_address: log.facility_address || extApp.site_id?.address_1 || '',
+            contact_person: log.contact_person || extApp.contact_person || '—',
+            contact_email: extApp.contact_email || extApp.client_id?.email || '',
+            created_at: log.created_at || extApp.created_at || extApp.createdAt,
+            audit_type: `Extension (${log.extension_days || 30} Days)`,
+            status: log.status || (extApp.status === 'extension_approved' ? 'Completed' : (extApp.status === 'waiting_signature' ? 'Waiting for Signature' : 'Draft')),
+            signatures_required: is30Days ? 1 : 4,
+            extension_duration_type: log.extension_duration_type,
+            single_signature: log.single_signature,
+            mufti_signature: log.mufti_signature,
+            ceo_signature: log.ceo_signature,
+            manager_signature: log.manager_signature,
+            mufti2_signature: log.mufti2_signature
+          };
+        });
+
+      setLogsheets([...allLogs, ...extLogs]);
     } catch (err) {
       toast.error('Failed to load logsheets');
       console.error(err);
@@ -39,10 +73,14 @@ export default function AdminLogsheetManage() {
     return () => window.removeEventListener('click', handleClose);
   }, []);
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, e, item = null) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this logsheet? This action cannot be undone.')) return;
     try {
+      if (item?.source_type === 'extension_application' || item?.extension_application_id) {
+        toast.error('Extension applications must be managed on the Extension Applications page.');
+        return;
+      }
       await api.delete(`/api/application-logsheets/${id}`);
       toast.success('Logsheet deleted successfully');
       fetchLogsheets();
@@ -75,7 +113,9 @@ export default function AdminLogsheetManage() {
     const query = searchQuery.toLowerCase();
     
     if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || l.application_id?.application_number?.toLowerCase().includes(query);
+      return l._id?.toLowerCase().includes(query) || 
+        l.application_number?.toLowerCase().includes(query) ||
+        l.application_id?.application_number?.toLowerCase().includes(query);
     }
     if (searchField === 'company_name') {
       return l.company_name?.toLowerCase().includes(query);
@@ -99,6 +139,7 @@ export default function AdminLogsheetManage() {
       case 'Signed':
         return 'badge-green';
       case 'Completed':
+      case 'Approved':
         return 'badge-blue';
       default:
         return 'badge-gray';
@@ -106,6 +147,10 @@ export default function AdminLogsheetManage() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const id = l.extension_application_id?._id || l.extension_application_id;
+      return `/extension-applications/${id}/logsheet`;
+    }
     if (l.source_type === 'direct') {
       return `/logsheet/direct/${l._id}`;
     }
@@ -122,6 +167,10 @@ export default function AdminLogsheetManage() {
   };
 
   const getApplicationLink = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const id = l.extension_application_id?._id || l.extension_application_id;
+      return `/extension-applications/${id}/processing`;
+    }
     if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
       const id = l.initial_product_application_id?._id || l.initial_product_application_id;
       return `/initial-products/${id}/processing`;
@@ -364,7 +413,7 @@ export default function AdminLogsheetManage() {
                                 <PenTool size={14} /> Review & Sign Logsheet
                               </Link>
                               <button 
-                                onClick={(e) => handleDelete(l._id, e)}
+                                onClick={(e) => handleDelete(l._id, e, l)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', border: 'none', textAlign: 'left', padding: '10px 12px', fontSize: '13px', color: '#dc2626', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
                                 className="dropdown-item"
                               >
@@ -489,7 +538,7 @@ export default function AdminLogsheetManage() {
                       </Link>
 
                       <button 
-                        onClick={(e) => handleDelete(l._id, e)}
+                        onClick={(e) => handleDelete(l._id, e, l)}
                         style={{ 
                           padding: '10px 14px', 
                           borderRadius: '10px', 

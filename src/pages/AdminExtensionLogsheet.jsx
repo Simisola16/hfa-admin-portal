@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { getPdfUrl } from '../lib/pdfUtils';
 import {
-  ArrowLeft, FileText, CheckCircle2, Clock, Check,
+  ArrowLeft, FileText, CheckCircle2, CheckCircle, Clock, Check,
   User, Building2, Calendar, MapPin, Printer, Download,
   PenTool, AlertTriangle, ShieldCheck, RefreshCw, X, Save
 } from 'lucide-react';
@@ -37,9 +38,12 @@ export default function AdminExtensionLogsheet() {
 
   // Signature modal state
   const [showSignModal, setShowSignModal] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('single');
-  const [sigName, setSigName] = useState('');
+  const [sigRole, setSigRole] = useState('Mufti');
+  const [sigComment, setSigComment] = useState('');
+  const [modalConfirmed, setModalConfirmed] = useState(false);
   const [signing, setSigning] = useState(false);
+
+  const isMuftiUser = currentUser?.role === 'mufti' || currentUser?.is_mufti;
 
   const fetchDetails = async () => {
     setLoading(true);
@@ -47,12 +51,12 @@ export default function AdminExtensionLogsheet() {
       const [appRes, logRes, sigRes] = await Promise.all([
         api.get(`/api/extension-applications/${id}`),
         api.get(`/api/extension-applications/${id}/logsheet`),
-        api.get('/api/signatures').catch(() => ({ data: { data: [] } }))
+        api.get('/api/signatures').catch(() => [])
       ]);
 
-      const loadedApp = appRes.data?.data || appRes.data;
-      const loadedLog = logRes.data?.data || logRes.data;
-      const loadedSigs = sigRes.data?.data || (Array.isArray(sigRes.data) ? sigRes.data : []);
+      const loadedApp = appRes.data?.data || appRes.data || appRes;
+      const loadedLog = logRes.data?.data || logRes.data || logRes;
+      const loadedSigs = Array.isArray(sigRes) ? sigRes : (sigRes.data?.data || (Array.isArray(sigRes.data) ? sigRes.data : []));
 
       setApp(loadedApp);
       setLogsheet(loadedLog);
@@ -131,40 +135,125 @@ export default function AdminExtensionLogsheet() {
     }
   };
 
-  const openSignModal = (roleKey) => {
-    setSelectedRole(roleKey);
-    setSigName(currentUser?.full_name || currentUser?.name || '');
+  const userSignature = signatures.find(s =>
+    (s.user_id && (s.user_id === currentUser?._id || s.user_id === currentUser?.id)) ||
+    (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase()) ||
+    (s.username && currentUser?.email && s.username.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ||
+    (s.name && currentUser?.full_name && s.name.toLowerCase() === currentUser.full_name.toLowerCase()) ||
+    (s.name && currentUser?.name && s.name.toLowerCase() === currentUser.name.toLowerCase()) ||
+    (s.username && currentUser?.name && s.username.toLowerCase() === currentUser.name.toLowerCase()) ||
+    (s.username === 'admin' && (currentUser?.username === 'admin' || currentUser?.role === 'superadmin' || currentUser?.full_name === 'HFA Admin')) ||
+    (s.name === 'HFA Admin' && (currentUser?.role === 'superadmin' || currentUser?.role === 'admin'))
+  );
+
+  const is30Days = formData.extension_duration_type === '30_days' || Number(formData.extension_days) <= 30;
+
+  const openSignModal = (roleKey = null) => {
+    if (roleKey) {
+      setSigRole(roleKey);
+    } else {
+      if (is30Days) {
+        setSigRole('Ceo');
+      } else {
+        const available = [
+          { key: 'Mufti', signed: !!logsheet?.mufti_signature },
+          { key: 'Ceo', signed: !!logsheet?.ceo_signature },
+          { key: 'Manager', signed: !!logsheet?.manager_signature },
+          { key: 'Mufti2', signed: !!logsheet?.mufti2_signature }
+        ].find(r => !r.signed);
+        setSigRole(available ? available.key : 'Mufti');
+      }
+    }
+    setSigComment('');
+    setModalConfirmed(false);
     setShowSignModal(true);
   };
 
   const handleApplySignature = async () => {
-    const mySig = signatures.find(s =>
-      (s.user_id && (s.user_id === currentUser?._id || s.user_id === currentUser?.id)) ||
-      (s.username && currentUser?.email && s.username.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ||
-      (s.name && currentUser?.full_name && s.name.toLowerCase() === currentUser.full_name.toLowerCase())
-    );
+    if (!sigRole) {
+      toast.error('Please select a signatory role');
+      return;
+    }
+    if (!modalConfirmed) {
+      toast.error('Please check the confirmation box before applying signature');
+      return;
+    }
+    if (!userSignature) {
+      toast.error('No digital signature image found for your account. Please upload one in the Signatures page.');
+      return;
+    }
 
-    const sigData = mySig?.signature_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><text x="10" y="35" font-family="cursive" font-size="22" fill="%230f172a">Digitally Signed</text></svg>';
+    const sigData = userSignature?.signature_url;
+    const signerName = userSignature?.name || currentUser?.full_name || currentUser?.name || 'Staff Officer';
 
     setSigning(true);
     try {
       const res = await api.put(`/api/extension-applications/${id}/logsheet/sign`, {
-        signature_role: selectedRole,
+        signature_role: sigRole,
         signature_data: sigData,
-        signer_name: sigName || currentUser?.full_name || 'Staff Officer'
+        signer_name: signerName,
+        comment: sigComment
       });
       setLogsheet(res.data?.data || res.data);
       toast.success('Signature applied successfully!');
       setShowSignModal(false);
+      setModalConfirmed(false);
+      setSigComment('');
+      fetchDetails();
     } catch (err) {
       console.error('Sign error:', err);
-      toast.error('Failed to apply signature.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to apply signature.');
     } finally {
       setSigning(false);
     }
   };
 
-  const is30Days = formData.extension_duration_type === '30_days' || Number(formData.extension_days) <= 30;
+  const signatories = is30Days ? [
+    {
+      roleKey: 'Ceo',
+      label: 'Authorized Officer / CEO Signature (30-Day Extension)',
+      btnRole: 'CEO / Authorized Officer',
+      signature: logsheet?.single_signature,
+      name: logsheet?.single_sign_name,
+      date: logsheet?.single_sign_date
+    }
+  ] : [
+    {
+      roleKey: 'Mufti',
+      label: '1. Shariah / Mufti Signature',
+      btnRole: 'Mufti',
+      signature: logsheet?.mufti_signature,
+      name: logsheet?.mufti_sign_name,
+      date: logsheet?.mufti_sign_date
+    },
+    {
+      roleKey: 'Ceo',
+      label: '2. Chief Executive Officer (CEO)',
+      btnRole: 'CEO',
+      signature: logsheet?.ceo_signature,
+      name: logsheet?.ceo_sign_name,
+      date: logsheet?.ceo_sign_date
+    },
+    {
+      roleKey: 'Manager',
+      label: '3. Operations / Certification Manager',
+      btnRole: 'Manager',
+      signature: logsheet?.manager_signature,
+      name: logsheet?.manager_sign_name,
+      date: logsheet?.manager_sign_date
+    },
+    {
+      roleKey: 'Mufti2',
+      label: '4. Second Shariah / Technical Expert',
+      btnRole: 'Mufti 2',
+      signature: logsheet?.mufti2_signature,
+      name: logsheet?.mufti2_sign_name,
+      date: logsheet?.mufti2_sign_date
+    }
+  ];
+
+  const totalSignedCount = signatories.filter(s => Boolean(s.signature)).length;
+  const isFullySigned = totalSignedCount === signatories.length;
 
   if (loading) {
     return (
@@ -470,265 +559,386 @@ export default function AdminExtensionLogsheet() {
             </div>
           </div>
 
-          {/* ── Section 2: Signatures Section (Strictly following rule) ── */}
-          <div style={{ marginTop: 20 }}>
-            <div style={{
-              background: '#0f172a', color: 'white', padding: '10px 16px',
-              borderRadius: '8px 8px 0 0', fontWeight: 800, fontSize: 12.5,
-              letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-            }}>
-              <span>4 SIGNATURES OR ONE ONLY ACCORDING TO LENGTH OF EXTENSION</span>
-              <span style={{
-                background: is30Days ? '#059669' : '#2563eb',
-                color: 'white', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700
-              }}>
-                {is30Days ? '1 Signature Required' : '4 Signatures Required'}
-              </span>
+          {/* ── Section 2: Committee Signatures & Approval Block ── */}
+          <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <PenTool size={18} style={{ color: 'var(--primary, #047857)' }} />
+                  {is30Days ? 'Authorized Signatory (30-Day Extension)' : 'Committee Signatures & Executive Approval'}
+                </h4>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)', margin: '2px 0 0' }}>
+                  {is30Days
+                    ? '1 Authorized Signature required for 30-day extension.'
+                    : '4 Committee Signatures required for extensions exceeding 30 days.'}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  background: isFullySigned ? '#dcfce7' : '#eff6ff',
+                  color: isFullySigned ? '#166534' : '#1e40af',
+                  border: `1px solid ${isFullySigned ? '#86efac' : '#bfdbfe'}`,
+                  padding: '4px 12px',
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}>
+                  {isFullySigned ? <Check size={13} strokeWidth={3} /> : <Clock size={13} />}
+                  {is30Days
+                    ? (logsheet?.single_signature ? '1 / 1 Signed (Complete)' : '0 / 1 Signed (Pending)')
+                    : `${totalSignedCount} / 4 Signatures Collected`}
+                </span>
+
+                {!isFullySigned && (
+                  <button
+                    type="button"
+                    onClick={() => openSignModal()}
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 600,
+                      borderRadius: 8
+                    }}
+                  >
+                    <PenTool size={14} /> Add Signature
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* Signatures Grid */}
             <div style={{
-              border: '1px solid #0f172a', borderTop: 'none',
-              borderRadius: '0 0 8px 8px', padding: 20, background: '#fafbfc'
+              display: 'grid',
+              gridTemplateColumns: is30Days ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 16
             }}>
-              
-              {is30Days ? (
-                /* ── 1 Signature Layout ── */
-                <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'center' }}>
-                  <div style={{
-                    background: 'white', border: '1.5px solid #cbd5e1',
-                    borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-                  }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>
-                      Authorized Officer / CEO Signature (30-Day Extension)
+              {signatories.map((s, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    border: `1.5px solid ${s.signature ? '#86efac' : '#e2e8f0'}`,
+                    borderRadius: 10,
+                    padding: 16,
+                    background: s.signature ? '#f0fdf4' : '#fafafa',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: 170,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div>
+                    {/* Header: Label + Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: s.signature ? '#166534' : '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {s.label}
+                      </span>
+                      {s.signature ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#16a34a',
+                          background: '#dcfce7',
+                          padding: '2px 8px',
+                          borderRadius: 10
+                        }}>
+                          <Check size={12} /> Signed
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: '#94a3b8',
+                          background: '#f1f5f9',
+                          padding: '2px 8px',
+                          borderRadius: 10
+                        }}>
+                          Pending
+                        </span>
+                      )}
                     </div>
 
-                    {logsheet?.single_signature ? (
-                      <div>
-                        <img
-                          src={logsheet.single_signature}
-                          alt="Signature"
-                          style={{ maxHeight: 60, margin: '0 auto 8px', display: 'block' }}
-                        />
-                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>
-                          {logsheet.single_sign_name || 'Authorized Officer'}
+                    {/* Body: Signature Image / Name / Date OR Dashed Box */}
+                    {s.signature ? (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{
+                          background: '#fff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: 6,
+                          padding: '8px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: 50,
+                          marginBottom: 8
+                        }}>
+                          <img
+                            src={getPdfUrl(s.signature)}
+                            alt={`${s.label} Signature`}
+                            style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }}
+                          />
                         </div>
-                        <div style={{ fontSize: 12, color: '#059669', fontWeight: 600 }}>
-                          Signed on {new Date(logsheet.single_sign_date).toLocaleDateString()}
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                          {s.name || 'Authorised Signatory'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                         </div>
                       </div>
                     ) : (
-                      <div>
-                        <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>
-                          Pending Signature
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal('single')}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            background: '#008744', color: 'white', border: 'none',
-                            padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
-                          }}
-                        >
-                          <PenTool size={14} /> Sign 30-Day Extension
-                        </button>
+                      <div style={{
+                        height: 80,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1.5px dashed #cbd5e1',
+                        borderRadius: 6,
+                        margin: '8px 0',
+                        background: '#fff'
+                      }}>
+                        <PenTool size={18} style={{ color: '#94a3b8', marginBottom: 4 }} />
+                        <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Awaiting Signature</span>
                       </div>
                     )}
                   </div>
+
+                  {/* Bottom Button */}
+                  {!s.signature && (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => openSignModal(s.roleKey)}
+                        className="btn btn-outline btn-sm"
+                        style={{
+                          width: '100%',
+                          fontSize: 12,
+                          padding: '6px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          color: 'var(--primary, #047857)',
+                          borderColor: 'var(--primary, #047857)'
+                        }}
+                      >
+                        <PenTool size={13} /> Sign as {s.btnRole || s.label}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                /* ── 4 Signatures Grid Layout ── */
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-                  
-                  {/* Slot 1: Mufti 1 */}
-                  <div style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: 10, padding: 16 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                      1. Shariah / Mufti Signature
-                    </div>
-                    {logsheet?.mufti_signature ? (
-                      <div style={{ marginTop: 10 }}>
-                        <img src={logsheet.mufti_signature} alt="Mufti Sig" style={{ maxHeight: 50, display: 'block' }} />
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginTop: 4 }}>{logsheet.mufti_sign_name}</div>
-                        <div style={{ fontSize: 11, color: '#059669' }}>Signed {new Date(logsheet.mufti_sign_date).toLocaleDateString()}</div>
-                      </div>
-                    ) : (
-                      <div style={{ marginTop: 14 }}>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal('mufti')}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          <PenTool size={13} /> Sign as Mufti
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Slot 2: CEO */}
-                  <div style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: 10, padding: 16 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                      2. Chief Executive Officer (CEO)
-                    </div>
-                    {logsheet?.ceo_signature ? (
-                      <div style={{ marginTop: 10 }}>
-                        <img src={logsheet.ceo_signature} alt="CEO Sig" style={{ maxHeight: 50, display: 'block' }} />
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginTop: 4 }}>{logsheet.ceo_sign_name}</div>
-                        <div style={{ fontSize: 11, color: '#059669' }}>Signed {new Date(logsheet.ceo_sign_date).toLocaleDateString()}</div>
-                      </div>
-                    ) : (
-                      <div style={{ marginTop: 14 }}>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal('ceo')}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          <PenTool size={13} /> Sign as CEO
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Slot 3: Manager */}
-                  <div style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: 10, padding: 16 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                      3. Operations / Certification Manager
-                    </div>
-                    {logsheet?.manager_signature ? (
-                      <div style={{ marginTop: 10 }}>
-                        <img src={logsheet.manager_signature} alt="Manager Sig" style={{ maxHeight: 50, display: 'block' }} />
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginTop: 4 }}>{logsheet.manager_sign_name}</div>
-                        <div style={{ fontSize: 11, color: '#059669' }}>Signed {new Date(logsheet.manager_sign_date).toLocaleDateString()}</div>
-                      </div>
-                    ) : (
-                      <div style={{ marginTop: 14 }}>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal('manager')}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          <PenTool size={13} /> Sign as Manager
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Slot 4: Mufti 2 */}
-                  <div style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: 10, padding: 16 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
-                      4. Second Shariah / Technical Expert
-                    </div>
-                    {logsheet?.mufti2_signature ? (
-                      <div style={{ marginTop: 10 }}>
-                        <img src={logsheet.mufti2_signature} alt="Mufti 2 Sig" style={{ maxHeight: 50, display: 'block' }} />
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginTop: 4 }}>{logsheet.mufti2_sign_name}</div>
-                        <div style={{ fontSize: 11, color: '#059669' }}>Signed {new Date(logsheet.mufti2_sign_date).toLocaleDateString()}</div>
-                      </div>
-                    ) : (
-                      <div style={{ marginTop: 14 }}>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal('mufti2')}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          <PenTool size={13} /> Sign as Mufti 2
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
-
+              ))}
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* ── Signature Modal ── */}
+      {/* ── Signature Modal (Matches Normal Logsheet Design) ── */}
       {showSignModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)',
-          backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center',
+          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
           justifyContent: 'center', zIndex: 9999, padding: 20
-        }}>
+        }} onClick={() => setShowSignModal(false)}>
           <div style={{
-            background: 'white', borderRadius: 16, width: '100%', maxWidth: 480,
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', overflow: 'hidden'
-          }}>
+            background: 'white',
+            borderRadius: 16,
+            width: '100%',
+            maxWidth: 540,
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            animation: 'slideDown 0.2s ease-out'
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header - Emerald Gradient Theme */}
             <div style={{
-              background: '#0f172a', color: 'white', padding: '16px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              padding: '20px 24px',
+              background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)',
+              color: 'white',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>
-                Apply Digital Signature
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <PenTool size={20} style={{ color: '#ffffff' }} />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Apply Committee Electronic Signature</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowSignModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', display: 'flex', padding: 4 }}
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <div style={{ padding: 24 }}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Signatory Full Name
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+              {/* Step 1: Select Single Role */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                    1. Select Signatory Role to Execute (Sign One by One)
+                  </label>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: 6, border: '1px solid #a7f3d0' }}>
+                    {is30Days ? 'Single Role Sign' : 'Committee Sign'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.mufti_signature) },
+                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.ceo_signature) },
+                    { key: 'Manager', label: 'Manager (Technical Auditor)', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.manager_signature) },
+                    { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.mufti2_signature) },
+                  ].map(r => {
+                    const isSelected = sigRole === r.key;
+                    const isAlreadySigned = r.isSigned;
+                    const isRestrictedForMufti = isMuftiUser && (r.key === 'Ceo' || r.key === 'Manager');
+                    const isDisabled = isAlreadySigned || isRestrictedForMufti;
+
+                    return (
+                      <button
+                        key={r.key}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (isDisabled) return;
+                          setSigRole(r.key);
+                        }}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 10,
+                          border: `1.5px solid ${isDisabled ? '#e2e8f0' : isSelected ? '#047857' : '#e2e8f0'}`,
+                          background: isAlreadySigned ? '#f1f5f9' : isRestrictedForMufti ? '#fef2f2' : isSelected ? '#f0fdf4' : '#f8fafc',
+                          color: isAlreadySigned ? '#94a3b8' : isRestrictedForMufti ? '#991b1b' : isSelected ? '#065f46' : '#334155',
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: 13,
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          opacity: isDisabled ? 0.6 : 1,
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: isSelected ? 800 : 600 }}>{r.label}</div>
+                          {isAlreadySigned && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>(Already Signed)</span>}
+                          {isRestrictedForMufti && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>(Mufti Restricted)</span>}
+                        </div>
+                        {isSelected && !isDisabled && (
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#047857', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Check size={12} strokeWidth={3} />
+                          </div>
+                        )}
+                        {isAlreadySigned && <CheckCircle size={16} style={{ color: '#16a34a', flexShrink: 0 }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 2: Signature Preview */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
+                  2. Authenticated Digital Signature Preview
                 </label>
-                <input
-                  type="text"
-                  value={sigName}
-                  onChange={(e) => setSigName(e.target.value)}
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: 8,
-                    border: '1px solid #d1d5db', fontSize: 13.5, fontWeight: 600
-                  }}
+                {userSignature ? (
+                  <div style={{ padding: '14px 18px', border: '1px solid #bbf7d0', background: '#f0fdf4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>AUTHENTICATED USER</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{userSignature.name || currentUser?.full_name || currentUser?.name || 'HFA Admin'}</div>
+                    </div>
+                    <img
+                      src={getPdfUrl(userSignature.signature_url)}
+                      alt="Digital Signature"
+                      style={{ maxHeight: 42, maxWidth: 140, objectFit: 'contain', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#991b1b', fontSize: 12 }}>
+                    No digital signature image found for your account. Please upload one in the Signatures management page.
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Optional Comment */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'block' }}>
+                  3. Signature Comment / Note (Optional)
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="Enter comments or conditions regarding this signature..."
+                  value={sigComment}
+                  onChange={e => setSigComment(e.target.value)}
+                  style={{ width: '100%', fontSize: 13, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1', color: '#0f172a', resize: 'vertical' }}
                 />
               </div>
 
-              <div style={{
-                background: '#f8fafc', border: '1px solid #e2e8f0',
-                borderRadius: 10, padding: 16, textAlign: 'center', marginBottom: 20
-              }}>
-                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Digital Signature Preview</div>
-                <div style={{
-                  fontFamily: 'cursive', fontSize: 24, color: '#0f172a',
-                  padding: '10px 0', borderBottom: '1px solid #cbd5e1'
-                }}>
-                  {sigName || 'Authorized Signatory'}
-                </div>
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
-                  HFA Secure Digital Approval Timestamp: {new Date().toLocaleDateString()}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowSignModal(false)}
-                  style={{
-                    padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db',
-                    background: 'white', color: '#475569', fontSize: 13, fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApplySignature}
-                  disabled={signing}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '8px 20px', borderRadius: 8, border: 'none',
-                    background: '#008744', color: 'white', fontSize: 13, fontWeight: 700,
-                    cursor: signing ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  <PenTool size={14} /> {signing ? 'Applying...' : 'Confirm & Apply Signature'}
-                </button>
+              {/* Step 4: EXPLICIT DOUBLE CONFIRMATION CHECKBOX */}
+              <div style={{ padding: '12px 14px', background: modalConfirmed ? '#f0fdf4' : '#fffbeb', border: `1px solid ${modalConfirmed ? '#86efac' : '#fed7aa'}`, borderRadius: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={modalConfirmed}
+                    onChange={e => setModalConfirmed(e.target.checked)}
+                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#047857' }}
+                  />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: modalConfirmed ? '#14532d' : '#9a3412' }}>
+                    I explicitly confirm that I am applying my authorized electronic signature to this logsheet decision record.
+                  </span>
+                </label>
               </div>
             </div>
+
+            {/* Modal Footer Actions */}
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowSignModal(false)}
+                style={{ fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApplySignature}
+                disabled={signing || !sigRole || !modalConfirmed || !userSignature}
+                className="btn btn-primary"
+                style={{
+                  padding: '9px 24px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  opacity: (!modalConfirmed || signing || !sigRole || !userSignature) ? 0.6 : 1
+                }}
+              >
+                {signing ? 'Applying Signature...' : 'Confirm & Apply Signature'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

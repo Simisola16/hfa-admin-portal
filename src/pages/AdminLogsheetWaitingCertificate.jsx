@@ -18,12 +18,14 @@ export default function AdminLogsheetWaitingCertificate() {
   const fetchLogsheets = async () => {
     setLoading(true);
     try {
-      const [logsRes, certsRes] = await Promise.all([
+      const [logsRes, certsRes, extRes] = await Promise.all([
         api.get('/api/application-logsheets'),
-        api.get('/api/certificates').catch(() => ({ data: [] }))
+        api.get('/api/certificates').catch(() => ({ data: [] })),
+        api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
       ]);
       const allLogs = logsRes.data?.data || logsRes.data || [];
       const allCerts = Array.isArray(certsRes.data?.data) ? certsRes.data.data : (Array.isArray(certsRes.data) ? certsRes.data : (Array.isArray(certsRes) ? certsRes : []));
+      const extApps = extRes.data?.data || (Array.isArray(extRes.data) ? extRes.data : []);
 
       // Build a set of application IDs that already have an active, under_review, renewed, or valid certificate
       const certifiedAppIds = new Set(
@@ -44,22 +46,73 @@ export default function AdminLogsheetWaitingCertificate() {
           return false;
         }
 
-        // Exclude applications where certificate has already been issued (for main applications only, NOT add-on applications)
-        const isAddon = l.source_type === 'addon_application' || Boolean(l.addon_application_id);
-        if (!isAddon) {
-          const appId = String(l.application_id?._id || l.application_id || '');
-          if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
-            return false;
-          }
+        // Direct logsheets: show if marked Waiting For Certificate
+        if (l.source_type === 'direct') {
+          return l.status === 'Waiting For Certificate';
         }
 
-        // Exclude completed add-on applications
-        if (l.addon_application_id?.status === 'completed') return false;
+        // Add-on application logsheets: show if add-on application is ready for certificate
+        const isAddon = l.source_type === 'addon_application' || Boolean(l.addon_application_id);
+        if (isAddon) {
+          if (l.addon_application_id?.status === 'completed') return false;
+          return l.addon_application_id?.status === 'ready_for_certificate' || l.addon_application_id?.status === 'product_form_approved' || l.status === 'Waiting For Certificate';
+        }
 
-        return l.status === 'Waiting For Certificate' || l.status === 'Signed';
+        // Main application logsheets (HFA New, Renewal, Surveillance, GSO, etc.)
+        const appId = String(l.application_id?._id || l.application_id || '');
+        if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
+          return false;
+        }
+
+        // ONLY show if the linked application has officially reached 'ready_for_certificate' (or 'waiting_for_certificate')
+        const appStatus = l.application_id?.status;
+        const isAppReadyForCert = appStatus === 'ready_for_certificate' || appStatus === 'waiting_for_certificate';
+        return isAppReadyForCert;
       });
 
-      setLogsheets(waitingLogs);
+      // Filter signed Extension logsheets that are awaiting certificate issuance
+      const waitingExtLogs = extApps
+        .filter(extApp => {
+          const log = extApp.logsheet_id;
+          if (!log) return false;
+          if (extApp.status === 'extension_approved' || extApp.status === 'rejected' || log.status === 'Approved') {
+            return false;
+          }
+
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          const isSigned = is30Days
+            ? Boolean(log.single_signature)
+            : Boolean(log.mufti_signature && log.ceo_signature && log.manager_signature && log.mufti2_signature);
+
+          return isSigned || log.status === 'Signed' || extApp.status === 'logsheet_signed';
+        })
+        .map(extApp => {
+          const log = extApp.logsheet_id;
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          return {
+            _id: log._id || extApp._id,
+            extension_application_id: extApp._id,
+            application_number: extApp.application_number,
+            source_type: 'extension_application',
+            company_name: log.company_name || extApp.company_name || extApp.client_id?.company_name || 'Client',
+            site_name: extApp.site_name || extApp.site_id?.name || log.facility_address || 'Main Facility',
+            contact_person: log.contact_person || extApp.contact_person || '—',
+            contact_email: extApp.contact_email || extApp.client_id?.email || '',
+            created_at: log.created_at || extApp.created_at || extApp.createdAt,
+            updated_at: log.updated_at || extApp.updated_at,
+            audit_type: `Extension (${log.extension_days || 30} Days)`,
+            status: 'Waiting For Certificate',
+            signatures_required: is30Days ? 1 : 4,
+            extension_duration_type: log.extension_duration_type,
+            single_signature: log.single_signature,
+            mufti_signature: log.mufti_signature,
+            ceo_signature: log.ceo_signature,
+            manager_signature: log.manager_signature,
+            mufti2_signature: log.mufti2_signature
+          };
+        });
+
+      setLogsheets([...waitingLogs, ...waitingExtLogs]);
     } catch (err) {
       toast.error('Failed to load completed logsheets');
       console.error(err);
@@ -75,10 +128,14 @@ export default function AdminLogsheetWaitingCertificate() {
     return () => window.removeEventListener('click', handleClose);
   }, []);
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, e, item = null) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this logsheet record? This action cannot be undone.')) return;
     try {
+      if (item?.source_type === 'extension_application' || item?.extension_application_id) {
+        toast.error('Extension applications must be managed on the Extension Applications page.');
+        return;
+      }
       await api.delete(`/api/application-logsheets/${id}`);
       toast.success('Logsheet deleted successfully');
       fetchLogsheets();
@@ -88,6 +145,16 @@ export default function AdminLogsheetWaitingCertificate() {
   };
 
   const getSignatoryProgress = (l) => {
+    if (l.source_type === 'extension_application' || l.extension_application_id) {
+      const is30Days = l.signatures_required === 1 || l.extension_duration_type === '30_days';
+      if (is30Days) {
+        return {
+          count: l.single_signature ? 1 : 0,
+          total: 1,
+          signers: [{ role: 'Authorized Signatory', signed: !!l.single_signature }]
+        };
+      }
+    }
     const signers = [
       { role: 'Mufti', signed: !!l.mufti_signature },
       { role: 'CEO', signed: !!l.ceo_signature },
@@ -331,7 +398,9 @@ export default function AdminLogsheetWaitingCertificate() {
                       <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                           <Link 
-                            to={l.source_type === 'addon_application' || l.addon_application_id
+                            to={l.source_type === 'extension_application' || l.extension_application_id
+                              ? `/extension-applications/${l.extension_application_id?._id || l.extension_application_id}/logsheet`
+                              : l.source_type === 'addon_application' || l.addon_application_id
                               ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/logsheet`
                               : `/applications/${l.application_id?._id || l.application_id}/logsheet`}
                             className="btn btn-outline btn-sm"
@@ -340,7 +409,9 @@ export default function AdminLogsheetWaitingCertificate() {
                             <Eye size={13} /> View Logsheet
                           </Link>
                           <Link 
-                            to={l.source_type === 'addon_application' || l.addon_application_id
+                            to={l.source_type === 'extension_application' || l.extension_application_id
+                              ? `/extension-applications/${l.extension_application_id?._id || l.extension_application_id}/processing`
+                              : l.source_type === 'addon_application' || l.addon_application_id
                               ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/processing`
                               : `/applications/${appId}/processing`}
                             className="btn btn-primary btn-sm"
@@ -351,7 +422,7 @@ export default function AdminLogsheetWaitingCertificate() {
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ color: '#dc2626', padding: '5px 8px' }}
-                            onClick={(e) => handleDelete(l._id, e)}
+                            onClick={(e) => handleDelete(l._id, e, l)}
                             title="Delete Logsheet"
                           >
                             <Trash2 size={14} />

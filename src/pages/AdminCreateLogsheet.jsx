@@ -882,15 +882,14 @@ export default function AdminCreateLogsheet() {
 
       toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
       fetchData();
-
       const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
-      if (isAddon) {
+      if (isAddon || currentLogsheet?.addon_application_id) {
         const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
-        navigate(targetAddonId ? `/addon-applications/${targetAddonId}` : '/addon-applications');
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}/processing` : '/addon-applications');
       } else if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
       } else if (targetAppId) {
-        navigate(`/applications/${targetAppId}`);
+        navigate(`/applications/${targetAppId}/processing`);
       } else {
         navigate('/applications');
       }
@@ -976,13 +975,13 @@ export default function AdminCreateLogsheet() {
       fetchData();
       if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
-      } else if (isAddon) {
+      } else if (isAddon || addonId || currentLogsheet?.addon_application_id) {
         const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
-        navigate(targetAddonId ? `/addon-applications/${targetAddonId}` : '/addon-applications');
+        navigate(targetAddonId ? `/addon-applications/${targetAddonId}/processing` : '/addon-applications');
       } else {
         const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
         if (targetAppId) {
-          navigate(`/applications/${targetAppId}`);
+          navigate(`/applications/${targetAppId}/processing`);
         } else {
           navigate('/applications');
         }

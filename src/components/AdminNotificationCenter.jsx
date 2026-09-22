@@ -183,7 +183,20 @@ export default function AdminNotificationCenter({
     }
 
     if (n.link) {
+      if (n.link.includes('appId=')) {
+        const match = n.link.match(/appId=([a-fA-F0-9]{24})/);
+        if (match) {
+          navigate(`/applications/${match[1]}/processing`);
+          return;
+        }
+      }
+      if (targetAppId && (n.link === '/applications' || n.link === '/applications/')) {
+        navigate(`/applications/${targetAppId}/processing`);
+        return;
+      }
       navigate(n.link);
+    } else if (targetAppId) {
+      navigate(`/applications/${targetAppId}/processing`);
     } else if (modalType && onOpenQuickModal) {
       onOpenQuickModal(modalType, null);
     }

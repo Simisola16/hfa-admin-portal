@@ -209,7 +209,20 @@ export default function AdminLayout() {
                 if (modalType && targetAppId) {
                   setQuickModal({ type: modalType, appId: targetAppId });
                 } else if (notif.link) {
+                  if (notif.link.includes('appId=')) {
+                    const match = notif.link.match(/appId=([a-fA-F0-9]{24})/);
+                    if (match) {
+                      navigate(`/applications/${match[1]}/processing`);
+                      return;
+                    }
+                  }
+                  if (targetAppId && (notif.link === '/applications' || notif.link === '/applications/')) {
+                    navigate(`/applications/${targetAppId}/processing`);
+                    return;
+                  }
                   navigate(notif.link);
+                } else if (targetAppId) {
+                  navigate(`/applications/${targetAppId}/processing`);
                 } else if (modalType) {
                   setQuickModal({ type: modalType, appId: null });
                 }

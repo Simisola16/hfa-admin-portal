@@ -18,9 +18,26 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propAgreement?.application_id);
+  const hasInitializedRef = React.useRef(false);
+  const currentAppIdRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (isOpen && targetAppId) {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      setFile(null);
+      return;
+    }
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    if (targetAppId) {
       const needApp = !propApp;
       const needAgreement = !propAgreement;
 
@@ -41,7 +58,7 @@ export default function FinalAgreementModal({ isOpen, onClose, app: propApp, app
         setAgreement(propAgreement || null);
       }
     }
-  }, [isOpen, propApp, propAgreement, targetAppId]);
+  }, [isOpen, targetAppId]);
 
   if (!isOpen) return null;
   if (loading) return (

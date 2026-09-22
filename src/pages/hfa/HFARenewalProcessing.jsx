@@ -83,6 +83,21 @@ export default function HFARenewalProcessing(props) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
+      // 1. Ultra-fast single DB round-trip fetch
+      const detailsRes = await api.get(`/api/applications/${appId}/processing-details`).catch(() => null);
+      if (detailsRes?.data?.data) {
+        const d = detailsRes.data.data;
+        const fetchedApp = d.app;
+        setApp(fetchedApp);
+        setInvoice(d.invoice);
+        setAllInvoices(d.allInvoices || []);
+        setAudits(d.audits || []);
+        setLogsheet(d.logsheet);
+        setCertificate(d.certificate);
+        return;
+      }
+
+      // Fallback: parallel individual endpoints if processing-details is unavailable
       const [appRes, invRes, allInvRes, auditRes, logsheetRes, certRes] = await Promise.all([
         api.get(`/api/applications/${appId}`),
         api.get(`/api/invoices/application/${appId}`).catch(() => ({ data: null })),
@@ -172,7 +187,10 @@ export default function HFARenewalProcessing(props) {
     const socket = getSocket(token);
     if (!socket) return;
 
-    const handleConnect = () => setSocketConnected(true);
+    const handleConnect = () => {
+      setSocketConnected(true);
+      socket.emit('join_application', appId);
+    };
     const handleDisconnect = () => setSocketConnected(false);
     const handleConnectError = () => setSocketConnected(false);
 
@@ -181,19 +199,41 @@ export default function HFARenewalProcessing(props) {
     socket.on('connect_error', handleConnectError);
     setSocketConnected(socket.connected);
 
+    socket.emit('join_application', appId);
+
     const handleUpdate = (data) => {
-      if (data?.appId === appId || data?.id === appId) {
+      if (String(data?.appId) === String(appId) || String(data?.id) === String(appId)) {
+        // INSTANT zero-latency local state sync
+        if (data.status) {
+          setApp(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: data.status,
+              statusHistory: data.statusHistory || prev.statusHistory
+            };
+          });
+        }
         fetchApp(true);
       }
     };
 
     socket.on('application_updated', handleUpdate);
 
+    // Fast liveness background refresh (every 5 seconds when window is focused)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchApp(true);
+      }
+    }, 5000);
+
     return () => {
+      socket.emit('leave_application', appId);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
       socket.off('application_updated', handleUpdate);
+      clearInterval(interval);
     };
   }, [appId, fetchApp]);
 
@@ -429,11 +469,13 @@ export default function HFARenewalProcessing(props) {
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
   const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
+  const isNcClosed = !hasActiveNc && Boolean(
+    status === 'nc_closed' ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
     auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+    (app.statusHistory || []).some(h => h.status === 'nc_closed') ||
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'invoice_sent', 'payment_received', 'ready_for_certificate', 'certificate_issued'].includes(status)
+  );
 
   const renewalInvoice =
     allInvoices.find(inv => inv.invoice_type === 'renewal' || inv.stage === 'renewal' || (inv.title && inv.title.toLowerCase().includes('renewal'))) ||
@@ -471,7 +513,7 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 6. Complete
+    // 6. Complete Certificate Issued
     if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
@@ -565,6 +607,7 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
+    // 3c. Logsheet Signed -> Application Successful Action
     if (status === 'logsheet_signed') {
       return (
         <button
@@ -578,27 +621,8 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 3. LogSheet Stage (Post-Audit / NC Closed)
-    const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
-
-    if (!hasActiveNc && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed || (!isLogsheetSigned && ['audit_successful', 'audit_completed', 'nc_closed'].includes(status)))) {
-      if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
-        const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
-        return (
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#0e7490' }}
-            onClick={() => navigate(`/applications/${appId}/logsheet`)}
-            title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          >
-            <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
-          </button>
-        );
-      }
-    }
-
-    // NC Resolution
-    if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc || status === 'audit_successful' || status === 'audit_completed' || (status === 'on_hold' && audits.length > 0))) {
+    // 3a. NC Resolution Stage (STRICTLY AFTER AUDIT COMPLETE and BEFORE LOGSHEET)
+    if (!isNcClosed && (status === 'audit_completed' || status === 'audit_successful' || status === 'nc_flagged' || hasActiveNc || (status === 'on_hold' && audits.length > 0))) {
       return (
         <>
           <button
@@ -618,6 +642,23 @@ export default function HFARenewalProcessing(props) {
             <CheckCircle size={16} /> Close NC
           </button>
         </>
+      );
+    }
+
+    // 3b. LogSheet Stage (STRICTLY UNLOCKED ONLY AFTER NC IS CLOSED)
+    const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
+
+    if (isNcClosed && !hasActiveNc && !isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
+      const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#0e7490' }}
+          onClick={() => navigate(`/applications/${appId}/logsheet`)}
+          title={isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        >
+          <ClipboardList size={16} /> {isCreated ? 'Manage LogSheet' : 'Create LogSheet'}
+        </button>
       );
     }
 

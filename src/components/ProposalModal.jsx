@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -25,43 +25,58 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propProposal?.application_id);
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (!propApp && targetAppId) {
-        setLoading(true);
-        Promise.all([
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-          api.get(`/api/proposals/application/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([appRes, pRes]) => {
-          const loadedApp = appRes.data?.data || appRes.data || null;
-          const loadedProposal = pRes.data?.data || pRes.data || null;
-          setApp(loadedApp);
-          setProposal(loadedProposal);
-          if (loadedApp) {
-            setProposalForm(f => ({
-              ...f,
-              title: loadedProposal ? `Revised Proposal for ${loadedApp.application_number}` : `Proposal for ${loadedApp.application_number}`,
-              estimated_cost: loadedProposal?.estimated_cost || '',
-              details: loadedProposal?.details || '',
-              admin_comment: loadedProposal?.admin_comment || '',
-            }));
-          }
-        }).finally(() => setLoading(false));
-      } else {
-        setApp(propApp || null);
-        setProposal(propProposal || null);
-        setProposalForm({
-          type: 'upload',
-          title: propProposal ? `Revised Proposal for ${propApp?.application_number}` : `Proposal for ${propApp?.application_number}`,
-          estimated_cost: propProposal?.estimated_cost || '',
-          details: propProposal?.details || '',
-          admin_comment: propProposal?.admin_comment || '',
-          file: null
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propApp, propProposal, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    if (!propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/proposals/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, pRes]) => {
+        const loadedApp = appRes.data?.data || appRes.data || null;
+        const loadedProposal = pRes.data?.data || pRes.data || null;
+        setApp(loadedApp);
+        setProposal(loadedProposal);
+        if (loadedApp) {
+          setProposalForm(f => ({
+            ...f,
+            title: loadedProposal ? `Revised Proposal for ${loadedApp.application_number}` : `Proposal for ${loadedApp.application_number}`,
+            estimated_cost: loadedProposal?.estimated_cost || '',
+            details: loadedProposal?.details || '',
+            admin_comment: loadedProposal?.admin_comment || '',
+            file: null
+          }));
+        }
+      }).finally(() => setLoading(false));
+    } else {
+      setApp(propApp || null);
+      setProposal(propProposal || null);
+      setProposalForm({
+        type: 'upload',
+        title: propProposal ? `Revised Proposal for ${propApp?.application_number}` : `Proposal for ${propApp?.application_number}`,
+        estimated_cost: propProposal?.estimated_cost || '',
+        details: propProposal?.details || '',
+        admin_comment: propProposal?.admin_comment || '',
+        file: null
+      });
+    }
+  }, [isOpen, targetAppId]);
 
   if (!isOpen) return null;
   if (loading) return (
@@ -87,8 +102,12 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       toast.error('Please enter a valid Estimated Cost (£).');
       return;
     }
-    if (!proposalForm.file) {
+    if (proposalForm.type === 'upload' && !proposalForm.file) {
       toast.error('Please upload the Proposal PDF document.');
+      return;
+    }
+    if (proposalForm.type === 'write' && !proposalForm.details?.trim()) {
+      toast.error('Please write the proposal details.');
       return;
     }
 
@@ -97,11 +116,11 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
       const formData = new FormData();
       formData.append('title', proposalForm.title.trim());
       formData.append('estimated_cost', proposalForm.estimated_cost);
-      formData.append('admin_comment', proposalForm.admin_comment);
+      formData.append('admin_comment', proposalForm.admin_comment || '');
       if (proposalForm.type === 'upload' && proposalForm.file) {
         formData.append('proposal_file', proposalForm.file);
       } else if (proposalForm.type === 'write' && proposalForm.details) {
-        formData.append('details', proposalForm.details);
+        formData.append('details', proposalForm.details.trim());
       }
 
       const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
@@ -246,7 +265,11 @@ export default function ProposalModal({ isOpen, onClose, app: propApp, appId: pr
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || !proposalForm.file}
+            disabled={
+              submitting ||
+              (proposalForm.type === 'upload' && !proposalForm.file) ||
+              (proposalForm.type === 'write' && !proposalForm.details?.trim())
+            }
           >
             {submitting ? 'Sending...' : 'Send Proposal'}
           </button>

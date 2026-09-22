@@ -204,8 +204,8 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
               <Clock size={12} /> Audit Completed
             </span>
           ) : (
-            <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-              <CheckCircle size={12} /> Clean Audit
+            <span className="badge badge-gray" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+              Audit In-Progress
             </span>
           )}
         </div>

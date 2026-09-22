@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -23,60 +23,74 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propInvoice?.application_id);
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      const isFinal = invoiceType === 'final';
-      if (!propApp && targetAppId) {
-        setLoading(true);
-        Promise.all([
-          api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
-          api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
-        ]).then(([appRes, invRes]) => {
-          const loadedApp = appRes.data?.data || appRes.data || null;
-          const rawInv = invRes.data?.data || invRes.data || null;
-          const isMatchingInvoice = rawInv && (isFinal 
-            ? (rawInv.invoice_type === 'final' || rawInv.stage === 'final' || rawInv.target_status === 'final_invoice_sent') 
-            : (rawInv.invoice_type !== 'final' && rawInv.stage !== 'final' && rawInv.target_status !== 'final_invoice_sent'));
-          const loadedInvoice = isMatchingInvoice ? rawInv : null;
-          setApp(loadedApp);
-          setInvoice(loadedInvoice);
-          const isSurv = loadedApp?.application_type === 'surveillance';
-          const isRen = !isSurv && loadedApp?.application_type === 'renewal';
-          const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
-          if (loadedApp) {
-            setInvoiceForm(f => ({
-              ...f,
-              title: loadedInvoice
-                ? `Revised ${prefix}Invoice for ${loadedApp.application_number}`
-                : `${prefix}Invoice for ${loadedApp.application_number}`,
-              amount: loadedInvoice?.amount || '',
-              notes: loadedInvoice?.notes || '',
-              file: null
-            }));
-          }
-        }).finally(() => setLoading(false));
-      } else {
-        const isMatchingInvoice = propInvoice && (isFinal 
-          ? (propInvoice.invoice_type === 'final' || propInvoice.stage === 'final' || propInvoice.target_status === 'final_invoice_sent') 
-          : (propInvoice.invoice_type !== 'final' && propInvoice.stage !== 'final' && propInvoice.target_status !== 'final_invoice_sent'));
-        const activeInvoice = isMatchingInvoice ? propInvoice : null;
-        setApp(propApp || null);
-        setInvoice(activeInvoice);
-        const isSurv = propApp?.application_type === 'surveillance';
-        const isRen = !isSurv && propApp?.application_type === 'renewal';
-        const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
-        setInvoiceForm({
-          title: activeInvoice
-            ? `Revised ${prefix}Invoice for ${propApp?.application_number}`
-            : `${prefix}Invoice for ${propApp?.application_number}`,
-          amount: activeInvoice?.amount || '',
-          notes: activeInvoice?.notes || '',
-          file: null
-        });
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      return;
     }
-  }, [isOpen, propApp, propInvoice, invoiceType, targetAppId]);
+
+    const cleanAppId = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === cleanAppId) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = cleanAppId;
+
+    const isFinal = invoiceType === 'final';
+    if (!propApp && targetAppId) {
+      setLoading(true);
+      Promise.all([
+        api.get(`/api/applications/${targetAppId}`).catch(() => ({ data: null })),
+        api.get(`/api/invoices/application/${targetAppId}`).catch(() => ({ data: null }))
+      ]).then(([appRes, invRes]) => {
+        const loadedApp = appRes.data?.data || appRes.data || null;
+        const rawInv = invRes.data?.data || invRes.data || null;
+        const isMatchingInvoice = rawInv && (isFinal 
+          ? (rawInv.invoice_type === 'final' || rawInv.stage === 'final' || rawInv.target_status === 'final_invoice_sent') 
+          : (rawInv.invoice_type !== 'final' && rawInv.stage !== 'final' && rawInv.target_status !== 'final_invoice_sent'));
+        const loadedInvoice = isMatchingInvoice ? rawInv : null;
+        setApp(loadedApp);
+        setInvoice(loadedInvoice);
+        const isSurv = loadedApp?.application_type === 'surveillance';
+        const isRen = !isSurv && loadedApp?.application_type === 'renewal';
+        const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
+        if (loadedApp) {
+          setInvoiceForm(f => ({
+            ...f,
+            title: loadedInvoice
+              ? `Revised ${prefix}Invoice for ${loadedApp.application_number}`
+              : `${prefix}Invoice for ${loadedApp.application_number}`,
+            amount: loadedInvoice?.amount || '',
+            notes: loadedInvoice?.notes || '',
+            file: null
+          }));
+        }
+      }).finally(() => setLoading(false));
+    } else {
+      const isMatchingInvoice = propInvoice && (isFinal 
+        ? (propInvoice.invoice_type === 'final' || propInvoice.stage === 'final' || propInvoice.target_status === 'final_invoice_sent') 
+        : (propInvoice.invoice_type !== 'final' && propInvoice.stage !== 'final' && propInvoice.target_status !== 'final_invoice_sent'));
+      const activeInvoice = isMatchingInvoice ? propInvoice : null;
+      setApp(propApp || null);
+      setInvoice(activeInvoice);
+      const isSurv = propApp?.application_type === 'surveillance';
+      const isRen = !isSurv && propApp?.application_type === 'renewal';
+      const prefix = isFinal ? 'Final ' : (isSurv ? 'Surveillance ' : (isRen ? 'Renewal ' : ''));
+      setInvoiceForm({
+        title: activeInvoice
+          ? `Revised ${prefix}Invoice for ${propApp?.application_number}`
+          : `${prefix}Invoice for ${propApp?.application_number}`,
+        amount: activeInvoice?.amount || '',
+        notes: activeInvoice?.notes || '',
+        file: null
+      });
+    }
+  }, [isOpen, targetAppId, invoiceType]);
 
   if (!isOpen) return null;
   if (loading) return (
@@ -103,17 +117,6 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       toast.error('Please enter a valid Amount Due (£).');
       return;
     }
-    if (isFinal) {
-      if (!invoiceForm.file && !invoice?.invoice_url) {
-        toast.error('Please upload the Final Invoice PDF document before sending.');
-        return;
-      }
-    } else {
-      if (!invoiceForm.file && !invoice?.invoice_url) {
-        toast.error('Please upload an invoice PDF document.');
-        return;
-      }
-    }
 
     setSubmitting(true);
     try {
@@ -122,23 +125,19 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       formData.append('amount', invoiceForm.amount);
       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
-      const isFinal = invoiceType === 'final';
       formData.append('invoice_type', isFinal ? 'final' : 'initial');
       formData.append('target_status', isFinal ? 'final_invoice_sent' : 'invoice_sent');
 
       const clientId = getCleanId(app.client_id || app.profiles?._id || app.profiles?.id || app.profiles);
-      if (!clientId) {
-        throw new Error('Could not identify client ID for this application.');
-      }
       const appId = getCleanId(app._id || app.id || app);
       formData.append('application_id', appId);
-      formData.append('client_id', clientId);
+      if (clientId) formData.append('client_id', clientId);
 
       const res = await api.post('/api/invoices', formData, true);
       const createdInvoice = res?.data?.data || res?.data || null;
       toast.success('Invoice sent successfully!');
-      if (onSuccess) onSuccess(createdInvoice);
-      onClose();
+      if (typeof onSuccess === 'function') onSuccess(createdInvoice);
+      if (typeof onClose === 'function') onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to send invoice.');
     } finally {
@@ -184,22 +183,22 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           </div>
 
           <div className="form-group">
-            <label className="form-label">Invoice Document (PDF) <span>*</span></label>
+            <label className="form-label">Invoice Document (PDF) <span style={{ fontSize: 11, fontWeight: 'normal', color: '#64748b' }}>(Optional — auto-generated if omitted)</span></label>
             <div
               onClick={() => document.getElementById('invoice-file-shared').click()}
               style={{
-                border: '2px dashed #e2e8f0', padding: '32px 24px', borderRadius: '12px',
+                border: '2px dashed #e2e8f0', padding: '24px 20px', borderRadius: '12px',
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
                 background: invoiceForm.file ? '#f0fdf4' : '#fff'
               }}
               onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
               onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
             >
-              <FileText size={40} style={{ color: invoiceForm.file ? '#22c55e' : '#94a3b8', marginBottom: 12, margin: '0 auto' }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
-                {invoiceForm.file ? invoiceForm.file.name : 'Click to select invoice document'}
+              <FileText size={36} style={{ color: invoiceForm.file ? '#22c55e' : '#94a3b8', marginBottom: 8, margin: '0 auto' }} />
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+                {invoiceForm.file ? invoiceForm.file.name : 'Click to select invoice document (PDF)'}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Only PDF allowed</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>PDF only (or leave empty to generate automatically)</div>
               <input
                 id="invoice-file-shared"
                 type="file"

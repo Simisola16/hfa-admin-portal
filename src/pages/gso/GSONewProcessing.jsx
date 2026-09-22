@@ -247,6 +247,34 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     (app.statusHistory || []).some(h => h.status === 'nc_closed')
   ));
 
+  const POST_NC_STAGES = [
+    'nc_closed',
+    'audit_report_submitted',
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'application_successful',
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'certificate_issued'
+  ];
+
+  const hasLogsheetRecord = Boolean(
+    logsheet &&
+    !logsheet.error &&
+    (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
+  );
+
+  const isAfterNcClosed = !hasActiveNc && (
+    isNcClosed ||
+    POST_NC_STAGES.includes(status) ||
+    hasLogsheetRecord
+  );
+
   const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
   const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
@@ -1060,17 +1088,20 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             onCloseNc={handleCloseNc}
             actionSubmitting={actionSubmitting}
           />
-          <LogsheetCard
-            logsheet={logsheet}
-            status={status}
-            appId={appId}
-            isRenewal={false}
-            isSurveillance={false}
-            hasActiveNc={hasActiveNc}
-            isNcClosed={isNcClosed}
-            onMarkDone={handleMarkLogsheetDone}
-            markingDone={markingLogsheetDone}
-          />
+          {/* 6. Facility Logsheet Card - Only shown after NC has been closed */}
+          {isAfterNcClosed && (
+            <LogsheetCard
+              logsheet={logsheet}
+              status={status}
+              appId={appId}
+              isRenewal={false}
+              isSurveillance={false}
+              hasActiveNc={hasActiveNc}
+              isNcClosed={isNcClosed}
+              onMarkDone={handleMarkLogsheetDone}
+              markingDone={markingLogsheetDone}
+            />
+          )}
           <AgreementCard
             app={app}
             agreement={agreement}

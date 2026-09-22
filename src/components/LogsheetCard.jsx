@@ -9,8 +9,6 @@ const POST_NC_STATUSES = [
   'logsheet_sign_requested',
   'logsheet_signed',
   'application_successful',
-  'invoice_sent',
-  'payment_received',
   'agreement_sent',
   'agreement_signed',
   'agreement_finalised',

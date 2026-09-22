@@ -586,7 +586,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* 6 to 10: Scope, Brand, Counts, Halal Schedule */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, display: 'grid', gap: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>6. Product Description / Type / Category (Scope)</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>6. Product Category / Description</div>
                   <div style={{ fontSize: 13, color: '#1e293b', marginTop: 4, lineHeight: 1.5, background: '#ffffff', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
                     {app.scope || 'No specific product description provided.'}
                   </div>

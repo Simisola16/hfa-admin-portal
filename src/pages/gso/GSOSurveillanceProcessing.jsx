@@ -64,6 +64,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [markingLogsheetDone, setMarkingLogsheetDone] = useState(false);
+  const [markingReadyForCert, setMarkingReadyForCert] = useState(false);
 
   const fetchApp = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -407,8 +408,6 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       setMarkingLogsheetDone(false);
     }
   };
-
-  const [markingReadyForCert, setMarkingReadyForCert] = useState(false);
 
   const handleMarkReadyForCertificate = async () => {
     setMarkingReadyForCert(true);

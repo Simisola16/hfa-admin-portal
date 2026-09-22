@@ -62,6 +62,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     product_table_columns: 1,
     file: null
   });
+  const [scheduledProducts, setScheduledProducts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [underReviewPopup, setUnderReviewPopup] = useState(null);
 
@@ -137,22 +138,39 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     const manufacturingAddress = existingCert?.manufacturing_address || loadedApp.manufacturer_address || loadedApp.site_id?.address || loadedApp.establishment_address || companyAddress;
     const scope = existingCert?.scope || loadedApp.scope || loadedApp.category || 'Production & Supply of Halal Certified Products';
 
-    // Extract products list if available
-    let prods = '';
-    let existingProducts = existingCert?.products_covered || loadedApp.certificate_id?.products_covered;
-    let productList = [];
-    if (Array.isArray(existingProducts)) {
-      productList = [...existingProducts];
-    } else if (typeof existingProducts === 'string' && existingProducts.trim()) {
-      try {
-        const parsed = JSON.parse(existingProducts);
-        productList = Array.isArray(parsed) ? parsed : existingProducts.split(',').map(p => p.trim()).filter(Boolean);
-      } catch (_) {
-        productList = existingProducts.split(',').map(p => p.trim()).filter(Boolean);
+    // Resolve certified products strictly from Initial Products, application products, site products, and cert records
+    let resolvedProductItems = [];
+
+    // 1. Check Initial Product Application (critical for new applications)
+    const initProd = loadedInitProd || loadedApp?.initial_product || loadedApp?.initialProduct || procDetails?.initialProduct || propApp?.initial_product || propApp?.initialProduct;
+    if (initProd) {
+      if (initProd.product && (initProd.product.name || initProd.product.title)) {
+        resolvedProductItems.push({
+          name: (initProd.product.name || initProd.product.title).trim(),
+          code: initProd.product.code || 'PRD-01',
+          category: initProd.product.category || loadedApp?.category || 'Halal Certified',
+          ingredients: initProd.product.ingredients || '',
+          description: initProd.product.description || ''
+        });
+      }
+      if (Array.isArray(initProd.products) && initProd.products.length > 0) {
+        initProd.products.forEach((p, idx) => {
+          const pName = (p.name || p.title || '').trim();
+          if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+            resolvedProductItems.push({
+              name: pName,
+              code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+              category: p.category || loadedApp?.category || 'Halal Certified',
+              ingredients: p.ingredients || '',
+              description: p.description || ''
+            });
+          }
+        });
       }
     }
 
-    if (Array.isArray(loadedApp.products) && loadedApp.products.length > 0) {
+    // 2. Check loadedApp.products
+    if (Array.isArray(loadedApp?.products) && loadedApp.products.length > 0) {
       for (const p of loadedApp.products) {
         if (!p) continue;
         const pType = p.type || 'Add product';
@@ -160,30 +178,78 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         const origName = (p.original_name || p.name || '').trim();
 
         if (pType === 'Add product' || !p.type) {
-          if (pName && !productList.includes(pName)) {
-            productList.push(pName);
+          if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+            resolvedProductItems.push({
+              name: pName,
+              code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+              category: p.category || loadedApp?.category || 'Halal Certified'
+            });
           }
         } else if (pType === 'Remove product') {
           if (origName) {
-            productList = productList.filter(item => item !== origName);
+            resolvedProductItems = resolvedProductItems.filter(item => item.name.toLowerCase() !== origName.toLowerCase());
           }
         } else if (pType === 'Change name/code') {
           if (origName && pName) {
-            const idx = productList.indexOf(origName);
+            const idx = resolvedProductItems.findIndex(r => r.name.toLowerCase() === origName.toLowerCase());
             if (idx !== -1) {
-              productList[idx] = pName;
-            } else if (!productList.includes(pName)) {
-              productList.push(pName);
+              resolvedProductItems[idx].name = pName;
+              if (p.code) resolvedProductItems[idx].code = p.code;
+            } else if (!resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+              resolvedProductItems.push({
+                name: pName,
+                code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                category: p.category || loadedApp?.category || 'Halal Certified'
+              });
             }
           }
         }
       }
-      prods = productList.join(', ');
-    } else if (productList.length > 0) {
-      prods = productList.join(', ');
-    } else if (loadedApp.scope) {
-      prods = loadedApp.scope;
     }
+
+    // 3. Check loadedApp.site?.products or procDetails?.app?.site?.products
+    const siteProducts = loadedApp?.site?.products || procDetails?.app?.site?.products || loadedApp?.site_id?.products;
+    if (resolvedProductItems.length === 0 && Array.isArray(siteProducts) && siteProducts.length > 0) {
+      siteProducts.forEach((p, idx) => {
+        const pName = (p.name || p.title || '').trim();
+        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+          resolvedProductItems.push({
+            name: pName,
+            code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+            category: p.category || loadedApp?.category || 'Halal Certified'
+          });
+        }
+      });
+    }
+
+    // 4. Check existingCert.products_covered
+    if (resolvedProductItems.length === 0 && existingCert?.products_covered) {
+      let ep = existingCert.products_covered;
+      let epList = [];
+      if (Array.isArray(ep)) {
+        epList = ep;
+      } else if (typeof ep === 'string' && ep.trim()) {
+        try {
+          const parsed = JSON.parse(ep);
+          epList = Array.isArray(parsed) ? parsed : ep.split(',').map(s => s.trim()).filter(Boolean);
+        } catch (_) {
+          epList = ep.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+      epList.forEach((item, idx) => {
+        const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
+        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+          resolvedProductItems.push({
+            name: pName,
+            code: typeof item === 'object' && item.code ? item.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+            category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified')
+          });
+        }
+      });
+    }
+
+    setScheduledProducts(resolvedProductItems);
+    const prods = resolvedProductItems.map(p => p.name).join(', ');
 
     const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(loadedApp.application_type);
     setCurrentTypeCode(certTypeCode);
@@ -225,7 +291,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       current_cycle_start_date: resolvedCurrentCycle,
       original_cycle_start_date: resolvedOrigCycle,
       certification_start_date: resolvedCertStart,
-      products_covered: existingCert?.products_covered ? (Array.isArray(existingCert.products_covered) ? existingCert.products_covered.join(', ') : existingCert.products_covered) : prods,
+      products_covered: prods,
       product_table_columns: Number(existingCert?.product_table_columns || 1),
       file: null
     };
@@ -278,13 +344,15 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     setPreviewError('');
 
     try {
-      const parsedProducts = certificateForm.products_covered
-        ? certificateForm.products_covered.split(',').map((p, idx) => ({
-            name: p.trim(),
-            code: `PRD-${String(idx + 1).padStart(2, '0')}`,
-            category: 'Halal Certified'
-          })).filter(p => p.name)
-        : (app?.products || [{ name: 'Certified Halal Products Schedule' }]);
+      const parsedProducts = scheduledProducts.length > 0
+        ? scheduledProducts
+        : (certificateForm.products_covered
+            ? certificateForm.products_covered.split(',').map((p, idx) => ({
+                name: p.trim(),
+                code: `PRD-${String(idx + 1).padStart(2, '0')}`,
+                category: 'Halal Certified'
+              })).filter(p => p.name)
+            : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }]);
 
       const isFour = isFourDateType(certificateForm.certificate_type);
 
@@ -317,43 +385,64 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     } finally {
       setGeneratingPreview(false);
     }
-  }, [certificateForm, app, isSurveillance]);
+  }, [certificateForm, app, isSurveillance, scheduledProducts]);
+
+  const hasInitializedRef = useRef(false);
+  const currentAppIdRef = useRef(null);
 
   // Initial Load
   useEffect(() => {
-    if (isOpen) {
-      const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
-      if (appIdToUse) {
-        setLoading(true);
-        const appFetchPromise = propApp
-          ? Promise.resolve({ data: propApp })
-          : api.get(`/api/applications/${appIdToUse}`).catch(() => api.get(`/api/add-on-applications/${appIdToUse}`));
-
-        Promise.all([
-          appFetchPromise,
-          api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null }))
-        ])
-          .then(([appRes, certRes]) => {
-            const loadedApp = appRes.data?.data || appRes.data || null;
-            let loadedCert = certRes.data?.data || certRes.data || null;
-
-            if (!loadedCert && loadedApp?.certificate_id) {
-              if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
-                loadedCert = loadedApp.certificate_id;
-              }
-            }
-
-            setApp(loadedApp);
-            initForm(loadedApp, loadedCert);
-          })
-          .catch(() => setApp(null))
-          .finally(() => setLoading(false));
-      } else if (propApp) {
-        setApp(propApp);
-        initForm(propApp, propApp.certificate_id);
-      }
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      currentAppIdRef.current = null;
+      setUnderReviewPopup(null);
+      setLivePreviewUrl('');
+      setPreviewError('');
+      return;
     }
-  }, [isOpen, propApp, targetAppId]);
+
+    const appIdToUse = targetAppId || getCleanId(propApp?._id || propApp?.id);
+    if (hasInitializedRef.current && currentAppIdRef.current === appIdToUse) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    currentAppIdRef.current = appIdToUse;
+
+    if (appIdToUse) {
+      setLoading(true);
+      const appFetchPromise = propApp
+        ? Promise.resolve({ data: propApp })
+        : api.get(`/api/applications/${appIdToUse}`).catch(() => api.get(`/api/add-on-applications/${appIdToUse}`));
+
+      Promise.all([
+        appFetchPromise,
+        api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null })),
+        api.get(`/api/initial-products/by-application/${appIdToUse}`).catch(() => ({ data: null })),
+        api.get(`/api/applications/${appIdToUse}/processing-details`).catch(() => ({ data: null }))
+      ])
+        .then(([appRes, certRes, initProdRes, procRes]) => {
+          const loadedApp = appRes.data?.data || appRes.data || null;
+          let loadedCert = certRes.data?.data || certRes.data || null;
+          const loadedInitProd = initProdRes.data?.data !== undefined ? initProdRes.data.data : (initProdRes.data || null);
+          const procDetails = procRes.data?.data || procRes.data || null;
+
+          if (!loadedCert && loadedApp?.certificate_id) {
+            if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
+              loadedCert = loadedApp.certificate_id;
+            }
+          }
+
+          setApp(loadedApp);
+          initForm(loadedApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails);
+        })
+        .catch(() => setApp(null))
+        .finally(() => setLoading(false));
+    } else if (propApp) {
+      setApp(propApp);
+      initForm(propApp, propApp.certificate_id);
+    }
+  }, [isOpen, targetAppId]);
 
   // Auto trigger preview generation on initial load when certificate number is ready
   useEffect(() => {
@@ -366,6 +455,52 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   }, [isOpen, loading, certificateForm.certificate_number, isSurveillance, livePreviewUrl, generateLivePreview]);
 
   if (!isOpen) return null;
+
+  if (underReviewPopup) {
+    return (
+      <div className="modal-overlay" style={{ zIndex: 1250, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }} onClick={() => { setUnderReviewPopup(null); onClose(); }}>
+        <div className="modal" style={{ maxWidth: 480, borderRadius: 20, padding: 0, overflow: 'hidden', textAlign: 'center', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '36px 28px 24px', borderBottom: '1px solid #fde68a' }}>
+            <div style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              background: '#ffffff',
+              border: '3px solid #f59e0b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#d97706',
+              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
+            }}>
+              <ShieldCheck size={32} />
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#78350f', margin: '0 0 8px' }}>
+              Certificate is Under Committee Review
+            </h3>
+            <p style={{ fontSize: 14, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
+              Official Certificate <strong>{underReviewPopup.certNumber}</strong> for <strong>{underReviewPopup.companyName}</strong> has been created and submitted for QA & Committee Review.
+            </p>
+          </div>
+          <div style={{ padding: '24px 28px', display: 'flex', gap: 12, justifyContent: 'center', background: 'white' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: '12px 32px', fontWeight: 800, background: '#d97706', borderColor: '#b45309', borderRadius: 10, fontSize: 14 }}
+              onClick={() => {
+                setUnderReviewPopup(null);
+                onClose();
+              }}
+            >
+              OK, Got It
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className="modal-overlay" style={{ zIndex: 1200, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)' }}>
       <div className="modal" style={{ maxWidth: 500, padding: 48, textAlign: 'center', borderRadius: 16 }}>
@@ -547,51 +682,6 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     : (app.category || app.application_id?.category || app.certificate_id?.certificate_type || certificateForm.certificate_type || 'Halal Certification');
   const isCurrentFourDate = isFourDateType(certificateForm.certificate_type);
   const isSubmitDisabled = submitting || (!isSurveillance && !isAppReadyForCert);
-
-  if (underReviewPopup) {
-    return (
-      <div className="modal-overlay" style={{ zIndex: 1250, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }} onClick={() => { setUnderReviewPopup(null); onClose(); }}>
-        <div className="modal" style={{ maxWidth: 480, borderRadius: 20, padding: 0, overflow: 'hidden', textAlign: 'center', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
-          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '36px 28px 24px', borderBottom: '1px solid #fde68a' }}>
-            <div style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: '3px solid #f59e0b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              color: '#d97706',
-              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
-            }}>
-              <ShieldCheck size={32} />
-            </div>
-            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#78350f', margin: '0 0 8px' }}>
-              Certificate is Under Committee Review
-            </h3>
-            <p style={{ fontSize: 14, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
-              Official Certificate <strong>{underReviewPopup.certNumber}</strong> for <strong>{underReviewPopup.companyName}</strong> has been created and submitted for QA & Committee Review.
-            </p>
-          </div>
-          <div style={{ padding: '24px 28px', display: 'flex', gap: 12, justifyContent: 'center', background: 'white' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ padding: '12px 32px', fontWeight: 800, background: '#d97706', borderColor: '#b45309', borderRadius: 10, fontSize: 14 }}
-              onClick={() => {
-                setUnderReviewPopup(null);
-                onClose();
-              }}
-            >
-              OK, Got It
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div 
@@ -976,10 +1066,15 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
               {/* 5. Products Covered & Schedule Layout */}
               {!isSurveillance && (
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 800, fontSize: 12.5, color: '#0f172a' }}>
-                      Products Covered Schedule
-                    </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 800, fontSize: 12.5, color: '#0f172a' }}>
+                        Products Covered Schedule
+                      </label>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
+                        {scheduledProducts.length} approved product{scheduledProducts.length !== 1 ? 's' : ''} linked to application
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Layout:</span>
                       {[1, 2, 3].map(cols => (
@@ -1004,16 +1099,69 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                       ))}
                     </div>
                   </div>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={certificateForm.products_covered}
-                    onChange={e => setCertificateForm(f => ({ ...f, products_covered: e.target.value }))}
-                    placeholder="Enter products separated by commas (e.g. Fresh Chicken, Frozen Beef Strips, Halal Mutton)"
-                    style={{ fontSize: 12.5 }}
-                  />
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                    Products are automatically formatted into the official certificate schedule table.
+
+                  {/* Non-editable Scheduled Products Container */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6
+                  }}>
+                    {scheduledProducts.length > 0 ? (
+                      scheduledProducts.map((p, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 6,
+                            padding: '6px 10px',
+                            fontSize: 12
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <span style={{
+                              fontWeight: 800,
+                              fontSize: 10.5,
+                              color: '#047857',
+                              background: '#ecfdf5',
+                              border: '1px solid #a7f3d0',
+                              borderRadius: 4,
+                              padding: '1px 6px',
+                              flexShrink: 0
+                            }}>
+                              {p.code || `PRD-${String(idx + 1).padStart(2, '0')}`}
+                            </span>
+                            <span style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {p.name}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500, flexShrink: 0, marginLeft: 8 }}>
+                            {p.category || 'Halal Certified'}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '12px 8px', textAlign: 'center', color: '#64748b', fontSize: 12 }}>
+                        <Package size={20} style={{ margin: '0 auto 4px', color: '#94a3b8' }} />
+                        <div style={{ fontWeight: 600 }}>Initial Product Schedule</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                          Initial product details from this application will be printed on the certificate schedule.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Check size={12} style={{ color: '#047857' }} /> Products are read-only and automatically mapped from application records.
                   </div>
                 </div>
               )}

@@ -80,7 +80,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   const isSurveillance = app?.application_type === 'surveillance';
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
-  const initForm = (loadedApp, existingCert = null) => {
+  const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null) => {
     if (!loadedApp) return;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
     const isSurv = !isAddOn && loadedApp.application_type === 'surveillance';
@@ -433,10 +433,18 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             }
           }
 
-          setApp(loadedApp);
-          initForm(loadedApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails);
+          const finalApp = loadedApp || propApp;
+          setApp(finalApp);
+          initForm(finalApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails);
         })
-        .catch(() => setApp(null))
+        .catch((err) => {
+          console.error("Failed to load certificate modal details:", err);
+          const fallbackApp = propApp || null;
+          setApp(fallbackApp);
+          if (fallbackApp) {
+            initForm(fallbackApp, fallbackApp.certificate_id);
+          }
+        })
         .finally(() => setLoading(false));
     } else if (propApp) {
       setApp(propApp);
@@ -510,7 +518,20 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       </div>
     </div>
   );
-  if (!app) return null;
+  if (!app) return (
+    <div className="modal-overlay" style={{ zIndex: 1200, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }} onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 450, padding: 32, textAlign: 'center', borderRadius: 16 }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+          <AlertTriangle size={24} />
+        </div>
+        <div style={{ color: '#0f172a', fontWeight: 800, fontSize: 16 }}>Application Information Unavailable</div>
+        <div style={{ color: '#64748b', fontSize: 13, marginTop: 6, marginBottom: 20 }}>
+          Unable to retrieve application details for certificate generation.
+        </div>
+        <button type="button" className="btn btn-ghost" onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
 
   const normAppStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
   const isRen = (

@@ -4,9 +4,10 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, Check
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, Check, ExternalLink
 } from 'lucide-react';
 
 export default function AdminLogsheetWaitingSignature() {
@@ -18,7 +19,7 @@ export default function AdminLogsheetWaitingSignature() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'awaiting_mine' | 'signed_by_me'
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [actionModalItem, setActionModalItem] = useState(null);
   const [selectedLogsheetForEmail, setSelectedLogsheetForEmail] = useState(null);
   const [showResendModal, setShowResendModal] = useState(false);
   const navigate = useNavigate();
@@ -105,13 +106,10 @@ export default function AdminLogsheetWaitingSignature() {
 
   useEffect(() => {
     fetchLogsheets();
-    const handleClose = () => setActiveDropdown(null);
-    window.addEventListener('click', handleClose);
-    return () => window.removeEventListener('click', handleClose);
   }, []);
 
   const handleDelete = async (id, e, item = null) => {
-    e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this logsheet? This action cannot be undone.')) return;
     try {
       if (item?.source_type === 'extension_application' || item?.extension_application_id) {
@@ -127,14 +125,13 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const handleResendEmails = (logsheetItem, e) => {
-    if (e) e.stopPropagation();
-    setActiveDropdown(null);
+    if (e?.stopPropagation) e.stopPropagation();
     setSelectedLogsheetForEmail(logsheetItem);
     setShowResendModal(true);
   };
 
   const hasUserSigned = (l) => {
-    if (!currentUser) return false;
+    if (!currentUser || !l) return false;
     const myName = (currentUser.full_name || currentUser.name || currentUser.username || '').trim().toLowerCase();
     const myRole = (currentUser.role || '').toLowerCase();
 
@@ -604,103 +601,45 @@ export default function AdminLogsheetWaitingSignature() {
                           </span>
                         </td>
 
-                        <td style={{ padding: '16px 20px', textAlign: 'right', position: 'relative' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                             {userSigned ? (
-                              <Link 
-                                to={getLogsheetLink(l)}
-                                className="btn btn-sm"
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  textDecoration: 'none',
-                                  color: '#15803d',
-                                  background: '#f0fdf4',
-                                  border: '1px solid #86efac'
-                                }}
-                              >
-                                <CheckCircle2 size={13} />
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                color: '#15803d',
+                                background: '#f0fdf4',
+                                border: '1px solid #86efac'
+                              }}>
+                                <CheckCircle2 size={12} />
                                 Signed
-                              </Link>
+                              </span>
                             ) : (
-                              <Link 
-                                to={getLogsheetLink(l)}
-                                className="btn btn-primary btn-sm"
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  textDecoration: 'none',
-                                  background: '#ea580c',
-                                  borderColor: '#ea580c'
-                                }}
-                              >
-                                <PenTool size={13} />
-                                Awaiting Signature
-                              </Link>
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                color: '#ea580c',
+                                background: '#fff7ed',
+                                border: '1px solid #fed7aa'
+                              }}>
+                                <PenTool size={12} />
+                                Pending
+                              </span>
                             )}
-
-                            <button 
-                              className="btn btn-sm action-drop-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveDropdown(activeDropdown === l._id ? null : l._id);
-                              }}
-                              style={{ padding: '6px 8px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
-                            >
-                              <ChevronDown size={14} />
-                            </button>
-
-                            {activeDropdown === l._id && (
-                              <div 
-                                className="dropdown-menu-card"
-                                style={{ 
-                                  position: 'absolute', 
-                                  right: 20, 
-                                  top: 48, 
-                                  background: 'white', 
-                                  border: '1px solid #e2e8f0', 
-                                  borderRadius: 8, 
-                                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                                  zIndex: 100, 
-                                  minWidth: 160, 
-                                  padding: 4,
-                                  textAlign: 'left'
-                                }}
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <Link 
-                                  to={getLogsheetLink(l)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', fontSize: 13, color: '#2563eb', textDecoration: 'none', borderRadius: 6, fontWeight: 500 }}
-                                  className="dropdown-item"
-                                >
-                                  <Eye size={14} /> View Details
-                                </Link>
-                                <button 
-                                  onClick={(e) => handleResendEmails(l, e)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', textAlign: 'left', padding: '8px 10px', fontSize: 13, color: '#0e7490', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontWeight: 500 }}
-                                  className="dropdown-item"
-                                >
-                                  <Mail size={14} /> Resend Emails
-                                </button>
-                                <button 
-                                  onClick={(e) => handleDelete(l._id, e, l)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', textAlign: 'left', padding: '8px 10px', fontSize: 13, color: '#dc2626', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontWeight: 500 }}
-                                  className="dropdown-item"
-                                >
-                                  <Trash2 size={14} /> Delete
-                                </button>
-                              </div>
-                            )}
+                            <ActionTriggerButton 
+                              onClick={() => setActionModalItem(l)} 
+                              title="Actions"
+                            />
                           </div>
                         </td>
                       </tr>
@@ -738,16 +677,22 @@ export default function AdminLogsheetWaitingSignature() {
                       >
                         #{l.application_number || l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
                       </Link>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        fontWeight: 500, padding: '3px 8px', fontSize: 11, borderRadius: 20,
-                        background: age.isUrgent ? '#fef2f2' : '#fff7ed',
-                        color: age.isUrgent ? '#dc2626' : '#c2410c',
-                        border: `1px solid ${age.isUrgent ? '#fca5a5' : '#fed7aa'}`
-                      }}>
-                        <Clock size={11} />
-                        {age.text}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontWeight: 500, padding: '3px 8px', fontSize: 11, borderRadius: 20,
+                          background: age.isUrgent ? '#fef2f2' : '#fff7ed',
+                          color: age.isUrgent ? '#dc2626' : '#c2410c',
+                          border: `1px solid ${age.isUrgent ? '#fca5a5' : '#fed7aa'}`
+                        }}>
+                          <Clock size={11} />
+                          {age.text}
+                        </span>
+                        <ActionTriggerButton 
+                          onClick={() => setActionModalItem(l)} 
+                          title="Actions"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -775,42 +720,24 @@ export default function AdminLogsheetWaitingSignature() {
                     </div>
 
                     <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
-                      <Link 
-                        to={getLogsheetLink(l)}
+                      <button 
+                        type="button"
+                        onClick={() => setActionModalItem(l)}
+                        className="btn btn-outline btn-sm"
                         style={{ 
                           flex: 1, 
                           display: 'inline-flex', 
                           alignItems: 'center', 
                           justifyContent: 'center', 
                           gap: 6, 
-                          padding: '10px', 
+                          padding: '8px', 
                           borderRadius: 8, 
-                          background: userSigned ? '#16a34a' : '#ea580c', 
-                          color: 'white', 
-                          textDecoration: 'none', 
-                          fontSize: 13, 
+                          fontSize: 12, 
                           fontWeight: 700 
                         }}
                       >
-                        {userSigned ? <CheckCircle2 size={14} /> : <PenTool size={14} />} 
-                        {userSigned ? 'Signed' : 'Awaiting Signature'}
-                      </Link>
-
-                      <button 
-                        onClick={(e) => handleDelete(l._id, e, l)}
-                        style={{ 
-                          padding: '10px 14px', 
-                          borderRadius: 8, 
-                          background: '#fef2f2', 
-                          color: '#dc2626', 
-                          border: '1px solid #fecaca', 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <Trash2 size={14} />
+                        {userSigned ? <CheckCircle2 size={13} style={{ color: '#16a34a' }} /> : <PenTool size={13} style={{ color: '#ea580c' }} />} 
+                        {userSigned ? 'Signed · Manage' : 'Awaiting Signature · Actions'}
                       </button>
                     </div>
                   </div>
@@ -826,6 +753,58 @@ export default function AdminLogsheetWaitingSignature() {
         isOpen={showResendModal}
         onClose={() => setShowResendModal(false)}
         logsheet={selectedLogsheetForEmail}
+      />
+
+      {/* Unified Action Modal */}
+      <ActionModal
+        isOpen={Boolean(actionModalItem)}
+        onClose={() => setActionModalItem(null)}
+        title={actionModalItem?.company_name || 'Logsheet Actions'}
+        subtitle={`App #${actionModalItem?.application_number || actionModalItem?.application_id?.application_number || actionModalItem?._id?.slice(-6).toUpperCase()} · ${actionModalItem?.audit_type || 'Logsheet'}`}
+        badge={actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature'}
+        badgeVariant={actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow'}
+        actions={[
+          {
+            label: actionModalItem && hasUserSigned(actionModalItem) ? 'View Signed Logsheet' : 'Review & Sign Logsheet',
+            icon: PenTool,
+            variant: actionModalItem && hasUserSigned(actionModalItem) ? 'default' : 'primary',
+            onClick: () => {
+              if (actionModalItem) {
+                navigate(getLogsheetLink(actionModalItem));
+              }
+            }
+          },
+          {
+            label: 'Application Processing',
+            icon: ArrowRight,
+            variant: 'default',
+            onClick: () => {
+              if (actionModalItem) {
+                navigate(getApplicationLink(actionModalItem));
+              }
+            }
+          },
+          {
+            label: 'Resend Signatory Notification Emails',
+            icon: Mail,
+            variant: 'default',
+            onClick: () => {
+              const item = actionModalItem;
+              setActionModalItem(null);
+              if (item) handleResendEmails(item);
+            }
+          },
+          {
+            label: 'Delete Logsheet',
+            icon: Trash2,
+            variant: 'danger',
+            onClick: () => {
+              const item = actionModalItem;
+              setActionModalItem(null);
+              if (item) handleDelete(item._id, null, item);
+            }
+          }
+        ]}
       />
     </div>
   );

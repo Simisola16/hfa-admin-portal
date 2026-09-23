@@ -10,6 +10,7 @@ import {
   Building2, MapPin, Award, Layers, SlidersHorizontal
 } from 'lucide-react';
 import AuditManageModal from '../components/AuditManageModal';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -30,6 +31,8 @@ export default function AdminAudits() {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all'); // all | 1 | 2
   const [selectedAuditForModal, setSelectedAuditForModal] = useState(null);
+  const [actionModalAudit, setActionModalAudit] = useState(null);
+
 
   // NC Modal states
   const [selectedAuditForNc, setSelectedAuditForNc] = useState(null);
@@ -630,40 +633,13 @@ export default function AdminAudits() {
 
                       {/* Actions */}
                       <td style={{ padding: '16px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          {/* Manage Audit Modal */}
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => setSelectedAuditForModal(a)}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 6 }}
-                            title="Manage Schedule & Assign Team"
-                          >
-                            <Settings size={12.5} /> Manage
-                          </button>
-
-                          {/* NC Details Modal */}
-                          <button
-                            className={`btn btn-sm ${ncSummary.count > 0 ? (ncSummary.hasActive ? 'btn-danger' : 'btn-outline') : 'btn-ghost'}`}
-                            onClick={() => setSelectedAuditForNc(a)}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 6 }}
-                            title="View / Resolve Non-Conformities"
-                          >
-                            <AlertTriangle size={12.5} />
-                            NCs {ncSummary.count > 0 ? `(${ncSummary.count})` : ''}
-                          </button>
-
-                          {/* Application Link */}
-                          {appId && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => navigate(`/applications/${appId}/processing`)}
-                              style={{ fontSize: 12, fontWeight: 700, padding: '5px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff' }}
-                              title="Open Application Processing"
-                            >
-                              <ExternalLink size={13} />
-                            </button>
-                          )}
-                        </div>
+                        <ActionTriggerButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActionModalAudit(a);
+                          }}
+                          title="Audit Actions"
+                        />
                       </td>
                     </tr>
                   );
@@ -674,7 +650,55 @@ export default function AdminAudits() {
         </div>
       </div>
 
+      {/* Action Menu Pop-up Modal */}
+      {actionModalAudit && (() => {
+        const a = actionModalAudit;
+        const appId = a.application_id?._id || a.application_id || a.applications?._id || a.applications?.id;
+        const compName = a.company_name || a.profiles?.company_name || a.applications?.establishment_name || 'Client Facility';
+        const ncSummary = getAuditNcSummary(a);
+
+        return (
+          <ActionModal
+            isOpen={Boolean(actionModalAudit)}
+            onClose={() => setActionModalAudit(null)}
+            title="Audit Action"
+            subtitle={compName}
+            badge={
+              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                Stage {a.stage || '1'} • {a.audit_type || 'Standard Audit'} • {formatProcessStatus(a.status)}
+              </span>
+            }
+            actions={[
+              {
+                label: 'Manage Audit & Assign Team',
+                description: 'Set schedule dates, lead auditor, and team assignment',
+                icon: Settings,
+                variant: 'primary',
+                onClick: () => setSelectedAuditForModal(a)
+              },
+              {
+                label: ncSummary.count > 0 ? `Non-Conformities (${ncSummary.count})` : 'Non-Conformity (NC) Observations',
+                description: ncSummary.count > 0 
+                  ? (ncSummary.hasActive ? 'Active non-conformities requiring action' : 'View recorded evidence & closed NCs')
+                  : 'Record or inspect findings & NC records',
+                icon: AlertTriangle,
+                variant: ncSummary.count > 0 ? (ncSummary.hasActive ? 'danger' : 'default') : 'default',
+                onClick: () => setSelectedAuditForNc(a)
+              },
+              appId && {
+                label: 'Application Processing',
+                description: 'Open full workflow tracking & application documents',
+                icon: ExternalLink,
+                variant: 'default',
+                onClick: () => navigate(`/applications/${appId}/processing`)
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
+
       {/* Audit Manage Modal */}
+
       {selectedAuditForModal && (
         <AuditManageModal
           audit={selectedAuditForModal}

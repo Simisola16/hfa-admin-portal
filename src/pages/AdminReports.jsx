@@ -488,7 +488,7 @@ export default function AdminReports() {
 
       {/* Main Charts & Analytics View */}
       {(activeTab === 'overview' || activeTab === 'applications') && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, marginBottom: 24 }}>
           {/* Applications Trend */}
           <div className="card" style={{ padding: 24, borderRadius: 18, border: '1px solid #e2e8f0', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -500,8 +500,8 @@ export default function AdminReports() {
                 Last 6 Months
               </span>
             </div>
-            <div style={{ height: 280, width: '100%' }}>
-              <ResponsiveContainer>
+            <div style={{ height: 280, width: '100%', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
                 <AreaChart data={applicationTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorApp" x1="0" y1="0" x2="0" y2="1">
@@ -529,8 +529,8 @@ export default function AdminReports() {
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>Current stage of active & completed certifications</p>
               </div>
             </div>
-            <div style={{ height: 280, width: '100%' }}>
-              <ResponsiveContainer>
+            <div style={{ height: 280, width: '100%', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
                 <PieChart>
                   <Pie
                     data={statusDistribution}
@@ -558,7 +558,7 @@ export default function AdminReports() {
 
       {/* Financials & Revenue Section */}
       {(activeTab === 'overview' || activeTab === 'financials') && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, marginBottom: 24 }}>
           {/* Revenue Trend BarChart */}
           <div className="card" style={{ padding: 24, borderRadius: 18, border: '1px solid #e2e8f0', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -574,8 +574,8 @@ export default function AdminReports() {
                 <Download size={13} /> Export CSV
               </button>
             </div>
-            <div style={{ height: 280, width: '100%' }}>
-              <ResponsiveContainer>
+            <div style={{ height: 280, width: '100%', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
                 <BarChart data={revenueTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -600,8 +600,8 @@ export default function AdminReports() {
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>Distribution of applications across Halal standards</p>
               </div>
             </div>
-            <div style={{ height: 280, width: '100%' }}>
-              <ResponsiveContainer>
+            <div style={{ height: 280, width: '100%', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
                 <PieChart>
                   <Pie
                     data={schemeDistribution}
@@ -629,7 +629,7 @@ export default function AdminReports() {
 
       {/* Support & Audit Operations Section */}
       {(activeTab === 'overview' || activeTab === 'audits' || activeTab === 'support') && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, marginBottom: 24 }}>
           {/* Helpdesk Volume by Department */}
           <div className="card" style={{ padding: 24, borderRadius: 18, border: '1px solid #e2e8f0', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -641,8 +641,8 @@ export default function AdminReports() {
                 Open Desk <ChevronRight size={14} />
               </Link>
             </div>
-            <div style={{ height: 260, width: '100%' }}>
-              <ResponsiveContainer>
+            <div style={{ height: 260, width: '100%', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                 <BarChart data={ticketsByDept} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />

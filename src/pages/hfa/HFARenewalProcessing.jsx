@@ -807,7 +807,7 @@ export default function HFARenewalProcessing(props) {
       )}
 
       {/* Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+      <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
         {/* Left Column: Fast-Track Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
           {/* 1. Renewal Audit Card */}

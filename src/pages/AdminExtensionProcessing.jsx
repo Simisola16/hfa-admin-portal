@@ -388,7 +388,7 @@ export default function AdminExtensionProcessing() {
       </div>
 
       {/* ── Main 2-Column Grid (Left: Stack of Operation Cards, Right: Processing Stage Timeline & Info) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: 24, alignItems: 'start' }}>
+      <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
         
         {/* ── Left Column: Operations & Details ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

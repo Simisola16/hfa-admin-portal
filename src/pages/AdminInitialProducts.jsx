@@ -6,9 +6,11 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import {
   Package, Search, X, Check, FileText, AlertCircle, Clock,
   RefreshCw, User, CheckCircle, Users, ArrowRight, Building2,
-  Calendar, Layers, ShieldCheck, ChevronRight, Sparkles, Filter
+  Calendar, Layers, ShieldCheck, ChevronRight, Sparkles, Filter,
+  Settings, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Needs FT Assignment', bg: '#fef3c7', color: '#92400e', border: '#fde68a', step: 1 },
@@ -31,6 +33,9 @@ export default function AdminInitialProducts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Standardized Action Modal state
+  const [activeActionModal, setActiveActionModal] = useState(null);
 
   // Direct Assign FT Modal State (NO Accept/Reject!)
   const [assignModalApp, setAssignModalApp] = useState(null);
@@ -368,21 +373,28 @@ export default function AdminInitialProducts() {
 
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => navigate(`/admin/initial-products/${item._id}/processing`)}
-                            style={{
-                              background: isApproved ? '#166534' : '#059669',
-                              borderColor: isApproved ? '#166534' : '#059669',
-                              fontWeight: 700,
-                              fontSize: 12
-                            }}
-                          >
-                            Processing &rarr;
-                          </button>
-                        </div>
+                        <ActionTriggerButton
+                          onClick={() => setActiveActionModal({
+                            title: item.product?.name || 'Initial Product',
+                            subtitle: `${compName} • App #${item.application_id?.application_number || 'N/A'}`,
+                            badge: conf.label,
+                            badgeVariant: isApproved ? 'badge-green' : needsFt ? 'badge-yellow' : 'badge-blue',
+                            actions: [
+                              {
+                                label: 'Application Processing',
+                                icon: Settings,
+                                variant: 'primary',
+                                onClick: () => navigate(`/admin/initial-products/${item._id}/processing`)
+                              },
+                              ...(isManagerOrAdmin ? [{
+                                label: ftNames.length > 0 ? 'Reassign Food Technologist' : 'Assign Food Technologist',
+                                icon: UserPlus,
+                                variant: 'default',
+                                onClick: () => openAssignModal(item)
+                              }] : [])
+                            ]
+                          })}
+                        />
                       </td>
                     </tr>
                   );
@@ -504,6 +516,17 @@ export default function AdminInitialProducts() {
           </div>
         </div>
       )}
+
+      {/* Action Modal Popup */}
+      <ActionModal
+        isOpen={Boolean(activeActionModal)}
+        onClose={() => setActiveActionModal(null)}
+        title={activeActionModal?.title}
+        subtitle={activeActionModal?.subtitle}
+        badge={activeActionModal?.badge}
+        badgeVariant={activeActionModal?.badgeVariant}
+        actions={activeActionModal?.actions || []}
+      />
     </div>
   );
 }

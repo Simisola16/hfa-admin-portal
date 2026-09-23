@@ -3,10 +3,11 @@ import api from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { 
   Search, MessageSquare, Send, X, Clock, AlertCircle, CheckCircle2, 
   HelpCircle, RefreshCw, User, Building2, Phone, Mail, Filter, 
-  Check, CheckCheck, Shield, ChevronDown, UserCheck, Sparkles
+  Check, CheckCheck, Shield, ChevronDown, UserCheck, Sparkles, Edit3, ArrowRight
 } from 'lucide-react';
 
 export default function AdminTickets() {
@@ -14,6 +15,7 @@ export default function AdminTickets() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [actionModalTicket, setActionModalTicket] = useState(null);
   const [reply, setReply] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [staffList, setStaffList] = useState([]);
@@ -352,7 +354,7 @@ export default function AdminTickets() {
   return (
     <div style={{ paddingBottom: 40 }}>
       {/* Top Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 20 }}>
+      <div className="responsive-kpi-grid" style={{ marginBottom: 20 }}>
         <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: '#f0fdf4', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MessageSquare size={20} />
@@ -405,9 +407,9 @@ export default function AdminTickets() {
       </div>
 
       {/* Toolbar */}
-      <div className="toolbar" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div className="search-box" style={{ width: 280 }}>
+      <div className="toolbar responsive-toolbar" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%' }}>
+          <div className="search-box" style={{ minWidth: 240, flex: 1 }}>
             <Search size={14} className="search-icon" />
             <input 
               placeholder="Search by ID, client, subject..." 
@@ -610,13 +612,12 @@ export default function AdminTickets() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button 
-                        className="btn btn-primary btn-sm" 
-                        onClick={() => handleOpenTicket(t)}
-                        style={{ borderRadius: 8, fontWeight: 700 }}
-                      >
-                        Manage
-                      </button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        <ActionTriggerButton 
+                          onClick={() => setActionModalTicket(t)} 
+                          title="Ticket Actions"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -908,6 +909,77 @@ export default function AdminTickets() {
           </div>
         </div>
       )}
+
+      {/* Unified Action Modal */}
+      <ActionModal
+        isOpen={Boolean(actionModalTicket)}
+        onClose={() => setActionModalTicket(null)}
+        title={actionModalTicket?.subject || 'Support Ticket'}
+        subtitle={`Ticket #${actionModalTicket?.ticket_number || '—'} · ${actionModalTicket?.user?.company_name || 'Client'}`}
+        badge={
+          actionModalTicket?.status === 'resolved'
+            ? 'Resolved'
+            : actionModalTicket?.priority === 'urgent'
+            ? 'Urgent Priority'
+            : (actionModalTicket?.status || 'Open')
+        }
+        badgeVariant={
+          actionModalTicket?.status === 'resolved'
+            ? 'badge-green'
+            : actionModalTicket?.priority === 'urgent'
+            ? 'badge-red'
+            : 'badge-yellow'
+        }
+        actions={[
+          {
+            label: 'Manage & Reply to Ticket',
+            icon: MessageSquare,
+            variant: 'primary',
+            onClick: () => {
+              const t = actionModalTicket;
+              setActionModalTicket(null);
+              if (t) handleOpenTicket(t);
+            }
+          },
+          {
+            label: actionModalTicket?.status === 'resolved' ? 'Reopen Ticket' : 'Mark Ticket as Resolved',
+            icon: CheckCircle2,
+            variant: actionModalTicket?.status === 'resolved' ? 'default' : 'success',
+            onClick: () => {
+              const t = actionModalTicket;
+              setActionModalTicket(null);
+              if (t) {
+                const targetStatus = t.status === 'resolved' ? 'open' : 'resolved';
+                api.patch(`/api/tickets/${t._id || t.id}/status`, { status: targetStatus })
+                  .then(res => {
+                    const updated = res.data?.data || res.data;
+                    setTickets(prev => prev.map(item => ((item._id || item.id)?.toString() === (updated._id || updated.id)?.toString()) ? updated : item));
+                    toast.success(`Ticket marked ${targetStatus}`);
+                  })
+                  .catch(err => toast.error(err.message || 'Failed to update status'));
+              }
+            }
+          },
+          ...(actionModalTicket?.priority !== 'urgent' ? [{
+            label: 'Escalate Priority to Urgent',
+            icon: AlertCircle,
+            variant: 'danger',
+            onClick: () => {
+              const t = actionModalTicket;
+              setActionModalTicket(null);
+              if (t) {
+                api.patch(`/api/tickets/${t._id || t.id}/status`, { priority: 'urgent' })
+                  .then(res => {
+                    const updated = res.data?.data || res.data;
+                    setTickets(prev => prev.map(item => ((item._id || item.id)?.toString() === (updated._id || updated.id)?.toString()) ? updated : item));
+                    toast.success('Ticket escalated to Urgent');
+                  })
+                  .catch(err => toast.error(err.message || 'Failed to update priority'));
+              }
+            }
+          }] : [])
+        ]}
+      />
     </div>
   );
 }

@@ -7,8 +7,9 @@ import {
   FileText, Search, RefreshCw, Calendar,
   Building2, MapPin, CheckCircle, Clock, X, ChevronRight,
   AlertCircle, ShieldCheck, Phone, Mail, User, Info, ArrowRight, Award,
-  Sparkles, Layers
+  Sparkles, Layers, Settings, Eye, PenTool
 } from 'lucide-react';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Form Received', bg: '#fef3c7', color: '#92400e', border: '#fde68a', dot: '#f59e0b' },
@@ -27,6 +28,8 @@ export default function AdminExtensionApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [actionModalApp, setActionModalApp] = useState(null);
+
 
   const fetchApps = async () => {
     setLoading(true);
@@ -115,7 +118,7 @@ export default function AdminExtensionApplications() {
       </div>
 
       {/* ── Metric Summary Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className="responsive-kpi-grid">
         {[
           { label: 'Total Extension Requests', value: totalApps, color: '#2563eb', bg: '#eff6ff' },
           { label: 'Form Received / Review', value: receivedCount, color: '#d97706', bg: '#fef3c7' },
@@ -157,7 +160,7 @@ export default function AdminExtensionApplications() {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {[
             { id: 'all', label: 'All Requests' },
             { id: 'received', label: 'Received' },
@@ -261,19 +264,13 @@ export default function AdminExtensionApplications() {
                         {new Date(a.created_at).toLocaleDateString()}
                       </td>
                       <td style={{ padding: '14px 18px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
+                        <ActionTriggerButton
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/extension-applications/${a._id}/processing`);
+                            setActionModalApp(a);
                           }}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                            background: '#008744', color: 'white', border: 'none',
-                            padding: '6px 14px', borderRadius: 6, fontWeight: 600, fontSize: 12, cursor: 'pointer'
-                          }}
-                        >
-                          Process <ChevronRight size={13} />
-                        </button>
+                          title="Extension Application Actions"
+                        />
                       </td>
                     </tr>
                   );
@@ -284,6 +281,44 @@ export default function AdminExtensionApplications() {
         )}
       </div>
 
+      {/* Action Menu Pop-up Modal */}
+      {actionModalApp && (
+        <ActionModal
+          isOpen={Boolean(actionModalApp)}
+          onClose={() => setActionModalApp(null)}
+          title="Extension Action"
+          subtitle={actionModalApp.company_name || actionModalApp.client_id?.company_name || 'Client Company'}
+          badge={
+            <span style={{ fontSize: 11.5, color: '#64748b' }}>
+              App #{actionModalApp.application_number} • Site: {actionModalApp.site_name}
+            </span>
+          }
+          actions={[
+            {
+              label: 'Application Processing',
+              description: 'Manage extension review, logsheet, and certificates',
+              icon: Settings,
+              variant: 'primary',
+              onClick: () => navigate(`/extension-applications/${actionModalApp._id}/processing`)
+            },
+            actionModalApp.logsheet_id && {
+              label: 'Review & Sign Logsheet',
+              description: 'Open extension committee logsheet document',
+              icon: PenTool,
+              variant: 'default',
+              onClick: () => navigate(`/extension-applications/${actionModalApp._id}/logsheet`)
+            },
+            {
+              label: 'View Application Form',
+              description: 'Inspect full client submission fields',
+              icon: Eye,
+              variant: 'default',
+              onClick: () => navigate(`/extension-applications/${actionModalApp._id}/processing`)
+            }
+          ].filter(Boolean)}
+        />
+      )}
     </div>
   );
 }
+

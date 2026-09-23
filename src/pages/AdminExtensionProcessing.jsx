@@ -205,13 +205,16 @@ export default function AdminExtensionProcessing() {
   const getActorName = (entry, stepKey) => {
     if (entry?.changedBy) {
       if (typeof entry.changedBy === 'object') {
-        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.email;
+        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.username || entry.changedBy.email;
         const roleStr = entry.changedBy.role
           ? ` (${entry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
           : '';
         if (name) return `${name}${roleStr}`;
       } else if (typeof entry.changedBy === 'string' && entry.changedBy.trim()) {
-        return entry.changedBy;
+        const isHexId = /^[0-9a-fA-F]{24}$/.test(entry.changedBy.trim());
+        if (!isHexId) {
+          return entry.changedBy;
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CheckCircle, Circle, XCircle, Clock, ChevronRight,
-  Plus, ArrowRight, Package, FileText, AlertTriangle
+  Plus, ArrowRight, Package, FileText, AlertTriangle, User, Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
@@ -16,6 +16,7 @@ import { STATUS_ORDER, STATUS_LABELS } from '../lib/applicationStatuses';
  *   applicationType (string) — standard / renewal / surveillance
  *   initialProduct (object) — initial product record if loaded
  *   appId         (string)  — application _id
+ *   app           (object)  — application full doc
  */
 export default function ProcessingTimeline({
   status,
@@ -24,7 +25,8 @@ export default function ProcessingTimeline({
   applicationType = '',
   initialProduct = null,
   appId = null,
-  audits = []
+  audits = [],
+  app = null
 }) {
   const navigate = useNavigate();
   const isRejected = status === 'rejected';
@@ -292,6 +294,73 @@ export default function ProcessingTimeline({
     });
   };
 
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+
+  const formatTimeOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const getActorName = (entry, stepKey) => {
+    if (entry?.changedBy) {
+      if (typeof entry.changedBy === 'object') {
+        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.email;
+        const roleStr = entry.changedBy.role
+          ? ` (${entry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+          : '';
+        if (name) return `${name}${roleStr}`;
+      } else if (typeof entry.changedBy === 'string' && entry.changedBy.trim()) {
+        return entry.changedBy;
+      }
+    }
+
+    if (stepKey === 'audit_assigned' || stepKey === 'audit_successful' || stepKey === 'audit_completed') {
+      const stageAudit = audits?.find(a => a.stage === 1) || audits?.[0];
+      if (stageAudit?.auditors && stageAudit.auditors.length > 0) {
+        const aNames = stageAudit.auditors.map(a => a.name || a.full_name || a.email).filter(Boolean);
+        if (aNames.length > 0) return `${aNames.join(', ')} (Auditor)`;
+      }
+      if (stageAudit?.inspector_id) {
+        const insp = stageAudit.inspector_id;
+        const inspName = typeof insp === 'object' ? (insp.full_name || insp.name) : null;
+        if (inspName) return `${inspName} (Auditor)`;
+      }
+      return 'Lead Auditor / Audit Team';
+    }
+
+    if (stepKey === 'submitted' || stepKey === 'dates_accepted' || stepKey === 'proposal_approved' || stepKey === 'agreement_signed') {
+      const cName = app?.establishment_name || app?.manufacturer_name || app?.profiles?.company_name || app?.client_id?.company_name || app?.client_id?.full_name;
+      return cName ? `${cName} (Client)` : 'Client / Applicant';
+    }
+    if (stepKey === 'logsheet_signed') {
+      return 'Shariah & Technical Committee';
+    }
+    if (stepKey === 'logsheet_created') {
+      return 'HFA Technical Officer';
+    }
+    if (stepKey === 'application_successful') {
+      return 'HFA Certification Committee';
+    }
+    if (stepKey === 'invoice_sent' || stepKey === 'payment_received' || stepKey === 'final_invoice_sent' || stepKey === 'final_invoice_paid') {
+      return 'HFA Accounts Team';
+    }
+    if (stepKey === 'certificate_issued') {
+      return 'HFA Certification Directorate';
+    }
+    return 'HFA Administrator';
+  };
+
   return (
     <div style={{ padding: '8px 0' }}>
       {stepsToShow.map((s, idx) => {
@@ -556,20 +625,54 @@ export default function ProcessingTimeline({
               </div>
 
               {(isComplete || isCurrent) && histEntry && (
-                <div style={{ marginTop: 4 }}>
-                  {histEntry.changedAt && (
-                    <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Clock size={10} />
-                      {formatDate(histEntry.changedAt)}
-                    </div>
-                  )}
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {/* Name, Date & Time Badges */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    fontSize: 11,
+                    color: '#64748b',
+                    background: '#f8fafc',
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: '1px solid #e2e8f0',
+                    width: 'fit-content',
+                  }}>
+                    {histEntry.changedAt && (
+                      <>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                          <Calendar size={11} style={{ color: '#0e7490' }} />
+                          <span>{formatDateOnly(histEntry.changedAt)}</span>
+                        </div>
+                        <span style={{ color: '#cbd5e1' }}>•</span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                          <Clock size={11} style={{ color: '#0e7490' }} />
+                          <span>{formatTimeOnly(histEntry.changedAt)}</span>
+                        </div>
+                      </>
+                    )}
+                    {getActorName(histEntry, s) && (
+                      <>
+                        {histEntry.changedAt && <span style={{ color: '#cbd5e1' }}>•</span>}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#0e7490', fontWeight: 700 }}>
+                          <User size={11} style={{ color: '#0e7490' }} />
+                          <span>{getActorName(histEntry, s)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
                   {histEntry.note && histEntry.note !== 'Application submitted by client.' && (
                     <div style={{
-                      marginTop: 4, fontSize: 12, color: isRejectedStep && isRejected ? '#991b1b' : '#475569',
-                      fontStyle: 'italic',
+                      fontSize: 11.5,
+                      color: isRejectedStep && isRejected ? '#991b1b' : '#475569',
                       background: isRejectedStep && isRejected ? '#fef2f2' : '#f8fafc',
-                      padding: '4px 10px', borderRadius: 6,
-                      borderLeft: `3px solid ${isRejectedStep && isRejected ? '#fca5a5' : '#cbd5e1'}`,
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      borderLeft: `3px solid ${isRejectedStep && isRejected ? '#fca5a5' : '#0e7490'}`,
+                      lineHeight: 1.4,
                     }}>
                       {histEntry.note}
                     </div>

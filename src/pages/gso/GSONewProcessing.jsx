@@ -21,6 +21,7 @@ import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
+import ApplicationSuccessfulModal from '../../components/ApplicationSuccessfulModal';
 
 // Shared Detail Cards
 import ProposalCard from '../../components/ProposalCard';
@@ -62,6 +63,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showFinalAgreementModal, setShowFinalAgreementModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [showApplicationSuccessfulModal, setShowApplicationSuccessfulModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
@@ -466,7 +468,11 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
   };
 
-  const handleMarkLogsheetDone = async () => {
+  const handleMarkLogsheetDone = () => {
+    setShowApplicationSuccessfulModal(true);
+  };
+
+  const handleConfirmApplicationSuccessful = async (selectedCertType) => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found.');
@@ -476,12 +482,14 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Waiting For Certificate',
-        force: true
+        force: true,
+        certificate_type: selectedCertType,
       });
-      toast.success('Logsheet marked as Done! Application moved to Application Successful & Agreement unlocked.');
+      toast.success(`Application marked Successful with ${selectedCertType}! Agreement unlocked.`);
+      setShowApplicationSuccessfulModal(false);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -1117,6 +1125,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
                 initialProduct={initialProduct}
                 appId={appId}
                 audits={audits}
+                app={app}
               />
             </div>
           </div>
@@ -1533,6 +1542,16 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
+      />
+
+      {/* Application Successful & Certificate Scheme Modal */}
+      <ApplicationSuccessfulModal
+        isOpen={showApplicationSuccessfulModal}
+        onClose={() => setShowApplicationSuccessfulModal(false)}
+        app={app}
+        logsheet={logsheet}
+        onConfirm={handleConfirmApplicationSuccessful}
+        submitting={markingLogsheetDone}
       />
     </div>
   );

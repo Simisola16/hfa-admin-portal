@@ -17,6 +17,7 @@ import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
+import ApplicationSuccessfulModal from '../../components/ApplicationSuccessfulModal';
 
 // Shared Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -48,6 +49,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [showApplicationSuccessfulModal, setShowApplicationSuccessfulModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
@@ -382,7 +384,11 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
   };
 
-  const handleMarkLogsheetDone = async () => {
+  const handleMarkLogsheetDone = () => {
+    setShowApplicationSuccessfulModal(true);
+  };
+
+  const handleConfirmApplicationSuccessful = async (selectedCertType) => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found.');
@@ -392,18 +398,22 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Signed',
-        force: true
+        force: true,
+        certificate_type: selectedCertType,
       });
       setApp(prev => ({
         ...prev,
         status: 'application_successful',
+        certificate_type: selectedCertType,
+        scheme: selectedCertType,
         statusHistory: [...(prev?.statusHistory || []), { status: 'application_successful', changedAt: new Date() }]
       }));
-      setLogsheet(prev => ({ ...prev, status: 'Signed' }));
-      toast.success('Logsheet marked as Done! Application moved to Application Successful.');
+      setLogsheet(prev => ({ ...prev, status: 'Signed', certificate_standard: selectedCertType }));
+      toast.success(`Renewal logsheet marked Done with ${selectedCertType}! Application moved to Application Successful.`);
+      setShowApplicationSuccessfulModal(false);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -806,6 +816,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
                 initialProduct={null}
                 appId={appId}
                 audits={audits}
+                app={app}
               />
             </div>
           </div>
@@ -1204,6 +1215,16 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
+      />
+
+      {/* Application Successful & Certificate Scheme Modal */}
+      <ApplicationSuccessfulModal
+        isOpen={showApplicationSuccessfulModal}
+        onClose={() => setShowApplicationSuccessfulModal(false)}
+        app={app}
+        logsheet={logsheet}
+        onConfirm={handleConfirmApplicationSuccessful}
+        submitting={markingLogsheetDone}
       />
     </div>
   );

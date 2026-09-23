@@ -356,6 +356,62 @@ export default function AdminAddOnProcessing() {
     });
   };
 
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+
+  const formatTimeOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const getActorName = (entry, stepKey) => {
+    if (entry?.changedBy) {
+      if (typeof entry.changedBy === 'object') {
+        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.email;
+        const roleStr = entry.changedBy.role
+          ? ` (${entry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+          : '';
+        if (name) return `${name}${roleStr}`;
+      } else if (typeof entry.changedBy === 'string' && entry.changedBy.trim()) {
+        return entry.changedBy;
+      }
+    }
+
+    if (stepKey === 'submitted') {
+      const cName = app?.client_id?.company_name || app?.client_id?.full_name || app?.contact_name;
+      return cName ? `${cName} (Client)` : 'Client / Applicant';
+    }
+    if (stepKey === 'accepted') {
+      return 'HFA Administrator';
+    }
+    if (stepKey === 'ft_assigned' || stepKey === 'product_approval_form_enabled') {
+      const ft = app?.assigned_food_techs?.[0] || app?.assigned_food_tech || app?.assigned_ft_custom;
+      if (ft) return `${ft.full_name || ft.name || 'Food Tech Specialist'} (Assigned FT)`;
+      return 'HFA Technical Officer';
+    }
+    if (stepKey === 'all_forms_received') {
+      const cName = app?.client_id?.company_name || app?.client_id?.full_name || app?.contact_name;
+      return cName ? `${cName} (Client)` : 'Client / Applicant';
+    }
+    if (stepKey === 'logsheet_created' || stepKey === 'waiting_sharia_signature' || stepKey === 'product_form_approved') {
+      return 'Shariah & Technical Committee';
+    }
+    if (stepKey === 'ready_for_certificate' || stepKey === 'completed') {
+      return 'HFA Certification Committee';
+    }
+    return 'HFA Administrator';
+  };
+
   // Render Primary Action Buttons
   const renderPrimaryActionButtons = () => {
     if (!isManagerOrAdmin) return null;
@@ -999,19 +1055,50 @@ export default function AdminAddOnProcessing() {
                         </div>
 
                         {(isDone || isCurrent) && histEntry && (
-                          <div style={{ marginTop: 4 }}>
+                          <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {histEntry.changedAt && (
-                              <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <Clock size={10} />
-                                {formatDate(histEntry.changedAt)}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                flexWrap: 'wrap',
+                                fontSize: 11,
+                                color: '#64748b',
+                                background: '#f8fafc',
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                border: '1px solid #e2e8f0',
+                                width: 'fit-content',
+                              }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                                  <Calendar size={11} style={{ color: '#0e7490' }} />
+                                  <span>{formatDateOnly(histEntry.changedAt)}</span>
+                                </div>
+                                <span style={{ color: '#cbd5e1' }}>•</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                                  <Clock size={11} style={{ color: '#0e7490' }} />
+                                  <span>{formatTimeOnly(histEntry.changedAt)}</span>
+                                </div>
+                                {getActorName(histEntry, step.id) && (
+                                  <>
+                                    <span style={{ color: '#cbd5e1' }}>•</span>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#0e7490', fontWeight: 700 }}>
+                                      <User size={11} style={{ color: '#0e7490' }} />
+                                      <span>{getActorName(histEntry, step.id)}</span>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             )}
                             {histEntry.note && (
                               <div style={{
-                                marginTop: 4, fontSize: 12, color: '#475569',
-                                fontStyle: 'italic', background: '#f8fafc',
-                                padding: '4px 10px', borderRadius: 6,
-                                borderLeft: '3px solid #cbd5e1',
+                                fontSize: 11.5,
+                                color: '#475569',
+                                background: '#f8fafc',
+                                padding: '4px 8px',
+                                borderRadius: 6,
+                                borderLeft: '3px solid #0e7490',
+                                lineHeight: 1.4,
                               }}>
                                 {histEntry.note}
                               </div>

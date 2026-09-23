@@ -799,6 +799,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
                 initialProduct={null}
                 appId={appId}
                 audits={audits}
+                app={app}
               />
             </div>
           </div>

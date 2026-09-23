@@ -777,7 +777,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              {app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility'}
+              {app.profiles?.company_name || app.client_id?.company_name || app.client?.company_name || (app.company_name && app.company_name !== app.establishment_name ? app.company_name : '') || app.establishment_name || 'Company Facility'}
             </h1>
             <span className={`badge ${STATUS_BADGE[status] || 'badge-gray'}`} style={{ fontSize: 12 }}>
               {status === 'payment_received' ? 'Renewal Fee Paid' : (STATUS_LABELS[status] || status.replace(/_/g, ' '))}
@@ -927,7 +927,15 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
               <div style={{ display: 'grid', gap: 14 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Company Name</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.profiles?.company_name || app.establishment_name}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {app.profiles?.company_name || app.client_id?.company_name || app.client?.company_name || (app.company_name && app.company_name !== (app.site_name || app.establishment_name) ? app.company_name : '') || app.profiles?.full_name || app.client_id?.full_name || app.establishment_name || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Site / Facility</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {app.site_name || app.establishment_name || 'Main Facility / Site'}
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Certification Type</div>
@@ -956,7 +964,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
                       background: '#f8fafc'
                     }}
                     onClick={() => {
-                      const query = app.profiles?.company_name || app.establishment_name || '';
+                      const query = app.profiles?.company_name || app.client_id?.company_name || app.client?.company_name || (app.company_name && app.company_name !== (app.site_name || app.establishment_name) ? app.company_name : '') || app.establishment_name || '';
                       navigate(`/clients${query ? `?search=${encodeURIComponent(query)}` : ''}`);
                     }}
                   >

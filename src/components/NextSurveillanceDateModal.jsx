@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, AlertCircle, Building2, MapPin, FileText, User } from 'lucide-react';
+import { X, Calendar, AlertCircle, Building2, MapPin, FileText, User, Edit2, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
 export default function NextSurveillanceDateModal({
   isOpen,
@@ -31,6 +32,9 @@ export default function NextSurveillanceDateModal({
   const [adminName, setAdminName] = useState(defaultAdminName);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [fetchedCompanyName, setFetchedCompanyName] = useState('');
+  const [customCompanyName, setCustomCompanyName] = useState('');
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,25 +42,103 @@ export default function NextSurveillanceDateModal({
       setAdminName(defaultAdminName);
       setNotes('');
       setError('');
+      setIsEditingCompany(false);
     }
   }, [isOpen, defaultAdminName]);
 
-  if (!isOpen) return null;
-
-  const companyName =
-    app?.company_name ||
-    app?.establishment_name ||
-    app?.profiles?.company_name ||
-    app?.client_id?.company_name ||
-    app?.client?.company_name ||
-    'N/A';
-
   const siteName =
     app?.site_name ||
+    app?.establishment_name ||
     app?.site_id?.site_name ||
+    app?.site_id?.name ||
     app?.establishment_address ||
     app?.site_address ||
     'Main Facility / Site';
+
+  useEffect(() => {
+    if (!isOpen || !app) return;
+
+    const rawSite = String(
+      app?.site_name ||
+      app?.establishment_name ||
+      app?.site_id?.site_name ||
+      app?.site_id?.name ||
+      ''
+    ).trim().toLowerCase();
+
+    const isSiteColliding = (str) => {
+      if (!str) return true;
+      return String(str).trim().toLowerCase() === rawSite;
+    };
+
+    const directCompany = (
+      (app?.profiles?.company_name && !isSiteColliding(app.profiles.company_name) ? app.profiles.company_name : '') ||
+      (app?.client_id?.company_name && !isSiteColliding(app.client_id.company_name) ? app.client_id.company_name : '') ||
+      (app?.client?.company_name && !isSiteColliding(app.client.company_name) ? app.client.company_name : '') ||
+      (app?.profile?.company_name && !isSiteColliding(app.profile.company_name) ? app.profile.company_name : '') ||
+      (app?.user?.company_name && !isSiteColliding(app.user.company_name) ? app.user.company_name : '') ||
+      (app?.company_name && !isSiteColliding(app.company_name) ? app.company_name : '')
+    );
+
+    if (directCompany) {
+      setFetchedCompanyName(directCompany);
+      setCustomCompanyName(directCompany);
+      return;
+    }
+
+    const clientId = typeof app.client_id === 'string'
+      ? app.client_id
+      : (app.client_id?._id || app.profiles?._id);
+
+    if (clientId) {
+      api.get(`/api/users/${clientId}`)
+        .then(res => {
+          const u = res.data?.data || res.data;
+          const comp = u?.company_name || u?.full_name;
+          if (comp) {
+            setFetchedCompanyName(comp);
+            setCustomCompanyName(comp);
+          }
+        })
+        .catch(() => {});
+    } else if (app.site_id) {
+      const siteId = typeof app.site_id === 'string' ? app.site_id : app.site_id?._id;
+      if (siteId) {
+        api.get(`/api/sites/${siteId}`)
+          .then(res => {
+            const s = res.data?.data || res.data;
+            if (s?.client_id?.company_name && !isSiteColliding(s.client_id.company_name)) {
+              setFetchedCompanyName(s.client_id.company_name);
+              setCustomCompanyName(s.client_id.company_name);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [isOpen, app]);
+
+  if (!isOpen) return null;
+
+  const resolvedBaseCompany =
+    (fetchedCompanyName && fetchedCompanyName.trim().toLowerCase() !== siteName.trim().toLowerCase() ? fetchedCompanyName : '') ||
+    (app?.profiles?.company_name && app.profiles.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.profiles.company_name : '') ||
+    (app?.client_id?.company_name && app.client_id.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.client_id.company_name : '') ||
+    (app?.client?.company_name && app.client.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.client.company_name : '') ||
+    (app?.profile?.company_name && app.profile.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.profile.company_name : '') ||
+    (app?.user?.company_name && app.user.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.user.company_name : '') ||
+    (app?.company_name && app.company_name.trim().toLowerCase() !== siteName.trim().toLowerCase() ? app.company_name : '') ||
+    fetchedCompanyName ||
+    app?.profiles?.company_name ||
+    app?.client_id?.company_name ||
+    app?.client?.company_name ||
+    app?.profile?.company_name ||
+    app?.user?.company_name ||
+    app?.profiles?.full_name ||
+    app?.client_id?.full_name ||
+    app?.company_name ||
+    'N/A';
+
+  const companyName = customCompanyName.trim() || resolvedBaseCompany;
 
   const appNumber = app?.application_number || 'N/A';
 
@@ -74,7 +156,9 @@ export default function NextSurveillanceDateModal({
     onConfirm({
       next_surveillance_due_date: dueDate,
       admin_name: adminName.trim(),
-      notes: notes.trim()
+      notes: notes.trim(),
+      company_name: companyName,
+      site_name: siteName
     });
   };
 
@@ -190,15 +274,58 @@ export default function NextSurveillanceDateModal({
           >
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Company Name
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                  <Building2 size={14} color="#065f46" />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
-                    {companyName}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Company Name
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingCompany(!isEditingCompany)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      color: '#059669',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title={isEditingCompany ? 'Done' : 'Edit Company Name'}
+                  >
+                    {isEditingCompany ? <Check size={12} /> : <Edit2 size={11} />}
+                    {isEditingCompany ? 'Done' : 'Edit'}
+                  </button>
                 </div>
+                {isEditingCompany ? (
+                  <input
+                    type="text"
+                    value={customCompanyName}
+                    onChange={(e) => setCustomCompanyName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1.5px solid #059669',
+                      marginTop: '3px',
+                      boxSizing: 'border-box',
+                      color: '#1e293b',
+                      fontWeight: 600
+                    }}
+                    placeholder="Enter company name"
+                    autoFocus
+                  />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                    <Building2 size={14} color="#065f46" />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
+                      {companyName}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>

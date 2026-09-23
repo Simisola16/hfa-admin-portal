@@ -33,13 +33,17 @@ const STATUS_META = {
 };
 
 function StatusBadge({ status, type }) {
-  const isRenewal = (type || '').toLowerCase() === 'renewal';
-  let s = STATUS_META[status];
-  if (status === 'payment_received' && isRenewal) {
+  const isRenewal = (type || '').toLowerCase() === 'renewal' || (type || '').toLowerCase() === 'surveillance';
+  let normStatus = (status || '').toLowerCase().replace(/ /g, '_');
+  if (normStatus === 'payment_received' && !isRenewal) {
+    normStatus = 'initial_product';
+  }
+  let s = STATUS_META[normStatus];
+  if (normStatus === 'payment_received' && isRenewal) {
     s = { label: 'Renewal Fee Paid', color: '#15803d', bg: '#dcfce7' };
   } else if (!s) {
     s = {
-      label: (status || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Approved/gi, 'Accepted'),
+      label: (normStatus || '—').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Approved/gi, 'Accepted'),
       color: '#334155',
       bg: '#f1f5f9'
     };

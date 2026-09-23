@@ -233,7 +233,8 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     );
   }
 
-  const status = app.status;
+  const rawStatus = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
+  const status = rawStatus === 'payment_received' ? 'initial_product' : rawStatus;
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
@@ -615,7 +616,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
 
     // 4. Audit Scheduling & Execution Stage
-    if (['payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+    if (['payment_received', 'initial_product', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
       // If Initial Product is not approved yet, lock audit actions for standard applications
       if (!isInitialProductApproved) {
         if (!initialProduct) {

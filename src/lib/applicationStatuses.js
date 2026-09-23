@@ -116,4 +116,21 @@ export const STATUS_BADGE = {
  */
 export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];
 
+/**
+ * Helper to determine the effective display status of an application.
+ * For New applications with initial payment confirmed, resolves to 'initial_product' (Initial Product In-Progress).
+ */
+export function getEffectiveApplicationStatus(app) {
+  if (!app) return 'submitted';
+  const rawStatus = typeof app === 'string' ? app : (app.status || 'submitted');
+  const s = rawStatus.toLowerCase().replace(/ /g, '_');
+  const type = (typeof app === 'object' ? (app.application_type || '') : '').toLowerCase();
+  const isRenewal = type === 'renewal' || type === 'surveillance';
+
+  if (s === 'payment_received' && !isRenewal) {
+    return 'initial_product';
+  }
+  return s;
+}
+
 

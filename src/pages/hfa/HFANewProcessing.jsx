@@ -544,7 +544,8 @@ export default function HFANewProcessing(props) {
     );
   }
 
-  const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
+  const rawStatus = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
+  const status = rawStatus === 'payment_received' ? 'initial_product' : rawStatus;
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const activeAudit = auditsArr[0] || null;
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
@@ -616,7 +617,7 @@ export default function HFANewProcessing(props) {
     }
 
     // 4. Audit Scheduling & Execution Stage
-    if (['payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
+    if (['payment_received', 'initial_product', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
       if (!isInitialProductApproved) {
         if (!initialProduct) {
           return (

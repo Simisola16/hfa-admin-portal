@@ -3,7 +3,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { STATUS_LABELS, STATUS_BADGE } from '../lib/applicationStatuses';
+import { STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
@@ -294,7 +294,20 @@ export default function AdminApplications() {
                       <div style={{fontSize:12,color:'var(--text-muted)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</div>
                     </td>
                     <td style={{fontSize:12}}>{new Date(app.created_at).toLocaleDateString('en-GB')}</td>
-                    <td style={{textAlign:'center'}}><span className={`badge ${STATUS_BADGE[app.status] || LEGACY_BADGE[app.status] || 'badge-gray'}`}>{app.status === 'payment_received' && (app.application_type || '').toLowerCase() === 'renewal' ? 'Renewal Fee Paid' : (STATUS_LABELS[app.status] || app.status?.replace(/_/g, ' '))}</span></td>
+                    <td style={{textAlign:'center'}}>
+                      {(() => {
+                        const effStatus = getEffectiveApplicationStatus(app);
+                        const isRenewal = (app.application_type || '').toLowerCase() === 'renewal' || (app.application_type || '').toLowerCase() === 'surveillance';
+                        const label = (effStatus === 'payment_received' && isRenewal)
+                          ? 'Renewal Fee Paid'
+                          : (STATUS_LABELS[effStatus] || effStatus?.replace(/_/g, ' '));
+                        return (
+                          <span className={`badge ${STATUS_BADGE[effStatus] || LEGACY_BADGE[effStatus] || 'badge-gray'}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td style={{textAlign:'center', position:'relative'}}>
                       <button
                         className="btn btn-ghost btn-sm"

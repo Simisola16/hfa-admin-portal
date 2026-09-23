@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   FileText, Download, Search, Filter, Calendar, Building2,
   ExternalLink, ClipboardList, CheckCircle, AlertCircle, RefreshCw,
-  FolderDown, Layers, ShieldCheck, Eye, UserCheck
+  FolderDown, Layers, ShieldCheck, Eye, UserCheck, Settings
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -23,6 +24,8 @@ export default function AdminAuditReports() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // all | audit_report | nc_report
+  const [actionModalReport, setActionModalReport] = useState(null);
+
 
   const fetchReports = async () => {
     setLoading(true);
@@ -420,42 +423,10 @@ export default function AdminAuditReports() {
 
                     {/* Actions */}
                     <td style={{ padding: '16px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <a
-                          href={getPdfUrl(item.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-primary btn-sm"
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '6px 12px',
-                            borderRadius: 6
-                          }}
-                        >
-                          <Eye size={13} /> View Report
-                        </a>
-
-                        {(item.appId || item.addonId) && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => {
-                              if (item.isAddon) {
-                                navigate(`/addon-applications/${item.addonId || item.appId}/processing`);
-                              } else {
-                                navigate(`/applications/${item.appId}/processing`);
-                              }
-                            }}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff' }}
-                            title="Open Application Processing"
-                          >
-                            <ExternalLink size={13} />
-                          </button>
-                        )}
-                      </div>
+                      <ActionTriggerButton
+                        onClick={() => setActionModalReport(item)}
+                        title="Report Actions"
+                      />
                     </td>
                   </tr>
                 ))}
@@ -464,6 +435,56 @@ export default function AdminAuditReports() {
           </div>
         )}
       </div>
+
+      {/* Action Menu Pop-up Modal */}
+      {actionModalReport && (() => {
+        const item = actionModalReport;
+        return (
+          <ActionModal
+            isOpen={Boolean(actionModalReport)}
+            onClose={() => setActionModalReport(null)}
+            title="Report Actions"
+            subtitle={item.company_name}
+            badge={
+              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                {item.file_name}
+              </span>
+            }
+            actions={[
+              {
+                label: 'View Report Document',
+                description: 'Open official PDF report in a new tab',
+                icon: Eye,
+                variant: 'primary',
+                href: getPdfUrl(item.url),
+                target: '_blank'
+              },
+              {
+                label: 'Download Report File',
+                description: 'Download PDF file directly to your computer',
+                icon: Download,
+                variant: 'default',
+                href: getPdfUrl(item.url),
+                download: item.file_name
+              },
+              (item.appId || item.addonId) && {
+                label: 'Application Processing',
+                description: 'Open application stage workflow & history',
+                icon: Settings,
+                variant: 'default',
+                onClick: () => {
+                  if (item.isAddon) {
+                    navigate(`/addon-applications/${item.addonId || item.appId}/processing`);
+                  } else {
+                    navigate(`/applications/${item.appId}/processing`);
+                  }
+                }
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
     </div>
   );
 }
+

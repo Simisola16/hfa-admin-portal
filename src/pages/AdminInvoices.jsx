@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt } from 'lucide-react';
+import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, ExternalLink, RefreshCw } from 'lucide-react';
 import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -22,6 +23,7 @@ export default function AdminInvoices() {
   const [confirmingId, setConfirmingId] = useState(null);
   const [form, setForm] = useState({ client_id:'', description:'', amount:'', due_date:'', items:'' });
   const [confirmPaymentModal, setConfirmPaymentModal] = useState({ isOpen: false, invoice: null, app: null });
+  const [activeActionModal, setActiveActionModal] = useState(null);
 
   const fetch = () => {
     setLoading(true);
@@ -74,6 +76,7 @@ export default function AdminInvoices() {
   return (
     <div>
       <div className="toolbar">
+        <button className="btn btn-ghost btn-sm" onClick={fetch}><RefreshCw size={14} /></button>
         <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{marginLeft:'auto'}}><Plus size={15}/> Create Invoice</button>
       </div>
       <div className="card">
@@ -82,126 +85,71 @@ export default function AdminInvoices() {
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
             invoices.length===0?<div className="empty-state"><div className="empty-state-icon"><FileBarChart/></div><div className="empty-state-title">No Invoices</div></div>:(
               <table>
-                <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Status</th><th style={{ width: '70px', textAlign: 'center' }}>Actions</th></tr></thead>
                 <tbody>
                   {invoices.map(inv=>{
                     const isPaid = inv.status === 'paid';
                     const invId = inv._id || inv.id;
+                    const statusBadgeClass = isPaid
+                      ? 'badge-green'
+                      : inv.status === 'client_paid'
+                      ? 'badge-orange'
+                      : inv.status === 'overdue'
+                      ? 'badge-red'
+                      : 'badge-yellow';
+
                     return (
                       <tr key={invId}>
                         <td style={{fontWeight:700}}>{inv.invoice_number}</td>
                         <td>{inv.profiles?.company_name||'—'}</td>
-                        <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description || inv.title}</td>
-                        <td style={{fontWeight:700}}>£{parseFloat(inv.amount||0).toFixed(2)}</td>
+                        <td style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inv.description || inv.title}</td>
+                        <td style={{fontWeight:700, color: '#0f172a'}}>£{parseFloat(inv.amount||0).toFixed(2)}</td>
                         <td>
-                          <span className={`badge ${
-                            isPaid
-                              ? 'badge-green'
-                              : inv.status === 'client_paid'
-                              ? 'badge-orange'
-                              : inv.status === 'overdue'
-                              ? 'badge-red'
-                              : 'badge-yellow'
-                          }`} style={isPaid ? { display: 'inline-flex', alignItems: 'center', gap: 4 } : {}}>
+                          <span className={`badge ${statusBadgeClass}`} style={isPaid ? { display: 'inline-flex', alignItems: 'center', gap: 4 } : {}}>
                             {isPaid && <CheckCircle2 size={12} />}
                             {inv.status === 'client_paid' ? 'Pending Verification' : inv.status}
                           </span>
                         </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                            {inv.invoice_url ? (
-                              <>
-                                <a
-                                  href={getPdfUrl(inv.invoice_url)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="btn btn-ghost btn-sm"
-                                  style={{ color: '#16a34a', padding: '4px 8px', gap: 4 }}
-                                  title="View Invoice"
-                                >
-                                  <Eye size={14} /> View
-                                </a>
-                                <a
-                                  href={getPdfUrl(inv.invoice_url)}
-                                  download
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="btn btn-outline btn-sm"
-                                  style={{ padding: '4px 8px', gap: 4 }}
-                                  title="Download Invoice"
-                                >
-                                  <Download size={14} /> Download
-                                </a>
-                              </>
-                            ) : (
-                              <span style={{ fontSize: 11, color: '#94a3b8' }}>No PDF</span>
-                            )}
-
-                            {/* Client Payment Receipt link */}
-                            {inv.payment_proof_url && (
-                              <a
-                                href={getPdfUrl(inv.payment_proof_url)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-outline btn-sm"
-                                style={{ padding: '4px 8px', gap: 4, color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
-                                title="View Client Uploaded Payment Proof"
-                              >
-                                <Receipt size={14} /> Receipt
-                              </a>
-                            )}
-
-                            {/* Action: Paid badge or Confirm Payment trigger */}
-                            {isPaid ? (
-                              <span
-                                className="badge badge-green"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  padding: '4px 8px',
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  background: '#dcfce7',
-                                  color: '#15803d',
-                                  border: '1px solid #bbf7d0'
-                                }}
-                                title="Payment confirmed by admin"
-                              >
-                                <CheckCircle2 size={13} /> Confirmed
-                              </span>
-                            ) : (
-                              <button
-                                className="btn btn-sm"
-                                style={{
-                                  background: '#16a34a',
-                                  color: '#ffffff',
-                                  borderColor: '#15803d',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                  fontWeight: 600,
-                                  padding: '4px 10px',
-                                  borderRadius: 6,
-                                  cursor: confirmingId === invId ? 'not-allowed' : 'pointer',
-                                  opacity: confirmingId === invId ? 0.75 : 1
-                                }}
-                                disabled={confirmingId === invId}
-                                onClick={() => handleOneClickConfirm(inv)}
-                                title="One-Click Confirm Client Payment"
-                              >
-                                {confirmingId === invId ? (
-                                  <>
-                                    <span className="spinner-white" style={{ width: 12, height: 12 }} /> Confirming...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check size={14} /> Confirm Payment
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
+                        <td style={{ textAlign: 'center' }}>
+                          <ActionTriggerButton
+                            onClick={() => setActiveActionModal({
+                              title: `Invoice #${inv.invoice_number}`,
+                              subtitle: `${inv.profiles?.company_name || 'Client'} • £${parseFloat(inv.amount||0).toFixed(2)}`,
+                              badge: isPaid ? 'Payment Confirmed' : inv.status === 'client_paid' ? 'Payment Pending Verification' : (inv.status || 'Pending Payment'),
+                              badgeVariant: statusBadgeClass,
+                              actions: [
+                                ...(!isPaid ? [{
+                                  label: confirmingId === invId ? 'Confirming Payment...' : 'Confirm Client Payment',
+                                  icon: Check,
+                                  variant: 'success',
+                                  onClick: () => handleOneClickConfirm(inv)
+                                }] : []),
+                                ...(inv.invoice_url ? [
+                                  {
+                                    label: 'View Invoice Document (PDF)',
+                                    icon: Eye,
+                                    href: getPdfUrl(inv.invoice_url),
+                                    target: '_blank',
+                                    variant: 'primary'
+                                  },
+                                  {
+                                    label: 'Download Invoice PDF',
+                                    icon: Download,
+                                    href: getPdfUrl(inv.invoice_url),
+                                    target: '_blank',
+                                    variant: 'default'
+                                  }
+                                ] : []),
+                                ...(inv.payment_proof_url ? [{
+                                  label: 'View Client Payment Proof Receipt',
+                                  icon: Receipt,
+                                  href: getPdfUrl(inv.payment_proof_url),
+                                  target: '_blank',
+                                  variant: 'default'
+                                }] : [])
+                              ]
+                            })}
+                          />
                         </td>
                       </tr>
                     );
@@ -223,7 +171,7 @@ export default function AdminInvoices() {
                   <label className="form-label">Client <span>*</span></label>
                   <select className="form-control" value={form.client_id} onChange={e=>setForm(f=>({...f,client_id:e.target.value}))} required>
                     <option value="">Select Client</option>
-                    {clients.map(c=><option key={c.id} value={c.id}>{c.company_name||c.full_name}</option>)}
+                    {clients.map(c=><option key={c.id || c._id} value={c.id || c._id}>{c.company_name||c.full_name}</option>)}
                   </select>
                 </div>
                 <div className="form-group"><label className="form-label">Description <span>*</span></label><input className="form-control" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} required/></div>
@@ -247,6 +195,18 @@ export default function AdminInvoices() {
         app={confirmPaymentModal.app}
         onSuccess={() => handlePaymentConfirmed(confirmPaymentModal.invoice?._id || confirmPaymentModal.invoice?.id)}
       />
+
+      {/* Action Modal Popup */}
+      <ActionModal
+        isOpen={Boolean(activeActionModal)}
+        onClose={() => setActiveActionModal(null)}
+        title={activeActionModal?.title}
+        subtitle={activeActionModal?.subtitle}
+        badge={activeActionModal?.badge}
+        badgeVariant={activeActionModal?.badgeVariant}
+        actions={activeActionModal?.actions || []}
+      />
     </div>
   );
 }
+

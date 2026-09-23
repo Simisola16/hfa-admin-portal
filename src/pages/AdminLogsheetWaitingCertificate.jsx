@@ -4,16 +4,18 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings
 } from 'lucide-react';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 export default function AdminLogsheetWaitingCertificate() {
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
   const navigate = useNavigate();
+
 
   const fetchLogsheets = async () => {
     setLoading(true);
@@ -123,9 +125,6 @@ export default function AdminLogsheetWaitingCertificate() {
 
   useEffect(() => {
     fetchLogsheets();
-    const handleClose = () => setActiveDropdown(null);
-    window.addEventListener('click', handleClose);
-    return () => window.removeEventListener('click', handleClose);
   }, []);
 
   const handleDelete = async (id, e, item = null) => {
@@ -395,39 +394,11 @@ export default function AdminLogsheetWaitingCertificate() {
                         {l.updated_at ? new Date(l.updated_at).toLocaleDateString('en-GB') : 'Recently'}
                       </td>
 
-                      <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                          <Link 
-                            to={l.source_type === 'extension_application' || l.extension_application_id
-                              ? `/extension-applications/${l.extension_application_id?._id || l.extension_application_id}/logsheet`
-                              : l.source_type === 'addon_application' || l.addon_application_id
-                              ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/logsheet`
-                              : `/applications/${l.application_id?._id || l.application_id}/logsheet`}
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <Eye size={13} /> View Logsheet
-                          </Link>
-                          <Link 
-                            to={l.source_type === 'extension_application' || l.extension_application_id
-                              ? `/extension-applications/${l.extension_application_id?._id || l.extension_application_id}/processing`
-                              : l.source_type === 'addon_application' || l.addon_application_id
-                              ? `/addon-applications/${l.addon_application_id?._id || l.addon_application_id}/processing`
-                              : `/applications/${appId}/processing`}
-                            className="btn btn-primary btn-sm"
-                            style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            Go to Issue Certificate <ArrowRight size={13} />
-                          </Link>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ color: '#dc2626', padding: '5px 8px' }}
-                            onClick={(e) => handleDelete(l._id, e, l)}
-                            title="Delete Logsheet"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                      <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <ActionTriggerButton
+                          onClick={() => setActionModalLogsheet(l)}
+                          title="Logsheet Actions"
+                        />
                       </td>
                     </tr>
                   );
@@ -437,6 +408,66 @@ export default function AdminLogsheetWaitingCertificate() {
           </div>
         )}
       </div>
+
+      {/* Action Menu Pop-up Modal */}
+      {actionModalLogsheet && (() => {
+        const l = actionModalLogsheet;
+        const appId = l.application_id?._id || l.application_id;
+        const isExtension = l.source_type === 'extension_application' || l.extension_application_id;
+        const isAddon = l.source_type === 'addon_application' || l.addon_application_id;
+        const extId = l.extension_application_id?._id || l.extension_application_id;
+        const addonId = l.addon_application_id?._id || l.addon_application_id;
+
+        const processingUrl = isExtension
+          ? `/extension-applications/${extId}/processing`
+          : isAddon
+          ? `/addon-applications/${addonId}/processing`
+          : `/applications/${appId}/processing`;
+
+        const logsheetUrl = isExtension
+          ? `/extension-applications/${extId}/logsheet`
+          : isAddon
+          ? `/addon-applications/${addonId}/logsheet`
+          : `/applications/${appId}/logsheet`;
+
+        return (
+          <ActionModal
+            isOpen={Boolean(actionModalLogsheet)}
+            onClose={() => setActionModalLogsheet(null)}
+            title="Logsheet Actions"
+            subtitle={l.company_name}
+            badge={
+              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                Status: Waiting for Certificate • {l.audit_type || 'Standard'}
+              </span>
+            }
+            actions={[
+              {
+                label: 'Go to Issue Certificate / Processing',
+                description: 'Open application stage to generate and issue certificate',
+                icon: Settings,
+                variant: 'primary',
+                onClick: () => navigate(processingUrl)
+              },
+              {
+                label: 'View Signed Logsheet',
+                description: 'Inspect completed logsheet and committee signatures',
+                icon: Eye,
+                variant: 'default',
+                onClick: () => navigate(logsheetUrl)
+              },
+              {
+                label: 'Delete Logsheet',
+                description: 'Permanently remove this logsheet entry',
+                icon: Trash2,
+                variant: 'danger',
+                onClick: (e) => handleDelete(l._id, e, l)
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
     </div>
   );
 }
+

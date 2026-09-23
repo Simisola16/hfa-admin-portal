@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   FileText, Search, Filter, Calendar, Building2,
   ExternalLink, CheckCircle, AlertCircle, RefreshCw,
-  Eye, Download, PenTool, Upload, Clock, Check, ChevronRight, FileCheck
+  Eye, Download, PenTool, Upload, Clock, Check, ChevronRight, FileCheck, Settings
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import AgreementModal from '../components/AgreementModal';
 import FinalAgreementModal from '../components/FinalAgreementModal';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 const getPdfUrl = (url) => {
   if (!url) return '#';
@@ -25,6 +26,7 @@ export default function AdminAgreements() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | sent | client_signed | approved
+  const [actionModalAg, setActionModalAg] = useState(null);
 
   // Agreement Modals state
   const [agreementModalAg, setAgreementModalAg] = useState(null);
@@ -243,78 +245,11 @@ export default function AdminAgreements() {
                         {getStatusBadge(ag)}
                       </td>
 
-                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          {ag.agreement_url && (
-                            <a
-                              href={getPdfUrl(ag.agreement_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline btn-sm"
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                              title="View Sent Agreement PDF"
-                            >
-                              <Eye size={13} /> View
-                            </a>
-                          )}
-
-                          {ag.signed_agreement_url && (
-                            <a
-                              href={getPdfUrl(ag.signed_agreement_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-sm"
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#16a34a', color: 'white', borderColor: '#16a34a' }}
-                              title="View Signed / Countersigned Copy"
-                            >
-                              <Download size={13} /> Signed Copy
-                            </a>
-                          )}
-
-                          {ag.final_agreement_url && (
-                            <a
-                              href={getPdfUrl(ag.final_agreement_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-sm"
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', color: 'white', borderColor: '#0284c7' }}
-                              title="View Final Countersigned Copy"
-                            >
-                              <FileCheck size={13} /> Final Copy
-                            </a>
-                          )}
-
-                          {ag.client_signed || ag.status === 'client_signed' ? (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => setFinalModalAg(ag)}
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0284c7', borderColor: '#0284c7' }}
-                              title="Send Final Countersigned Agreement Copy to Client"
-                            >
-                              <FileCheck size={13} /> {ag.final_agreement_url ? 'Resend Final Copy' : 'Send Final Signed Copy'}
-                            </button>
-                          ) : (
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => setAgreementModalAg(ag)}
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                              title="Re-upload or Edit Agreement"
-                            >
-                              <PenTool size={13} /> Edit / Re-upload
-                            </button>
-                          )}
-
-                          {appId && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => navigate(`/applications/${appId}/processing`)}
-                              style={{ fontSize: 12, fontWeight: 700, padding: '6px 10px' }}
-                              title="Open Application Processing"
-                            >
-                              <ExternalLink size={14} />
-                            </button>
-                          )}
-                        </div>
+                      <td style={{ padding: '16px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <ActionTriggerButton
+                          onClick={() => setActionModalAg(ag)}
+                          title="Agreement Actions"
+                        />
                       </td>
                     </tr>
                   );
@@ -325,7 +260,77 @@ export default function AdminAgreements() {
         )}
       </div>
 
+      {/* Action Menu Pop-up Modal */}
+      {actionModalAg && (() => {
+        const ag = actionModalAg;
+        const app = ag.application_id || {};
+        const appId = app._id || app.id || ag.application_id;
+        const compName = app.establishment_name || app.profiles?.company_name || ag.company_name || 'Client Facility';
+
+        return (
+          <ActionModal
+            isOpen={Boolean(actionModalAg)}
+            onClose={() => setActionModalAg(null)}
+            title="Agreement Action"
+            subtitle={compName}
+            badge={
+              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                Ref: {app.application_number || 'N/A'} • {ag.title || 'Certification Agreement'}
+              </span>
+            }
+            actions={[
+              ag.final_agreement_url && {
+                label: 'View Final Countersigned Copy',
+                description: 'Open official countersigned agreement PDF',
+                icon: FileCheck,
+                variant: 'primary',
+                href: getPdfUrl(ag.final_agreement_url),
+                target: '_blank'
+              },
+              (ag.client_signed || ag.status === 'client_signed') && {
+                label: ag.final_agreement_url ? 'Resend Countersigned Copy' : 'Upload & Send Final Countersigned Copy',
+                description: 'Finalize agreement with countersignature and notify client',
+                icon: FileCheck,
+                variant: 'primary',
+                onClick: () => setFinalModalAg(ag)
+              },
+              ag.signed_agreement_url && {
+                label: 'View Client Signed Copy',
+                description: 'View document signed by client authorized signatory',
+                icon: Download,
+                variant: 'default',
+                href: getPdfUrl(ag.signed_agreement_url),
+                target: '_blank'
+              },
+              ag.agreement_url && {
+                label: 'View Initial Agreement PDF',
+                description: 'View original sent agreement document',
+                icon: Eye,
+                variant: 'default',
+                href: getPdfUrl(ag.agreement_url),
+                target: '_blank'
+              },
+              (!ag.client_signed && ag.status !== 'approved' && ag.status !== 'completed') && {
+                label: 'Edit / Re-upload Agreement',
+                description: 'Generate or upload updated agreement PDF draft',
+                icon: PenTool,
+                variant: 'default',
+                onClick: () => setAgreementModalAg(ag)
+              },
+              appId && {
+                label: 'Application Processing',
+                description: 'Open full workflow tracking & stages',
+                icon: Settings,
+                variant: 'default',
+                onClick: () => navigate(`/applications/${appId}/processing`)
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
+
       {/* Initial / Re-upload Agreement Modal */}
+
       <AgreementModal
         isOpen={Boolean(agreementModalAg)}
         onClose={() => setAgreementModalAg(null)}

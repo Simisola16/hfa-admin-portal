@@ -481,7 +481,7 @@ export default function AdminInitialProductProcessing() {
       )}
 
       {/* ─── Main 2-Column Grid Layout (1fr 380px) ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+      <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
         
         {/* ── LEFT COLUMN: Workflow Processing Cards Stack ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

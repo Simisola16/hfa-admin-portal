@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, UploadCloud, Plus, MoreVertical, Trash2, PenTool } from 'lucide-react';
+import { Search, UploadCloud, Plus, Trash2, PenTool, Image as ImageIcon } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 export default function AdminSignatures() {
   const [signatures, setSignatures] = useState([]);
@@ -16,8 +17,8 @@ export default function AdminSignatures() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Dropdown Action state
-  const [openDropdown, setOpenDropdown] = useState(null);
+  // Standardized Action Modal state
+  const [activeActionModal, setActiveActionModal] = useState(null);
 
   const fetchSignatures = async () => {
     setLoading(true);
@@ -82,17 +83,6 @@ export default function AdminSignatures() {
     });
   };
 
-  // Click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.action-dropdown')) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -151,28 +141,28 @@ export default function AdminSignatures() {
   };
 
   return (
-    <div className="animate-in" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="animate-in" style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '24px' }}>
         <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '12px', borderRadius: '12px', display: 'flex' }}>
           <PenTool size={24} />
         </div>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#0f172a' }}>Manage Signatures</h1>
-          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>Upload and manage digital signatures for users and auditors</p>
+          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>Upload and manage digital signatures for staff, managers, and auditors</p>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '24px', alignItems: 'start' }}>
+      <div className="dual-pane-grid" style={{ gridTemplateColumns: 'minmax(300px, 360px) 1fr' }}>
         
         {/* ADD SIGNATURE FORM */}
-        <div className="card shadow-sm border-0" style={{ padding: '24px', position: 'sticky', top: '24px' }}>
+        <div className="card shadow-sm border-0" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} style={{ color: 'var(--primary)' }} /> Add New Signature
           </h3>
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Username</label>
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Staff User Profile</label>
               <select
                 className="form-control"
                 style={{ background: '#f8fafc', fontSize: 13, fontWeight: 500 }}
@@ -190,11 +180,11 @@ export default function AdminSignatures() {
             </div>
             
             <div className="form-group">
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Full Name</label>
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Full Signatory Name</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="Enter full name"
+                placeholder="e.g. Dr. Jane Doe"
                 value={formData.name}
                 onChange={handleNameChange}
                 required
@@ -202,7 +192,7 @@ export default function AdminSignatures() {
             </div>
 
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Signature Image</label>
+              <label className="form-label" style={{ fontSize: 13, fontWeight: 600 }}>Signature Image File</label>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -224,20 +214,22 @@ export default function AdminSignatures() {
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: '8px',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  borderRadius: '10px'
                 }}
               >
                 <UploadCloud size={24} style={{ color: formData.file ? '#22c55e' : '#94a3b8' }} />
                 <span style={{ fontSize: 13, fontWeight: formData.file ? 600 : 500 }}>
-                  {formData.file ? formData.file.name : 'Click to Upload Image'}
+                  {formData.file ? formData.file.name : 'Click to Upload PNG/JPEG'}
                 </span>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>Transparent PNG recommended (Max 5MB)</span>
               </button>
             </div>
 
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ width: '100%', padding: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              style={{ width: '100%', padding: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '10px' }}
               disabled={submitting}
             >
               {submitting ? <div className="spinner-white" style={{ width: 16, height: 16 }} /> : <Plus size={16} />}
@@ -248,9 +240,9 @@ export default function AdminSignatures() {
 
         {/* SIGNATURES LIST */}
         <div className="card shadow-sm border-0">
-          <div className="card-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1e293b' }}>Signatures List</h3>
-            <div className="search-box" style={{ width: '250px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div className="card-header" style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1e293b' }}>Registered Signatures</h3>
+            <div className="search-box" style={{ width: '100%', maxWidth: '260px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <Search size={14} className="search-icon" style={{ color: '#94a3b8' }} />
               <input 
                 placeholder="Search signatures..." 
@@ -268,31 +260,31 @@ export default function AdminSignatures() {
               <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
                 <PenTool size={48} style={{ opacity: 0.2, margin: '0 auto 16px' }} />
                 <div style={{ fontWeight: 600, color: '#475569', fontSize: 15 }}>No signatures found</div>
-                <div style={{ fontSize: 13, marginTop: 4 }}>Add a new signature using the form.</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>Add a new signature using the form on the left.</div>
               </div>
             ) : (
               <table style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ width: '100px' }}>ID</th>
-                    <th>Name</th>
-                    <th>Username</th>
-                    <th>Signature</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Action</th>
+                    <th style={{ width: '90px' }}>ID</th>
+                    <th>Signatory Name</th>
+                    <th>Username Identifier</th>
+                    <th>Signature Preview</th>
+                    <th style={{ width: '70px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {signatures.map(sig => (
                     <tr key={sig._id} className="hover-row">
-                      <td style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>
-                        {sig._id.substring(sig._id.length - 6).toUpperCase()}
+                      <td style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>
+                        #{sig._id.substring(sig._id.length - 6).toUpperCase()}
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{sig.name}</div>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>{sig.name}</div>
                       </td>
                       <td>
-                        <div style={{ fontSize: 13, color: '#475569', background: '#f1f5f9', display: 'inline-block', padding: '4px 10px', borderRadius: '6px', fontWeight: 500 }}>
-                          {sig.username}
+                        <div style={{ fontSize: 12, color: '#475569', background: '#f1f5f9', display: 'inline-block', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
+                          @{sig.username}
                         </div>
                       </td>
                       <td>
@@ -301,18 +293,18 @@ export default function AdminSignatures() {
                             background: '#f8fafc', 
                             border: '1px solid #e2e8f0', 
                             borderRadius: '8px', 
-                            padding: '8px', 
+                            padding: '6px 12px', 
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            height: '50px',
+                            height: '46px',
                             minWidth: '100px'
                           }}>
                             <img 
                               src={getPdfUrl(sig.signature_url)} 
                               alt={`${sig.name}'s signature`} 
                               style={{ maxHeight: '100%', maxWidth: '120px', objectFit: 'contain' }}
-                              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                              onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'block'; }}
                             />
                             <span style={{ display: 'none', fontSize: 12, color: '#ef4444' }}>Invalid Image</span>
                           </div>
@@ -321,37 +313,29 @@ export default function AdminSignatures() {
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <div className="action-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
-                          <button 
-                            className="btn btn-ghost btn-sm" 
-                            style={{ padding: '6px', color: '#64748b' }}
-                            onClick={() => setOpenDropdown(openDropdown === sig._id ? null : sig._id)}
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-                          
-                          {openDropdown === sig._id && (
-                            <div className="shadow-sm" style={{
-                              position: 'absolute',
-                              right: '100%',
-                              top: 0,
-                              background: '#fff',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '8px',
-                              padding: '4px',
-                              zIndex: 10,
-                              minWidth: '120px'
-                            }}>
-                              <button 
-                                className="btn btn-ghost btn-sm" 
-                                style={{ width: '100%', textAlign: 'left', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', padding: '8px 12px' }}
-                                onClick={() => { setOpenDropdown(null); handleDelete(sig._id); }}
-                              >
-                                <Trash2 size={14} /> Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <ActionTriggerButton 
+                          onClick={() => setActiveActionModal({
+                            title: sig.name,
+                            subtitle: `Signature ID: #${sig._id.substring(sig._id.length - 6).toUpperCase()} (@${sig.username})`,
+                            badge: 'Active Signature',
+                            badgeVariant: 'badge-green',
+                            actions: [
+                              ...(sig.signature_url ? [{
+                                label: 'View Full Signature Image',
+                                icon: ImageIcon,
+                                href: getPdfUrl(sig.signature_url),
+                                target: '_blank',
+                                variant: 'primary'
+                              }] : []),
+                              {
+                                label: 'Delete Signature',
+                                icon: Trash2,
+                                variant: 'danger',
+                                onClick: () => handleDelete(sig._id)
+                              }
+                            ]
+                          })}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -361,6 +345,18 @@ export default function AdminSignatures() {
           </div>
         </div>
       </div>
+
+      {/* ACTION MODAL POPUP */}
+      <ActionModal
+        isOpen={Boolean(activeActionModal)}
+        onClose={() => setActiveActionModal(null)}
+        title={activeActionModal?.title}
+        subtitle={activeActionModal?.subtitle}
+        badge={activeActionModal?.badge}
+        badgeVariant={activeActionModal?.badgeVariant}
+        actions={activeActionModal?.actions || []}
+      />
     </div>
   );
 }
+

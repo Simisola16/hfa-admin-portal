@@ -601,7 +601,7 @@ export default function AdminAddOnProcessing() {
       </div>
 
       {/* ─── Main 2-Column Grid (1fr 380px) ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+      <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
         
         {/* ── LEFT COLUMN: Core Content Cards Stack ── */}
         <div style={{ display: 'grid', gap: 20 }}>

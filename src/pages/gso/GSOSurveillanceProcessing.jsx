@@ -843,7 +843,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       )}
 
       {/* Main Grid: Left Column Cards, Right Column Pipeline Timeline & Company Info */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
+      <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
         {/* Left Column: Processing Stages & Detail Cards */}
         <div style={{ display: 'grid', gap: 20 }}>
           <AuditCard

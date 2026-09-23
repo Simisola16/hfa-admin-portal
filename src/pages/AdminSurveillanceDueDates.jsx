@@ -5,9 +5,10 @@ import toast from 'react-hot-toast';
 import {
   Calendar, Search, RefreshCw, Building2, MapPin, User,
   FileText, Clock, AlertTriangle, CheckCircle, ArrowRight,
-  Filter, ChevronRight, Edit3, X, Mail, Send, Check
+  Filter, ChevronRight, Edit3, X, Mail, Send, Check, Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 export default function AdminSurveillanceDueDates() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function AdminSurveillanceDueDates() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [actionModalItem, setActionModalItem] = useState(null);
 
   // Edit date modal state
   const [editingItem, setEditingItem] = useState(null);
@@ -583,85 +585,11 @@ export default function AdminSurveillanceDueDates() {
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                          <button
-                            onClick={() => handleOpenRemind(item)}
-                            title="Send email reminder to client"
-                            style={{
-                              padding: '6px 11px',
-                              borderRadius: '6px',
-                              border: '1px solid #bae6fd',
-                              background: '#f0f9ff',
-                              color: '#0284c7',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#e0f2fe';
-                              e.currentTarget.style.borderColor = '#7dd3fc';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = '#f0f9ff';
-                              e.currentTarget.style.borderColor = '#bae6fd';
-                            }}
-                          >
-                            <Mail size={13} />
-                            <span>Remind</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleOpenEdit(item)}
-                            title="Edit Due Date"
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              background: '#ffffff',
-                              color: '#334155',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '12px'
-                            }}
-                          >
-                            <Edit3 size={13} />
-                            <span>Edit</span>
-                          </button>
-
-                          {item.application_id && (
-                            <button
-                              onClick={() => {
-                                const targetAppId = item.application_id?._id || item.application_id;
-                                if (targetAppId) {
-                                  navigate(`/applications/${targetAppId}/processing`);
-                                }
-                              }}
-                              title="View Application Flow"
-                              style={{
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: '#065f46',
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '12px'
-                              }}
-                            >
-                              <span>View</span>
-                              <ChevronRight size={13} />
-                            </button>
-                          )}
-                        </div>
+                      <td style={{ padding: '16px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <ActionTriggerButton
+                          onClick={() => setActionModalItem(item)}
+                          title="Surveillance Actions"
+                        />
                       </td>
                     </tr>
                   );
@@ -671,6 +599,50 @@ export default function AdminSurveillanceDueDates() {
           </div>
         )}
       </div>
+
+      {/* Action Menu Pop-up Modal */}
+      {actionModalItem && (
+        <ActionModal
+          isOpen={Boolean(actionModalItem)}
+          onClose={() => setActionModalItem(null)}
+          title="Surveillance Action"
+          subtitle={actionModalItem.company_name || 'GSO Certified Facility'}
+          badge={
+            <span style={{ fontSize: 11.5, color: '#64748b' }}>
+              App #{actionModalItem.application_number || 'N/A'} • Site: {actionModalItem.site_name || 'Main Facility'}
+            </span>
+          }
+          actions={[
+            actionModalItem.application_id && {
+              label: 'Application Processing',
+              description: 'Open complete stage workflow & audit details',
+              icon: Settings,
+              variant: 'primary',
+              onClick: () => {
+                const targetAppId = actionModalItem.application_id?._id || actionModalItem.application_id;
+                if (targetAppId) {
+                  navigate(`/applications/${targetAppId}/processing`);
+                }
+              }
+            },
+            {
+              label: 'Send Email Reminder',
+              description: 'Notify client about upcoming surveillance due date',
+              icon: Mail,
+              variant: 'success',
+              onClick: () => handleOpenRemind(actionModalItem)
+            },
+            {
+              label: 'Edit Due Date',
+              description: 'Update scheduled surveillance audit date & notes',
+              icon: Edit3,
+              variant: 'default',
+              onClick: () => handleOpenEdit(actionModalItem)
+            }
+          ].filter(Boolean)}
+        />
+      )}
+
 
       {/* Edit Surveillance Date Modal */}
       {editingItem && (

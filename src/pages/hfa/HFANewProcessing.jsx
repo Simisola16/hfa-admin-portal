@@ -1073,8 +1073,8 @@ export default function HFANewProcessing(props) {
             markingDone={markingAgreementDone}
           />
 
-          {/* 8. Final Invoice Card */}
-          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {/* 8. Final Invoice Card — only visible after admin sends the final countersigned agreement copy */}
+          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

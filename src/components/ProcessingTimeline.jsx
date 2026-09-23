@@ -33,7 +33,7 @@ export default function ProcessingTimeline({
   const catLower = String(category || '').toLowerCase();
   const typeLower = String(applicationType || '').toLowerCase();
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || isSurveillance;
-  const isDualStage = isGSO && !isRenewal;
+  const isDualStage = isGSO;
   const isInitialProductApproved = Boolean(initialProduct && (initialProduct.status === 'initial_product_approved' || initialProduct.status === 'approved'));
 
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
@@ -163,6 +163,14 @@ export default function ProcessingTimeline({
     if (stepKey === 'logsheet_signed') {
       return 'Logsheet Signed';
     }
+    if (isDualStage) {
+      const stagePrefix = isStage1Complete ? 'Stage 2' : 'Stage 1';
+      if (stepKey === 'dates_proposed') return `${stagePrefix} Audit Dates Proposed`;
+      if (stepKey === 'dates_accepted') return `${stagePrefix} Audit Dates Accepted`;
+      if (stepKey === 'date_finalized') return `${stagePrefix} Audit Date Finalized`;
+      if (stepKey === 'audit_assigned') return `${stagePrefix} Auditor Assigned`;
+      if (stepKey === 'audit_successful') return `${stagePrefix} Audit Complete`;
+    }
     if (isSurveillance) {
       if (stepKey === 'submitted') return 'Surveillance Application Submitted';
       if (stepKey === 'approved') return 'Surveillance Application Accepted';
@@ -188,21 +196,6 @@ export default function ProcessingTimeline({
       if (stepKey === 'invoice_sent') return 'Renewal Invoice Sent';
       if (stepKey === 'payment_received') return 'Renewal Payment Received';
       if (stepKey === 'certificate_issued') return 'Certificate Issued';
-    }
-    if (isDualStage) {
-      if (isStage1Complete) {
-        if (stepKey === 'dates_proposed') return 'Stage 2 Audit Dates Proposed';
-        if (stepKey === 'dates_accepted') return 'Stage 2 Audit Dates Accepted';
-        if (stepKey === 'date_finalized') return 'Stage 2 Audit Date Finalized';
-        if (stepKey === 'audit_assigned') return 'Stage 2 Auditor Assigned';
-        if (stepKey === 'audit_successful') return 'Stage 2 Audit Complete';
-      } else {
-        if (stepKey === 'dates_proposed') return 'Stage 1 Audit Dates Proposed';
-        if (stepKey === 'dates_accepted') return 'Stage 1 Audit Dates Accepted';
-        if (stepKey === 'date_finalized') return 'Stage 1 Audit Date Finalized';
-        if (stepKey === 'audit_assigned') return 'Stage 1 Auditor Assigned';
-        if (stepKey === 'audit_successful') return 'Stage 1 Audit Complete';
-      }
     }
     if (stepKey === 'initial_product') {
       const isPastPayment = normStatus === 'payment_received' || Boolean(historyMap['payment_received']) || (currentOrderIdx >= STATUS_ORDER.indexOf('payment_received'));
@@ -245,8 +238,8 @@ export default function ProcessingTimeline({
     }
   }
 
-  // Renewal / Surveillance audit tracking: If audit is completed, advance effectiveStatus to audit_successful
-  if (isRenewal && isStage1Complete && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(normStatus)) {
+  // Non-dual-stage Renewal / Surveillance audit tracking: If audit is completed, advance effectiveStatus to audit_successful
+  if (isRenewal && !isDualStage && isStage1Complete && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(normStatus)) {
     effectiveStatus = 'audit_successful';
   }
 

@@ -23,7 +23,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const isFastTrack = isSurveillance || isRenewal;
 
   const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || schemeLower.includes('gso');
-  const isDualStage = isGSO && !isFastTrack;
+  const isDualStage = isGSO;
 
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const stage1 = auditsArr.find(a => (a.stage || 1) === 1) || auditsArr[0];
@@ -56,8 +56,8 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   );
 
   // For GSO Dual-Stage applications: Stage 1 is an initial assessment where NC findings should not be raised.
-  // Unlock the Non-Conformity (NC) & Findings section once Stage 2 is scheduled or underway.
-  if (isDualStage && !isStage2ReadyOrActive && !hasStage2Nc) {
+  // Unlock the Non-Conformity (NC) & Findings section strictly once Stage 2 has been completed or Stage 2 NC is raised.
+  if (isDualStage && !isStage2Conducted && !hasStage2Nc) {
     return null;
   }
 
@@ -128,7 +128,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const isAuditCompletedStatus = ['audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted'].includes(normStatus);
 
   const isPostAuditStage = isDualStage
-    ? (isStage2ReadyOrActive || hasStage2Nc || ['nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+    ? (isStage2Conducted || hasStage2Nc || ['nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
     : (isFastTrack
         ? (hasAuditorAssigned || hasNc || ['audit_assigned', 'date_finalized', 'dates_accepted', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'invoice_sent', 'payment_received', 'logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus))
         : (isAuditCompletedStatus || hasCompletedAudit || [

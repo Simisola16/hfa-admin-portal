@@ -15,13 +15,11 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
   const hasAudits = audits && audits.length > 0;
   const isAvailable = ['invoice_sent', 'payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_report_submitted', 'audit_successful', 'on_hold', 'final_invoice_sent', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued', 'nc_flagged', 'nc_closed', 'audit_completed'].includes(normStatus) || hasAudits;
 
-  const isRenewalOrSurveillance = 
-    String(app?.application_type || '').toLowerCase().includes('renewal') ||
-    String(app?.application_type || '').toLowerCase().includes('surveillance') ||
-    Boolean(app?.is_renewal) ||
-    Boolean(app?.is_surveillance) ||
-    isFastTrack;
-  const isDualStage = app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE' && !isRenewalOrSurveillance;
+  const catLower = String(app?.category || '').toLowerCase();
+  const typeLower = String(app?.application_type || '').toLowerCase();
+  const schemeLower = String(app?.scheme || '').toLowerCase();
+  const isGso = catLower.includes('gso') || catLower.includes('uae') || typeLower.includes('gso') || schemeLower.includes('gso');
+  const isDualStage = isGso || app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
   const stage2 = audits?.find(a => a.stage === 2);
 

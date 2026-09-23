@@ -10,6 +10,7 @@ import {
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
+import NextSurveillanceDateModal from '../components/NextSurveillanceDateModal';
 
 export default function AdminCreateLogsheet() {
   const { appId, addonId, initialProductId, id } = useParams();
@@ -37,6 +38,7 @@ export default function AdminCreateLogsheet() {
   const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [clientProducts, setClientProducts] = useState([]);
+  const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Signing Modal State
   const [showSignModal, setShowSignModal] = useState(false);
@@ -865,9 +867,18 @@ export default function AdminCreateLogsheet() {
     }
   };
 
+  const catLower = String(application?.category || form?.category || '').toLowerCase();
+  const typeLower = String(application?.application_type || form?.audit_type || '').toLowerCase();
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || typeLower.includes('surveillance');
+
   const handleFinalizeApplicationSuccessful = async () => {
     if (totalSignedCount < 3) {
       toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
+      return;
+    }
+
+    if (isGSO) {
+      setShowNextSurvModal(true);
       return;
     }
 
@@ -889,6 +900,32 @@ export default function AdminCreateLogsheet() {
       } else if (isInitialProduct) {
         navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
       } else if (targetAppId) {
+        navigate(`/applications/${targetAppId}/processing`);
+      } else {
+        navigate('/applications');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleConfirmNextSurveillanceFromLogsheet = async ({ next_surveillance_due_date, admin_name, notes }) => {
+    setIsFinalizing(true);
+    try {
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        finalizeSignOff: true,
+        next_surveillance_due_date,
+        admin_name,
+        notes
+      });
+
+      toast.success('🎉 Application marked Successful! Next surveillance due date recorded.');
+      setShowNextSurvModal(false);
+      fetchData();
+      const targetAppId = appId || application?._id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
+      if (targetAppId) {
         navigate(`/applications/${targetAppId}/processing`);
       } else {
         navigate('/applications');
@@ -3121,6 +3158,14 @@ export default function AdminCreateLogsheet() {
         formData={viewProductModal.formData}
         product={viewProductModal.product}
         company={viewProductModal.company}
+      />
+
+      <NextSurveillanceDateModal
+        isOpen={showNextSurvModal}
+        onClose={() => setShowNextSurvModal(false)}
+        onConfirm={handleConfirmNextSurveillanceFromLogsheet}
+        app={application || form}
+        submitting={isFinalizing}
       />
     </div>
   );

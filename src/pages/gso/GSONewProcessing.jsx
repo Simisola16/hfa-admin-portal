@@ -20,7 +20,8 @@ import AgreementModal from '../../components/AgreementModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
-import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
+import SubmissionModal from '../../components/SubmissionModal';
+import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards
 import ProposalCard from '../../components/ProposalCard';
@@ -65,6 +66,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
+  const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Inline forms/submission states
   const [rejectReason, setRejectReason] = useState('');
@@ -500,7 +502,16 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
   };
 
-  const handleMarkLogsheetDone = async () => {
+  const handleMarkLogsheetDone = () => {
+    const logsheetId = logsheet?._id || logsheet?.id;
+    if (!logsheetId) {
+      toast.error('No logsheet record found.');
+      return;
+    }
+    setShowNextSurvModal(true);
+  };
+
+  const handleConfirmNextSurveillanceDate = async ({ next_surveillance_due_date, admin_name, notes }) => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found.');
@@ -510,12 +521,16 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Waiting For Certificate',
-        force: true
+        force: true,
+        next_surveillance_due_date,
+        admin_name,
+        notes
       });
-      toast.success('Logsheet marked as Done! Application moved to Application Successful & Agreement unlocked.');
+      toast.success('Next surveillance due date recorded & application marked successful!');
+      setShowNextSurvModal(false);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -1557,6 +1572,14 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
+      />
+
+      <NextSurveillanceDateModal
+        isOpen={showNextSurvModal}
+        onClose={() => setShowNextSurvModal(false)}
+        onConfirm={handleConfirmNextSurveillanceDate}
+        app={app}
+        submitting={markingLogsheetDone}
       />
     </div>
   );

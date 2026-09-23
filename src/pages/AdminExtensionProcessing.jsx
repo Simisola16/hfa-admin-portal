@@ -184,6 +184,53 @@ export default function AdminExtensionProcessing() {
     });
   };
 
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+
+  const formatTimeOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const getActorName = (entry, stepKey) => {
+    if (entry?.changedBy) {
+      if (typeof entry.changedBy === 'object') {
+        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.email;
+        const roleStr = entry.changedBy.role
+          ? ` (${entry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+          : '';
+        if (name) return `${name}${roleStr}`;
+      } else if (typeof entry.changedBy === 'string' && entry.changedBy.trim()) {
+        return entry.changedBy;
+      }
+    }
+
+    if (stepKey === 'submitted') {
+      const cName = app?.company_name || app?.client_id?.company_name || app?.client_id?.full_name;
+      return cName ? `${cName} (Client)` : 'Client / Applicant';
+    }
+    if (stepKey === 'logsheet_created') {
+      return 'HFA Technical Officer';
+    }
+    if (stepKey === 'waiting_signature') {
+      return 'Shariah & Technical Committee';
+    }
+    if (stepKey === 'extension_approved') {
+      return 'HFA Certification Committee';
+    }
+    return 'HFA Administrator';
+  };
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 20px', fontFamily: 'Inter, sans-serif' }}>
@@ -1000,9 +1047,38 @@ export default function AdminExtensionProcessing() {
                         </div>
 
                         {timestamp && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, fontSize: 11.5, color: '#94a3b8' }}>
-                            <Clock size={11} />
-                            <span>{formatDate(timestamp)}</span>
+                          <div style={{
+                            marginTop: 5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                            fontSize: 11,
+                            color: '#64748b',
+                            background: '#f8fafc',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            border: '1px solid #e2e8f0',
+                            width: 'fit-content',
+                          }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                              <Calendar size={11} style={{ color: '#008744' }} />
+                              <span>{formatDateOnly(timestamp)}</span>
+                            </div>
+                            <span style={{ color: '#cbd5e1' }}>•</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                              <Clock size={11} style={{ color: '#008744' }} />
+                              <span>{formatTimeOnly(timestamp)}</span>
+                            </div>
+                            {getActorName(histEntry, stg.key) && (
+                              <>
+                                <span style={{ color: '#cbd5e1' }}>•</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#008744', fontWeight: 700 }}>
+                                  <User size={11} style={{ color: '#008744' }} />
+                                  <span>{getActorName(histEntry, stg.key)}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
 

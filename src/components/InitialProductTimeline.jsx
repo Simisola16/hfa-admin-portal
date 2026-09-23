@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Check, Clock, CheckCircle, AlertCircle, User, Calendar } from 'lucide-react';
 
 export const INITIAL_PRODUCT_STAGES = [
   { id: 'ft_assigned', label: 'Assign FT' },
@@ -251,21 +251,72 @@ export default function InitialProductTimeline({ status = 'submitted', statusHis
                 )}
               </div>
 
-              {/* Timestamp with Clock Icon */}
-              {(isComplete || (isCurrent && timestamp)) && timestamp && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#64748b',
+              {/* Name, Date & Time Badges */}
+              {(isComplete || (isCurrent && timestamp)) && (
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 5,
-                    marginTop: 4,
-                    fontWeight: 500
-                  }}
-                >
-                  <Clock size={12.5} style={{ color: '#64748b' }} />
-                  <span>{timestamp}</span>
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    fontSize: 11,
+                    color: '#64748b',
+                    background: '#f8fafc',
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: '1px solid #e2e8f0',
+                    width: 'fit-content',
+                  }}>
+                    {timestamp && (
+                      <>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                          <Clock size={11} style={{ color: '#0e7490' }} />
+                          <span>{timestamp}</span>
+                        </div>
+                      </>
+                    )}
+                    {(() => {
+                      const histEntry = historyMap[stage.id];
+                      let actor = null;
+                      if (histEntry?.changedBy) {
+                        if (typeof histEntry.changedBy === 'object') {
+                          const n = histEntry.changedBy.full_name || histEntry.changedBy.name || histEntry.changedBy.email;
+                          const r = histEntry.changedBy.role ? ` (${histEntry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})` : '';
+                          if (n) actor = `${n}${r}`;
+                        } else if (typeof histEntry.changedBy === 'string' && histEntry.changedBy.trim()) {
+                          actor = histEntry.changedBy;
+                        }
+                      }
+                      if (!actor) {
+                        if (stage.id === 'ft_assigned') {
+                          const ft = app?.assigned_food_techs?.[0] || app?.assigned_food_tech || app?.assigned_ft_custom;
+                          if (ft) actor = `${ft.full_name || ft.name || 'Food Tech Officer'} (Assigned FT)`;
+                          else actor = 'HFA Technical Officer';
+                        } else if (stage.id === 'product_approval_form_enabled') {
+                          actor = 'HFA Technical Officer';
+                        } else if (stage.id === 'all_forms_received') {
+                          const cName = app?.client_id?.company_name || app?.client_id?.full_name;
+                          actor = cName ? `${cName} (Client)` : 'Client / Applicant';
+                        } else if (stage.id === 'logsheet_created') {
+                          actor = 'HFA Technical Officer';
+                        } else if (stage.id === 'waiting_sharia_signature') {
+                          actor = 'Shariah & Technical Committee';
+                        } else if (stage.id === 'initial_product_approved') {
+                          actor = 'HFA Certification Committee';
+                        }
+                      }
+                      if (!actor) return null;
+                      return (
+                        <>
+                          {timestamp && <span style={{ color: '#cbd5e1' }}>•</span>}
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#0e7490', fontWeight: 700 }}>
+                            <User size={11} style={{ color: '#0e7490' }} />
+                            <span>{actor}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
 

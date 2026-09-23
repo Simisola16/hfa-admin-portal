@@ -44,6 +44,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveCategory, setApproveCategory] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -273,13 +274,23 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
+      const categoryToSet = approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+      const isReclassified = categoryToSet !== (app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE');
+
       const res = await api.put(`/api/applications/${appId}/approve`, {
-        category: 'UAE/GSO Approved Halal Certification For Exporters To UAE'
+        category: categoryToSet
       });
-      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved', category: categoryToSet });
       setShowApproveModal(false);
-      toast.success('GSO Renewal Application accepted!');
-      fetchApp(true);
+      toast.success(isReclassified
+        ? `Renewal application accepted and reclassified to ${categoryToSet}!`
+        : 'GSO Renewal Application accepted!'
+      );
+      if (isReclassified) {
+        window.location.reload();
+      } else {
+        fetchApp(true);
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to accept renewal application.');
     } finally {
@@ -975,14 +986,44 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Selected Certification Category
+                  Certification Category
                 </label>
-                <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 800, color: '#0369a1', fontSize: 13 }}>
+                <select
+                  className="form-control"
+                  value={approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE'}
+                  onChange={e => setApproveCategory(e.target.value)}
+                  disabled={actionSubmitting}
+                  style={{ fontSize: 13.5, padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1.5px solid #cbd5e1', fontWeight: 600 }}
+                >
+                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">
                     UAE/GSO Approved Halal Certification For Exporters To UAE
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#0284c7', marginTop: 4 }}>
-                    🔒 Fast-track Renewal Certification Cycle.
+                  </option>
+                  <option value="Annual Certification – Food and General processing">
+                    Annual Certification – Food and General processing
+                  </option>
+                  <option value="Annual Certification – Meat Processing">
+                    Annual Certification – Meat Processing
+                  </option>
+                  <option value="Annual Certification – Cosmetics and Personal Care">
+                    Annual Certification – Cosmetics and Personal Care
+                  </option>
+                </select>
+
+                <div style={{
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  background: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#f0f9ff' : '#f0fdf4',
+                  border: `1px solid ${(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#bae6fd' : '#bbf7d0'}`,
+                  borderRadius: 8
+                }}>
+                  <div style={{
+                    fontSize: 12,
+                    color: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#0369a1' : '#15803d',
+                    fontWeight: 600
+                  }}>
+                    {(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae')
+                      ? '⚡ Fast-track Renewal Certification Cycle for UAE/GSO.'
+                      : '⚡ Standard Annual Renewal Certification Cycle.'}
                   </div>
                 </div>
               </div>

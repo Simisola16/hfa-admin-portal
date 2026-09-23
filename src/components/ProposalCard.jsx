@@ -31,6 +31,11 @@ export default function ProposalCard({ proposal, status, onSendProposal }) {
     );
   }
 
+  const isAccepted = ['accepted', 'approved', 'proposal_approved'].includes(proposal?.status) || 
+    ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
+
+  const canResend = onSendProposal && !isAccepted && (proposal?.status === 'rejected' || proposal?.status === 'pending' || proposal?.status === 'sent' || status === 'proposal_rejected' || status === 'proposal_sent');
+
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -44,9 +49,9 @@ export default function ProposalCard({ proposal, status, onSendProposal }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {onSendProposal && (
+          {canResend && (
             <button onClick={onSendProposal} className="btn btn-ghost btn-sm" style={{ border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Resend Proposal
+              {proposal.status === 'rejected' ? 'Send Revised Proposal' : 'Resend Proposal'}
             </button>
           )}
           {proposal.proposal_url && (

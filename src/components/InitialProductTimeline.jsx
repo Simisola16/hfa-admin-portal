@@ -280,11 +280,14 @@ export default function InitialProductTimeline({ status = 'submitted', statusHis
                       let actor = null;
                       if (histEntry?.changedBy) {
                         if (typeof histEntry.changedBy === 'object') {
-                          const n = histEntry.changedBy.full_name || histEntry.changedBy.name || histEntry.changedBy.email;
+                          const n = histEntry.changedBy.full_name || histEntry.changedBy.name || histEntry.changedBy.username || histEntry.changedBy.email;
                           const r = histEntry.changedBy.role ? ` (${histEntry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})` : '';
                           if (n) actor = `${n}${r}`;
                         } else if (typeof histEntry.changedBy === 'string' && histEntry.changedBy.trim()) {
-                          actor = histEntry.changedBy;
+                          const isHexId = /^[0-9a-fA-F]{24}$/.test(histEntry.changedBy.trim());
+                          if (!isHexId) {
+                            actor = histEntry.changedBy;
+                          }
                         }
                       }
                       if (!actor) {

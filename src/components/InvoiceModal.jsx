@@ -118,6 +118,11 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       return;
     }
 
+    if (!invoiceForm.file && (!invoice || !invoice.invoice_url)) {
+      toast.error('Please upload an invoice document (PDF) before sending.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const formData = new FormData();
@@ -139,7 +144,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       if (typeof onSuccess === 'function') onSuccess(createdInvoice);
       if (typeof onClose === 'function') onClose();
     } catch (err) {
-      toast.error(err.message || 'Failed to send invoice.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to send invoice.');
     } finally {
       setSubmitting(false);
     }
@@ -183,22 +188,24 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           </div>
 
           <div className="form-group">
-            <label className="form-label">Invoice Document (PDF) <span style={{ fontSize: 11, fontWeight: 'normal', color: '#64748b' }}>(Optional — auto-generated if omitted)</span></label>
+            <label className="form-label">Invoice Document (PDF) <span style={{ color: '#dc2626' }}>*</span></label>
             <div
               onClick={() => document.getElementById('invoice-file-shared').click()}
               style={{
-                border: '2px dashed #e2e8f0', padding: '24px 20px', borderRadius: '12px',
+                border: invoiceForm.file ? '2px solid #22c55e' : '2px dashed #cbd5e1', padding: '24px 20px', borderRadius: '12px',
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
                 background: invoiceForm.file ? '#f0fdf4' : '#fff'
               }}
               onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-              onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+              onMouseOut={e => e.currentTarget.style.borderColor = invoiceForm.file ? '#22c55e' : '#cbd5e1'}
             >
               <FileText size={36} style={{ color: invoiceForm.file ? '#22c55e' : '#94a3b8', marginBottom: 8, margin: '0 auto' }} />
               <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
-                {invoiceForm.file ? invoiceForm.file.name : 'Click to select invoice document (PDF)'}
+                {invoiceForm.file ? invoiceForm.file.name : (invoice?.invoice_url ? 'Click to replace current invoice PDF' : 'Click to select invoice document (PDF)')}
               </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>PDF only (or leave empty to generate automatically)</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                {invoiceForm.file ? 'Selected PDF ready for upload' : (invoice?.invoice_url ? 'Current PDF attached — click to replace' : 'PDF document is required *')}
+              </div>
               <input
                 id="invoice-file-shared"
                 type="file"
@@ -225,7 +232,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || (!invoiceForm.file && (!invoice || !invoice.invoice_url))}
           >
             {submitting ? 'Sending...' : 'Send Invoice'}
           </button>

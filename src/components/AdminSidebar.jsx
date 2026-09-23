@@ -38,6 +38,7 @@ const NAV_SECTIONS = [
           { label: 'Certified Applications',  path: '/applications?type=certified' },
           { label: 'Renewals',                path: '/applications?type=renewal' },
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
+          { label: 'Surveillance Due Dates',  path: '/surveillance-due-dates' },
           { label: 'Extension Applications',  path: '/extension-applications' },
         ],
       },

@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users,
-  HelpCircle, MessageSquare, CheckCircle2
+  HelpCircle, MessageSquare, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -24,8 +24,8 @@ const STATUS_LABELS = {
   logsheet_created: 'Create Logsheet',
   waiting_sharia_signature: 'Waiting For Committee Signature',
   product_form_approved: 'Product Approved',
-  ready_for_certificate: 'Ready For Certificate',
-  completed: 'Certificate'
+  ready_for_certificate: 'Ready for Certificate',
+  completed: 'Certificate Updated & Endorsed'
 };
 
 const STATUS_BADGE = {
@@ -44,10 +44,10 @@ const STATUS_BADGE = {
 
 const FLOW_STEPS = [
   { id: 'submitted', label: 'Submit Add-On' },
-  { id: 'accepted', label: 'Accepted' },
+  { id: 'accepted', label: 'Application Accepted' },
   { id: 'ft_assigned', label: 'Assign FT' },
-  { id: 'product_approval_form_enabled', label: 'Product Form Enabled' },
-  { id: 'all_forms_received', label: 'Product Form Received' },
+  { id: 'product_approval_form_enabled', label: 'Enable Form' },
+  { id: 'all_forms_received', label: 'Forms Received' },
   { id: 'logsheet_created', label: 'Create Logsheet' },
   { id: 'waiting_sharia_signature', label: 'Committee Signature' },
   { id: 'product_form_approved', label: 'Product Approved' },
@@ -61,6 +61,7 @@ export default function AdminAddOnProcessing() {
   const { user } = useAuth();
 
   const [app, setApp] = useState(null);
+  const [certificate, setCertificate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [ftUsers, setFtUsers] = useState([]);
@@ -94,8 +95,13 @@ export default function AdminAddOnProcessing() {
     if (isManual) setRefreshing(true);
     else setLoading(true);
     try {
-      const res = await api.get(`/api/add-on-applications/${addonId}`);
-      setApp(res.data?.data || res.data);
+      const [appRes, certRes] = await Promise.all([
+        api.get(`/api/add-on-applications/${addonId}`),
+        api.get(`/api/certificates/application/${addonId}`).catch(() => ({ data: null }))
+      ]);
+      const fetchedApp = appRes.data?.data || appRes.data;
+      setApp(fetchedApp);
+      setCertificate(certRes?.data?.data || certRes?.data || (typeof fetchedApp?.certificate_id === 'object' ? fetchedApp.certificate_id : null));
 
       if (isManagerOrAdmin) {
         const usersRes = await api.get('/api/users');
@@ -513,7 +519,35 @@ export default function AdminAddOnProcessing() {
       );
     }
 
-    if (app.status === 'product_form_approved' || app.status === 'ready_for_certificate') {
+    if (app.status === 'product_form_approved' || app.status === 'ready_for_certificate' || (certificate && app.status !== 'completed')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          </div>
+        );
+      }
+
+      if (app.status === 'completed' || certificate?.status === 'active') {
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <CheckCircle size={15} /> Certificate Updated & Endorsed
+          </span>
+        );
+      }
+
       return (
         <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setShowCertificateModal(true)}>
           <Award size={16} style={{ marginRight: 6 }} /> Issue Certificate
@@ -521,7 +555,7 @@ export default function AdminAddOnProcessing() {
       );
     }
 
-    if (app.status === 'completed') {
+    if (app.status === 'completed' || certificate?.status === 'active') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <CheckCircle size={15} /> Certificate Updated & Endorsed

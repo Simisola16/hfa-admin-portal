@@ -62,7 +62,7 @@ export default function AuditManageModal({
   const scheme = String(currentApp?.scheme || '').toLowerCase();
   const isGso = cat.includes('gso') || cat.includes('uae') || type.includes('gso') || scheme.includes('gso');
   const isRenewalOrSurveillance = type === 'renewal' || type === 'surveillance' || Boolean(currentApp?.is_renewal) || Boolean(currentApp?.is_surveillance);
-  const isDualStage = (isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE') && !isRenewalOrSurveillance;
+  const isDualStage = isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
   const isGsoInitial = isGso && !isRenewalOrSurveillance;
 
   const [initialProduct, setInitialProduct] = useState(null);

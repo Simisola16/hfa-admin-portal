@@ -22,6 +22,7 @@ import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 import ApplicationSuccessfulModal from '../../components/ApplicationSuccessfulModal';
+import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards
 import ProposalCard from '../../components/ProposalCard';
@@ -54,6 +55,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveCategory, setApproveCategory] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -67,6 +69,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
+  const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Inline forms/submission states
   const [rejectReason, setRejectReason] = useState('');
@@ -250,9 +253,43 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     (app.statusHistory || []).some(h => h.status === 'nc_closed')
   ));
 
-  const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
-  const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
-  const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
+  const POST_NC_STAGES = [
+    'nc_closed',
+    'audit_report_submitted',
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'application_successful',
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'certificate_issued'
+  ];
+
+  const hasLogsheetRecord = Boolean(
+    logsheet &&
+    !logsheet.error &&
+    (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
+  );
+
+  const isAfterNcClosed = !hasActiveNc && (
+    isNcClosed ||
+    POST_NC_STAGES.includes(status) ||
+    hasLogsheetRecord
+  );
+
+  const initialInvoice =
+    allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') ||
+    allInvoices.find(inv => inv.invoice_type !== 'final' && inv.stage !== 'final') ||
+    (invoice && invoice.invoice_type !== 'final' ? invoice : null) ||
+    (allInvoices.length > 0 && allInvoices[0].invoice_type !== 'final' ? allInvoices[0] : null);
+  const finalInvoice =
+    allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') ||
+    (invoice && invoice.invoice_type === 'final' ? invoice : null);
+  const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'confirmed' || finalInvoice.status === 'payment_received')) || status === 'final_invoice_paid';
 
   const isInitialProductApproved = Boolean(
     status === 'initial_product_approved' ||
@@ -271,13 +308,23 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
+      const categoryToSet = approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+      const isReclassified = categoryToSet !== (app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE');
+
       const res = await api.put(`/api/applications/${appId}/approve`, {
-        category: 'UAE/GSO Approved Halal Certification For Exporters To UAE'
+        category: categoryToSet
       });
-      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved', category: categoryToSet });
       setShowApproveModal(false);
-      toast.success('GSO Application accepted successfully!');
-      fetchApp(true);
+      toast.success(isReclassified
+        ? `Application accepted and reclassified to ${categoryToSet}!`
+        : 'Application accepted successfully!'
+      );
+      if (isReclassified) {
+        window.location.reload();
+      } else {
+        fetchApp(true);
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to accept application');
     } finally {
@@ -322,7 +369,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   };
 
   const handleConfirmPayment = async () => {
-    const invId = initialInvoice?._id || initialInvoice?.id || invoice?._id || invoice?.id;
+    const invId = initialInvoice?._id || initialInvoice?.id || invoice?._id || invoice?.id || allInvoices.find(i => i.status === 'client_paid')?._id || allInvoices[0]?._id;
     if (!invId) {
       toast.error('No invoice record found to confirm.');
       return;
@@ -340,7 +387,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   };
 
   const handleConfirmFinalPayment = async () => {
-    const invId = finalInvoice?._id || finalInvoice?.id;
+    const invId = finalInvoice?._id || finalInvoice?.id || allInvoices.find(i => i.status === 'client_paid')?._id;
     if (!invId) {
       toast.error('No final invoice record found.');
       return;
@@ -566,6 +613,18 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 3. Initial Invoice Stage
     if (status === 'proposal_approved' || status === 'proposal_accepted' || status === 'invoice_sent') {
+      if (initialInvoice?.status === 'client_paid' || invoice?.status === 'client_paid' || (allInvoices.length > 0 && allInvoices[0].status === 'client_paid')) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleConfirmPayment}
+            disabled={confirmingPayment}
+          >
+            <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+          </button>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -625,36 +684,6 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
       if (canCompleteAudit) {
         if (isStage1Complete) {
-          if (!isNcClosed) {
-            return (
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-ghost"
-                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-                  onClick={() => setShowAuditModal(true)}
-                >
-                  <Calendar size={16} /> Manage Stage 2 Audit
-                </button>
-                <button
-                  className="btn btn-danger"
-                  style={{ gap: 8 }}
-                  onClick={() => setShowNcModal(true)}
-                  disabled={actionSubmitting}
-                >
-                  <AlertTriangle size={16} /> Flag NC
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                  onClick={handleCloseNc}
-                  disabled={actionSubmitting}
-                >
-                  <CheckCircle size={16} /> Close NC
-                </button>
-              </div>
-            );
-          }
-
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
@@ -737,39 +766,9 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
       );
     }
 
-    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet!
+    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
     if (!isStage2Complete) {
-      if (!isNcClosed) {
-        return (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Stage 2 Audit
-            </button>
-            <button
-              className="btn btn-danger"
-              style={{ gap: 8 }}
-              onClick={() => setShowNcModal(true)}
-              disabled={actionSubmitting}
-            >
-              <AlertTriangle size={16} /> Flag NC
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleCloseNc}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> Close NC
-            </button>
-          </div>
-        );
-      }
-
-      if (canCompleteAudit || isNcClosed || status === 'nc_closed') {
+      if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
@@ -803,7 +802,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
       );
     }
 
-    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold')) {
+    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold' || isStage2Complete)) {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -884,6 +883,18 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 9. Final Invoice Stage (For non-renewal apps when agreement is finalized)
     if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
+      if (finalInvoice?.status === 'client_paid') {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleConfirmFinalPayment}
+            disabled={confirmingPayment}
+          >
+            <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+          </button>
+        );
+      }
       if (isFinalInvoicePaid) {
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -917,7 +928,35 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
 
     // 11. Issue Certificate Stage
-    if (status === 'ready_for_certificate') {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          </div>
+        );
+      }
+
+      if (status === 'certificate_issued' || certificate?.status === 'active') {
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+            <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -927,16 +966,11 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
           >
             <Award size={16} /> Issue Certificate
           </button>
-          {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
-            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
-            </span>
-          )}
         </div>
       );
     }
 
-    if (status === 'certificate_issued') {
+    if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
           <CheckCircle size={15} /> ✓ Certificate Issued
@@ -1069,17 +1103,20 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             onCloseNc={handleCloseNc}
             actionSubmitting={actionSubmitting}
           />
-          <LogsheetCard
-            logsheet={logsheet}
-            status={status}
-            appId={appId}
-            isRenewal={false}
-            isSurveillance={false}
-            hasActiveNc={hasActiveNc}
-            isNcClosed={isNcClosed}
-            onMarkDone={handleMarkLogsheetDone}
-            markingDone={markingLogsheetDone}
-          />
+          {/* 6. Facility Logsheet Card - Only shown after NC has been closed */}
+          {isAfterNcClosed && (
+            <LogsheetCard
+              logsheet={logsheet}
+              status={status}
+              appId={appId}
+              isRenewal={false}
+              isSurveillance={false}
+              hasActiveNc={hasActiveNc}
+              isNcClosed={isNcClosed}
+              onMarkDone={handleMarkLogsheetDone}
+              markingDone={markingLogsheetDone}
+            />
+          )}
           <AgreementCard
             app={app}
             agreement={agreement}
@@ -1202,14 +1239,44 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Selected Certification Category
+                  Certification Category
                 </label>
-                <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 800, color: '#0369a1', fontSize: 13 }}>
+                <select
+                  className="form-control"
+                  value={approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE'}
+                  onChange={e => setApproveCategory(e.target.value)}
+                  disabled={actionSubmitting}
+                  style={{ fontSize: 13.5, padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1.5px solid #cbd5e1', fontWeight: 600 }}
+                >
+                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">
                     UAE/GSO Approved Halal Certification For Exporters To UAE
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#0284c7', marginTop: 4 }}>
-                    🔒 Dual-Stage Initial Certification Scheme (Stage 1 readiness &amp; Stage 2 on-site audit).
+                  </option>
+                  <option value="Annual Certification – Food and General processing">
+                    Annual Certification – Food and General processing
+                  </option>
+                  <option value="Annual Certification – Meat Processing">
+                    Annual Certification – Meat Processing
+                  </option>
+                  <option value="Annual Certification – Cosmetics and Personal Care">
+                    Annual Certification – Cosmetics and Personal Care
+                  </option>
+                </select>
+
+                <div style={{
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  background: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#f0f9ff' : '#f0fdf4',
+                  border: `1px solid ${(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#bae6fd' : '#bbf7d0'}`,
+                  borderRadius: 8
+                }}>
+                  <div style={{
+                    fontSize: 12,
+                    color: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#0369a1' : '#15803d',
+                    fontWeight: 600
+                  }}>
+                    {(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae')
+                      ? '⚡ Dual-Stage Initial Certification Scheme (Stage 1 readiness & Stage 2 on-site audit).'
+                      : '⚡ Standard Single-Stage Annual Certification Scheme.'}
                   </div>
                 </div>
               </div>

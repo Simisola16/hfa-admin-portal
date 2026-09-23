@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, Calendar, AlertTriangle,
-  ClipboardList, Download, Receipt, Clock
+  ClipboardList, Download, Receipt, Clock, ShieldCheck
 } from 'lucide-react';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
+import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -43,6 +44,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   // Modal Visibility States
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveCategory, setApproveCategory] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -51,6 +53,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
+  const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Inline forms/submission states
   const [rejectReason, setRejectReason] = useState('');
@@ -103,7 +106,11 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
-      const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
+      const s1Audit = loadedAudits.find(a => a.stage === 1) || loadedAudits[0];
+      const s2Audit = loadedAudits.find(a => a.stage === 2);
+      const isS1Done = s1Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s1Audit.status);
+      const isS2Done = s2Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s2Audit.status);
+      const hasCompletedAudit = Boolean(isS1Done && isS2Done);
 
       if (fetchedApp) {
         if (fetchedLogsheet) {
@@ -121,8 +128,8 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             fetchedApp.status = 'nc_closed';
           }
         } else if (hasCompletedAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(fetchedApp.status)) {
-          const hasNcClosedInHistory = (fetchedApp?.statusHistory || []).some(h => h.status === 'nc_closed');
-          fetchedApp.status = hasNcClosedInHistory ? 'nc_closed' : 'audit_completed';
+          const isAuditNcClosed = Boolean(fetchedApp.nc_closed) || loadedAudits.some(a => Boolean(a.nc_closed));
+          fetchedApp.status = isAuditNcClosed ? 'nc_closed' : 'audit_completed';
         }
       }
 
@@ -186,8 +193,14 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
-  const activeAudit = auditsArr[0] || null;
-  const isAuditReady = status === 'audit_assigned' || status === 'nc_flagged' || (activeAudit && (activeAudit.status === 'auditors_assigned' || activeAudit.status === 'audit_assigned' || (activeAudit.status === 'date_finalized' && activeAudit.auditors?.length > 0)));
+  const stage1 = auditsArr.find(a => a.stage === 1) || auditsArr[0];
+  const stage2 = auditsArr.find(a => a.stage === 2);
+  const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+  const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
+  const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
+  const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
+  const canCompleteAudit = isStage1Complete ? isStage2Ready : isStage1Ready;
+  const activeAudit = (isStage1Complete ? stage2 : stage1) || auditsArr[0] || null;
 
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
@@ -195,22 +208,47 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
   const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isNcClosed = status === 'nc_closed' || (!hasActiveNc && (
-    (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
-    auditsArr.some(a => Boolean(a.nc_closed)) ||
-    (app.statusHistory || []).some(h => h.status === 'nc_closed')
-  ));
+  const isAuditUnderwayOrCompleted = ['audit_completed', 'audit_successful', 'audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(status);
 
-  // Audit is completed when marked completed, nc is flagged/closed, or downstream stages reached
+  const isNcClosed = !hasActiveNc && !isAuditUnderwayOrCompleted && Boolean(
+    status === 'nc_closed' ||
+    Boolean(app.nc_closed) ||
+    (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
+    auditsArr.some(a => Boolean(a.nc_closed))
+  );
+
+  const POST_NC_STAGES = [
+    'nc_closed',
+    'audit_report_submitted',
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'invoice_sent',
+    'payment_received',
+    'application_successful',
+    'ready_for_certificate',
+    'certificate_issued'
+  ];
+
+  const hasLogsheetRecord = Boolean(
+    logsheet &&
+    !logsheet.error &&
+    (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
+  );
+
+  const isAfterNcClosed = !hasActiveNc && (
+    isNcClosed ||
+    POST_NC_STAGES.includes(status) ||
+    hasLogsheetRecord
+  );
+
+  // In Dual-Stage: Audit is fully completed when Stage 1 and Stage 2 are both complete, or downstream stages reached
   const isAuditCompleted = Boolean(
-    status === 'audit_completed' ||
-    status === 'audit_successful' ||
+    (isStage1Complete && isStage2Complete) ||
     status === 'nc_flagged' ||
     status === 'nc_closed' ||
     isNcClosed ||
-    ['logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'invoice_sent', 'payment_received'].includes(status) ||
-    (activeAudit && ['audit_completed', 'audit_successful', 'completed'].includes(activeAudit.status)) ||
-    auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'invoice_sent', 'payment_received'].includes(status)
   );
 
   // Auditor is assigned if auditors array has elements, or status is audit_assigned / auditors_assigned / nc_flagged / nc_closed
@@ -227,19 +265,32 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const surveillanceInvoice =
     allInvoices.find(inv => inv.invoice_type === 'surveillance' || inv.stage === 'surveillance' || (inv.title && inv.title.toLowerCase().includes('surveillance'))) ||
-    null;
-  const isSurveillanceInvoicePaid = surveillanceInvoice ? (surveillanceInvoice.status === 'paid') : (status === 'payment_received');
+    invoice ||
+    (allInvoices.length > 0 ? allInvoices[0] : null);
+  const isSurveillanceInvoicePaid = surveillanceInvoice
+    ? (surveillanceInvoice.status === 'paid' || surveillanceInvoice.status === 'confirmed' || surveillanceInvoice.status === 'payment_received')
+    : (status === 'payment_received');
 
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
+      const categoryToSet = approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+      const isReclassified = categoryToSet !== (app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE');
+
       const res = await api.put(`/api/applications/${appId}/approve`, {
-        category: 'UAE/GSO Approved Halal Certification For Exporters To UAE'
+        category: categoryToSet
       });
-      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved', category: categoryToSet });
       setShowApproveModal(false);
-      toast.success('GSO Surveillance Application accepted!');
-      fetchApp(true);
+      toast.success(isReclassified
+        ? `Surveillance application accepted and reclassified to ${categoryToSet}!`
+        : 'GSO Surveillance Application accepted!'
+      );
+      if (isReclassified) {
+        window.location.reload();
+      } else {
+        fetchApp(true);
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to accept surveillance application.');
     } finally {
@@ -287,7 +338,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleConfirmPayment = async () => {
     setConfirmingPayment(true);
     try {
-      const activeInv = invoice || surveillanceInvoice;
+      const activeInv = surveillanceInvoice || invoice || allInvoices.find(i => i.status === 'client_paid') || allInvoices[0];
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
         invoice_id: activeInv?._id || activeInv?.id
@@ -307,8 +358,8 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       return;
     }
     setFlaggingNc(true);
-    const auditId = audits?.[0]?._id || audits?.[0]?.id;
-    setFlaggingNc(true);
+    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     try {
       const formData = new FormData();
       if (auditId) formData.append('audit_id', auditId);
@@ -331,8 +382,8 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const handleReplyNc = async () => {
     if (!ncReplyText.trim()) return;
-    const auditObj = audits?.[0] || audits?.data?.[0];
-    const auditId = auditObj?._id || auditObj?.id;
+    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     setReplyingNc(true);
     try {
       const formData = new FormData();
@@ -356,8 +407,8 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleCloseNc = async () => {
     setActionSubmitting(true);
     try {
-      const activeAuditItem = audits?.[0] || audits?.data?.[0];
-      const auditId = activeAuditItem?._id || activeAuditItem?.id;
+      const targetAudit = isStage1Complete && stage2 ? stage2 : stage1;
+      const auditId = targetAudit?._id || targetAudit?.id;
       const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
       const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
       setApp(prev => ({
@@ -367,11 +418,11 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         nc_reports: (prev?.nc_reports || []).map(r => ({ ...r, status: 'closed' })),
         statusHistory: [...(prev?.statusHistory || []), { status: 'nc_closed', changedAt: new Date() }]
       }));
-      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => (a._id === auditId || a.id === auditId || a.stage === 2) ? {
         ...a,
         nc_closed: true,
         nc_reports: (a.nc_reports || []).map(r => ({ ...r, status: 'closed' }))
-      })) : prev);
+      } : a) : prev);
       toast.success('NC Closed successfully!');
       setShowNcModal(false);
       await fetchApp(true);
@@ -382,7 +433,16 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     }
   };
 
-  const handleMarkLogsheetDone = async () => {
+  const handleMarkLogsheetDone = () => {
+    const logsheetId = logsheet?._id || logsheet?.id;
+    if (!logsheetId) {
+      toast.error('No logsheet record found.');
+      return;
+    }
+    setShowNextSurvModal(true);
+  };
+
+  const handleConfirmNextSurveillanceDate = async ({ next_surveillance_due_date, admin_name, notes }) => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found.');
@@ -391,19 +451,17 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
-        status: 'Signed',
-        force: true
+        status: 'Waiting For Certificate',
+        force: true,
+        next_surveillance_due_date,
+        admin_name,
+        notes
       });
-      setApp(prev => ({
-        ...prev,
-        status: 'application_successful',
-        statusHistory: [...(prev?.statusHistory || []), { status: 'application_successful', changedAt: new Date() }]
-      }));
-      setLogsheet(prev => ({ ...prev, status: 'Signed' }));
-      toast.success('Logsheet marked as Done! Application moved to Application Successful.');
+      toast.success('Next surveillance due date recorded & application marked successful!');
+      setShowNextSurvModal(false);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -433,27 +491,18 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   };
 
   const handleMarkAuditCompleted = async () => {
-    if (hasActiveNc) {
-      toast.error('Cannot mark audit as completed while there are open Non-Conformities (NC). Please resolve or close all NCs first.');
-      return;
-    }
     setActionSubmitting(true);
     try {
-      const activeAuditItem = audits?.[0] || audits?.data?.[0];
+      const targetAudit = isStage1Complete ? stage2 : stage1;
       await api.post('/api/audits/complete-clean', {
-        audit_id: activeAuditItem?._id || activeAuditItem?.id,
+        audit_id: targetAudit?._id || targetAudit?.id,
         application_id: appId
       });
-      setApp(prev => ({
-        ...prev,
-        status: 'audit_completed',
-        statusHistory: [...(prev?.statusHistory || []), { status: 'audit_completed', changedAt: new Date() }]
-      }));
-      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
-        ...a,
-        status: 'audit_completed'
-      })) : prev);
-      toast.success('Surveillance audit session marked as completed successfully! You can now Flag NC or Close NC.');
+      if (!isStage1Complete) {
+        toast.success('Stage 1 Audit completed! Please propose Stage 2 Audit dates.');
+      } else {
+        toast.success('Stage 2 Audit session marked as completed successfully! You can now Flag NC or Close NC.');
+      }
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to complete surveillance audit');
@@ -485,7 +534,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     }
 
     // 6. Complete
-    if (status === 'certificate_issued') {
+    if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-blue" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#0369a1', border: '1px solid #bae6fd' }}>
           <CheckCircle size={15} /> ✓ Surveillance Letter Issued
@@ -494,7 +543,27 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     }
 
     // 5B. Ready for Surveillance Letter Stage (ONLY after marked ready for certificate)
-    if (status === 'ready_for_certificate') {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          </div>
+        );
+      }
+
       return (
         <button
           className="btn btn-primary"
@@ -506,8 +575,28 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
+    // 4. Invoice Stage (Client Paid - Awaiting Admin Confirmation)
+    const isSurvClientPaid = (
+      surveillanceInvoice?.status === 'client_paid' ||
+      invoice?.status === 'client_paid' ||
+      allInvoices.some(inv => inv.status === 'client_paid')
+    ) && !isSurveillanceInvoicePaid;
+
+    if (isSurvClientPaid) {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+          onClick={handleConfirmPayment}
+          disabled={confirmingPayment}
+        >
+          <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+        </button>
+      );
+    }
+
     // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
-    if (status === 'payment_received' || isSurveillanceInvoicePaid) {
+    if ((status === 'payment_received' || isSurveillanceInvoicePaid) && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
       return (
         <button
           className="btn btn-primary"
@@ -520,7 +609,6 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
-    // 4. Invoice Stage
     if ((status === 'invoice_sent' || surveillanceInvoice) && !isSurveillanceInvoicePaid) {
       return (
         <button
@@ -545,23 +633,10 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
-    if (status === 'logsheet_signed') {
-      return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-          onClick={handleMarkLogsheetDone}
-          disabled={markingLogsheetDone}
-        >
-          <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
-        </button>
-      );
-    }
-
-    // 3. LogSheet Stage (AFTER audit is completed AND NC is closed)
+    // 3. LogSheet Stage (AFTER Stage 2 audit is completed AND NC is closed)
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
+    if (isStage2Complete && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
       if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
         const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
         return (
@@ -577,9 +652,83 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       }
     }
 
-    // Step A: ONLY AFTER audit has been marked completed (and NC not yet closed):
+    if (status === 'logsheet_signed') {
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+          onClick={handleMarkLogsheetDone}
+          disabled={markingLogsheetDone}
+        >
+          <CheckCircle size={16} /> {markingLogsheetDone ? 'Confirming...' : 'Application Successful'}
+        </button>
+      );
+    }
+
+    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
+    if (!isStage2Complete) {
+      if (canCompleteAudit) {
+        if (isStage1Complete) {
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 2 Audit
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Stage 1 Audit
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleMarkAuditCompleted}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: status === 'dates_rejected' ? '#dc2626' : '#ea580c', borderColor: status === 'dates_rejected' ? '#b91c1c' : undefined }}
+          onClick={() => setShowAuditModal(true)}
+        >
+          <Calendar size={16} /> {
+            isStage1Complete
+              ? ((!stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending') ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit')
+              : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : (stage1?.status === 'dates_rejected' ? 'Propose New Stage 1 Dates' : 'Manage Stage 1 Audit'))
+          }
+        </button>
+      );
+    }
+
+    // Step A: ONLY AFTER Stage 2 audit has been marked completed (and NC not yet closed):
     // Show [Manage Audit], [Flag NC], and [Close NC]
-    if (isAuditCompleted && !isNcClosed) {
+    if (isStage2Complete && !isNcClosed) {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -606,47 +755,6 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             <CheckCircle size={16} /> Close NC
           </button>
         </div>
-      );
-    }
-
-    // Step B: BEFORE audit is marked completed:
-    // If auditors are assigned or audit is underway:
-    // Show [Manage Audit] and [Mark Audit Completed]
-    if (!isAuditCompleted && (hasAuditorAssigned || status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || activeAudit?.status === 'audit_assigned' || activeAudit?.auditors?.length > 0)) {
-      return (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-ghost"
-            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-            onClick={() => setShowAuditModal(true)}
-          >
-            <Calendar size={16} /> Manage Audit
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={handleMarkAuditCompleted}
-            disabled={actionSubmitting}
-          >
-            <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
-          </button>
-        </div>
-      );
-    }
-
-    // 2. Audit Scheduling fallback (when auditors not assigned yet, or dates proposed/rejected)
-    if (
-      ['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'date_selected', 'dates_selected'].includes(status) ||
-      (activeAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized'].includes(activeAudit.status))
-    ) {
-      return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: status === 'dates_rejected' ? '#dc2626' : '#ea580c', borderColor: status === 'dates_rejected' ? '#b91c1c' : undefined }}
-          onClick={() => setShowAuditModal(true)}
-        >
-          <Calendar size={16} /> {status === 'dates_rejected' ? 'Propose New Audit Dates' : (audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit')}
-        </button>
       );
     }
 
@@ -753,17 +861,20 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             onCloseNc={handleCloseNc}
             actionSubmitting={actionSubmitting}
           />
-          <LogsheetCard
-            logsheet={logsheet}
-            status={status}
-            appId={appId}
-            isRenewal={false}
-            isSurveillance={true}
-            hasActiveNc={hasActiveNc}
-            isNcClosed={isNcClosed}
-            onMarkDone={handleMarkLogsheetDone}
-            markingDone={markingLogsheetDone}
-          />
+          {/* Facility Logsheet Card - Only shown after NC has been closed */}
+          {isAfterNcClosed && (
+            <LogsheetCard
+              logsheet={logsheet}
+              status={status}
+              appId={appId}
+              isRenewal={false}
+              isSurveillance={true}
+              hasActiveNc={hasActiveNc}
+              isNcClosed={isNcClosed}
+              onMarkDone={handleMarkLogsheetDone}
+              markingDone={markingLogsheetDone}
+            />
+          )}
           <InvoiceCard
             app={app}
             invoice={surveillanceInvoice}
@@ -876,14 +987,44 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Selected Certification Category
+                  Certification Category
                 </label>
-                <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 800, color: '#0369a1', fontSize: 13 }}>
+                <select
+                  className="form-control"
+                  value={approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE'}
+                  onChange={e => setApproveCategory(e.target.value)}
+                  disabled={actionSubmitting}
+                  style={{ fontSize: 13.5, padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1.5px solid #cbd5e1', fontWeight: 600 }}
+                >
+                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">
                     UAE/GSO Approved Halal Certification For Exporters To UAE
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#0284c7', marginTop: 4 }}>
-                    🔒 Category locked: Surveillance applications are exclusively applicable to the UAE/GSO 3-Year Certification Scheme.
+                  </option>
+                  <option value="Annual Certification – Food and General processing">
+                    Annual Certification – Food and General processing
+                  </option>
+                  <option value="Annual Certification – Meat Processing">
+                    Annual Certification – Meat Processing
+                  </option>
+                  <option value="Annual Certification – Cosmetics and Personal Care">
+                    Annual Certification – Cosmetics and Personal Care
+                  </option>
+                </select>
+
+                <div style={{
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  background: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#f0f9ff' : '#f0fdf4',
+                  border: `1px solid ${(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#bae6fd' : '#bbf7d0'}`,
+                  borderRadius: 8
+                }}>
+                  <div style={{
+                    fontSize: 12,
+                    color: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#0369a1' : '#15803d',
+                    fontWeight: 600
+                  }}>
+                    {(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae')
+                      ? '⚡ UAE/GSO 3-Year Halal Surveillance Scheme.'
+                      : '⚡ Standard Annual Certification Scheme.'}
                   </div>
                 </div>
               </div>
@@ -1198,6 +1339,14 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
+      />
+
+      <NextSurveillanceDateModal
+        isOpen={showNextSurvModal}
+        onClose={() => setShowNextSurvModal(false)}
+        onConfirm={handleConfirmNextSurveillanceDate}
+        app={app}
+        submitting={markingLogsheetDone}
       />
     </div>
   );

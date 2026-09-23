@@ -344,7 +344,7 @@ export default function HFANewProcessing(props) {
   const handleConfirmPayment = async () => {
     setConfirmingPayment(true);
     try {
-      const activeInv = initialInvoice || invoice;
+      const activeInv = initialInvoice || invoice || allInvoices.find(i => i.status === 'client_paid') || allInvoices[0];
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
         invoice_id: activeInv?._id || activeInv?.id
@@ -361,7 +361,7 @@ export default function HFANewProcessing(props) {
   const handleConfirmFinalPayment = async () => {
     setConfirmingPayment(true);
     try {
-      const targetInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final') || invoice;
+      const targetInvoice = finalInvoice || allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final') || invoice || allInvoices.find(i => i.status === 'client_paid');
       await api.post(`/api/invoices/confirm-payment`, {
         application_id: appId,
         invoice_id: targetInvoice?._id || targetInvoice?.id
@@ -570,9 +570,15 @@ export default function HFANewProcessing(props) {
     ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)
   );
 
-  const initialInvoice = allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') || (invoice && invoice.invoice_type !== 'final' ? invoice : null);
-  const finalInvoice = allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') || (invoice && invoice.invoice_type === 'final' ? invoice : null);
-  const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'client_paid')) || status === 'final_invoice_paid';
+  const initialInvoice =
+    allInvoices.find(inv => inv.invoice_type === 'initial' || inv.stage === 'initial') ||
+    allInvoices.find(inv => inv.invoice_type !== 'final' && inv.stage !== 'final') ||
+    (invoice && invoice.invoice_type !== 'final' ? invoice : null) ||
+    (allInvoices.length > 0 && allInvoices[0].invoice_type !== 'final' ? allInvoices[0] : null);
+  const finalInvoice =
+    allInvoices.find(inv => inv.invoice_type === 'final' || inv.stage === 'final' || inv.target_status === 'final_invoice_sent') ||
+    (invoice && invoice.invoice_type === 'final' ? invoice : null);
+  const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'confirmed' || finalInvoice.status === 'payment_received')) || status === 'final_invoice_paid';
   const isInitialProductApproved = Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved);
   const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
 
@@ -612,7 +618,19 @@ export default function HFANewProcessing(props) {
     }
 
     // 3. Initial Invoice Stage
-    if (status === 'proposal_approved' || status === 'invoice_sent') {
+    if (status === 'proposal_approved' || status === 'proposal_accepted' || status === 'invoice_sent') {
+      if (initialInvoice?.status === 'client_paid' || invoice?.status === 'client_paid' || (allInvoices.length > 0 && allInvoices[0].status === 'client_paid')) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleConfirmPayment}
+            disabled={confirmingPayment}
+          >
+            <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+          </button>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -784,6 +802,18 @@ export default function HFANewProcessing(props) {
 
     // 9. Final Invoice Stage
     if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
+      if (finalInvoice?.status === 'client_paid') {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+            onClick={handleConfirmFinalPayment}
+            disabled={confirmingPayment}
+          >
+            <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
+          </button>
+        );
+      }
       if (isFinalInvoicePaid) {
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -817,7 +847,35 @@ export default function HFANewProcessing(props) {
     }
 
     // 11. Issue Certificate Stage
-    if (status === 'ready_for_certificate') {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+      if (isUnderReview && certId) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+              onClick={() => navigate(`/certificates/${certId}/review`)}
+            >
+              <FileText size={16} /> Open Review Certificate
+            </button>
+            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+            </span>
+          </div>
+        );
+      }
+
+      if (status === 'certificate_issued' || certificate?.status === 'active') {
+        return (
+          <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+            <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -827,17 +885,12 @@ export default function HFANewProcessing(props) {
           >
             <Award size={16} /> Issue Certificate
           </button>
-          {certificate && (certificate.status === 'under_review' || certificate.status === 'draft') && (
-            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
-            </span>
-          )}
         </div>
       );
     }
 
     // 12. Certificate Issued
-    if (status === 'certificate_issued') {
+    if (status === 'certificate_issued' || certificate?.status === 'active') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
           <CheckCircle size={15} /> ✓ Certificate Issued

@@ -1,3 +1,4 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -16,15 +17,6 @@ const getCleanId = (val) => {
   return String(val);
 };
 
-const getPdfUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-  if (url.startsWith('/api/files/')) {
-    return `${API_URL}${url}`;
-  }
-  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
-};
 
 export const resolveCertificateType = (loadedApp, existingCert = null, procDetails = null) => {
   if (!loadedApp && !existingCert) return 'GSO MEAT';

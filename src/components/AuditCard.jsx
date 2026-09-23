@@ -1,14 +1,7 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/') || url.startsWith('/uploads/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function AuditCard({ audits, status, app, initialProduct, isInitialProductApproved = true, isFastTrack = false, onManage }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');

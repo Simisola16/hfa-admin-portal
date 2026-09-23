@@ -1,16 +1,8 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { X, Award, ShieldCheck, Download, ExternalLink, Package, ArrowRight, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const getPdfUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-  if (url.startsWith('/api/files/')) {
-    return `${API_URL}${url}`;
-  }
-  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
-};
 
 export default function ViewCertificateModal({ isOpen, onClose, cert }) {
   const navigate = useNavigate();

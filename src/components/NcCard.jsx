@@ -1,14 +1,7 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { AlertTriangle, CheckCircle, AlertCircle, Clock, FileText, Download } from 'lucide-react';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/') || url.startsWith('/uploads/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function NcCard({ app, audits = [], status = '', onFlagNc, onCloseNc, actionSubmitting = false }) {
   const appStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');

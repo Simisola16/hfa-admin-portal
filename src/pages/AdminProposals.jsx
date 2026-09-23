@@ -1,23 +1,10 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, Download, MessageSquare } from 'lucide-react';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  // For old Cloudinary files that weren't migrated
-  if (url.includes('res.cloudinary.com')) {
-    if (url.includes('/upload/') && !url.includes('fl_attachment')) {
-      return url.replace('/upload/', '/upload/fl_attachment/');
-    }
-  }
-  return url;
-};
 
 export default function AdminProposals() {
   const [searchParams] = useSearchParams();

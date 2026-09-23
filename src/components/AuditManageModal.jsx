@@ -1,16 +1,9 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Users, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 const getCleanId = (val) => {
   if (!val) return '';

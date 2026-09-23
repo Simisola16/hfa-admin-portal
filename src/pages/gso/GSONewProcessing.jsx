@@ -20,7 +20,7 @@ import AgreementModal from '../../components/AgreementModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
-import SubmissionModal from '../../components/SubmissionModal';
+import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards

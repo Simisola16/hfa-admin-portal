@@ -1,14 +1,7 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { FileText, Download, Lock } from 'lucide-react';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function ProposalCard({ proposal, status, onSendProposal }) {
   const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(status) || proposal;

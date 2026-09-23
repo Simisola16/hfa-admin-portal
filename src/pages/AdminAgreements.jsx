@@ -1,3 +1,4 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,14 +12,6 @@ import AgreementModal from '../components/AgreementModal';
 import FinalAgreementModal from '../components/FinalAgreementModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function AdminAgreements() {
   const navigate = useNavigate();

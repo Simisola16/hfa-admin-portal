@@ -1,3 +1,4 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -5,14 +6,6 @@ import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, Ext
 import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function AdminInvoices() {
   const [invoices, setInvoices] = useState([]);

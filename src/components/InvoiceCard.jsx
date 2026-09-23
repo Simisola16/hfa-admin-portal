@@ -1,14 +1,7 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment, onSendInvoice }) {
   const normStatus = (status || '').toLowerCase().replace(/ /g, '_');

@@ -1,3 +1,4 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -36,14 +37,6 @@ const PRODUCT_CATEGORIES = [
   'General Food Products'
 ];
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-  const cleanApi = API_URL.replace(/\/$/, '');
-  const cleanPath = url.startsWith('/') ? url : `/${url}`;
-  return `${cleanApi}${cleanPath}`;
-};
 
 export default function SuperAdminDirectCertificate() {
   const { user, profile } = useAuth();

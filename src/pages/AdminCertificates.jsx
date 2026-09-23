@@ -1,3 +1,4 @@
+﻿import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -6,14 +7,6 @@ import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, F
 import ViewCertificateModal from '../components/ViewCertificateModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
-const getPdfUrl = (url) => {
-  if (!url) return '#';
-  if (url.startsWith('/api/files/')) {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
-    return `${API_URL}${url}`;
-  }
-  return url;
-};
 
 export default function AdminCertificates({ defaultTab }) {
   const navigate = useNavigate();

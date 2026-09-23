@@ -29,7 +29,6 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
   const [activeTab, setActiveTab] = useState('all');
 
   const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
-  const isRenewal = String(app.application_type || '').toLowerCase() === 'renewal';
 
   const formatBool = (val) => {
     if (val === true || val === 'yes' || val === 'true') return 'Yes';
@@ -70,6 +69,9 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
     }
   };
 
+  // Products array for count fallback
+  const productsList = Array.isArray(app.products) ? app.products : [];
+
   return (
     <div
       className="modal-overlay"
@@ -79,7 +81,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
       <div
         className="modal"
         style={{
-          maxWidth: 1000,
+          maxWidth: 1040,
           width: '95%',
           maxHeight: '92vh',
           display: 'flex',
@@ -135,6 +137,14 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 <span style={{ textTransform: 'capitalize', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11, color: '#475569' }}>
                   {app.application_type || 'New'} Application
                 </span>
+                {app.category && (
+                  <>
+                    <span>•</span>
+                    <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                      {app.category}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -217,7 +227,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Company Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Legal & General Entity Information</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Legal &amp; General Entity Information</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -280,7 +290,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Site / Factory Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Manufacturing Plant & Operational Specifications</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Manufacturing Plant &amp; Operational Specifications</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -429,7 +439,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Official Contact Details</div>
               </div>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Primary, Technical, Finance & Production Contacts</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Primary, Technical, Finance &amp; Production Contacts</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
@@ -494,7 +504,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* Finance & Production Contacts */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#059669', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Briefcase size={15} /> Finance & Production Contacts
+                  <Briefcase size={15} /> Finance &amp; Production Contacts
                 </div>
                 <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
                   <div>
@@ -522,7 +532,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                 <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', color: '#be123c', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 8 }}>
                   Section E
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Process / Product Details & Declarations</div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>Process / Product Details &amp; Declarations</div>
               </div>
               <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Official Questions 1 to 17</span>
             </div>
@@ -586,7 +596,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* 6 to 10: Scope, Brand, Counts, Halal Schedule */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, display: 'grid', gap: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>6. Product Description / Type / Category (Scope)</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>6. Product Category / Description</div>
                   <div style={{ fontSize: 13, color: '#1e293b', marginTop: 4, lineHeight: 1.5, background: '#ffffff', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
                     {app.scope || 'No specific product description provided.'}
                   </div>
@@ -605,7 +615,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
 
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>9. No. of Products for Halal Approval</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#065f46', marginTop: 3 }}>{app.products_halal_count || (app.products?.length || '—')}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#065f46', marginTop: 3 }}>{app.products_halal_count || (productsList.length || '—')}</div>
                   </div>
 
                   <div>
@@ -627,7 +637,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                   </div>
                   {app.porcine_details && (
                     <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 8, lineHeight: 1.4, background: 'rgba(255,255,255,0.7)', padding: 10, borderRadius: 8 }}>
-                      <strong>Segregation & Controls:</strong> {app.porcine_details}
+                      <strong>Segregation &amp; Controls:</strong> {app.porcine_details}
                     </div>
                   )}
                 </div>
@@ -642,7 +652,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
                   </div>
                   {app.intoxicants_details && (
                     <div style={{ fontSize: 12, color: '#78350f', marginTop: 8, lineHeight: 1.4, background: 'rgba(255,255,255,0.7)', padding: 10, borderRadius: 8 }}>
-                      <strong>Usage & Description:</strong> {app.intoxicants_details}
+                      <strong>Usage &amp; Description:</strong> {app.intoxicants_details}
                     </div>
                   )}
                 </div>
@@ -664,7 +674,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               {/* 15 to 17: Signatory Details & Declaration */}
               <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', borderRadius: 12, padding: 18 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#065f46', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CheckCircle size={18} /> Declaration & Legal Authorization (Questions 15 – 17)
+                  <CheckCircle size={18} /> Declaration &amp; Legal Authorization (Questions 15 – 17)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 14 }}>
                   <div>
@@ -703,6 +713,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
               )}
             </div>
           </div>
+
         </div>
 
         {/* Modal Footer */}
@@ -718,7 +729,7 @@ export default function ApplicationSubmissionModal({ isOpen, onClose, app }) {
           }}
         >
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            Displaying complete Sections A through E submission data for <strong>{app.application_number}</strong>
+            Displaying complete submission data for <strong>{app.application_number}</strong>
           </div>
           <button className="btn btn-ghost" onClick={onClose} style={{ fontWeight: 800, padding: '8px 22px' }}>
             Close

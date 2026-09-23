@@ -1293,7 +1293,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         onSuccess={() => fetchApp(true)}
       />
 
-      <SubmissionModal
+      <ApplicationSubmissionModal
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}

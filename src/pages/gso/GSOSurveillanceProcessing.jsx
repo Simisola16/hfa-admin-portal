@@ -1293,7 +1293,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         onSuccess={() => fetchApp(true)}
       />
 
-      <SubmissionModal
+      <ApplicationSubmissionModal
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}

@@ -43,6 +43,8 @@ const pageMeta = {
   '/tickets':                     { title: 'Tickets',             sub: 'Support ticket queue',           section: 'Operations' },
   '/signatures':                  { title: 'Signatures',          sub: 'Manage digital signatures',      section: 'Operations' },
   '/reports':                     { title: 'Reports & Analytics', sub: 'System-wide reporting',          section: 'Operations' },
+  '/surveillance-due-dates':      { title: 'Surveillance Due Dates', sub: 'Monitor upcoming surveillance application due dates', section: 'Certification' },
+  '/admin/surveillance-due-dates':{ title: 'Surveillance Due Dates', sub: 'Monitor upcoming surveillance application due dates', section: 'Certification' },
 };
 
 /* ─── Notification helpers ────────────────────────────────────── */

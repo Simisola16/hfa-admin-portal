@@ -44,6 +44,7 @@ import AdminExtensionProcessing from './pages/AdminExtensionProcessing';
 import AdminExtensionLogsheet from './pages/AdminExtensionLogsheet';
 import AdminDirectLogsheet from './pages/AdminDirectLogsheet';
 import AdminDirectProduct from './pages/AdminDirectProduct';
+import AdminSurveillanceDueDates from './pages/AdminSurveillanceDueDates';
 
 export default function App() {
   return (
@@ -60,6 +61,8 @@ export default function App() {
             <Route path="/superadmin/direct-product" element={<AdminDirectProduct />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
+            <Route path="/surveillance-due-dates" element={<AdminSurveillanceDueDates />} />
+            <Route path="/admin/surveillance-due-dates" element={<AdminSurveillanceDueDates />} />
             <Route path="/initial-products" element={<AdminInitialProducts />} />
             <Route path="/initial-products/:id" element={<AdminInitialProductProcessing />} />
             <Route path="/initial-products/:id/processing" element={<AdminInitialProductProcessing />} />

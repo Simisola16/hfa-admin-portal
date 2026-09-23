@@ -17,6 +17,7 @@ import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import SubmissionModal from '../../components/SubmissionModal';
+import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -51,6 +52,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
+  const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Inline forms/submission states
   const [rejectReason, setRejectReason] = useState('');
@@ -103,7 +105,11 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
-      const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
+      const s1Audit = loadedAudits.find(a => a.stage === 1) || loadedAudits[0];
+      const s2Audit = loadedAudits.find(a => a.stage === 2);
+      const isS1Done = s1Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s1Audit.status);
+      const isS2Done = s2Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s2Audit.status);
+      const hasCompletedAudit = Boolean(isS1Done && isS2Done);
 
       if (fetchedApp) {
         if (fetchedLogsheet) {
@@ -187,7 +193,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
   const activeAudit = auditsArr[0] || null;
-  const isAuditReady = status === 'audit_assigned' || status === 'nc_flagged' || (activeAudit && (activeAudit.status === 'auditors_assigned' || activeAudit.status === 'audit_assigned' || (activeAudit.status === 'date_finalized' && activeAudit.auditors?.length > 0)));
+  const stage1 = auditsArr.find(a => a.stage === 1) || auditsArr[0];
+  const stage2 = auditsArr.find(a => a.stage === 2);
+  const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
+  const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
+  const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
+  const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
+  const canCompleteAudit = isStage1Complete ? isStage2Ready : isStage1Ready;
 
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
@@ -229,16 +241,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     hasLogsheetRecord
   );
 
-  // Audit is completed when marked completed, nc is flagged/closed, or downstream stages reached
+  // In Dual-Stage: Audit is fully completed when Stage 1 and Stage 2 are both complete, or downstream stages reached
   const isAuditCompleted = Boolean(
-    status === 'audit_completed' ||
-    status === 'audit_successful' ||
+    (isStage1Complete && isStage2Complete) ||
     status === 'nc_flagged' ||
     status === 'nc_closed' ||
     isNcClosed ||
-    ['logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'invoice_sent', 'payment_received'].includes(status) ||
-    (activeAudit && ['audit_completed', 'audit_successful', 'completed'].includes(activeAudit.status)) ||
-    auditsArr.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status))
+    ['logsheet_created', 'logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'invoice_sent', 'payment_received'].includes(status)
   );
 
   // Auditor is assigned if auditors array has elements, or status is audit_assigned / auditors_assigned / nc_flagged / nc_closed
@@ -338,8 +347,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       return;
     }
     setFlaggingNc(true);
-    const auditId = audits?.[0]?._id || audits?.[0]?.id;
-    setFlaggingNc(true);
+    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     try {
       const formData = new FormData();
       if (auditId) formData.append('audit_id', auditId);
@@ -362,8 +371,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
   const handleReplyNc = async () => {
     if (!ncReplyText.trim()) return;
-    const auditObj = audits?.[0] || audits?.data?.[0];
-    const auditId = auditObj?._id || auditObj?.id;
+    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     setReplyingNc(true);
     try {
       const formData = new FormData();
@@ -387,8 +396,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const handleCloseNc = async () => {
     setActionSubmitting(true);
     try {
-      const activeAuditItem = audits?.[0] || audits?.data?.[0];
-      const auditId = activeAuditItem?._id || activeAuditItem?.id;
+      const targetAudit = isStage1Complete && stage2 ? stage2 : stage1;
+      const auditId = targetAudit?._id || targetAudit?.id;
       const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
       const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
       setApp(prev => ({
@@ -398,11 +407,11 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         nc_reports: (prev?.nc_reports || []).map(r => ({ ...r, status: 'closed' })),
         statusHistory: [...(prev?.statusHistory || []), { status: 'nc_closed', changedAt: new Date() }]
       }));
-      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => (a._id === auditId || a.id === auditId || a.stage === 2) ? {
         ...a,
         nc_closed: true,
         nc_reports: (a.nc_reports || []).map(r => ({ ...r, status: 'closed' }))
-      })) : prev);
+      } : a) : prev);
       toast.success('NC Closed successfully!');
       setShowNcModal(false);
       await fetchApp(true);
@@ -413,7 +422,16 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
   };
 
-  const handleMarkLogsheetDone = async () => {
+  const handleMarkLogsheetDone = () => {
+    const logsheetId = logsheet?._id || logsheet?.id;
+    if (!logsheetId) {
+      toast.error('No logsheet record found.');
+      return;
+    }
+    setShowNextSurvModal(true);
+  };
+
+  const handleConfirmNextSurveillanceDate = async ({ next_surveillance_due_date, admin_name, notes }) => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found.');
@@ -422,19 +440,17 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
-        status: 'Signed',
-        force: true
+        status: 'Waiting For Certificate',
+        force: true,
+        next_surveillance_due_date,
+        admin_name,
+        notes
       });
-      setApp(prev => ({
-        ...prev,
-        status: 'application_successful',
-        statusHistory: [...(prev?.statusHistory || []), { status: 'application_successful', changedAt: new Date() }]
-      }));
-      setLogsheet(prev => ({ ...prev, status: 'Signed' }));
-      toast.success('Logsheet marked as Done! Application moved to Application Successful.');
+      toast.success('Next surveillance due date recorded & application marked successful!');
+      setShowNextSurvModal(false);
       fetchApp(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to mark logsheet as done.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -464,27 +480,18 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   };
 
   const handleMarkAuditCompleted = async () => {
-    if (hasActiveNc) {
-      toast.error('Cannot mark audit as completed while there are open Non-Conformities (NC). Please resolve or close all NCs first.');
-      return;
-    }
     setActionSubmitting(true);
     try {
-      const activeAuditItem = audits?.[0] || audits?.data?.[0];
+      const targetAudit = isStage1Complete ? stage2 : stage1;
       await api.post('/api/audits/complete-clean', {
-        audit_id: activeAuditItem?._id || activeAuditItem?.id,
+        audit_id: targetAudit?._id || targetAudit?.id,
         application_id: appId
       });
-      setApp(prev => ({
-        ...prev,
-        status: 'audit_completed',
-        statusHistory: [...(prev?.statusHistory || []), { status: 'audit_completed', changedAt: new Date() }]
-      }));
-      setAudits(prev => Array.isArray(prev) ? prev.map(a => ({
-        ...a,
-        status: 'audit_completed'
-      })) : prev);
-      toast.success('Renewal audit session marked as completed successfully! You can now Flag NC or Close NC.');
+      if (!isStage1Complete) {
+        toast.success('Stage 1 Audit completed! Please propose Stage 2 Audit dates.');
+      } else {
+        toast.success('Stage 2 Audit session marked as completed successfully! You can now Flag NC or Close NC.');
+      }
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to complete renewal audit');
@@ -578,7 +585,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
-    if (status === 'payment_received' || isRenewalInvoicePaid) {
+    if ((status === 'payment_received' || isRenewalInvoicePaid) && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
       return (
         <button
           className="btn btn-primary"
@@ -615,10 +622,10 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       );
     }
 
-    // 3. LogSheet Stage (AFTER audit is completed AND NC is closed)
+    // 3. LogSheet Stage (AFTER Stage 2 audit is completed AND NC is closed)
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
+    if (isStage2Complete && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
       if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
         const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
         return (
@@ -647,9 +654,70 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       );
     }
 
-    // Step A: ONLY AFTER audit has been marked completed (and NC not yet closed):
+    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
+    if (!isStage2Complete) {
+      if (canCompleteAudit) {
+        if (isStage1Complete) {
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 2 Audit
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Stage 1 Audit
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+              onClick={handleMarkAuditCompleted}
+              disabled={actionSubmitting}
+            >
+              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <button
+          className="btn btn-primary"
+          style={{ gap: 8, background: status === 'dates_rejected' ? '#dc2626' : '#ea580c', borderColor: status === 'dates_rejected' ? '#b91c1c' : undefined }}
+          onClick={() => setShowAuditModal(true)}
+        >
+          <Calendar size={16} /> {
+            isStage1Complete
+              ? ((!stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending') ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit')
+              : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : (stage1?.status === 'dates_rejected' ? 'Propose New Stage 1 Dates' : 'Manage Stage 1 Audit'))
+          }
+        </button>
+      );
+    }
+
+    // Step A: ONLY AFTER Stage 2 audit has been marked completed (and NC not yet closed):
     // Show [Manage Audit], [Flag NC], and [Close NC]
-    if (isAuditCompleted && !isNcClosed) {
+    if (isStage2Complete && !isNcClosed) {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -676,47 +744,6 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             <CheckCircle size={16} /> Close NC
           </button>
         </div>
-      );
-    }
-
-    // Step B: BEFORE audit is marked completed:
-    // If auditors are assigned or audit is underway:
-    // Show [Manage Audit] and [Mark Audit Completed]
-    if (!isAuditCompleted && (hasAuditorAssigned || status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || activeAudit?.status === 'audit_assigned' || activeAudit?.auditors?.length > 0)) {
-      return (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-ghost"
-            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-            onClick={() => setShowAuditModal(true)}
-          >
-            <Calendar size={16} /> Manage Audit
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={handleMarkAuditCompleted}
-            disabled={actionSubmitting}
-          >
-            <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
-          </button>
-        </div>
-      );
-    }
-
-    // 2. Audit Scheduling & Execution fallback (when auditors not assigned yet, or dates proposed/rejected)
-    if (
-      ['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'date_selected', 'dates_selected'].includes(status) ||
-      (activeAudit && ['dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized'].includes(activeAudit.status))
-    ) {
-      return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: status === 'dates_rejected' ? '#dc2626' : '#ea580c', borderColor: status === 'dates_rejected' ? '#b91c1c' : undefined }}
-          onClick={() => setShowAuditModal(true)}
-        >
-          <Calendar size={16} /> {status === 'dates_rejected' ? 'Propose New Audit Dates' : (audits && audits.length > 0 ? 'Manage Audit' : 'Schedule Audit')}
-        </button>
       );
     }
 
@@ -1270,6 +1297,14 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
+      />
+
+      <NextSurveillanceDateModal
+        isOpen={showNextSurvModal}
+        onClose={() => setShowNextSurvModal(false)}
+        onConfirm={handleConfirmNextSurveillanceDate}
+        app={app}
+        submitting={markingLogsheetDone}
       />
     </div>
   );

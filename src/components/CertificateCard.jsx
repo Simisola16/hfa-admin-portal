@@ -26,7 +26,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
   const hasSurvLetter = isSurv && Boolean(
     app?.documents?.surveillance_letter ||
     app?.certificate_url ||
-    app?.surveillance_letter_data ||
+    (app?.surveillance_letter_data && (app?.surveillance_letter_data?.letter_number || app?.surveillance_letter_data?.pdf_url)) ||
     normStatus === 'certificate_issued'
   );
 
@@ -41,8 +41,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
     : (certificate?.certificate_number || 'N/A');
 
   const isFastTrack = isRen || isSurv;
-  const isFastTrackPaid = isFastTrack && (normStatus === 'payment_received' || Boolean(app?.initial_payment_confirmed || app?.initial_invoice_paid));
-  const isReadyForCertificate = isFastTrackPaid || ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
+  const isReadyForCertificate = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
 
   // If application was rejected or cancelled and has no certificate, do not render
   if (!hasCertificate && ['rejected', 'cancelled'].includes(normStatus)) {
@@ -328,8 +327,8 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
             </div>
             <div style={{ fontSize: 12.5, color: '#64748b', maxWidth: 460, margin: '6px auto 16px', lineHeight: 1.5 }}>
               {isSurv
-                ? 'Surveillance letter issuance unlocks once audit evaluations and payments are complete.'
-                : 'Certificate issuance unlocks once initial processing, evaluations, and approvals are complete.'}
+                ? 'Surveillance letter issuance unlocks once audit evaluations and payments are confirmed and marked Ready for Certificate.'
+                : 'Certificate issuance unlocks once audit evaluations, agreements, and payments are confirmed and marked Ready for Certificate.'}
             </div>
             <button
               type="button"
@@ -346,7 +345,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 color: '#94a3b8',
                 fontWeight: 600
               }}
-              title={isSurv ? 'Surveillance letter issuance unlocks once audit evaluations and payments are complete.' : 'Certificate issuance unlocks once initial processing, evaluations, and approvals are complete.'}
+              title={isSurv ? 'Surveillance letter issuance unlocks once marked Ready for Certificate.' : 'Certificate issuance unlocks once marked Ready for Certificate.'}
             >
               <Lock size={14} /> {isSurv ? 'Surveillance Letter' : 'Issue Certificate'}
             </button>

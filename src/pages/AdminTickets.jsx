@@ -23,6 +23,14 @@ export default function AdminTickets() {
   const isSuperAdmin = profile?.role === 'superadmin' || (Array.isArray(profile?.roles) && profile.roles.includes('superadmin'));
   const isSupportManager = isSuperAdmin || Boolean(profile?.is_support_manager || profile?.role === 'support_manager' || (Array.isArray(profile?.roles) && profile.roles.includes('support_manager')));
 
+  // Whether the currently selected ticket is assigned to the logged-in user
+  const isAssignedToMe = selectedTicket
+    ? (selectedTicket.assigned_to?._id || selectedTicket.assigned_to || selectedTicket.assigned_staff?._id)?.toString() === myId?.toString()
+    : false;
+
+  // Can the current user reply? → support managers, superadmins, or the explicitly assigned agent
+  const canReply = isSupportManager || isAssignedToMe;
+
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
@@ -836,44 +844,66 @@ export default function AdminTickets() {
 
             {/* Quick Reply Footer */}
             <div className="modal-footer" style={{ padding: '16px 20px', background: 'white', borderTop: '1px solid var(--border)' }}>
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  placeholder="Type official response to client..."
-                  value={reply}
-                  onChange={e => setReply(e.target.value)}
-                  disabled={submittingReply}
-                  style={{ borderRadius: 10, fontSize: 13.5, resize: 'none' }}
-                />
+              {canReply ? (
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Type official response to client..."
+                    value={reply}
+                    onChange={e => setReply(e.target.value)}
+                    disabled={submittingReply}
+                    style={{ borderRadius: 10, fontSize: 13.5, resize: 'none' }}
+                  />
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>
-                    Press <strong>Send Reply</strong> to update client ticket.
-                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: '#64748b' }}>
+                      Press <strong>Send Reply</strong> to update client ticket.
+                    </div>
 
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button 
-                      type="button" 
-                      className="btn btn-outline" 
-                      onClick={(e) => handleReply(e, true)}
-                      disabled={submittingReply || !reply.trim()}
-                      style={{ borderRadius: 10, fontWeight: 700 }}
-                    >
-                      <CheckCircle2 size={15} style={{ marginRight: 6 }} /> Send & Mark Resolved
-                    </button>
-                    <button 
-                      type="button" 
-                      className="btn btn-primary" 
-                      onClick={(e) => handleReply(e, false)}
-                      disabled={submittingReply || !reply.trim()}
-                      style={{ borderRadius: 10, padding: '0 20px', fontWeight: 700 }}
-                    >
-                      {submittingReply ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <><Send size={15} style={{ marginRight: 6 }} /> Send Reply</>}
-                    </button>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button 
+                        type="button" 
+                        className="btn btn-outline" 
+                        onClick={(e) => handleReply(e, true)}
+                        disabled={submittingReply || !reply.trim()}
+                        style={{ borderRadius: 10, fontWeight: 700 }}
+                      >
+                        <CheckCircle2 size={15} style={{ marginRight: 6 }} /> Send & Mark Resolved
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        onClick={(e) => handleReply(e, false)}
+                        disabled={submittingReply || !reply.trim()}
+                        style={{ borderRadius: 10, padding: '0 20px', fontWeight: 700 }}
+                      >
+                        {submittingReply ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <><Send size={15} style={{ marginRight: 6 }} /> Send Reply</>}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Access Restricted: not assigned to this ticket */
+                <div style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a'
+                }}>
+                  <Shield size={18} style={{ color: '#b45309', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#92400e' }}>Reply Access Restricted</div>
+                    <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
+                      This ticket is not assigned to you. Only the assigned agent or a Support Manager can send messages.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

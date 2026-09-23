@@ -16,7 +16,7 @@ import { getSocket } from '../../lib/socket';
 import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
-import SubmissionModal from '../../components/SubmissionModal';
+import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
 import NextSurveillanceDateModal from '../../components/NextSurveillanceDateModal';
 
 // Shared Detail Cards

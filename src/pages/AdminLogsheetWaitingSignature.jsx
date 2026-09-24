@@ -13,6 +13,11 @@ import {
 export default function AdminLogsheetWaitingSignature() {
   const { user, profile } = useAuth();
   const currentUser = profile || user;
+  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
 
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -737,7 +742,7 @@ export default function AdminLogsheetWaitingSignature() {
                         }}
                       >
                         {userSigned ? <CheckCircle2 size={13} style={{ color: '#16a34a' }} /> : <PenTool size={13} style={{ color: '#ea580c' }} />} 
-                        {userSigned ? 'Signed · Manage' : 'Awaiting Signature · Actions'}
+                        {userSigned ? 'Signed · Manage' : hasSignaturePrivilege ? 'Awaiting Signature · Actions' : 'View Logsheet · Actions'}
                       </button>
                     </div>
                   </div>
@@ -765,7 +770,11 @@ export default function AdminLogsheetWaitingSignature() {
         badgeVariant={actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow'}
         actions={[
           {
-            label: actionModalItem && hasUserSigned(actionModalItem) ? 'View Signed Logsheet' : 'Review & Sign Logsheet',
+            label: actionModalItem && hasUserSigned(actionModalItem)
+              ? 'View Signed Logsheet'
+              : hasSignaturePrivilege
+              ? 'Review & Sign Logsheet'
+              : 'View Logsheet',
             icon: PenTool,
             variant: actionModalItem && hasUserSigned(actionModalItem) ? 'default' : 'primary',
             onClick: () => {

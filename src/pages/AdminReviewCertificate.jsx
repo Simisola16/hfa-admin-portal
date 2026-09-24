@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
+import { useAuth } from '../context/AuthContext';
 
 
 const PRODUCT_CATEGORIES = [
@@ -29,6 +30,14 @@ export default function AdminReviewCertificate() {
   const { id: certId } = useParams();
   const navigate = useNavigate();
 
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
+
   const [loading, setLoading] = useState(true);
   const [cert, setCert] = useState(null);
   const [clientUser, setClientUser] = useState(null);
@@ -45,6 +54,13 @@ export default function AdminReviewCertificate() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [applicationData, setApplicationData] = useState(null);
+
+  useEffect(() => {
+    if (currentUser && !canReviewCertificate) {
+      toast.error('Access denied. You do not have the Review Certificate Privilege required to access this page.');
+      navigate('/certificates', { replace: true });
+    }
+  }, [currentUser, canReviewCertificate, navigate]);
 
   // Form State
   const [form, setForm] = useState({
@@ -586,6 +602,10 @@ export default function AdminReviewCertificate() {
 
   // Save changes (Draft / Review)
   const handleSave = async (silent = false) => {
+    if (!canReviewCertificate) {
+      toast.error('Only staff with Review Certificate Privilege or Superadmin can modify or save certificates.');
+      return false;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -620,6 +640,10 @@ export default function AdminReviewCertificate() {
 
   // Regenerate PDF Preview with updated details & selected products
   const handleRegeneratePdf = async () => {
+    if (!canReviewCertificate) {
+      toast.error('Only staff with Review Certificate Privilege or Superadmin can regenerate certificate drafts.');
+      return;
+    }
     setRegenerating(true);
     try {
       // First save current inputs
@@ -690,6 +714,10 @@ export default function AdminReviewCertificate() {
 
   // Open confirmation modal for approval & sending
   const handleOpenApproveModal = () => {
+    if (!canReviewCertificate) {
+      toast.error('Only staff with Review Certificate Privilege or Superadmin can review and send certificates.');
+      return;
+    }
     if (!form.certificate_number?.trim()) {
       toast.error('Certificate Number is required.');
       return;
@@ -707,6 +735,10 @@ export default function AdminReviewCertificate() {
 
   // Final Approve and Send to Client
   const handleApproveAndSend = async () => {
+    if (!canReviewCertificate) {
+      toast.error('Only staff with Review Certificate Privilege or Superadmin can approve and send certificates.');
+      return;
+    }
     setApproving(true);
     try {
       const payload = {
@@ -768,6 +800,23 @@ export default function AdminReviewCertificate() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16 }}>
         <div className="spinner" style={{ width: 36, height: 36 }} />
         <div style={{ fontSize: 14, fontWeight: 600, color: '#64748b' }}>Loading Certificate for Review...</div>
+      </div>
+    );
+  }
+
+  if (!canReviewCertificate) {
+    return (
+      <div style={{ maxWidth: 640, margin: '80px auto', padding: 36, background: '#fff', borderRadius: 16, border: '1.5px solid #fee2e2', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <AlertTriangle size={30} />
+        </div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 10px' }}>Access Denied: Review Certificate Privilege Required</h2>
+        <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.6, margin: '0 0 24px' }}>
+          You do not have the <strong>Review Certificate Privilege</strong> required to view this review page, modify draft certificates, or dispatch issued certificates to clients. Please contact a Superadmin to grant you this privilege.
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate('/certificates')}>
+          Return to Certificates
+        </button>
       </div>
     );
   }

@@ -59,6 +59,9 @@ export default function AdminCreateLogsheet() {
     (s.name && user?.full_name && s.name.toLowerCase() === user.full_name.toLowerCase())
   );
   const userRole = (user?.role || '').toLowerCase();
+  const userRoles = Array.isArray(user?.roles) && user.roles.length > 0 ? user.roles : (user?.role ? [user.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || user?.role === 'superadmin';
+  const hasSignaturePrivilege = isSuperAdmin || Boolean(user?.can_sign_logsheet);
   const userUsername = (user?.username || '').toLowerCase();
   const userFullName = (user?.full_name || '').toLowerCase();
   const isMuftiUser = userRole === 'mufti' || userRole === 'shariah' || userUsername.includes('mufti') || userFullName.includes('mufti');
@@ -779,6 +782,11 @@ export default function AdminCreateLogsheet() {
   };
 
   const openSigningModal = (roleToPreselect = null) => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. You do not have the Signature Privilege required to sign logsheets. Please contact Superadmin.');
+      return;
+    }
+
     if (!userSignature) {
       toast.error('Your authenticated user account does not have an uploaded digital signature. Please upload one under Signatures first.');
       return;
@@ -808,6 +816,10 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleConfirmApplySignature = async () => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. Signature Privilege required.');
+      return;
+    }
     if (!sigRole) {
       toast.error('Please select a single signatory role to sign');
       return;
@@ -1895,7 +1907,7 @@ export default function AdminCreateLogsheet() {
                     Official digital signatures applied by authorized Shariah &amp; Management signatories.
                   </p>
                 </div>
-                {totalSignedCount < 4 && (
+                {totalSignedCount < 4 && hasSignaturePrivilege && (
                   <button
                     onClick={() => openSigningModal()}
                     className="btn btn-outline btn-sm"
@@ -1962,7 +1974,17 @@ export default function AdminCreateLogsheet() {
 
                     {!s.signature && (
                       <div style={{ marginTop: 8 }}>
-                        {isMuftiUser && (s.roleKey === 'Ceo' || s.roleKey === 'Manager') ? (
+                        {!hasSignaturePrivilege ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', fontSize: 11, padding: '6px 10px', opacity: 0.5, cursor: 'not-allowed', background: '#f8fafc', color: '#64748b', borderColor: '#cbd5e1' }}
+                            title="Signature Privilege required to sign logsheets"
+                          >
+                            <Lock size={12} style={{ marginRight: 4 }} /> Privilege Required
+                          </button>
+                        ) : isMuftiUser && (s.roleKey === 'Ceo' || s.roleKey === 'Manager') ? (
                           <button
                             type="button"
                             disabled

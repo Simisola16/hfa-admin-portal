@@ -15,6 +15,11 @@ export default function AdminExtensionLogsheet() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const currentUser = profile || user;
+  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -163,6 +168,10 @@ export default function AdminExtensionLogsheet() {
   const is30Days = formData.extension_duration_type === '30_days' || Number(formData.extension_days) <= 30;
 
   const openSignModal = (roleKey = null) => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. You do not have the Signature Privilege required to sign logsheets. Please contact Superadmin.');
+      return;
+    }
     if (roleKey) {
       setSigRole(roleKey);
     } else {
@@ -184,6 +193,10 @@ export default function AdminExtensionLogsheet() {
   };
 
   const handleApplySignature = async () => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. Signature Privilege required.');
+      return;
+    }
     if (!sigRole) {
       toast.error('Please select a signatory role');
       return;
@@ -718,7 +731,7 @@ export default function AdminExtensionLogsheet() {
                       : `${totalSignedCount} / 4 Signatures Collected`}
                   </span>
 
-                  {!isFullySigned && (
+                  {!isFullySigned && hasSignaturePrivilege && (
                     <button
                       type="button"
                       onClick={() => openSignModal()}
@@ -846,9 +859,29 @@ export default function AdminExtensionLogsheet() {
                     {/* Bottom Button */}
                     {!s.signature && (
                       <div style={{ marginTop: 8 }}>
-                        <button
-                          type="button"
-                          onClick={() => openSignModal(s.roleKey)}
+                        {!hasSignaturePrivilege ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-outline btn-sm"
+                            style={{
+                              width: '100%',
+                              fontSize: 11,
+                              padding: '6px 10px',
+                              opacity: 0.5,
+                              cursor: 'not-allowed',
+                              background: '#f8fafc',
+                              color: '#64748b',
+                              borderColor: '#cbd5e1'
+                            }}
+                            title="Signature Privilege required to sign logsheets"
+                          >
+                            <Lock size={12} style={{ marginRight: 4 }} /> Privilege Required
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openSignModal(s.roleKey)}
                           className="btn btn-outline btn-sm"
                           style={{
                             width: '100%',
@@ -864,6 +897,7 @@ export default function AdminExtensionLogsheet() {
                         >
                           <PenTool size={13} /> Sign as {s.btnRole || s.label}
                         </button>
+                        )}
                       </div>
                     )}
                   </div>

@@ -81,7 +81,7 @@ const NAV_SECTIONS = [
         icon: Award, label: 'Certificates', path: '/certificates',
         children: [
           { label: 'All Certificates',    path: '/certificates' },
-          { label: 'Review Certificates', path: '/certificates?status=under_review' },
+          { label: 'Review Certificates', path: '/certificates?status=under_review', reviewCertOnly: true },
           { label: 'Active',              path: '/certificates?status=active' },
           { label: 'Expired',             path: '/certificates?status=expired' },
         ],
@@ -217,10 +217,34 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
   /* ── Expanded sub-menu state ── */
   const [expanded, setExpanded] = useState({});
 
+  const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin');
+  const isCertOfficer = userRoles.includes('certificate_officer');
+  const hasDirectCertPrivilege = isSuperAdmin || isCertOfficer || profile?.can_issue_direct_certificate === true;
+  const hasReviewCertPrivilege = isSuperAdmin || profile?.can_review_certificate === true;
+
+  const visibleSections = NAV_SECTIONS.filter(section => {
+    if (section.superadminOnly) return isSuperAdmin;
+    if (section.directCertOnly) return hasDirectCertPrivilege;
+    return true;
+  }).map(section => ({
+    ...section,
+    items: section.items.map(item => {
+      if (!item.children) return item;
+      return {
+        ...item,
+        children: item.children.filter(child => {
+          if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
+          return true;
+        })
+      };
+    })
+  }));
+
   /* Auto-expand the section that contains the active route */
   useEffect(() => {
     const next = {};
-    NAV_SECTIONS.forEach(section => {
+    visibleSections.forEach(section => {
       section.items.forEach(item => {
         if (item.children) {
           const hasActive = item.children.some(c =>
@@ -231,20 +255,10 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
       });
     });
     setExpanded(prev => ({ ...prev, ...next }));
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, hasReviewCertPrivilege, hasDirectCertPrivilege]);
 
   const toggle = (label) =>
     setExpanded(prev => ({ ...prev, [label]: !prev[label] }));
-
-  const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
-  const isSuperAdmin = userRoles.includes('superadmin');
-  const isCertOfficer = userRoles.includes('certificate_officer');
-  const hasDirectCertPrivilege = isSuperAdmin || isCertOfficer || profile?.can_issue_direct_certificate === true;
-  const visibleSections = NAV_SECTIONS.filter(section => {
-    if (section.superadminOnly) return isSuperAdmin;
-    if (section.directCertOnly) return hasDirectCertPrivilege;
-    return true;
-  });
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>

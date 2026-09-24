@@ -140,7 +140,9 @@ export default function AdminStaff() {
     full_name: '',
     roles: ['food_tech'],
     can_issue_direct_certificate: false,
-    is_support_manager: false
+    is_support_manager: false,
+    can_sign_logsheet: false,
+    can_review_certificate: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -149,6 +151,8 @@ export default function AdminStaff() {
   const [editRolesList, setEditRolesList] = useState([]);
   const [editSpecialGrant, setEditSpecialGrant] = useState(false);
   const [editSupportManagerGrant, setEditSupportManagerGrant] = useState(false);
+  const [editSignaturePrivilege, setEditSignaturePrivilege] = useState(false);
+  const [editReviewCertPrivilege, setEditReviewCertPrivilege] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Suspension Modal State
@@ -200,7 +204,7 @@ export default function AdminStaff() {
     if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
-    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
@@ -225,7 +229,7 @@ export default function AdminStaff() {
     certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
     accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
-    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || getUserRoles(s).includes('superadmin')).length,
+    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
   };
 
@@ -281,7 +285,10 @@ export default function AdminStaff() {
         full_name: staffForm.full_name.trim(),
         roles: staffForm.roles,
         role: staffForm.roles[0],
-        can_issue_direct_certificate: staffForm.can_issue_direct_certificate
+        can_issue_direct_certificate: staffForm.can_issue_direct_certificate,
+        is_support_manager: staffForm.is_support_manager,
+        can_sign_logsheet: staffForm.can_sign_logsheet,
+        can_review_certificate: staffForm.can_review_certificate
       });
       toast.success(`HFA Staff account created for ${staffForm.full_name.trim()}!`);
       setShowStaffModal(false);
@@ -291,7 +298,10 @@ export default function AdminStaff() {
         password: '',
         full_name: '',
         roles: ['food_tech'],
-        can_issue_direct_certificate: false
+        can_issue_direct_certificate: false,
+        is_support_manager: false,
+        can_sign_logsheet: false,
+        can_review_certificate: false
       });
       fetchUsers();
     } catch (err) {
@@ -305,8 +315,11 @@ export default function AdminStaff() {
   const openEditRoles = (user) => {
     setEditRolesModal(user);
     setEditRolesList(getUserRoles(user));
-    setEditSpecialGrant(Boolean(user.can_issue_direct_certificate || user.role === 'superadmin' || (user.roles && user.roles.includes('superadmin'))));
-    setEditSupportManagerGrant(Boolean(user.is_support_manager || user.role === 'superadmin' || user.role === 'support_manager' || (user.roles && user.roles.includes('superadmin'))));
+    const isSA = Boolean(user.role === 'superadmin' || (user.roles && user.roles.includes('superadmin')));
+    setEditSpecialGrant(Boolean(user.can_issue_direct_certificate || isSA));
+    setEditSupportManagerGrant(Boolean(user.is_support_manager || user.role === 'superadmin' || user.role === 'support_manager' || isSA));
+    setEditSignaturePrivilege(Boolean(user.can_sign_logsheet || isSA));
+    setEditReviewCertPrivilege(Boolean(user.can_review_certificate || isSA));
   };
 
   // Save Edit Roles
@@ -319,12 +332,16 @@ export default function AdminStaff() {
     const targetId = editRolesModal._id || editRolesModal.id;
     const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
     const smVal = editRolesList.includes('superadmin') ? true : editSupportManagerGrant;
+    const signVal = editRolesList.includes('superadmin') ? true : editSignaturePrivilege;
+    const reviewCertVal = editRolesList.includes('superadmin') ? true : editReviewCertPrivilege;
     try {
       await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
         role: editRolesList[0],
         can_issue_direct_certificate: grantVal,
-        is_support_manager: smVal
+        is_support_manager: smVal,
+        can_sign_logsheet: signVal,
+        can_review_certificate: reviewCertVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       
@@ -337,7 +354,9 @@ export default function AdminStaff() {
             roles: editRolesList,
             role: editRolesList[0],
             can_issue_direct_certificate: grantVal,
-            is_support_manager: smVal
+            is_support_manager: smVal,
+            can_sign_logsheet: signVal,
+            can_review_certificate: reviewCertVal
           };
         }
         return u;
@@ -357,11 +376,13 @@ export default function AdminStaff() {
     if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke Special Grants.');
     const nextVal = !currentStatus;
     try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_issue_direct_certificate: nextVal } : u));
       await api.put(`/api/users/${userId}/direct-cert-permission`, { can_issue_direct_certificate: nextVal });
       toast.success(`Special Grant: Direct Certificate Studio ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Special Grant');
+      fetchUsers();
     }
   };
 
@@ -370,11 +391,43 @@ export default function AdminStaff() {
     if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Support Manager privilege.');
     const nextVal = !currentStatus;
     try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, is_support_manager: nextVal } : u));
       await api.put(`/api/users/${userId}/support-manager-permission`, { is_support_manager: nextVal });
       toast.success(`Support Manager privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Support Manager privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Signature Privilege
+  const handleToggleSignaturePrivilege = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Signature Privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_sign_logsheet: nextVal } : u));
+      await api.put(`/api/users/${userId}/logsheet-sign-permission`, { can_sign_logsheet: nextVal });
+      toast.success(`Signature Privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Signature Privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Review Certificate Privilege
+  const handleToggleReviewCertPrivilege = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Review Certificate Privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_review_certificate: nextVal } : u));
+      await api.put(`/api/users/${userId}/review-certificate-permission`, { can_review_certificate: nextVal });
+      toast.success(`Review Certificate Privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Review Certificate Privilege');
+      fetchUsers();
     }
   };
 
@@ -682,9 +735,7 @@ export default function AdminStaff() {
                   <th style={{ padding: '14px 20px', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em' }}>
                     Assigned Roles
                   </th>
-                  <th style={{ padding: '14px 20px', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em' }}>
-                    Special Grants
-                  </th>
+
                   <th style={{ padding: '14px 20px', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#475569', letterSpacing: '0.05em' }}>
                     Status
                   </th>
@@ -700,42 +751,16 @@ export default function AdminStaff() {
                   const isUserSuperAdmin = memberRoles.includes('superadmin') || member.role === 'superadmin';
                   const hasDirectPrivilege = isUserSuperAdmin || member.can_issue_direct_certificate === true;
 
-                  // Initials for avatar
-                  const nameParts = (member.full_name || member.email || 'HFA').trim().split(' ');
-                  const initials = nameParts.length >= 2
-                    ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-                    : nameParts[0].slice(0, 2).toUpperCase();
-
                   return (
                     <tr key={member._id} className="hover-row" style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s ease' }}>
                       {/* 1. Staff Member (Name & Email) */}
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                          <div style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: '50%',
-                            background: isUserSuperAdmin
-                              ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
-                              : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
-                            color: 'white',
-                            fontWeight: 800,
-                            fontSize: 13,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                          }}>
-                            {initials}
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {member.full_name || 'Staff Member'}
+                            {isUserSuperAdmin && <Crown size={13} style={{ color: '#7c3aed' }} />}
                           </div>
-                          <div>
-                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {member.full_name || 'Staff Member'}
-                              {isUserSuperAdmin && <Crown size={13} style={{ color: '#7c3aed' }} />}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{member.email}</div>
-                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{member.email}</div>
                         </div>
                       </td>
 
@@ -800,77 +825,7 @@ export default function AdminStaff() {
                         </div>
                       </td>
 
-                      {/* 3. Special Grants (Changed from Direct Cert Studio) */}
-                      <td style={{ padding: '16px 20px' }}>
-                        {isUserSuperAdmin ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              background: '#fef3c7',
-                              color: '#92400e',
-                              border: '1.5px solid #fde68a',
-                              borderRadius: 20,
-                              padding: '4px 12px',
-                              fontSize: 11.5,
-                              fontWeight: 700
-                            }}
-                          >
-                            👑 Full Master Access
-                          </span>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <button
-                              type="button"
-                              onClick={() => isSuperAdmin && handleToggleSpecialGrant(member._id, member.can_issue_direct_certificate, member.full_name)}
-                              disabled={!isSuperAdmin}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                background: member.can_issue_direct_certificate ? '#ecfdf5' : '#f8fafc',
-                                color: member.can_issue_direct_certificate ? '#047857' : '#64748b',
-                                border: member.can_issue_direct_certificate ? '1.5px solid #a7f3d0' : '1px dashed #cbd5e1',
-                                borderRadius: 20,
-                                padding: '4px 10px',
-                                fontSize: 11.5,
-                                fontWeight: 600,
-                                cursor: isSuperAdmin ? 'pointer' : 'default',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title={isSuperAdmin ? (member.can_issue_direct_certificate ? 'Click to revoke Direct Certificate Studio special grant' : 'Click to grant Direct Certificate Studio privilege') : 'Superadmin permission needed to modify'}
-                            >
-                              <Sparkles size={12} style={{ color: member.can_issue_direct_certificate ? '#10b981' : '#94a3b8' }} />
-                              {member.can_issue_direct_certificate ? '✨ Direct Cert Studio' : '+ Direct Cert Studio'}
-                            </button>
 
-                            <button
-                              type="button"
-                              onClick={() => isSuperAdmin && handleToggleSupportManager(member._id, member.is_support_manager, member.full_name)}
-                              disabled={!isSuperAdmin}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                background: member.is_support_manager ? '#f0fdf4' : '#f8fafc',
-                                color: member.is_support_manager ? '#15803d' : '#64748b',
-                                border: member.is_support_manager ? '1.5px solid #86efac' : '1px dashed #cbd5e1',
-                                borderRadius: 20,
-                                padding: '4px 10px',
-                                fontSize: 11.5,
-                                fontWeight: 600,
-                                cursor: isSuperAdmin ? 'pointer' : 'default',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title={isSuperAdmin ? (member.is_support_manager ? 'Click to revoke Support Manager privilege' : 'Click to grant Support Manager privilege') : 'Superadmin permission needed to modify'}
-                            >
-                              <Shield size={12} style={{ color: member.is_support_manager ? '#16a34a' : '#94a3b8' }} />
-                              {member.is_support_manager ? '🎧 Support Manager' : '+ Support Manager'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
 
                       {/* 4. Status Badge */}
                       <td style={{ padding: '16px 20px' }}>
@@ -1144,7 +1099,7 @@ export default function AdminStaff() {
                     </div>
                   </label>
 
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                     <input
                       type="checkbox"
                       checked={staffForm.is_support_manager}
@@ -1157,6 +1112,40 @@ export default function AdminStaff() {
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                         Allows this staff member to receive live client human-handover requests from the chatbox and assign tickets to admins.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_sign_logsheet}
+                      onChange={e => setStaffForm(f => ({ ...f, can_sign_logsheet: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Signature Privilege ✍️
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to digitally sign HFA logsheets as an authorised committee signatory.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_review_certificate}
+                      onChange={e => setStaffForm(f => ({ ...f, can_review_certificate: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#9333ea' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Review Certificate Privilege 📋
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to access the Review Certificates page and approve or reject submitted certificate drafts.
                       </span>
                     </div>
                   </label>
@@ -1324,7 +1313,7 @@ export default function AdminStaff() {
                       </div>
                     </label>
 
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                       <input
                         type="checkbox"
                         checked={editSupportManagerGrant}
@@ -1337,6 +1326,40 @@ export default function AdminStaff() {
                         </span>
                         <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                           Allows this staff member to receive live client human-handover requests from the chatbox and assign tickets to admins.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={editSignaturePrivilege}
+                        onChange={e => setEditSignaturePrivilege(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Signature Privilege ✍️
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to digitally sign HFA logsheets as an authorised committee signatory.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editReviewCertPrivilege}
+                        onChange={e => setEditReviewCertPrivilege(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#9333ea' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Review Certificate Privilege 📋
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to access the Review Certificates page and approve or reject submitted certificate drafts.
                         </span>
                       </div>
                     </label>

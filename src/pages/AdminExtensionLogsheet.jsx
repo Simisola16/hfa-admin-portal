@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { getPdfUrl } from '../lib/pdfUtils';
 import {
-  ArrowLeft, FileText, CheckCircle2, CheckCircle, Clock, Check,
-  User, Building2, Calendar, MapPin, Printer, Download,
-  PenTool, AlertTriangle, ShieldCheck, RefreshCw, X, Save, Lock
+  ArrowLeft, CheckCircle2, CheckCircle, Clock, Check,
+  Printer, PenTool, AlertTriangle, ShieldCheck, X, Save, Lock, RotateCcw
 } from 'lucide-react';
 
 export default function AdminExtensionLogsheet() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile } = useAuth();
   const currentUser = profile || user;
   const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
@@ -106,19 +106,16 @@ export default function AdminExtensionLogsheet() {
     }
   };
 
-  useEffect(() => {
-    fetchDetails();
-  }, [id]);
+  const [isRedoing, setIsRedoing] = useState(() => {
+    const sp = new URLSearchParams(location.search);
+    return sp.get('redo') === '1' || sp.get('redo') === 'true';
+  });
 
-  const handleDurationTypeChange = (type) => {
-    if (isSubmittedForSig) return;
-    const days = type === '30_days' ? 30 : 60;
-    setFormData(prev => ({
-      ...prev,
-      extension_duration_type: type,
-      extension_days: days
-    }));
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const isSubmittedForSig = Boolean(
     logsheet && (
@@ -130,21 +127,41 @@ export default function AdminExtensionLogsheet() {
     )
   );
 
+  const isLocked = isSubmittedForSig && !isRedoing;
+
+  const handleDurationTypeChange = (type) => {
+    if (isLocked) return;
+    const days = type === '30_days' ? 30 : 60;
+    setFormData(prev => ({
+      ...prev,
+      extension_duration_type: type,
+      extension_days: days
+    }));
+  };
+
   const handleSave = async (submitForSig = false) => {
     setSaving(true);
     try {
       const payload = {
         ...formData,
-        submit_for_signature: submitForSig
+        submit_for_signature: submitForSig,
+        clear_signatures: isRedoing || false,
+        is_redo: isRedoing || false
       };
       const res = await api.post(`/api/extension-applications/${id}/logsheet`, payload);
       const updatedLog = res.data?.data || res.data;
       setLogsheet(updatedLog);
-      toast.success(submitForSig ? 'Logsheet submitted for signatures!' : 'Logsheet draft saved successfully!');
-      if (submitForSig) {
-        navigate(`/extension-applications/${id}/processing`);
+      if (isRedoing) {
+        setIsRedoing(false);
+        await fetchDetails();
+        toast.success('Extension logsheet updated! Previous signatures cleared.');
       } else {
-        fetchDetails();
+        toast.success(submitForSig ? 'Logsheet submitted for signatures!' : 'Logsheet draft saved successfully!');
+        if (submitForSig) {
+          navigate(`/extension-applications/${id}/processing`);
+        } else {
+          fetchDetails();
+        }
       }
     } catch (err) {
       console.error('Save error:', err);
@@ -295,12 +312,12 @@ export default function AdminExtensionLogsheet() {
     width: '100%',
     padding: '9px 13px',
     borderRadius: 7,
-    border: isSubmittedForSig ? '1px solid #e2e8f0' : '1px solid #94a3b8',
-    backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
+    border: isLocked ? '1px solid #e2e8f0' : '1px solid #94a3b8',
+    backgroundColor: isLocked ? '#f8fafc' : '#ffffff',
     fontSize: 13.5,
     fontWeight: 600,
-    color: isSubmittedForSig ? '#334155' : '#0f172a',
-    cursor: isSubmittedForSig ? 'not-allowed' : 'text',
+    color: isLocked ? '#334155' : '#0f172a',
+    cursor: isLocked ? 'not-allowed' : 'text',
     transition: 'all 0.2s ease'
   };
 
@@ -332,7 +349,34 @@ export default function AdminExtensionLogsheet() {
             <Printer size={14} /> Print
           </button>
 
-          {!isSubmittedForSig ? (
+          {isRedoing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsRedoing(false)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'white', border: '1px solid #d1d5db', color: '#64748b',
+                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancel Redo
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#b45309', border: 'none', color: 'white',
+                  padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', boxShadow: '0 2px 4px rgba(180,83,9,0.25)'
+                }}
+              >
+                {saving ? 'Saving & Resetting...' : <><Save size={14} /> Save &amp; Re-submit Logsheet</>}
+              </button>
+            </>
+          ) : !isSubmittedForSig ? (
             <>
               <button
                 onClick={() => handleSave(false)}
@@ -359,19 +403,39 @@ export default function AdminExtensionLogsheet() {
               </button>
             </>
           ) : (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: isFullySigned ? '#ecfdf5' : '#fffbeb',
-              border: `1px solid ${isFullySigned ? '#a7f3d0' : '#fde68a'}`,
-              color: isFullySigned ? '#065f46' : '#92400e',
-              padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700
-            }}>
-              {isFullySigned ? (
-                <><CheckCircle2 size={15} color="#059669" /> All Signatures Completed</>
-              ) : (
-                <><Clock size={15} color="#d97706" /> Waiting for Signatures</>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              {logsheet?.status !== 'Approved' && app?.status !== 'extension_approved' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to redo this extension logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                      setIsRedoing(true);
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: '#fffbeb', border: '1px solid #f59e0b', color: '#b45309',
+                    padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
+                  }}
+                  title="Redo logsheet and reset signatures"
+                >
+                  <RotateCcw size={14} /> Redo Logsheet
+                </button>
               )}
-            </span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: isFullySigned ? '#ecfdf5' : '#fffbeb',
+                border: `1px solid ${isFullySigned ? '#a7f3d0' : '#fde68a'}`,
+                color: isFullySigned ? '#065f46' : '#92400e',
+                padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700
+              }}>
+                {isFullySigned ? (
+                  <><CheckCircle2 size={15} color="#059669" /> All Signatures Completed</>
+                ) : (
+                  <><Clock size={15} color="#d97706" /> Waiting for Signatures</>
+                )}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -394,6 +458,48 @@ export default function AdminExtensionLogsheet() {
             Application Ref: <strong>{app?.application_number}</strong> • Facility: <strong>{app?.site_name}</strong>
           </div>
         </div>
+
+        {/* ── Redo Logsheet Active Banner ── */}
+        {isRedoing && (
+          <div style={{
+            background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+            border: '1.5px solid #f59e0b',
+            borderRadius: 10,
+            padding: '14px 18px',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.12)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#fde68a', color: '#b45309',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <RotateCcw size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e' }}>
+                  Redo Extension Logsheet Active
+                </div>
+                <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
+                  You can now edit the extension parameters below. When saved, all previously signed signatures will be removed and the logsheet will return to Waiting for Signature.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsRedoing(false)}
+              style={{ background: '#fff', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+            >
+              Cancel Redo
+            </button>
+          </div>
+        )}
 
         {/* ── Locked / Submitted Notice Banner ── */}
         {isSubmittedForSig ? (
@@ -468,7 +574,7 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.company_name}
               onChange={(e) => setFormData(f => ({ ...f, company_name: e.target.value }))}
               placeholder="e.g. British Foods Ltd"
@@ -483,7 +589,7 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.facility_address}
               onChange={(e) => setFormData(f => ({ ...f, facility_address: e.target.value }))}
               placeholder="Full address of the manufacturing / processing facility"
@@ -501,7 +607,7 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.contact_person}
               onChange={(e) => setFormData(f => ({ ...f, contact_person: e.target.value }))}
               placeholder="Full name of representative"
@@ -519,7 +625,7 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="text"
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.product_category}
               onChange={(e) => setFormData(f => ({ ...f, product_category: e.target.value }))}
               placeholder="e.g. Meat & Poultry / Confectionery / Flavours"
@@ -538,11 +644,11 @@ export default function AdminExtensionLogsheet() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
-                cursor: isSubmittedForSig ? 'not-allowed' : 'pointer', opacity: isSubmittedForSig ? 0.8 : 1
+                cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.8 : 1
               }}>
                 <input
                   type="checkbox"
-                  disabled={isSubmittedForSig}
+                  disabled={isLocked}
                   checked={formData.scheme === 'GSO' || formData.scheme === 'Both'}
                   onChange={(e) => {
                     const isChecked = e.target.checked;
@@ -551,18 +657,18 @@ export default function AdminExtensionLogsheet() {
                       scheme: isChecked ? (f.scheme === 'HFA' ? 'Both' : 'GSO') : (f.scheme === 'Both' ? 'HFA' : 'HFA')
                     }));
                   }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isSubmittedForSig ? 'not-allowed' : 'pointer' }}
+                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isLocked ? 'not-allowed' : 'pointer' }}
                 />
                 GSO
               </label>
 
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
-                cursor: isSubmittedForSig ? 'not-allowed' : 'pointer', opacity: isSubmittedForSig ? 0.8 : 1
+                cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.8 : 1
               }}>
                 <input
                   type="checkbox"
-                  disabled={isSubmittedForSig}
+                  disabled={isLocked}
                   checked={formData.scheme === 'HFA' || formData.scheme === 'Both'}
                   onChange={(e) => {
                     const isChecked = e.target.checked;
@@ -571,7 +677,7 @@ export default function AdminExtensionLogsheet() {
                       scheme: isChecked ? (f.scheme === 'GSO' ? 'Both' : 'HFA') : (f.scheme === 'Both' ? 'GSO' : 'GSO')
                     }));
                   }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isSubmittedForSig ? 'not-allowed' : 'pointer' }}
+                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isLocked ? 'not-allowed' : 'pointer' }}
                 />
                 HFA
               </label>
@@ -585,15 +691,15 @@ export default function AdminExtensionLogsheet() {
             </label>
             <input
               type="date"
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.certificate_expiry_date}
               onChange={(e) => setFormData(f => ({ ...f, certificate_expiry_date: e.target.value }))}
               style={{
                 width: 240, padding: '8px 12px', borderRadius: 6,
-                border: isSubmittedForSig ? '1px solid #e2e8f0' : '1px solid #94a3b8',
-                backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
-                fontSize: 13.5, color: isSubmittedForSig ? '#334155' : '#0f172a',
-                cursor: isSubmittedForSig ? 'not-allowed' : 'text'
+                border: isLocked ? '1px solid #e2e8f0' : '1px solid #94a3b8',
+                backgroundColor: isLocked ? '#f8fafc' : '#ffffff',
+                fontSize: 13.5, color: isLocked ? '#334155' : '#0f172a',
+                cursor: isLocked ? 'not-allowed' : 'text'
               }}
             />
           </div>
@@ -605,26 +711,26 @@ export default function AdminExtensionLogsheet() {
             </label>
             <textarea
               rows={6}
-              disabled={isSubmittedForSig}
+              disabled={isLocked}
               value={formData.justification}
               onChange={(e) => setFormData(f => ({ ...f, justification: e.target.value }))}
               placeholder="State the detailed operational, technical, or auditing justification for granting the certificate extension..."
               style={{
                 width: '100%', padding: '14px 16px', borderRadius: 8,
-                border: isSubmittedForSig ? '1px solid #e2e8f0' : '1.5px solid #64748b',
-                backgroundColor: isSubmittedForSig ? '#f8fafc' : '#ffffff',
+                border: isLocked ? '1px solid #e2e8f0' : '1.5px solid #64748b',
+                backgroundColor: isLocked ? '#f8fafc' : '#ffffff',
                 fontSize: 13.5, lineHeight: 1.6,
-                color: isSubmittedForSig ? '#334155' : '#0f172a',
-                cursor: isSubmittedForSig ? 'not-allowed' : 'text',
-                resize: isSubmittedForSig ? 'none' : 'vertical'
+                color: isLocked ? '#334155' : '#0f172a',
+                cursor: isLocked ? 'not-allowed' : 'text',
+                resize: isLocked ? 'none' : 'vertical'
               }}
             />
           </div>
 
           {/* Extension required for: _____ days & 30 Days / >30 Days Toggle */}
           <div style={{
-            background: isSubmittedForSig ? '#f8fafc' : '#f8fafc',
-            border: isSubmittedForSig ? '1px solid #e2e8f0' : '1.5px dashed #cbd5e1',
+            background: isLocked ? '#f8fafc' : '#f8fafc',
+            border: isLocked ? '1px solid #e2e8f0' : '1.5px dashed #cbd5e1',
             borderRadius: 12, padding: '18px 22px', marginTop: 10
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -636,7 +742,7 @@ export default function AdminExtensionLogsheet() {
                   type="number"
                   min="1"
                   max="365"
-                  disabled={isSubmittedForSig}
+                  disabled={isLocked}
                   value={formData.extension_days}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10) || 0;
@@ -648,11 +754,11 @@ export default function AdminExtensionLogsheet() {
                   }}
                   style={{
                     width: 90, padding: '6px 10px', borderRadius: 6,
-                    border: isSubmittedForSig ? '1px solid #cbd5e1' : '2px solid #008744',
-                    backgroundColor: isSubmittedForSig ? '#ffffff' : '#ffffff',
+                    border: isLocked ? '1px solid #cbd5e1' : '2px solid #008744',
+                    backgroundColor: isLocked ? '#ffffff' : '#ffffff',
                     fontSize: 15, fontWeight: 800,
-                    textAlign: 'center', color: isSubmittedForSig ? '#334155' : '#008744',
-                    cursor: isSubmittedForSig ? 'not-allowed' : 'text'
+                    textAlign: 'center', color: isLocked ? '#334155' : '#008744',
+                    cursor: isLocked ? 'not-allowed' : 'text'
                   }}
                 />
                 <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a' }}>
@@ -664,30 +770,30 @@ export default function AdminExtensionLogsheet() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
-                  disabled={isSubmittedForSig}
+                  disabled={isLocked}
                   onClick={() => handleDurationTypeChange('30_days')}
                   style={{
                     padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
                     border: is30Days ? '2px solid #008744' : '1px solid #cbd5e1',
                     background: is30Days ? '#ecfdf5' : 'white',
                     color: is30Days ? '#008744' : '#64748b',
-                    cursor: isSubmittedForSig ? 'not-allowed' : 'pointer',
-                    opacity: isSubmittedForSig && !is30Days ? 0.5 : 1
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    opacity: isLocked && !is30Days ? 0.5 : 1
                   }}
                 >
                   ✓ 30 Days (1 Signature)
                 </button>
                 <button
                   type="button"
-                  disabled={isSubmittedForSig}
+                  disabled={isLocked}
                   onClick={() => handleDurationTypeChange('more_than_30_days')}
                   style={{
                     padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
                     border: !is30Days ? '2px solid #2563eb' : '1px solid #cbd5e1',
                     background: !is30Days ? '#eff6ff' : 'white',
                     color: !is30Days ? '#2563eb' : '#64748b',
-                    cursor: isSubmittedForSig ? 'not-allowed' : 'pointer',
-                    opacity: isSubmittedForSig && is30Days ? 0.5 : 1
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    opacity: isLocked && is30Days ? 0.5 : 1
                   }}
                 >
                   ✓ More than 30 Days (4 Signatures)

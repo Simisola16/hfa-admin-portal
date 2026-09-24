@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { 
-  FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, Check, ExternalLink
+  Search, Trash2, RefreshCw, ChevronDown, 
+  MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw
 } from 'lucide-react';
 
 export default function AdminLogsheetWaitingSignature() {
@@ -110,6 +110,7 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLogsheets();
   }, []);
 
@@ -657,7 +658,7 @@ export default function AdminLogsheetWaitingSignature() {
             {/* MOBILE / TABLET CARDS VIEW */}
             <div className="mobile-only-cards" style={{ display: 'none', gridTemplateColumns: '1fr', gap: 12, padding: 12 }}>
               {filteredLogsheets.map(l => {
-                const { count, total, signers } = getSignatoryProgress(l);
+                const { count, total } = getSignatoryProgress(l);
                 const age = getAgeCue(l.created_at);
                 const userSigned = hasUserSigned(l);
 
@@ -780,6 +781,18 @@ export default function AdminLogsheetWaitingSignature() {
             onClick: () => {
               if (actionModalItem) {
                 navigate(getLogsheetLink(actionModalItem));
+              }
+            }
+          },
+          {
+            label: 'Redo Logsheet',
+            icon: RotateCcw,
+            variant: 'default',
+            onClick: () => {
+              if (actionModalItem) {
+                const link = getLogsheetLink(actionModalItem);
+                const separator = link.includes('?') ? '&' : '?';
+                navigate(`${link}${separator}redo=1`);
               }
             }
           },

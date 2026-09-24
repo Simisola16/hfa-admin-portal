@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { getPdfUrl } from '../lib/pdfUtils';
 import {
-  Package, Search, X, Check, FileText, AlertCircle, Clock,
-  RefreshCw, User, CheckCircle, Users, ArrowRight, Building2,
-  Calendar, Layers, ShieldCheck, ChevronRight, Sparkles, Filter,
+  Package, Search, X,
+  RefreshCw, User, Building2,
   Settings, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -68,7 +66,9 @@ export default function AdminInitialProducts() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const openAssignModal = (app) => {
@@ -374,30 +374,34 @@ export default function AdminInitialProducts() {
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }}>
                         <ActionTriggerButton
-                          onClick={() => setActiveActionModal({
-                            title: item.product?.name || 'Initial Product',
-                            subtitle: `${compName} • App #${item.application_id?.application_number || 'N/A'}`,
-                            badge: conf.label,
-                            badgeVariant: isApproved ? 'badge-green' : needsFt ? 'badge-yellow' : 'badge-blue',
-                            actions: [
-                              {
-                                label: 'Application Processing',
-                                icon: Settings,
-                                variant: 'primary',
-                                onClick: () => navigate(`/admin/initial-products/${item._id}/processing`)
-                              },
-                              ...(isManagerOrAdmin ? [{
-                                label: ftNames.length > 0 ? 'Reassign Food Technologist' : 'Assign Food Technologist',
-                                icon: UserPlus,
-                                variant: 'default',
-                                onClick: () => openAssignModal(item)
-                              }] : [])
-                            ]
-                          })}
+                          onClick={() => {
+                            const itemIsFormEnabled = ['product_approval_form_enabled', 'all_forms_received', 'logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(item.status);
+                            setActiveActionModal({
+                              title: item.product?.name || 'Initial Product',
+                              subtitle: `${compName} • App #${item.application_id?.application_number || 'N/A'}`,
+                              badge: conf.label,
+                              badgeVariant: isApproved ? 'badge-green' : needsFt ? 'badge-yellow' : 'badge-blue',
+                              actions: [
+                                {
+                                  label: 'Application Processing',
+                                  icon: Settings,
+                                  variant: 'primary',
+                                  onClick: () => navigate(`/admin/initial-products/${item._id}/processing`)
+                                },
+                                ...(isManagerOrAdmin && !itemIsFormEnabled ? [{
+                                  label: ftNames.length > 0 ? 'Reassign Food Technologist' : 'Assign Food Technologist',
+                                  icon: UserPlus,
+                                  variant: 'default',
+                                  onClick: () => openAssignModal(item)
+                                }] : [])
+                              ]
+                            });
+                          }}
                         />
                       </td>
                     </tr>
                   );
+
                 })}
               </tbody>
             </table>

@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, CheckCircle, XCircle, RefreshCw,
-  Building2, FileText, User, Calendar, Shield,
-  ChevronRight, AlertCircle, Clock, Package, Download, Eye, ClipboardList,
-  Award, Users, Check, ExternalLink, Sparkles, Send, Upload, Edit, FileSpreadsheet, Plus, X,
-  Phone, Mail, MapPin, FileCheck
+  ArrowLeft, CheckCircle, RefreshCw,
+  Building2, FileText, User,
+  AlertCircle, Clock, Package, Download, Eye,
+  Sparkles, Send, FileSpreadsheet, Plus, X,
+  FileCheck
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalRequestForm from '../components/ProductApprovalRequestForm';
-import InitialProductTimeline, { INITIAL_PRODUCT_STAGES, INITIAL_PRODUCT_ORDER } from '../components/InitialProductTimeline';
+import InitialProductTimeline from '../components/InitialProductTimeline';
 
 export default function AdminInitialProductProcessing() {
   const { id } = useParams();
@@ -45,8 +45,7 @@ export default function AdminInitialProductProcessing() {
   // View Submitted Form Modal
   const [showFormModal, setShowFormModal] = useState(false);
 
-  // Direct Approve Form
-  const [approving, setApproving] = useState(false);
+  // Direct Mark Received
   const [markingReceived, setMarkingReceived] = useState(false);
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
@@ -82,7 +81,7 @@ export default function AdminInitialProductProcessing() {
       setCustomFtName(loadedApp.assigned_ft_custom?.name || loadedApp.assigned_ft_details || '');
       setCustomFtEmail(loadedApp.assigned_ft_custom?.email || '');
       setCustomFtNotes(loadedApp.assigned_ft_custom?.notes || '');
-    } catch (err) {
+    } catch {
       toast.error('Failed to load Initial Product processing data.');
     } finally {
       setLoading(false);
@@ -91,6 +90,7 @@ export default function AdminInitialProductProcessing() {
   }, [id, isManagerOrAdmin]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApp();
   }, [fetchApp]);
 
@@ -180,23 +180,6 @@ export default function AdminInitialProductProcessing() {
     }
   };
 
-  // Handler: Direct Approve Form -> Initial Product Approved
-  const handleApproveForm = async () => {
-    if (!window.confirm('Are you sure you want to mark this Initial Product as Approved? This completes product halal evaluation and activates it in the product registry.')) {
-      return;
-    }
-    setApproving(true);
-    try {
-      await api.put(`/api/initial-products/${id}/approve-form`);
-      toast.success('🎉 Initial Product Approved successfully!');
-      fetchApp(true);
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to approve initial product');
-    } finally {
-      setApproving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ padding: '60px 20px', textAlign: 'center' }}>
@@ -230,6 +213,11 @@ export default function AdminInitialProductProcessing() {
   const productResp = app.product_approval_form?.product_response;
   const isFormEnabled = ['product_approval_form_enabled', 'all_forms_received', 'logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(app.status);
   const isFormReceived = ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(app.status);
+  const hasLogsheet = Boolean(
+    logsheets.length > 0 ||
+    app.logsheet_id ||
+    ['logsheet_created', 'waiting_sharia_signature', 'initial_product_approved'].includes(app.status)
+  );
   const hasFtAssigned = Boolean(
     ftNames.length > 0 ||
     app.assigned_food_tech ||
@@ -397,23 +385,6 @@ export default function AdminInitialProductProcessing() {
                           <Clock size={15} /> Awaiting Client Submission
                         </span>
                       )}
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        onClick={() => setShowEnableFormModal(true)}
-                        style={{
-                          color: '#6b21a8',
-                          borderColor: '#d8b4fe',
-                          background: '#faf5ff',
-                          fontWeight: 700,
-                          padding: '10px 14px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6
-                        }}
-                      >
-                        <Edit size={14} /> Form Settings
-                      </button>
                     </div>
                   )}
 
@@ -527,7 +498,7 @@ export default function AdminInitialProductProcessing() {
                 2. Food Technologist Assignment (Direct Assignment)
               </div>
 
-              {isManagerOrAdmin && (
+              {isManagerOrAdmin && !isFormEnabled && (
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
@@ -554,7 +525,7 @@ export default function AdminInitialProductProcessing() {
                 )}
               </div>
 
-              {ftNames.length === 0 && isManagerOrAdmin && (
+              {ftNames.length === 0 && isManagerOrAdmin && !isFormEnabled && (
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
@@ -677,14 +648,16 @@ export default function AdminInitialProductProcessing() {
                       >
                         <Eye size={14} /> View Form Response
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={() => setShowInfoModal(true)}
-                        style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                      >
-                        <AlertCircle size={14} /> Request More Info
-                      </button>
+                      {!hasLogsheet && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setShowInfoModal(true)}
+                          style={{ fontWeight: 700, color: '#d97706', borderColor: '#fde68a', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <AlertCircle size={14} /> Request More Info
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -1050,7 +1023,7 @@ export default function AdminInitialProductProcessing() {
             </div>
 
             <div style={{ padding: '24px 28px', overflowY: 'auto', flex: 1, background: '#fafafa' }}>
-              {Boolean(productResp?.form_data || productResp?.is_saved || app.product_approval_form?.product_responses) ? (
+              {(productResp?.form_data || productResp?.is_saved || app.product_approval_form?.product_responses) ? (
                 <ProductApprovalRequestForm
                   formData={productResp?.form_data || {}}
                   initialData={productResp?.form_data || {}}

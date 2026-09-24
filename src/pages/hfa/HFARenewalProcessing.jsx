@@ -18,7 +18,6 @@ import InvoiceModal from '../../components/InvoiceModal';
 import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
-import ApplicationSuccessfulModal from '../../components/ApplicationSuccessfulModal';
 
 // Extracted Detail Cards
 import InvoiceCard from '../../components/InvoiceCard';
@@ -62,7 +61,6 @@ export default function HFARenewalProcessing(props) {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  const [showApplicationSuccessfulModal, setShowApplicationSuccessfulModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
 
@@ -329,25 +327,22 @@ export default function HFARenewalProcessing(props) {
     }
   };
 
-  const handleMarkLogsheetDone = () => {
-    setShowApplicationSuccessfulModal(true);
-  };
-
-  const handleConfirmApplicationSuccessful = async (selectedCertType) => {
+  const handleMarkLogsheetDone = async () => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found for this renewal application.');
       return;
     }
+    const certType = logsheet?.certificate_type || logsheet?.suggested_certificate_type || logsheet?.certificate_standard || '';
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Signed',
         force: true,
-        certificate_type: selectedCertType,
+        certificate_type: certType,
+        suggested_certificate_type: certType,
       });
-      toast.success(`Renewal application marked Successful with ${selectedCertType}! Ready for Renewal Invoice.`);
-      setShowApplicationSuccessfulModal(false);
+      toast.success('Renewal application marked Successful! Ready for Renewal Invoice.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark logsheet as done.');
@@ -1084,6 +1079,7 @@ export default function HFARenewalProcessing(props) {
         isOpen={showCertificateModal}
         onClose={() => setShowCertificateModal(false)}
         app={app}
+        logsheet={logsheet}
         onSuccess={() => fetchApp(true)}
       />
 
@@ -1317,16 +1313,6 @@ export default function HFARenewalProcessing(props) {
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
-      />
-
-      {/* Application Successful & Certificate Scheme Modal */}
-      <ApplicationSuccessfulModal
-        isOpen={showApplicationSuccessfulModal}
-        onClose={() => setShowApplicationSuccessfulModal(false)}
-        app={app}
-        logsheet={logsheet}
-        onConfirm={handleConfirmApplicationSuccessful}
-        submitting={markingLogsheetDone}
       />
     </div>
   );

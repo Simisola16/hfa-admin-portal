@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -18,7 +18,7 @@ const getCleanId = (val) => {
 };
 
 
-export const resolveCertificateType = (loadedApp, existingCert = null, procDetails = null) => {
+export const resolveCertificateType = (loadedApp, existingCert = null, procDetails = null, targetLogsheet = null) => {
   if (!loadedApp && !existingCert) return 'GSO MEAT';
 
   const checkAddOn = (item) => {
@@ -40,13 +40,20 @@ export const resolveCertificateType = (loadedApp, existingCert = null, procDetai
     String(loadedApp?.category || '').toLowerCase().includes('surveillance')
   );
 
-  if (isSurv) {
-    return 'UAE/GSO Halal Surveillance Letter';
-  }
-
-  // 1. Check explicit raw type from certificate or application
+  // 1. Check explicit raw type from certificate, logsheet or application (prioritize reviewer suggested type)
   const candidateTypes = [
     existingCert?.certificate_type,
+    targetLogsheet?.suggested_certificate_type,
+    targetLogsheet?.certificate_type,
+    targetLogsheet?.certificate_standard,
+    loadedApp?.suggested_certificate_type,
+    procDetails?.app?.suggested_certificate_type,
+    procDetails?.logsheet?.suggested_certificate_type,
+    procDetails?.logsheet?.certificate_type,
+    procDetails?.logsheet?.certificate_standard,
+    procDetails?.logsheets?.[0]?.suggested_certificate_type,
+    procDetails?.logsheets?.[0]?.certificate_type,
+    procDetails?.logsheets?.[0]?.certificate_standard,
     (typeof loadedApp?.certificate_id === 'object' ? loadedApp?.certificate_id?.certificate_type : null),
     (typeof loadedApp?.renewed_certificate_id === 'object' ? loadedApp?.renewed_certificate_id?.certificate_type : null),
     loadedApp?.certificate_type,
@@ -59,6 +66,21 @@ export const resolveCertificateType = (loadedApp, existingCert = null, procDetai
     procDetails?.agreement?.certificate_type,
     procDetails?.agreement?.scheme
   ].filter(Boolean);
+
+  if (isSurv) {
+    for (const raw of candidateTypes) {
+      if (typeof raw === 'string' && raw.trim()) {
+        const u = raw.toUpperCase().trim();
+        if (u === 'GSO MEAT' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) return 'GSO MEAT';
+        if (u === 'GSO NON MEAT' || (u.includes('GSO') && (u.includes('NON') || u.includes('FOOD')))) return 'GSO NON MEAT';
+        if (u === 'HFA SCHEME MEAT' || (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON'))) return 'HFA SCHEME MEAT';
+        if (u === 'HFA SCHEME NON MEAT' || (u.includes('HFA') && (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')))) return 'HFA SCHEME NON MEAT';
+        if (u === 'COSMETICS' || u.includes('COSMETIC')) return 'COSMETICS';
+        if (u === 'SMIIC' || u.includes('SMIIC')) return 'SMIIC';
+      }
+    }
+    return 'UAE/GSO Halal Surveillance Letter';
+  }
 
   for (const raw of candidateTypes) {
     if (typeof raw === 'string' && raw.trim()) {
@@ -149,9 +171,10 @@ export const resolveCertificateType = (loadedApp, existingCert = null, procDetai
   return 'HFA SCHEME NON MEAT';
 };
 
-export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, isAddOn: propIsAddOn, onSuccess }) {
+export default function CertificateModal({ isOpen, onClose, app: propApp, appId: propAppId, isAddOn: propIsAddOn, logsheet: propLogsheet, onSuccess }) {
   const navigate = useNavigate();
   const [app, setApp] = useState(propApp || null);
+  const [logsheet, setLogsheet] = useState(propLogsheet || null);
   const [loading, setLoading] = useState(false);
   const [currentTypeCode, setCurrentTypeCode] = useState('NE');
   const [activeTab, setActiveTab] = useState('details'); // 'details' | 'products' | 'upload'
@@ -161,7 +184,12 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [previewKey, setPreviewKey] = useState(Date.now());
+  const [suggestedCertType, setSuggestedCertType] = useState('');
   const debounceTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (propLogsheet) setLogsheet(propLogsheet);
+  }, [propLogsheet]);
 
   const isFourDateType = (type) => {
     if (!type) return false;
@@ -171,7 +199,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
   const [certificateForm, setCertificateForm] = useState(() => ({
     certificate_number: '',
-    certificate_type: resolveCertificateType(propApp),
+    certificate_type: resolveCertificateType(propApp, null, null, propLogsheet),
     company_name: '',
     company_address: '',
     manufacturing_address: '',
@@ -210,8 +238,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   );
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp);
 
-  const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null, clientProducts = []) => {
+  const initForm = (loadedApp, existingCert = null, loadedInitProd = null, procDetails = null, clientProducts = [], targetLogsheet = null) => {
     if (!loadedApp) return;
+    const activeLogsheet = targetLogsheet || propLogsheet || logsheet || procDetails?.logsheet || null;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
     const isSurv = !isAddOn && (
       loadedApp.application_type === 'surveillance' ||
@@ -230,8 +259,41 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     );
     const isNewApp = !isRenApp && !isAddOn && !isSurv;
 
-    // Automatically resolve Certificate Type strictly from application data
-    const resolvedCertType = resolveCertificateType(loadedApp, existingCert, procDetails);
+    // Extract reviewer suggested certificate type if present
+    const rawSuggested =
+      activeLogsheet?.suggested_certificate_type ||
+      activeLogsheet?.certificate_type ||
+      activeLogsheet?.certificate_standard ||
+      loadedApp?.suggested_certificate_type ||
+      procDetails?.app?.suggested_certificate_type ||
+      procDetails?.logsheets?.[0]?.suggested_certificate_type ||
+      procDetails?.logsheets?.[0]?.certificate_type ||
+      procDetails?.logsheets?.[0]?.certificate_standard ||
+      procDetails?.logsheet?.suggested_certificate_type ||
+      procDetails?.logsheet?.certificate_type ||
+      procDetails?.logsheet?.certificate_standard ||
+      loadedApp?.certificate_type ||
+      '';
+
+    let matchedSuggested = '';
+    if (rawSuggested) {
+      const u = String(rawSuggested).toUpperCase().trim();
+      if (u === 'GSO MEAT' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) matchedSuggested = 'GSO MEAT';
+      else if (u === 'GSO NON MEAT' || (u.includes('GSO') && (u.includes('NON') || u.includes('FOOD')))) matchedSuggested = 'GSO NON MEAT';
+      else if (u === 'HFA SCHEME MEAT' || (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON'))) matchedSuggested = 'HFA SCHEME MEAT';
+      else if (u === 'HFA SCHEME NON MEAT' || (u.includes('HFA') && (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')))) matchedSuggested = 'HFA SCHEME NON MEAT';
+      else if (u.includes('COSMETIC')) matchedSuggested = 'COSMETICS';
+      else if (u.includes('SMIIC')) matchedSuggested = 'SMIIC';
+      else matchedSuggested = rawSuggested;
+      setSuggestedCertType(matchedSuggested);
+    } else {
+      setSuggestedCertType('');
+    }
+
+    // Automatically resolve Certificate Type strictly from application data & reviewer suggestion
+    const resolvedCertType = (matchedSuggested && !isSurv)
+      ? matchedSuggested
+      : resolveCertificateType(loadedApp, existingCert, procDetails, activeLogsheet);
 
     const isFour = isFourDateType(resolvedCertType);
     const yearsToAdd = isSurv ? 1 : (isFour ? 3 : 1);
@@ -601,14 +663,24 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         api.get(`/api/certificates/application/${appIdToUse}`).catch(() => ({ data: null })),
         api.get(`/api/initial-products/by-application/${appIdToUse}`).catch(() => ({ data: null })),
         api.get(`/api/applications/${appIdToUse}/processing-details`).catch(() => ({ data: null })),
-        api.get(`/api/products`).catch(() => ({ data: [] }))
+        api.get(`/api/products`).catch(() => ({ data: [] })),
+        api.get(`/api/application-logsheets/application/${appIdToUse}`)
+          .catch(() => api.get(`/api/application-logsheets?application_id=${appIdToUse}`))
+          .catch(() => ({ data: null }))
       ])
-        .then(([appRes, certRes, initProdRes, procRes, prodsRes]) => {
+        .then(([appRes, certRes, initProdRes, procRes, prodsRes, logsheetRes]) => {
           const loadedApp = appRes.data?.data || appRes.data || null;
           let loadedCert = certRes.data?.data || certRes.data || null;
           const loadedInitProd = initProdRes.data?.data !== undefined ? initProdRes.data.data : (initProdRes.data || null);
           const procDetails = procRes.data?.data || procRes.data || null;
           const allDbProducts = prodsRes.data?.data || prodsRes.data || [];
+
+          let loadedLogsheet = logsheetRes?.data?.data || logsheetRes?.data || null;
+          if (Array.isArray(loadedLogsheet)) {
+            loadedLogsheet = loadedLogsheet.find(l => l.source_type !== 'initial_product_application' && l.audit_type !== 'Initial Product Evaluation') || loadedLogsheet[0];
+          }
+          const activeLogsheet = propLogsheet || loadedLogsheet || procDetails?.logsheet || null;
+          if (activeLogsheet) setLogsheet(activeLogsheet);
 
           if (!loadedCert && loadedApp?.certificate_id) {
             if (typeof loadedApp.certificate_id === 'object' && loadedApp.certificate_id.certificate_number) {
@@ -628,20 +700,20 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           });
 
           setApp(finalApp);
-          initForm(finalApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails, clientProducts);
+          initForm(finalApp, loadedCert, loadedInitProd || procDetails?.initialProduct, procDetails, clientProducts, activeLogsheet);
         })
         .catch((err) => {
           console.error("Failed to load certificate modal details:", err);
           const fallbackApp = propApp || null;
           setApp(fallbackApp);
           if (fallbackApp) {
-            initForm(fallbackApp, fallbackApp.certificate_id);
+            initForm(fallbackApp, fallbackApp.certificate_id, null, null, [], propLogsheet || logsheet);
           }
         })
         .finally(() => setLoading(false));
     } else if (propApp) {
       setApp(propApp);
-      initForm(propApp, propApp.certificate_id);
+      initForm(propApp, propApp.certificate_id, null, null, [], propLogsheet || logsheet);
     }
   }, [isOpen, targetAppId]);
 
@@ -1026,6 +1098,51 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
               </div>
             </div>
 
+            {/* Top Reviewer Recommendation Banner if available */}
+            {suggestedCertType && (
+              <div style={{
+                background: '#f0fdf4',
+                borderBottom: '1.5px solid #86efac',
+                padding: '10px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Award size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  <div style={{ fontSize: 12, color: '#166534' }}>
+                    <span style={{ fontWeight: 800 }}>Suggested Scheme: </span>
+                    <strong style={{ color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: 6 }}>
+                      {suggestedCertType}
+                    </strong>
+                    <div style={{ fontSize: 10.5, color: '#15803d', opacity: 0.9, marginTop: 1 }}>
+                      (Recommended during logsheet sign-off)
+                    </div>
+                  </div>
+                </div>
+                {certificateForm.certificate_type !== suggestedCertType && (
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange(suggestedCertType)}
+                    style={{
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '4px 10px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Apply
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Scrollable Form Area */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               
@@ -1059,26 +1176,82 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
               </div>
 
               {/* 2. Scheme / Type Selection */}
-              {!isSurveillance && (
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 800, fontSize: 12.5, color: '#0f172a', marginBottom: 5 }}>
-                    Certificate Type / Scheme <span style={{ color: '#dc2626' }}>*</span>
+              <div className="form-group" style={{ margin: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <label className="form-label" style={{ fontWeight: 800, fontSize: 12.5, color: '#0f172a', margin: 0 }}>
+                    {isSurveillance ? 'Surveillance Scheme / Certificate Type' : 'Certificate Type / Scheme'} <span style={{ color: '#dc2626' }}>*</span>
                   </label>
-                  <select
-                    className="form-control"
-                    value={certificateForm.certificate_type}
-                    onChange={e => handleTypeChange(e.target.value)}
-                    style={{ fontWeight: 700, fontSize: 13 }}
-                  >
-                    <option value="GSO MEAT">GSO MEAT</option>
-                    <option value="GSO NON MEAT">GSO NON MEAT</option>
-                    <option value="SMIIC">SMIIC</option>
-                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
-                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
-                    <option value="COSMETICS">COSMETICS</option>
-                  </select>
+                  {suggestedCertType && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Sparkles size={12} /> Reviewer suggestion available
+                    </span>
+                  )}
                 </div>
-              )}
+
+                {/* Suggestion banner from the person that marked application successful */}
+                {suggestedCertType && (
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1.5px solid #86efac',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    marginBottom: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Sparkles size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+                      <div style={{ fontSize: 12, color: '#166534' }}>
+                        <span style={{ fontWeight: 800 }}>Suggested Type: </span>
+                        <strong style={{ color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: 6 }}>
+                          {suggestedCertType}
+                        </strong>
+                        <div style={{ fontSize: 11, color: '#15803d', opacity: 0.9, marginTop: 2 }}>
+                          (Suggestion provided when marking application successful)
+                        </div>
+                      </div>
+                    </div>
+                    {certificateForm.certificate_type !== suggestedCertType && (
+                      <button
+                        type="button"
+                        onClick={() => handleTypeChange(suggestedCertType)}
+                        style={{
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '4px 10px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Use Suggestion
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <select
+                  className="form-control"
+                  value={certificateForm.certificate_type}
+                  onChange={e => handleTypeChange(e.target.value)}
+                  style={{ fontWeight: 700, fontSize: 13 }}
+                >
+                  <option value="GSO MEAT">GSO MEAT</option>
+                  <option value="GSO NON MEAT">GSO NON MEAT</option>
+                  <option value="SMIIC">SMIIC</option>
+                  <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
+                  <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
+                  <option value="COSMETICS">COSMETICS</option>
+                  {isSurveillance && (
+                    <option value="UAE/GSO Halal Surveillance Letter">UAE/GSO Halal Surveillance Letter</option>
+                  )}
+                </select>
+              </div>
 
               {/* 3. Company & Addresses */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>

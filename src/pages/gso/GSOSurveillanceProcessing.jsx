@@ -448,11 +448,14 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       toast.error('No logsheet record found.');
       return;
     }
+    const certType = logsheet?.certificate_type || logsheet?.suggested_certificate_type || logsheet?.certificate_standard || '';
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Waiting For Certificate',
         force: true,
+        certificate_type: certType,
+        suggested_certificate_type: certType,
         next_surveillance_due_date,
         admin_name,
         notes
@@ -1340,6 +1343,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         isOpen={showCertificateModal}
         onClose={() => setShowCertificateModal(false)}
         app={app}
+        logsheet={logsheet}
         onSuccess={() => fetchApp(true)}
       />
 

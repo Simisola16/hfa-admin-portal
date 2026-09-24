@@ -21,7 +21,6 @@ import CertificateModal from '../../components/CertificateModal';
 import AuditManageModal from '../../components/AuditManageModal';
 import FinalAgreementModal from '../../components/FinalAgreementModal';
 import ApplicationSubmissionModal from '../../components/ApplicationSubmissionModal';
-import ApplicationSuccessfulModal from '../../components/ApplicationSuccessfulModal';
 
 // Extracted Detail Cards
 import ProposalCard from '../../components/ProposalCard';
@@ -80,7 +79,6 @@ export default function HFANewProcessing(props) {
   const [showFinalAgreementModal, setShowFinalAgreementModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  const [showApplicationSuccessfulModal, setShowApplicationSuccessfulModal] = useState(false);
   const [showNcModal, setShowNcModal] = useState(false);
   const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
 
@@ -392,28 +390,25 @@ export default function HFANewProcessing(props) {
     }
   };
 
-  const handleMarkLogsheetDone = () => {
-    setShowApplicationSuccessfulModal(true);
-  };
-
-  const handleConfirmApplicationSuccessful = async (selectedCertType) => {
+  const handleMarkLogsheetDone = async () => {
     const logsheetId = logsheet?._id || logsheet?.id;
     if (!logsheetId) {
       toast.error('No logsheet record found for this application.');
       return;
     }
+    const certType = logsheet?.certificate_type || logsheet?.suggested_certificate_type || logsheet?.certificate_standard || '';
     setMarkingLogsheetDone(true);
     try {
       await api.put(`/api/application-logsheets/${logsheetId}/status`, {
         status: 'Signed',
         force: true,
-        certificate_type: selectedCertType,
+        certificate_type: certType,
+        suggested_certificate_type: certType,
       });
-      toast.success(`Application marked Successful with ${selectedCertType}! Agreement stage unlocked.`);
-      setShowApplicationSuccessfulModal(false);
+      toast.success('Application marked Successful! Agreement stage unlocked.');
       fetchApp(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to confirm application success.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark application as successful.');
     } finally {
       setMarkingLogsheetDone(false);
     }
@@ -1350,6 +1345,7 @@ export default function HFANewProcessing(props) {
         isOpen={showCertificateModal}
         onClose={() => setShowCertificateModal(false)}
         app={app}
+        logsheet={logsheet}
         onSuccess={() => fetchApp(true)}
       />
 
@@ -1583,16 +1579,6 @@ export default function HFANewProcessing(props) {
         isOpen={showSubmissionModal}
         onClose={() => setShowSubmissionModal(false)}
         app={app}
-      />
-
-      {/* Application Successful & Certificate Scheme Modal */}
-      <ApplicationSuccessfulModal
-        isOpen={showApplicationSuccessfulModal}
-        onClose={() => setShowApplicationSuccessfulModal(false)}
-        app={app}
-        logsheet={logsheet}
-        onConfirm={handleConfirmApplicationSuccessful}
-        submitting={markingLogsheetDone}
       />
     </div>
   );

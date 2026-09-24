@@ -75,12 +75,14 @@ export default function AdminCreateLogsheet() {
     site_name: '', company_name: '', company_address: '', manufacturing_address: '',
     contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
     nature_of_business: '', product_category: '', current_cycle_start: '',
-    original_cycle_start: '', document_url: '', document_urls: [], audit_reports: [],
+    original_cycle_start: '', next_surveillance_due_date: '', document_url: '', document_urls: [], audit_reports: [],
 
     audit_type: 'New', audit_date: '', auditors: '', ncs_close: '',
     docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
     reviewer_name: '', review_date: '',
 
+    certificate_type: 'HFA SCHEME NON MEAT', certificate_standard: 'HFA SCHEME NON MEAT',
+    suggested_certificate_type: 'HFA SCHEME NON MEAT',
     annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
     new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
 
@@ -567,6 +569,10 @@ export default function AdminCreateLogsheet() {
           setForm(f => ({
             ...f,
             ...logsheetObj,
+            certificate_type: logsheetObj.certificate_type || logsheetObj.suggested_certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+            certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+            suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || '',
+            next_surveillance_due_date: logsheetObj.next_surveillance_due_date ? new Date(logsheetObj.next_surveillance_due_date).toISOString().split('T')[0] : (appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : ''),
             site_name: (logsheetObj.site_name && logsheetObj.site_name.trim()) ? logsheetObj.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
             company_address: (logsheetObj.company_address && logsheetObj.company_address.trim()) ? logsheetObj.company_address : autoCompanyAddress,
@@ -644,10 +650,14 @@ export default function AdminCreateLogsheet() {
             contact_email: autoContactEmail,
             nature_of_business: autoNature,
             product_category: autoProductCategory,
+            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+            certificate_standard: appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
             issue_date: todayStr,
             expiry_date: oneYearLater,
             current_cycle_start: autoAuditDate || todayStr,
             original_cycle_start: appData?.created_at ? new Date(appData.created_at).toISOString().split('T')[0] : todayStr,
+            next_surveillance_due_date: appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : '',
 
             audit_type: autoAuditType,
             audit_date: autoAuditDate || todayStr,
@@ -891,8 +901,11 @@ export default function AdminCreateLogsheet() {
 
     setIsFinalizing(true);
     try {
+      const chosenCertType = currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || form.certificate_type || form.certificate_standard;
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
-        finalizeSignOff: true
+        finalizeSignOff: true,
+        certificate_type: chosenCertType,
+        suggested_certificate_type: chosenCertType
       });
 
       toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
@@ -918,8 +931,11 @@ export default function AdminCreateLogsheet() {
   const handleConfirmNextSurveillanceFromLogsheet = async ({ next_surveillance_due_date, admin_name, notes }) => {
     setIsFinalizing(true);
     try {
+      const chosenCertType = currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || form.certificate_type || form.certificate_standard;
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         finalizeSignOff: true,
+        certificate_type: chosenCertType,
+        suggested_certificate_type: chosenCertType,
         next_surveillance_due_date,
         admin_name,
         notes
@@ -1185,6 +1201,16 @@ export default function AdminCreateLogsheet() {
     }
 
     // 3. Validate Tab 3: Certificate Status
+    if (!form.certificate_type?.trim()) {
+      toast.error('Certificate Type / Scheme is required (Tab 3)');
+      setActiveTab(3);
+      return;
+    }
+    if (isGSO && !form.next_surveillance_due_date) {
+      toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
+      setActiveTab(1);
+      return;
+    }
     if (!form.status_date) {
       toast.error('Status Date is required (Tab 3)');
       setActiveTab(3);
@@ -1663,6 +1689,15 @@ export default function AdminCreateLogsheet() {
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Original Cycle Start Date</div>
                   <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
+
+                {(form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date || application?.next_surveillance_due_date) && (
+                  <div style={{ background: '#f0f9ff', padding: '12px 14px', borderRadius: 8, border: '1.5px solid #bae6fd' }}>
+                    <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Next Surveillance Due Date</div>
+                    <div style={{ fontSize: 13, color: '#0284c7', fontWeight: 800, marginTop: 3 }}>
+                      {new Date(form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date || application?.next_surveillance_due_date).toLocaleDateString('en-GB')}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1728,6 +1763,17 @@ export default function AdminCreateLogsheet() {
                 <Award size={16} style={{ color: '#047857' }} />
                 4. Scheme &amp; Certificate Status Checks
               </h4>
+              <div style={{ background: '#f0fdfa', padding: '12px 16px', borderRadius: 10, border: '1.5px solid #99f6e4', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 11, color: '#0d9488', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Suggested Certificate Scheme</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
+                    {form.certificate_type || form.certificate_standard || currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || application?.suggested_certificate_type || application?.certificate_type || '—'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#0f766e', background: '#ccfbf1', padding: '3px 9px', borderRadius: 20 }}>
+                  Recommended Scheme for Issuer
+                </span>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
                 {[
                   { label: 'Annual Certificate', val: form.annual_certificate },
@@ -2150,6 +2196,49 @@ export default function AdminCreateLogsheet() {
                 ))}
               </div>
 
+              {/* Inline Certificate Type Selection — shown after signatures, before Application Successful */}
+              {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && !isProductLogsheet && (
+                <div
+                  style={{
+                    marginTop: 20,
+                    padding: '16px 18px',
+                    background: form.certificate_type ? '#f0fdfa' : '#fafafa',
+                    borderRadius: 10,
+                    border: `1.5px solid ${form.certificate_type ? '#0e7490' : '#e2e8f0'}`,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Award size={15} style={{ color: '#0e7490' }} />
+                    Recommended Certificate Type / Scheme
+                    <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>* Required</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                    Select the halal certification scheme to recommend. This suggestion will be shown to whoever issues the certificate.
+                  </div>
+                  <select
+                    required
+                    className="form-control"
+                    value={form.certificate_type || ''}
+                    onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
+                    style={{ fontWeight: 700, fontSize: 13.5, maxWidth: 340, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1', color: '#0f172a' }}
+                  >
+                    <option value="">— Select Certificate Type —</option>
+                    <option value="GSO MEAT">GSO MEAT</option>
+                    <option value="GSO NON MEAT">GSO NON MEAT</option>
+                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
+                    <option value="COSMETICS">COSMETICS</option>
+                    <option value="SMIIC">SMIIC</option>
+                  </select>
+                  {form.certificate_type && (
+                    <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0e7490', fontWeight: 700 }}>
+                      <CheckCircle2 size={14} />
+                      Scheme selected: <strong>{form.certificate_type}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Mark as Done Action Block */}
               {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && (
                 <div
@@ -2432,6 +2521,25 @@ export default function AdminCreateLogsheet() {
                   <label className="form-label">Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
                   <input required type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
                 </div>
+
+                {isGSO && (
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label" style={{ fontWeight: 800, color: '#0f172a' }}>
+                      Next Surveillance Due Date <span style={{ color: '#dc2626' }}>* (Required for GSO)</span>
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      className="form-control"
+                      style={{ maxWidth: 300, background: form.next_surveillance_due_date ? '#f0fdf4' : '#fff', fontWeight: 700 }}
+                      value={form.next_surveillance_due_date?.split('T')[0] || ''}
+                      onChange={e => setForm({ ...form, next_surveillance_due_date: e.target.value })}
+                    />
+                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
+                      Milestone surveillance audit due date required for GSO 3-year certification cycle
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
                   {isProductLogsheet ? (
@@ -2792,6 +2900,31 @@ export default function AdminCreateLogsheet() {
 
             {activeTab === 3 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                {/* Certificate Type / Scheme Selection */}
+                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #cbd5e1' }}>
+                  <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', marginBottom: 6, display: 'block' }}>
+                    Certificate Type / Scheme <span style={{ color: '#dc2626' }}>* (Required)</span>
+                  </label>
+                  <select
+                    required
+                    className="form-control"
+                    value={form.certificate_type || form.certificate_standard || ''}
+                    onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
+                    style={{ fontWeight: 700, fontSize: 13.5, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1' }}
+                  >
+                    <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
+                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
+                    <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
+                    <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
+                    <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics Scheme)</option>
+                    <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
+                  </select>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                    💡 <strong>Certificate Suggestion:</strong> This scheme is saved with the logsheet and suggested to the officer during final certificate issuance.
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Annual certificate <span style={{ color: '#dc2626' }}>*</span></label>
                   <select required className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>

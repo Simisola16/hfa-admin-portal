@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import {
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare,
   Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck,
-  X, AlertTriangle, ArrowRight, Calendar, User, MapPin, Tag, Download, Eye, Package, Lock
+  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Package, Lock, RotateCcw
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ import NextSurveillanceDateModal from '../components/NextSurveillanceDateModal';
 
 export default function AdminCreateLogsheet() {
   const { appId, addonId, initialProductId, id } = useParams();
+  const location = useLocation();
   const isInitialProduct = !!initialProductId || window.location.pathname.includes('/initial-products/');
   const resolvedInitialProductId = initialProductId || (isInitialProduct ? (id || appId) : null);
   const isAddon = !!addonId;
@@ -24,6 +25,10 @@ export default function AdminCreateLogsheet() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isRedoing, setIsRedoing] = useState(() => {
+    const sp = new URLSearchParams(location.search);
+    return sp.get('redo') === '1' || sp.get('redo') === 'true';
+  });
   const [activeTab, setActiveTab] = useState(1);
   const [application, setApplication] = useState(null);
   const [hasOpenNc, setHasOpenNc] = useState(false);
@@ -35,7 +40,7 @@ export default function AdminCreateLogsheet() {
   const [sigRole, setSigRole] = useState('');
   const [sigComment, setSigComment] = useState('');
   const [isSigning, setIsSigning] = useState(false);
-  const [isSendingWithoutSig, setIsSendingWithoutSig] = useState(false);
+  // isSendingWithoutSig removed — flow handled via signing modal
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [clientProducts, setClientProducts] = useState([]);
   const [showNextSurvModal, setShowNextSurvModal] = useState(false);
@@ -59,6 +64,9 @@ export default function AdminCreateLogsheet() {
     (s.name && user?.full_name && s.name.toLowerCase() === user.full_name.toLowerCase())
   );
   const userRole = (user?.role || '').toLowerCase();
+  const userRoles = Array.isArray(user?.roles) && user.roles.length > 0 ? user.roles : (user?.role ? [user.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || user?.role === 'superadmin';
+  const hasSignaturePrivilege = isSuperAdmin || Boolean(user?.can_sign_logsheet);
   const userUsername = (user?.username || '').toLowerCase();
   const userFullName = (user?.full_name || '').toLowerCase();
   const isMuftiUser = userRole === 'mufti' || userRole === 'shariah' || userUsername.includes('mufti') || userFullName.includes('mufti');
@@ -80,10 +88,6 @@ export default function AdminCreateLogsheet() {
   });
 
   const [uploadingReport, setUploadingReport] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, [entityId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -117,7 +121,7 @@ export default function AdminCreateLogsheet() {
                 addonClient = { ...(typeof addonClient === 'object' ? addonClient : {}), ...(uRes.data.data || uRes.data) };
               }
             }
-          } catch (e) { }
+          } catch { /* client fetch failed — use partial data */ }
         }
 
         const addonClientAddr = [
@@ -180,7 +184,7 @@ export default function AdminCreateLogsheet() {
         try {
           const logRes = await api.get(`/api/add-on-applications/${addonId}/logsheet`);
           addonLogsheet = logRes.data?.data || logRes.data;
-        } catch (e) { /* No logsheet yet */ }
+        } catch { /* No logsheet yet */ }
 
         if (addonLogsheet && addonLogsheet._id) {
           setCurrentLogsheet(addonLogsheet);
@@ -259,7 +263,7 @@ export default function AdminCreateLogsheet() {
                 ipClient = { ...(typeof ipClient === 'object' ? ipClient : {}), ...(uRes.data.data || uRes.data) };
               }
             }
-          } catch (e) { }
+          } catch { /* client fetch failed — use partial data */ }
         }
 
         const ipClientAddr = [
@@ -320,14 +324,14 @@ export default function AdminCreateLogsheet() {
             const logRes = await api.get(`/api/application-logsheets?initial_product_application_id=${resolvedInitialProductId}`);
             const list = Array.isArray(logRes.data?.data) ? logRes.data.data : (Array.isArray(logRes.data) ? logRes.data : []);
             ipLogsheet = list[0] || null;
-          } catch (e) { /* No logsheet yet */ }
+          } catch { /* No logsheet yet */ }
         }
         if (!ipLogsheet && ipData.logsheet_id) {
           try {
             const logsheetId = ipData.logsheet_id._id || ipData.logsheet_id;
             const logRes = await api.get(`/api/application-logsheets/${logsheetId}`);
             ipLogsheet = logRes.data?.data || logRes.data;
-          } catch (e) { /* fallback */ }
+          } catch { /* logsheet fetch fallback */ }
         }
 
         const hasFT = Boolean(
@@ -429,8 +433,8 @@ export default function AdminCreateLogsheet() {
         try {
           const auditRes = await api.get(`/api/audits/application/${appId}`);
           auditData = auditRes.data?.data || auditRes.data;
-        } catch (e) {
-          console.log('No audit found for this application yet');
+        } catch {
+          // No audit found yet for this application
         }
 
         // Fetch client products
@@ -441,7 +445,7 @@ export default function AdminCreateLogsheet() {
             const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : []);
             setClientProducts(pList);
           }
-        } catch (pErr) { }
+        } catch { /* products fetch failed */ }
 
         // Automatic extraction of Company & Site details from application & audits & user profile
         let clientData = appData?.client_id;
@@ -455,7 +459,7 @@ export default function AdminCreateLogsheet() {
             if (uRes?.data?.data || uRes?.data) {
               clientData = { ...(typeof clientData === 'object' ? clientData : {}), ...(uRes.data.data || uRes.data) };
             }
-          } catch (e) { }
+          } catch { /* user enrichment failed */ }
         }
 
         let siteData = appData?.site
@@ -472,7 +476,7 @@ export default function AdminCreateLogsheet() {
             if (sRes?.data?.data || sRes?.data) {
               siteData = sRes.data.data || sRes.data;
             }
-          } catch (e) { }
+          } catch { /* site fetch failed */ }
         }
 
         const clientFullAddr = [
@@ -548,8 +552,8 @@ export default function AdminCreateLogsheet() {
           ) {
             logsheetObj = raw;
           }
-        } catch (e) {
-          // Not found yet
+        } catch {
+          // Logsheet not found yet
         }
 
         if (logsheetObj && logsheetObj._id) {
@@ -688,6 +692,12 @@ export default function AdminCreateLogsheet() {
     }
   };
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityId]);
+
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -779,6 +789,11 @@ export default function AdminCreateLogsheet() {
   };
 
   const openSigningModal = (roleToPreselect = null) => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. You do not have the Signature Privilege required to sign logsheets. Please contact Superadmin.');
+      return;
+    }
+
     if (!userSignature) {
       toast.error('Your authenticated user account does not have an uploaded digital signature. Please upload one under Signatures first.');
       return;
@@ -808,6 +823,10 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleConfirmApplySignature = async () => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. Signature Privilege required.');
+      return;
+    }
     if (!sigRole) {
       toast.error('Please select a single signatory role to sign');
       return;
@@ -850,22 +869,7 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const handleSendToReview = async (e) => {
-    e.preventDefault();
-    setIsSendingWithoutSig(true);
-    try {
-      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
-        sendWithoutSignature: true,
-        comment: sigComment
-      });
-      toast.success('Logsheet sent to review without signature');
-      navigate('/logsheet/waiting-signature');
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit review');
-    } finally {
-      setIsSendingWithoutSig(false);
-    }
-  };
+  // handleSendToReview removed — replaced by signing modal flow
 
   const catLower = String(application?.category || form?.category || '').toLowerCase();
   const typeLower = String(application?.application_type || form?.audit_type || '').toLowerCase();
@@ -1202,32 +1206,68 @@ export default function AdminCreateLogsheet() {
 
     setSubmitting(true);
     try {
+      const isRedoingSave = isRedoing || Boolean(currentLogsheet?._id);
+      const redoPayload = isRedoingSave ? {
+        clear_signatures: true,
+        is_redo: true,
+        mufti_signature: null,
+        mufti_sign_name: null,
+        mufti_sign_date: null,
+        ceo_signature: null,
+        ceo_sign_name: null,
+        ceo_sign_date: null,
+        manager_signature: null,
+        manager_sign_name: null,
+        manager_sign_date: null,
+        mufti2_signature: null,
+        mufti2_sign_name: null,
+        mufti2_sign_date: null,
+        status: 'Waiting for Signature'
+      } : {};
+
       if (isInitialProduct) {
         await api.post(`/api/initial-products/${resolvedInitialProductId}/create-logsheet`, {
           ...form,
+          ...redoPayload,
           product_name: initialProductName.trim(),
           product_code: initialProductCode.trim(),
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           client_id: application?.client_id?._id || application?.client_id,
         });
-        toast.success('Logsheet created for Initial Product!');
-        navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+        if (isRedoing) {
+          setIsRedoing(false);
+          await fetchData();
+          toast.success('Logsheet updated! All previous signatures cleared.');
+        } else {
+          toast.success('Logsheet created for Initial Product!');
+          navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
+        }
       } else if (isAddon) {
         // For add-on applications — use the dedicated add-on logsheet route
         await api.post(`/api/add-on-applications/${addonId}/create-logsheet`, {
           ...form,
+          ...redoPayload,
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           client_id: application?.client_id?._id || application?.client_id,
         });
-        toast.success('Logsheet created for add-on application!');
-        navigate('/addon-applications');
+        if (isRedoing) {
+          setIsRedoing(false);
+          await fetchData();
+          toast.success('Logsheet updated! All previous signatures cleared.');
+        } else {
+          toast.success('Logsheet created for add-on application!');
+          navigate('/addon-applications');
+        }
       } else {
         const targetAppId = appId || application?._id || application?.id;
-        const { _id, id, initial_product_application_id, addon_application_id, source_type, ...cleanForm } = form;
+        // Strip internal/relational fields before posting
+        const { _id: _fId, id: _fIntId, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
+        void _fId; void _fIntId; void _ipId; void _aoId; void _srcType;
         const postRes = await api.post('/api/application-logsheets', {
           ...cleanForm,
+          ...redoPayload,
           source_type: 'application',
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
@@ -1239,7 +1279,7 @@ export default function AdminCreateLogsheet() {
         // Explicitly update application status in DB to logsheet_created
         await api.put(`/api/applications/${targetAppId}/status`, {
           status: 'logsheet_created',
-          note: 'LogSheet created. Awaiting signatory signatures.'
+          note: isRedoing ? 'LogSheet updated and redone. Signatures reset, awaiting signatures.' : 'LogSheet created. Awaiting signatory signatures.'
         }).catch(() => {});
 
         const savedLogsheetId = postRes.data?.data?._id || postRes.data?._id;
@@ -1249,8 +1289,14 @@ export default function AdminCreateLogsheet() {
           }).catch(() => {});
         }
 
-        toast.success('LogSheet saved and status updated successfully!');
-        navigate(`/applications/${targetAppId}/processing`);
+        if (isRedoing) {
+          setIsRedoing(false);
+          await fetchData();
+          toast.success('LogSheet updated successfully! All previous signatures cleared.');
+        } else {
+          toast.success('LogSheet saved and status updated successfully!');
+          navigate(`/applications/${targetAppId}/processing`);
+        }
       }
     } catch (err) {
       toast.error(err.message || 'Failed to save logsheet');
@@ -1259,7 +1305,7 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const isReadOnly = !!currentLogsheet;
+  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
 
   // Signatory calculations
   const signatories = [
@@ -1282,8 +1328,37 @@ export default function AdminCreateLogsheet() {
           <ChevronLeft size={16} /> {isInitialProduct ? 'Back to Initial Product' : 'Back'}
         </button>
 
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {isInitialProduct ? 'Initial Product Ref:' : 'Application Ref:'} <strong style={{ color: '#0f172a' }}>#{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {Boolean(currentLogsheet) && !isRedoing && currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Completed' && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                  setIsRedoing(true);
+                  setActiveTab(1);
+                }
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontWeight: 700,
+                color: '#b45309',
+                borderColor: '#f59e0b',
+                background: '#fffbeb',
+                padding: '6px 14px',
+                borderRadius: 8
+              }}
+              title="Edit logsheet and reset signatures"
+            >
+              <RotateCcw size={14} /> Redo Logsheet
+            </button>
+          )}
+
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {isInitialProduct ? 'Initial Product Ref:' : 'Application Ref:'} <strong style={{ color: '#0f172a' }}>#{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}</strong>
+          </div>
         </div>
       </div>
 
@@ -1326,7 +1401,32 @@ export default function AdminCreateLogsheet() {
 
             {/* Header Signing Action if pending */}
             {!isFullySigned && (
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Completed' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                        setIsRedoing(true);
+                        setActiveTab(1);
+                      }
+                    }}
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 700,
+                      color: '#b45309',
+                      borderColor: '#f59e0b',
+                      background: '#fffbeb',
+                      padding: '8px 16px',
+                      borderRadius: 8
+                    }}
+                  >
+                    <RotateCcw size={14} /> Redo Logsheet
+                  </button>
+                )}
                 <button
                   onClick={() => openSigningModal()}
                   className="btn btn-primary btn-sm"
@@ -1372,6 +1472,48 @@ export default function AdminCreateLogsheet() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* REDO LOGSHEET MODE BANNER */}
+      {isRedoing && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1.5px solid #f59e0b',
+          borderRadius: 12,
+          padding: '16px 20px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%', background: '#fde68a',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b45309', flexShrink: 0
+            }}>
+              <RotateCcw size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: '#92400e' }}>
+                Redo Logsheet Mode Active
+              </div>
+              <div style={{ fontSize: 12.5, color: '#b45309', marginTop: 2 }}>
+                You can now edit any details across all tabs. When you click <strong>Save &amp; Update Logsheet</strong> below, any signed signatures will be removed and the logsheet will return to Waiting for Signature.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setIsRedoing(false)}
+            style={{ fontWeight: 700, color: '#64748b', background: '#fff', borderColor: '#cbd5e1' }}
+          >
+            Cancel Redo
+          </button>
         </div>
       )}
 
@@ -1895,7 +2037,7 @@ export default function AdminCreateLogsheet() {
                     Official digital signatures applied by authorized Shariah &amp; Management signatories.
                   </p>
                 </div>
-                {totalSignedCount < 4 && (
+                {totalSignedCount < 4 && hasSignaturePrivilege && (
                   <button
                     onClick={() => openSigningModal()}
                     className="btn btn-outline btn-sm"
@@ -1962,7 +2104,17 @@ export default function AdminCreateLogsheet() {
 
                     {!s.signature && (
                       <div style={{ marginTop: 8 }}>
-                        {isMuftiUser && (s.roleKey === 'Ceo' || s.roleKey === 'Manager') ? (
+                        {!hasSignaturePrivilege ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', fontSize: 11, padding: '6px 10px', opacity: 0.5, cursor: 'not-allowed', background: '#f8fafc', color: '#64748b', borderColor: '#cbd5e1' }}
+                            title="Signature Privilege required to sign logsheets"
+                          >
+                            <Lock size={12} style={{ marginRight: 4 }} /> Privilege Required
+                          </button>
+                        ) : isMuftiUser && (s.roleKey === 'Ceo' || s.roleKey === 'Manager') ? (
                           <button
                             type="button"
                             disabled
@@ -2713,6 +2865,16 @@ export default function AdminCreateLogsheet() {
               </label>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
+                {isRedoing && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setIsRedoing(false)}
+                    style={{ fontWeight: 600, color: '#64748b' }}
+                  >
+                    Cancel Redo
+                  </button>
+                )}
                 {hasOpenNc && !currentLogsheet?._id && !isProductLogsheet && (
                   <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <AlertTriangle size={15} /> All NCs must be resolved and closed before creating LogSheet
@@ -2727,10 +2889,12 @@ export default function AdminCreateLogsheet() {
                     fontSize: 14,
                     fontWeight: 700,
                     opacity: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 0.6 : 1,
-                    cursor: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 'not-allowed' : 'pointer'
+                    cursor: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 'not-allowed' : 'pointer',
+                    background: isRedoing ? '#b45309' : undefined,
+                    borderColor: isRedoing ? '#b45309' : undefined
                   }}
                 >
-                  {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
+                  {submitting ? (isRedoing ? 'Saving & Resetting Signatures...' : 'Saving Logsheet...') : (isRedoing ? 'Save & Update Logsheet' : 'Create & Save Logsheet')}
                 </button>
               </div>
             </div>

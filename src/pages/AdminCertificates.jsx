@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -6,13 +6,22 @@ import toast from 'react-hot-toast';
 import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3, Eye, ChevronDown, Send, ArrowRight } from 'lucide-react';
 import ViewCertificateModal from '../components/ViewCertificateModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import { useAuth } from '../context/AuthContext';
 
 
 export default function AdminCertificates({ defaultTab }) {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
+
   const navigate = useNavigate();
   const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(defaultTab || 'certs'); // 'review' | 'certs'
+  const [activeTab, setActiveTab] = useState((defaultTab === 'review' && canReviewCertificate) ? 'review' : 'certs'); // 'review' | 'certs'
   const [showModal, setShowModal] = useState(false);
   const [viewingCert, setViewingCert] = useState(null);
   const [actionModalCert, setActionModalCert] = useState(null);
@@ -24,13 +33,13 @@ export default function AdminCertificates({ defaultTab }) {
 
   useEffect(() => {
     const statusParam = searchParams.get('status') || searchParams.get('filter');
-    if (statusParam === 'under_review' || statusParam === 'review') {
+    if ((statusParam === 'under_review' || statusParam === 'review') && canReviewCertificate) {
       setActiveTab('review');
       setFilterStatus('under_review');
-    } else if (statusParam) {
+    } else if (statusParam && statusParam !== 'under_review' && statusParam !== 'review') {
       setFilterStatus(statusParam);
     }
-  }, [searchParams]);
+  }, [searchParams, canReviewCertificate]);
   
   const [form, setForm] = useState({ 
     client_id: '', 
@@ -131,38 +140,40 @@ export default function AdminCertificates({ defaultTab }) {
       
       {/* Tab Navigation */}
       <div style={{ display: 'flex', borderBottom: '1.5px solid #e2e8f0', marginBottom: 20, gap: 8 }}>
-        <button
-          type="button"
-          style={{
-            padding: '12px 20px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'review' ? '2.5px solid #047857' : 'none',
-            color: activeTab === 'review' ? '#047857' : '#64748b',
-            fontWeight: 800,
-            cursor: 'pointer',
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}
-          onClick={() => setActiveTab('review')}
-        >
-          <ShieldCheck size={16} /> 
-          Pending Review 
-          {underReviewCerts.length > 0 && (
-            <span style={{
-              background: '#f97316',
-              color: '#ffffff',
-              fontSize: 11,
+        {canReviewCertificate && (
+          <button
+            type="button"
+            style={{
+              padding: '12px 20px',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === 'review' ? '2.5px solid #047857' : 'none',
+              color: activeTab === 'review' ? '#047857' : '#64748b',
               fontWeight: 800,
-              padding: '2px 8px',
-              borderRadius: 12
-            }}>
-              {underReviewCerts.length}
-            </span>
-          )}
-        </button>
+              cursor: 'pointer',
+              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}
+            onClick={() => setActiveTab('review')}
+          >
+            <ShieldCheck size={16} /> 
+            Pending Review 
+            {underReviewCerts.length > 0 && (
+              <span style={{
+                background: '#f97316',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 12
+              }}>
+                {underReviewCerts.length}
+              </span>
+            )}
+          </button>
+        )}
 
         <button
           type="button"
@@ -383,7 +394,7 @@ export default function AdminCertificates({ defaultTab }) {
               setViewingCert(cert);
             }
           },
-          {
+          ...(canReviewCertificate ? [{
             label: (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? 'Review & Send to Client' : 'Review / Edit Certificate',
             icon: Edit3,
             variant: (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? 'primary' : 'default',
@@ -392,7 +403,7 @@ export default function AdminCertificates({ defaultTab }) {
                 navigate(`/certificates/${actionModalCert.id || actionModalCert._id}/review`);
               }
             }
-          },
+          }] : []),
           ...(actionModalCert?.certificate_url ? [{
             label: 'Download Certificate PDF',
             icon: Download,

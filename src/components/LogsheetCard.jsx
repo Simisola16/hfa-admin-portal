@@ -1,5 +1,4 @@
-import React from 'react';
-import { ClipboardList, Lock, ChevronRight, CheckCircle, Clock, FilePlus, PenTool } from 'lucide-react';
+import { ClipboardList, Lock, ChevronRight, CheckCircle, Clock, FilePlus, PenTool, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const POST_NC_STATUSES = [
@@ -18,7 +17,7 @@ const POST_NC_STATUSES = [
   'certificate_issued'
 ];
 
-export default function LogsheetCard({ logsheet, status, appId, isRenewal = false, isSurveillance = false, hasActiveNc = false, isNcClosed = false, onMarkDone, markingDone = false }) {
+export default function LogsheetCard({ logsheet, status, appId, hasActiveNc = false, isNcClosed = false, onMarkDone, markingDone = false }) {
   const navigate = useNavigate();
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
 
@@ -156,6 +155,18 @@ export default function LogsheetCard({ logsheet, status, appId, isRenewal = fals
             <PenTool size={13} /> Signatures Portal
           </button>
           
+          {!isAdvancedPastLogsheet && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => navigate(`/applications/${appId}/logsheet?redo=1`)}
+              style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, color: '#b45309', borderColor: '#f59e0b', background: '#fffbeb' }}
+              title="Redo logsheet and reset signatures"
+            >
+              <RotateCcw size={13} /> Redo Logsheet
+            </button>
+          )}
+
           <button
             type="button"
             className="btn btn-primary btn-sm"

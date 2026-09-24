@@ -107,6 +107,7 @@ export default function AdminDirectLogsheet() {
     : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
   const isStaff = isSuperAdmin || userRoles.some(r => ['admin', 'scheme_manager', 'certificate_officer', 'food_tech_manager', 'food_tech', 'audit_manager'].includes(r));
+  const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
 
   // Active View Tab: 'create' | 'history'
   const [activeTab, setActiveTab] = useState(routeDirectId ? 'history' : 'create');
@@ -519,6 +520,10 @@ export default function AdminDirectLogsheet() {
 
   // Sign Direct Logsheet Modal Submit
   const handleReviewSign = async (logsheetId, signatureRole, signatureName, signatureUrl) => {
+    if (!hasSignaturePrivilege) {
+      toast.error('Access denied. Signature Privilege required to sign logsheets.');
+      return;
+    }
     try {
       const res = await api.put(`/api/application-logsheets/${logsheetId}/sign`, {
         role: signatureRole,
@@ -1429,15 +1434,21 @@ export default function AdminDirectLogsheet() {
                 </div>
 
                 {/* Instant Sign on Creation Option */}
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#1e40af' }}>
+                <div style={{ background: hasSignaturePrivilege ? '#eff6ff' : '#f8fafc', border: `1px solid ${hasSignaturePrivilege ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: hasSignaturePrivilege ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: 13, color: hasSignaturePrivilege ? '#1e40af' : '#64748b' }}>
                     <input
                       type="checkbox"
-                      checked={signOnCreate}
+                      disabled={!hasSignaturePrivilege}
+                      checked={signOnCreate && hasSignaturePrivilege}
                       onChange={e => setSignOnCreate(e.target.checked)}
                       style={{ width: 18, height: 18, accentColor: '#2563eb' }}
                     />
                     Sign on submission as current user ({currentUser?.full_name || 'Admin'})
+                    {!hasSignaturePrivilege && (
+                      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, marginLeft: 6 }}>
+                        (Requires Signature Privilege)
+                      </span>
+                    )}
                   </label>
 
                   {signOnCreate && (
@@ -1681,7 +1692,7 @@ export default function AdminDirectLogsheet() {
                                 <Eye size={13} style={{ marginRight: 4 }} /> View &amp; Print
                               </button>
 
-                              {signedCount < 4 && (
+                              {signedCount < 4 && hasSignaturePrivilege && (
                                 <button
                                   type="button"
                                   className="btn btn-primary btn-sm"

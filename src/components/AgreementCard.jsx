@@ -1,10 +1,12 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { FileCheck, Download, Lock, UploadCloud, CheckCircle, RefreshCw, Send } from 'lucide-react';
 
 
 export default function AgreementCard({ app, agreement, status, onReupload, onSendFinal, onMarkDone, markingDone = false }) {
   const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
+  const finalInvoiceSentStatuses = ['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'];
+  const canReupload = !finalInvoiceSentStatuses.includes(normalizedStatus);
   const isAvailable = [
     'application_successful',
     'agreement_sent',
@@ -53,7 +55,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
           LogSheet has been approved. You can now send the official certification agreement document to the client.
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {onReupload && (
+          {onReupload && canReupload && (
             <button
               type="button"
               className="btn btn-primary"
@@ -104,7 +106,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
         {/* Action Controls & Download Links */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Re-upload Agreement Button */}
-          {onReupload && (
+          {onReupload && canReupload && (
             <button
               type="button"
               className="btn btn-outline btn-sm"

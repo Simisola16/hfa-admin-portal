@@ -98,6 +98,8 @@ export default function AdminLogsheetWaitingCertificate() {
             source_type: 'extension_application',
             company_name: log.company_name || extApp.company_name || extApp.client_id?.company_name || 'Client',
             site_name: extApp.site_name || extApp.site_id?.name || log.facility_address || 'Main Facility',
+            suggested_certificate_type: log.suggested_certificate_type || log.certificate_type || extApp.suggested_certificate_type || 'Extension Certificate',
+            certificate_type: log.certificate_type || log.suggested_certificate_type || 'Extension Certificate',
             contact_person: log.contact_person || extApp.contact_person || '—',
             contact_email: extApp.contact_email || extApp.client_id?.email || '',
             created_at: log.created_at || extApp.created_at || extApp.createdAt,
@@ -164,6 +166,70 @@ export default function AdminLogsheetWaitingCertificate() {
     return { count, total: 4, signers };
   };
 
+  const getCertificateTypeInfo = (l) => {
+    let raw = (
+      l.suggested_certificate_type ||
+      l.certificate_type ||
+      l.certificate_standard ||
+      l.application_id?.suggested_certificate_type ||
+      l.application_id?.certificate_type ||
+      l.application_id?.certificate_standard ||
+      ''
+    ).trim();
+
+    if (!raw && l.audit_type) {
+      const at = l.audit_type.toUpperCase();
+      if (at.includes('GSO') && at.includes('MEAT') && !at.includes('NON')) raw = 'GSO MEAT';
+      else if (at.includes('GSO') && (at.includes('NON') || at.includes('FOOD'))) raw = 'GSO NON MEAT';
+      else if (at.includes('HFA') && at.includes('MEAT') && !at.includes('NON')) raw = 'HFA SCHEME MEAT';
+      else if (at.includes('HFA') && (at.includes('NON') || at.includes('FOOD') || at.includes('GENERAL'))) raw = 'HFA SCHEME NON MEAT';
+      else if (at.includes('COSMETIC')) raw = 'COSMETICS';
+      else if (at.includes('SMIIC')) raw = 'SMIIC';
+      else if (at.includes('EXTENSION')) raw = 'Extension Certificate';
+    }
+
+    if (!raw) {
+      raw = 'HFA SCHEME NON MEAT';
+    }
+
+    const u = raw.toUpperCase();
+    let bg = '#f8fafc';
+    let color = '#334155';
+    let border = '#e2e8f0';
+
+    if (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON')) {
+      bg = '#fee2e2';
+      color = '#991b1b';
+      border = '#fca5a5';
+    } else if (u.includes('HFA')) {
+      bg = '#dcfce7';
+      color = '#166534';
+      border = '#bbf7d0';
+    } else if (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON')) {
+      bg = '#fef3c7';
+      color = '#92400e';
+      border = '#fde68a';
+    } else if (u.includes('GSO')) {
+      bg = '#e0f2fe';
+      color = '#0369a1';
+      border = '#bae6fd';
+    } else if (u.includes('COSMETIC')) {
+      bg = '#f3e8ff';
+      color = '#6b21a8';
+      border = '#e9d5ff';
+    } else if (u.includes('SMIIC')) {
+      bg = '#e0e7ff';
+      color = '#3730a3';
+      border = '#c7d2fe';
+    } else if (u.includes('EXTENSION')) {
+      bg = '#ccfbf1';
+      color = '#0f766e';
+      border = '#99f6e4';
+    }
+
+    return { certType: raw, bg, color, border };
+  };
+
   const filteredLogsheets = logsheets.filter(l => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -173,6 +239,10 @@ export default function AdminLogsheetWaitingCertificate() {
     }
     if (searchField === 'company_name') {
       return l.company_name?.toLowerCase().includes(query);
+    }
+    if (searchField === 'certificate_type') {
+      const { certType } = getCertificateTypeInfo(l);
+      return certType.toLowerCase().includes(query);
     }
     if (searchField === 'contact_person') {
       return l.contact_person?.toLowerCase().includes(query);
@@ -292,7 +362,7 @@ export default function AdminLogsheetWaitingCertificate() {
               >
                 <option value="company_name">Company Name</option>
                 <option value="id">Logsheet ID</option>
-                <option value="contact_person">Contact Person</option>
+                <option value="certificate_type">Certificate Type</option>
                 <option value="audit_type">Logsheet Type</option>
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
@@ -340,12 +410,12 @@ export default function AdminLogsheetWaitingCertificate() {
             </div>
           </div>
         ) : (
-          <div>
-            <table className="table logsheet-table desktop-only-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
+          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table className="table logsheet-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Site</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Contact Person</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Certificate Type</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Signatures</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Completed Date</th>
@@ -356,6 +426,7 @@ export default function AdminLogsheetWaitingCertificate() {
                 {filteredLogsheets.map((l) => {
                   const appId = l.application_id?._id || l.application_id;
                   const { count, total } = getSignatoryProgress(l);
+                  const certInfo = getCertificateTypeInfo(l);
 
                   return (
                     <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -368,8 +439,24 @@ export default function AdminLogsheetWaitingCertificate() {
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: 600, color: '#334155' }}>{l.contact_person || '—'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.contact_email}</div>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '5px 12px',
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          background: certInfo.bg,
+                          color: certInfo.color,
+                          border: `1px solid ${certInfo.border}`,
+                          letterSpacing: '0.02em',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                        }}>
+                          <Award size={13} style={{ color: certInfo.color, flexShrink: 0 }} />
+                          {certInfo.certType}
+                        </span>
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
@@ -438,7 +525,7 @@ export default function AdminLogsheetWaitingCertificate() {
             subtitle={l.company_name}
             badge={
               <span style={{ fontSize: 11.5, color: '#64748b' }}>
-                Status: Waiting for Certificate • {l.audit_type || 'Standard'}
+                Status: Waiting for Certificate • {getCertificateTypeInfo(l).certType}
               </span>
             }
             actions={[

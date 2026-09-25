@@ -344,7 +344,7 @@ export default function AdminLogsheetWaitingCertificate() {
             <table className="table logsheet-table desktop-only-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Facility</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Site</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Contact Person</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Signatures</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>

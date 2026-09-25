@@ -168,7 +168,14 @@ export default function AdminLogsheetManage() {
         .manage-logsheets-page {
           width: 100%;
           max-width: 100%;
+          min-width: 0;
           box-sizing: border-box;
+          overflow: hidden;
+        }
+        .logsheet-table-scroll {
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .premium-table tr {
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -261,7 +268,7 @@ export default function AdminLogsheetManage() {
       </div>
 
       {/* Main Table & Mobile Cards Container */}
-      <div className="card" style={{ border: '1px solid var(--border)', borderRadius: '16px', overflow: 'visible', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}>
+      <div className="card" style={{ border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}>
         
         {/* Responsive Filters Row */}
         <div className="logsheet-filter-row" style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -306,7 +313,7 @@ export default function AdminLogsheetManage() {
         </div>
 
         {/* Content Wrapper */}
-        <div className="table-wrap" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '300px', padding: '12px' }}>
+        <div className="table-wrap" style={{ width: '100%', minHeight: '300px', padding: '12px', boxSizing: 'border-box' }}>
           {loading ? (
             <div className="loading-overlay"><div className="spinner" /></div>
           ) : filteredLogsheets.length === 0 ? (
@@ -322,7 +329,7 @@ export default function AdminLogsheetManage() {
           ) : (
             <>
               {/* DESKTOP TABLE VIEW (Screens >= 900px) */}
-              <div className="desktop-only-table">
+              <div className="desktop-only-table logsheet-table-scroll">
                 <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid var(--border)' }}>
@@ -404,7 +411,7 @@ export default function AdminLogsheetManage() {
               </div>
 
               {/* MOBILE & TABLET RESPONSIVE CARDS VIEW (Screens < 900px) */}
-              <div className="mobile-logsheet-cards" style={{ display: 'none' }}>
+              <div className="mobile-logsheet-cards">
                 {filteredLogsheets.map(l => {
                   const compName = l.company_name || 'Client Facility';
                   const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';

@@ -78,6 +78,7 @@ export default function AdminReviewCertificate() {
     expiry_date: '',
     products_covered: [],
     product_details: [],
+    product_table_columns: 2,
     review_notes: '',
     checklist: {
       company_verified: false,
@@ -404,6 +405,9 @@ export default function AdminReviewCertificate() {
         expiry_date: c.expiry_date ? new Date(c.expiry_date).toISOString().split('T')[0] : '',
         products_covered: finalProductsCovered,
         product_details: resolvedDetails,
+        product_table_columns: [1, 2, 3].includes(Number(c.product_table_columns || c.table_layout))
+          ? Number(c.product_table_columns || c.table_layout)
+          : ((c.certificate_type && (c.certificate_type.includes('GSO') || c.certificate_type.includes('SMIIC'))) ? 2 : 1),
         review_notes: c.review_notes || '',
         checklist: {
           company_verified: true,
@@ -623,6 +627,7 @@ export default function AdminReviewCertificate() {
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
         product_details: form.product_details,
+        product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes
       };
 
@@ -663,7 +668,8 @@ export default function AdminReviewCertificate() {
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
-        product_details: form.product_details
+        product_details: form.product_details,
+        product_table_columns: form.product_table_columns || 2
       });
 
       const newCertUrl = res.certificateUrl || res.data?.certificateUrl || res.data?.data?.certificate_url;
@@ -756,6 +762,7 @@ export default function AdminReviewCertificate() {
         expiry_date: form.expiry_date,
         products_covered: form.products_covered,
         product_details: form.product_details,
+        product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes
       };
 
@@ -1472,6 +1479,14 @@ export default function AdminReviewCertificate() {
                   >
                     Deselect All
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setShowAddCustomProduct(!showAddCustomProduct)}
+                    style={{ fontSize: 11.5, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={13} /> {showAddCustomProduct ? 'Close Custom' : 'Add Custom Product'}
+                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1486,6 +1501,177 @@ export default function AdminReviewCertificate() {
                 </div>
               )}
             </div>
+
+            {/* 1, 2, or 3 COLUMN SELECTOR */}
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 10,
+              padding: '12px 16px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
+                  <Layers size={15} style={{ color: '#2563eb' }} />
+                  <span>Product Schedule Table Layout</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                  Configure printed column layout on official certificate attachment
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {/* Option 1: 1 Value Column (NO. + NAME) */}
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, product_table_columns: 1 }))}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: (form.product_table_columns || 2) === 1 ? 700 : 500,
+                    border: (form.product_table_columns || 2) === 1 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                    background: (form.product_table_columns || 2) === 1 ? '#eff6ff' : '#ffffff',
+                    color: (form.product_table_columns || 2) === 1 ? '#1d4ed8' : '#475569',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>1 Column (Name Only)</span>
+                  {!isGso && (
+                    <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
+                      Recommended
+                    </span>
+                  )}
+                </button>
+
+                {/* Option 2: 2 Value Columns (NO. + CODE + DESCRIPTION) */}
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, product_table_columns: 2 }))}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: (form.product_table_columns || 2) === 2 ? 700 : 500,
+                    border: (form.product_table_columns || 2) === 2 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                    background: (form.product_table_columns || 2) === 2 ? '#eff6ff' : '#ffffff',
+                    color: (form.product_table_columns || 2) === 2 ? '#1d4ed8' : '#475569',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>2 Columns (Code + Desc)</span>
+                  {isGso && (
+                    <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
+                      Recommended
+                    </span>
+                  )}
+                </button>
+
+                {/* Option 3: 3 Value Columns (NO. + CODE + DESCRIPTION + CATEGORY) */}
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, product_table_columns: 3 }))}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: (form.product_table_columns || 2) === 3 ? 700 : 500,
+                    border: (form.product_table_columns || 2) === 3 ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                    background: (form.product_table_columns || 2) === 3 ? '#eff6ff' : '#ffffff',
+                    color: (form.product_table_columns || 2) === 3 ? '#1d4ed8' : '#475569',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>3 Columns (+ Category)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* OPTIONAL CUSTOM PRODUCT INPUT CARD */}
+            {showAddCustomProduct && (
+              <div style={{
+                background: '#f8fafc',
+                border: '1.5px dashed #cbd5e1',
+                borderRadius: 10,
+                padding: '12px 14px',
+                marginBottom: 14,
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-end',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ flex: 2, minWidth: 200 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                    Product Name / Description *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ fontSize: 12, height: 32 }}
+                    placeholder="e.g. Frozen Halal Beef Burger"
+                    value={newProdName}
+                    onChange={e => setNewProdName(e.target.value)}
+                  />
+                </div>
+                {(form.product_table_columns || 2) >= 2 && (
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                      Product Code / SKU
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ fontSize: 12, height: 32 }}
+                      placeholder="e.g. PRD-001"
+                      value={newProdCode}
+                      onChange={e => setNewProdCode(e.target.value)}
+                    />
+                  </div>
+                )}
+                {(form.product_table_columns || 2) === 3 && (
+                  <div style={{ flex: 1.2, minWidth: 150 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                      Category
+                    </label>
+                    <select
+                      className="form-control"
+                      style={{ fontSize: 12, height: 32 }}
+                      value={newProdCat || form.product_category || 'Meat & Poultry'}
+                      onChange={e => setNewProdCat(e.target.value)}
+                    >
+                      {PRODUCT_CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleAddProduct}
+                  style={{ height: 32, fontSize: 12, padding: '0 14px' }}
+                >
+                  Add to Cert
+                </button>
+              </div>
+            )}
 
             {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
             {siteProducts.length > 0 && (
@@ -1518,8 +1704,6 @@ export default function AdminReviewCertificate() {
               </div>
             )}
 
-
-
             {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
             {siteProducts.length > 0 ? (
               <div className="table-wrap" style={{
@@ -1549,13 +1733,18 @@ export default function AdminReviewCertificate() {
                       </th>
                       <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
                       <th style={{ padding: '8px 6px' }}>Product Name</th>
-                      <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
+                      {(form.product_table_columns || 2) >= 2 && (
+                        <th style={{ width: (form.product_table_columns || 2) === 3 ? '20%' : '28%', padding: '8px 6px' }}>Code</th>
+                      )}
+                      {(form.product_table_columns || 2) === 3 && (
+                        <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSiteProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                        <td colSpan={(form.product_table_columns || 2) === 3 ? 5 : ((form.product_table_columns || 2) === 1 ? 3 : 4)} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
                           No products found matching "{productSearch}".
                         </td>
                       </tr>
@@ -1585,9 +1774,16 @@ export default function AdminReviewCertificate() {
                             <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
                               {prod.name}
                             </td>
-                            <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
-                              {prod.code || prod.barcode || '—'}
-                            </td>
+                            {(form.product_table_columns || 2) >= 2 && (
+                              <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                                {prod.code || prod.barcode || '—'}
+                              </td>
+                            )}
+                            {(form.product_table_columns || 2) === 3 && (
+                              <td style={{ padding: '6px 8px', color: '#475569', fontSize: 11.5 }}>
+                                {prod.category || '—'}
+                              </td>
+                            )}
                           </tr>
                         );
                       })
@@ -1608,15 +1804,20 @@ export default function AdminReviewCertificate() {
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                     <tr style={{ color: '#475569', textAlign: 'left' }}>
                       <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                      <th style={{ width: '34%', padding: '8px 6px' }}>Product Name <span>*</span></th>
-                      <th style={{ width: '18%', padding: '8px 6px' }}>Code</th>
-                      <th style={{ width: 40, padding: '8px 6px', textAlign: 'center' }}></th>
+                      {(form.product_table_columns || 2) >= 2 && (
+                        <th style={{ width: (form.product_table_columns || 2) === 3 ? '18%' : '22%', padding: '8px 6px' }}>Code</th>
+                      )}
+                      <th style={{ padding: '8px 6px' }}>Product Name / Description <span>*</span></th>
+                      {(form.product_table_columns || 2) === 3 && (
+                        <th style={{ width: '22%', padding: '8px 6px' }}>Category</th>
+                      )}
+                      <th style={{ width: 44, padding: '8px 6px', textAlign: 'center' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {form.product_details.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                        <td colSpan={(form.product_table_columns || 2) === 3 ? 5 : ((form.product_table_columns || 2) === 1 ? 3 : 4)} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
                           No products added yet. Click "+ Add Product Row" above to add products.
                         </td>
                       </tr>
@@ -1624,6 +1825,18 @@ export default function AdminReviewCertificate() {
                       form.product_details.map((prod, index) => (
                         <tr key={index} style={{ borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                           <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                          {(form.product_table_columns || 2) >= 2 && (
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                placeholder="e.g. PRD-001"
+                                value={prod.code || ''}
+                                onChange={e => handleUpdateProductDetail(index, 'code', e.target.value)}
+                              />
+                            </td>
+                          )}
                           <td style={{ padding: '4px 6px' }}>
                             <input
                               type="text"
@@ -1635,16 +1848,20 @@ export default function AdminReviewCertificate() {
                               required
                             />
                           </td>
-                          <td style={{ padding: '4px 6px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
-                              placeholder="e.g. PRD-001"
-                              value={prod.code}
-                              onChange={e => handleUpdateProductDetail(index, 'code', e.target.value)}
-                            />
-                          </td>
+                          {(form.product_table_columns || 2) === 3 && (
+                            <td style={{ padding: '4px 6px' }}>
+                              <select
+                                className="form-control"
+                                style={{ padding: '4px 8px', fontSize: 12, height: 30 }}
+                                value={prod.category || 'Meat & Poultry'}
+                                onChange={e => handleUpdateProductDetail(index, 'category', e.target.value)}
+                              >
+                                {PRODUCT_CATEGORIES.map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
                           <td style={{ textAlign: 'center', padding: '4px 6px' }}>
                             <button
                               type="button"

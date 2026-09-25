@@ -50,6 +50,9 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showNcModal, setShowNcModal] = useState(false);
+  const [ncModalTab, setNcModalTab] = useState('review'); // 'review' | 'flag_new'
   const [showNextSurvModal, setShowNextSurvModal] = useState(false);
 
   // Inline forms/submission states

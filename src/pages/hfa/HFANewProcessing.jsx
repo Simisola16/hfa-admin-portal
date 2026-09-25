@@ -286,16 +286,25 @@ export default function HFANewProcessing(props) {
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
-      const categoryToSet = approveCategory || app.category;
+      const categoryToSet = approveCategory || app?.category || 'Annual Certification – Food and General processing';
+      const isReclassified = categoryToSet !== (app?.category || 'Annual Certification – Food and General processing');
+
       const res = await api.put(`/api/applications/${appId}/approve`, {
         category: categoryToSet
       });
-      setApp(res.data?.data || res.data || { ...app, status: 'approved' });
+      setApp(res.data?.data || res.data || { ...app, status: 'approved', category: categoryToSet });
       setShowApproveModal(false);
-      toast.success('Application accepted successfully!');
-      fetchApp(true);
+      toast.success(isReclassified
+        ? `Application accepted and reclassified to ${categoryToSet}!`
+        : 'Application accepted successfully!'
+      );
+      if (isReclassified) {
+        window.location.reload();
+      } else {
+        fetchApp(true);
+      }
     } catch (err) {
-      toast.error(err.message || 'Failed to accept application.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept application.');
     } finally {
       setActionSubmitting(false);
     }
@@ -592,7 +601,7 @@ export default function HFANewProcessing(props) {
           >
             <Clock size={16} style={{ color: '#d97706' }} /> Put On Hold
           </button>
-          <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => setShowApproveModal(true)}>
+          <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => { setApproveCategory(app?.category || ''); setShowApproveModal(true); }}>
             <CheckCircle size={16} /> Accept Application
           </button>
         </>
@@ -1192,13 +1201,23 @@ export default function HFANewProcessing(props) {
                 </label>
                 <select 
                   className="form-control" 
-                  value={approveCategory || app?.category} 
+                  value={approveCategory || app?.category || 'Annual Certification – Food and General processing'} 
                   onChange={e => setApproveCategory(e.target.value)}
                   disabled={actionSubmitting}
+                  style={{ fontSize: 13.5, padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1.5px solid #cbd5e1', fontWeight: 600 }}
                 >
-                  <option value="Annual Certification – Food and General processing">Annual Certification – Food and General processing</option>
-                  <option value="Annual Certification – Meat Processing">Annual Certification – Meat Processing</option>
-                  <option value="Annual Certification – Cosmetics and Personal Care">Annual Certification – Cosmetics and Personal Care</option>
+                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">
+                    UAE/GSO Approved Halal Certification For Exporters To UAE
+                  </option>
+                  <option value="Annual Certification – Food and General processing">
+                    Annual Certification – Food and General processing
+                  </option>
+                  <option value="Annual Certification – Meat Processing">
+                    Annual Certification – Meat Processing
+                  </option>
+                  <option value="Annual Certification – Cosmetics and Personal Care">
+                    Annual Certification – Cosmetics and Personal Care
+                  </option>
                 </select>
               </div>
             </div>

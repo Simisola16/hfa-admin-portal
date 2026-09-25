@@ -1472,14 +1472,6 @@ export default function AdminReviewCertificate() {
                   >
                     Deselect All
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setShowAddCustomProduct(prev => !prev)}
-                    style={{ fontSize: 11.5, padding: '4px 10px' }}
-                  >
-                    <Plus size={13} style={{ marginRight: 3 }} /> Add Custom Product
-                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1526,45 +1518,7 @@ export default function AdminReviewCertificate() {
               </div>
             )}
 
-            {/* CUSTOM PRODUCT ADDER INLINE FORM (WHEN TOGGLED) */}
-            {showAddCustomProduct && (
-              <div style={{ marginBottom: 14, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1', display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  placeholder="Custom product name..."
-                  className="form-control"
-                  style={{ fontSize: 12, height: 32, flex: 2 }}
-                  value={newProdName}
-                  onChange={e => setNewProdName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProduct(); } }}
-                />
-                <input
-                  type="text"
-                  placeholder="Code (optional)"
-                  className="form-control"
-                  style={{ fontSize: 12, height: 32, flex: 1 }}
-                  value={newProdCode}
-                  onChange={e => setNewProdCode(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddProduct(); } }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleAddProduct}
-                  style={{ fontSize: 11.5, height: 32, padding: '0 12px' }}
-                >
-                  <Plus size={13} style={{ marginRight: 2 }} /> Add
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setShowAddCustomProduct(false)}
-                  style={{ fontSize: 11.5, height: 32, padding: '0 8px', color: '#64748b' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+
 
             {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
             {siteProducts.length > 0 ? (

@@ -7,7 +7,7 @@ import {
   FileText, Search, RefreshCw, Calendar,
   Building2, MapPin, CheckCircle, Clock, X, ChevronRight,
   AlertCircle, ShieldCheck, Phone, Mail, User, Info, ArrowRight, Award,
-  Sparkles, Layers, Settings, Eye, PenTool
+  Sparkles, Layers, Settings, Eye
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
@@ -300,13 +300,6 @@ export default function AdminExtensionApplications() {
               icon: Settings,
               variant: 'primary',
               onClick: () => navigate(`/extension-applications/${actionModalApp._id}/processing`)
-            },
-            actionModalApp.logsheet_id && {
-              label: 'Review & Sign Logsheet',
-              description: 'Open extension committee logsheet document',
-              icon: PenTool,
-              variant: 'default',
-              onClick: () => navigate(`/extension-applications/${actionModalApp._id}/logsheet`)
             },
             {
               label: 'View Application Form',

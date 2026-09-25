@@ -261,7 +261,7 @@ export default function AdminExtensionApplications() {
                         </span>
                       </td>
                       <td style={{ padding: '14px 18px', color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>
-                        {new Date(a.created_at).toLocaleDateString()}
+                        {a.created_at || a.createdAt ? new Date(a.created_at || a.createdAt).toLocaleDateString() : '—'}
                       </td>
                       <td style={{ padding: '14px 18px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <ActionTriggerButton

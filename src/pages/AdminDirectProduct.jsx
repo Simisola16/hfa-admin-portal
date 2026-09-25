@@ -136,13 +136,13 @@ export default function AdminDirectProduct() {
 
   // Filtered Client Suggestions
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery.trim()) return clients.slice(0, 8);
+    if (!clientSearchQuery.trim()) return [];
     const q = clientSearchQuery.toLowerCase();
     return clients.filter(c =>
       (c.company_name && c.company_name.toLowerCase().includes(q)) ||
       (c.full_name && c.full_name.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q))
-    ).slice(0, 12);
+    ).slice(0, 20);
   }, [clients, clientSearchQuery]);
 
   // Sites belonging to selected client
@@ -154,6 +154,17 @@ export default function AdminDirectProduct() {
       return String(sClientId) === String(cId);
     });
   }, [sites, selectedClient]);
+
+  const formatSiteAddress = (site) => {
+    if (!site) return '';
+    const parts = [site.address_1, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const selectedSite = useMemo(() => {
+    if (!selectedSiteId) return null;
+    return clientSites.find(s => String(s._id || s.id) === String(selectedSiteId)) || sites.find(s => String(s._id || s.id) === String(selectedSiteId)) || null;
+  }, [selectedSiteId, clientSites, sites]);
 
   // Auto-select site if client has exactly 1 site, or reset if invalid
   useEffect(() => {
@@ -469,7 +480,7 @@ export default function AdminDirectProduct() {
             {/* LEFT COLUMN: COMPANY & SITE SELECTION */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              {/* STEP 1: SELECT COMPANY */}
+              {/* CARD 1: Client & Facility Details */}
               <div style={{
                 background: '#ffffff',
                 borderRadius: 12,
@@ -477,204 +488,175 @@ export default function AdminDirectProduct() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 padding: 20
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <div style={{
-                    width: 26, height: 26, borderRadius: '50%', background: '#059669', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700
-                  }}>1</div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Select Company</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Building2 size={18} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>1. Client &amp; Facility Details</h3>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Target company and production facility information</p>
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ position: 'relative', marginBottom: 12 }}>
-                  <Search size={15} style={{ position: 'absolute', left: 12, top: 12, color: '#94a3b8' }} />
-                  <input
-                    type="text"
-                    placeholder="Search company by name or email..."
-                    value={clientSearchQuery}
-                    onChange={e => {
-                      setClientSearchQuery(e.target.value);
-                      if (selectedClient && e.target.value !== (selectedClient.company_name || selectedClient.full_name)) {
-                        setSelectedClient(null);
-                        setSelectedSiteId('');
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: 8,
-                      border: '1px solid #cbd5e1',
-                      fontSize: 13,
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                {/* Client selection results list */}
-                {!selectedClient && (
-                  <div style={{
-                    maxHeight: 220,
-                    overflowY: 'auto',
-                    border: '1px solid #f1f5f9',
-                    borderRadius: 8,
-                    background: '#f8fafc'
-                  }}>
-                    {filteredClients.length === 0 ? (
-                      <div style={{ padding: 14, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
-                        No matching companies found.
-                      </div>
-                    ) : (
-                      filteredClients.map(c => (
-                        <div
-                          key={c._id || c.id}
-                          onClick={() => handleSelectClient(c)}
-                          style={{
-                            padding: '10px 12px',
-                            borderBottom: '1px solid #f1f5f9',
-                            cursor: 'pointer',
-                            transition: 'background 0.1s'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>
-                            {c.company_name || c.full_name || 'Unnamed Company'}
-                          </div>
-                          <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 8, marginTop: 2 }}>
-                            <span>{c.email}</span>
-                            {c.full_name && c.company_name && <span>• {c.full_name}</span>}
-                          </div>
-                        </div>
-                      ))
+                <div>
+                  {/* Search Bar */}
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 8, display: 'block' }}>
+                    Search Registered Company <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <div style={{ position: 'relative', marginBottom: 10 }}>
+                    <Search size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Type company name or email to search..."
+                      value={clientSearchQuery}
+                      onChange={e => {
+                        setClientSearchQuery(e.target.value);
+                        if (selectedClient && e.target.value.trim() !== (selectedClient.company_name || selectedClient.full_name)) {
+                          setSelectedClient(null);
+                          setSelectedSiteId('');
+                        }
+                      }}
+                      style={{ paddingLeft: 40, height: 44, fontSize: 13.5, fontWeight: 500 }}
+                      autoComplete="off"
+                    />
+                    {clientSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => { setClientSearchQuery(''); setSelectedClient(null); setSelectedSiteId(''); }}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+                      >
+                        <X size={15} />
+                      </button>
                     )}
                   </div>
-                )}
 
-                {/* Selected Client Card */}
-                {selectedClient && (
-                  <div style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: 8,
-                    padding: 12,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginTop: 8
-                  }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Building size={15} style={{ color: '#16a34a' }} />
-                        <span style={{ fontWeight: 700, fontSize: 14, color: '#166534' }}>
-                          {selectedClient.company_name || selectedClient.full_name}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: '#15803d', marginTop: 4 }}>
-                        {selectedClient.email}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedClient(null);
-                        setSelectedSiteId('');
-                        setClientSearchQuery('');
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        padding: 4
-                      }}
-                      title="Change Company"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* STEP 2: SELECT SPECIFIC SITE */}
-              <div style={{
-                background: '#ffffff',
-                borderRadius: 12,
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                padding: 20
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '50%', background: '#059669', color: '#fff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700
-                    }}>2</div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Select Site</h3>
-                  </div>
-                </div>
-
-                {!selectedClient ? (
-                  <div style={{
-                    padding: '24px 16px',
-                    textAlign: 'center',
-                    background: '#f8fafc',
-                    borderRadius: 8,
-                    border: '1px dashed #cbd5e1',
-                    color: '#94a3b8',
-                    fontSize: 12
-                  }}>
-                    Select a company first to see its available facility sites.
-                  </div>
-                ) : clientSites.length === 0 ? (
-                  <div style={{
-                    padding: '16px',
-                    textAlign: 'center',
-                    background: '#fffbeb',
-                    borderRadius: 8,
-                    border: '1px solid #fef3c7',
-                    color: '#b45309',
-                    fontSize: 12
-                  }}>
-                    <p style={{ margin: 0, fontWeight: 600 }}>This company has no sites registered yet.</p>
-                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#92400e' }}>Please register a facility site in Sites Management first.</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {clientSites.map(s => {
-                      const siteId = s._id || s.id;
-                      const isSelected = String(selectedSiteId) === String(siteId);
-                      return (
-                        <div
-                          key={siteId}
-                          onClick={() => setSelectedSiteId(siteId)}
-                          style={{
-                            padding: '12px',
-                            borderRadius: 8,
-                            border: isSelected ? '2px solid #059669' : '1px solid #e2e8f0',
-                            background: isSelected ? '#f0fdf4' : '#ffffff',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            justifyContent: 'space-between',
-                            transition: 'all 0.1s'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#166534' : '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <MapPin size={14} style={{ color: isSelected ? '#16a34a' : '#64748b' }} />
-                              {s.name || s.est_name || s.trading_name || 'Unnamed Site'}
+                  {/* Search Results List (only when query is active and no client selected) */}
+                  {clientSearchQuery.trim() && !selectedClient && (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                      {filteredClients.length === 0 ? (
+                        <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                          <Search size={20} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
+                          No companies found matching "{clientSearchQuery}"
+                        </div>
+                      ) : (
+                        filteredClients.map((c, idx) => (
+                          <div
+                            key={c._id || c.id || idx}
+                            onClick={() => handleSelectClient(c)}
+                            style={{
+                              padding: '12px 16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              borderBottom: idx < filteredClients.length - 1 ? '1px solid #f1f5f9' : 'none',
+                              background: '#ffffff',
+                              cursor: 'pointer',
+                              transition: 'background 0.12s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 9, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Building2 size={17} />
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {c.company_name || c.full_name}
+                                </div>
+                                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 1 }}>
+                                  {c.email}{c.country ? ` · ${c.country}` : ''}
+                                </div>
+                              </div>
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                              {[s.address_1, s.city, s.postcode, s.country].filter(Boolean).join(', ') || 'No address specified'}
+                            <ArrowRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Company Row + Site Picker */}
+                  {selectedClient && (
+                    <div style={{ border: '1.5px solid #16a34a', borderRadius: 12, overflow: 'hidden', background: '#f0fdf4', marginTop: 4 }}>
+                      {/* Selected company row */}
+                      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid #dcfce7' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <CheckCircle2 size={18} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: '#15803d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {selectedClient.company_name || selectedClient.full_name}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: '#16a34a', marginTop: 1 }}>
+                              {selectedClient.email}{selectedClient.country ? ` · ${selectedClient.country}` : ''}
                             </div>
                           </div>
-                          {isSelected && (
-                            <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0, marginTop: 2 }} />
-                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClient(null);
+                            setClientSearchQuery('');
+                            setSelectedSiteId('');
+                          }}
+                          style={{ background: '#dcfce7', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', color: '#15803d', fontSize: 11.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}
+                        >
+                          <X size={13} /> Change
+                        </button>
+                      </div>
+
+                      {/* Site picker */}
+                      <div style={{ padding: '14px 16px', background: '#ffffff' }}>
+                        <label style={{ fontWeight: 700, marginBottom: 6, display: 'block', fontSize: 12.5, color: '#334155' }}>
+                          Assign Certified Site / Facility <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        {clientSites.length > 0 ? (
+                          <select
+                            className="form-control"
+                            style={{ borderColor: !selectedSiteId ? '#fca5a5' : '#86efac', background: selectedSiteId ? '#f0fdf4' : undefined, fontWeight: 500 }}
+                            value={selectedSiteId}
+                            onChange={e => setSelectedSiteId(e.target.value)}
+                            required
+                          >
+                            <option value="">-- Select a registered site for this product *</option>
+                            {clientSites.map(s => (
+                              <option key={s._id || s.id} value={s._id || s.id}>
+                                {s.name || s.est_name || s.trading_name}{s.address_1 ? ` — ${s.address_1}` : ''}{s.city ? `, ${s.city}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div>
+                            <p style={{ fontSize: 12, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px', margin: 0 }}>
+                              ⚠️ No registered sites found for this company. Please register a facility site in Sites Management first.
+                            </p>
+                          </div>
+                        )}
+                        {selectedSiteId && selectedSite && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle2 size={13} />
+                            <span>{formatSiteAddress(selectedSite)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prompt when no query yet */}
+                  {!clientSearchQuery.trim() && !selectedClient && (
+                    <div style={{ textAlign: 'center', padding: '24px 16px', color: '#94a3b8', border: '1.5px dashed #e2e8f0', borderRadius: 12, marginTop: 4 }}>
+                      <Search size={28} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.3 }} />
+                      <p style={{ fontSize: 13, margin: 0, fontWeight: 500 }}>Start typing to search for a registered company</p>
+                      <p style={{ fontSize: 12, margin: '4px 0 0', opacity: 0.7 }}>Search by company name or email address</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* OPTIONS CARD */}

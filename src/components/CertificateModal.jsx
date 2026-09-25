@@ -950,14 +950,18 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         formData.append('is_add_on', 'true');
       }
 
-      await api.post('/api/certificates', formData, true);
+      const certRes = await api.post('/api/certificates', formData, true);
 
-      toast.success('Certificate created! It is now under committee review.');
+      toast.success('Certificate created! Opening review studio...');
       if (onSuccess) onSuccess();
-      setUnderReviewPopup({
-        certNumber: certificateForm.certificate_number,
-        companyName: certificateForm.company_name || app.establishment_name || app.profiles?.company_name || 'Client'
-      });
+      // Navigate directly to the review page instead of showing a popup
+      const createdCertId = certRes?.certificate?._id || certRes?.certificate?.id || certRes?._id || certRes?.id || certRes?.data?._id || certRes?.data?.id;
+      if (createdCertId) {
+        navigate(`/certificates/${createdCertId}/review`);
+      } else {
+        // Fallback: reload the page so the new cert status is reflected
+        onClose();
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || (isSurveillance ? 'Failed to issue surveillance letter.' : 'Failed to issue certificate.'));
     } finally {

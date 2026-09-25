@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -711,17 +711,9 @@ export default function AdminApplications() {
                                 return;
                               }
                               if (step === 'SEND CERTIFICATE') {
-                                const isAddOn = Boolean(manageModal?.is_add_on || manageModal?.application_type === 'addon' || manageModal?.application_type === 'add-on' || manageModal?.application_number?.includes('-AD-') || manageModal?.application_number?.startsWith('ADD-'));
-                                const certTypeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(manageModal?.application_type);
-                                setCertificateForm({
-                                  certificate_type: 'Halal Certification',
-                                  issue_date: new Date().toISOString().split('T')[0],
-                                  expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-                                  products_covered: '',
-                                  certificate_number: generateHfaId(manageModal?.establishment_name || manageModal?.client_id?.company_name || manageModal?.client_id?.full_name || 'HFA', certTypeCode),
-                                  file: null
-                                });
-                                setShowCertificateModal(true);
+                                const targetId = manageModal?.id || manageModal?._id;
+                                setManageModal(null);
+                                navigate(`/applications/${targetId}/issue-certificate`);
                                 return;
                               }
                               setActionForm(f => ({...f, status: step}));

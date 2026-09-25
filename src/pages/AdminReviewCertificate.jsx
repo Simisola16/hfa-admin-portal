@@ -66,7 +66,7 @@ export default function AdminReviewCertificate() {
   // Form State
   const [form, setForm] = useState({
     certificate_number: '',
-    certificate_type: 'Halal Certification',
+    certificate_type: 'HFA SCHEME MEAT',
     company_name: '',
     product_category: '',
     company_address: '',
@@ -393,7 +393,7 @@ export default function AdminReviewCertificate() {
 
       setForm({
         certificate_number: resolvedCertNo,
-        certificate_type: c.certificate_type || 'Halal Certification',
+        certificate_type: c.certificate_type || 'HFA SCHEME NON MEAT',
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
@@ -842,6 +842,23 @@ export default function AdminReviewCertificate() {
     );
   }
 
+  if (!cert) {
+    return (
+      <div style={{ maxWidth: 640, margin: '80px auto', padding: 36, background: '#fff', borderRadius: 16, border: '1.5px solid #fee2e2', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <AlertTriangle size={30} />
+        </div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 10px' }}>Certificate Not Found</h2>
+        <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.6, margin: '0 0 24px' }}>
+          The requested certificate could not be loaded or does not exist.
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate('/certificates')}>
+          Return to Certificates
+        </button>
+      </div>
+    );
+  }
+
   const isUnderReview = cert?.status === 'under_review' || cert?.status === 'draft';
   const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || form.certificate_type === 'SMIIC' || (form.certificate_type && (form.certificate_type.includes('GSO') || form.certificate_type.includes('SMIIC')));
   const rawPdfUrl = getPdfUrl(cert?.certificate_url);
@@ -882,7 +899,7 @@ export default function AdminReviewCertificate() {
         </div>
 
         {/* Quick meta details */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#ffffff', padding: '8px 16px', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#ffffff', padding: '8px 16px', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>
             <strong>Client:</strong> {form.company_name || '—'}
           </div>
@@ -890,14 +907,25 @@ export default function AdminReviewCertificate() {
           <div style={{ fontSize: 12, color: '#64748b' }}>
             <strong>Cert #:</strong> <span style={{ color: '#0f172a', fontWeight: 700 }}>{form.certificate_number}</span>
           </div>
+          {(applicationData?.application_number || cert?.application_id?.application_number) && (
+            <>
+              <span style={{ color: '#e2e8f0' }}>|</span>
+              <div style={{ fontSize: 12, color: '#64748b' }}>
+                <div><strong>App #:</strong> <span style={{ color: '#0f172a', fontWeight: 600 }}>{applicationData?.application_number || cert?.application_id?.application_number}</span></div>
+                <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 1 }}>
+                  Type: {applicationData?.application_type ? (applicationData.application_type.charAt(0).toUpperCase() + applicationData.application_type.slice(1)) : (cert?.is_add_on ? 'Addon' : 'New')}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Main Dual-Pane Layout */}
       <div className="dual-pane-grid" style={{ gap: 24, alignItems: 'start' }}>
 
-        {/* LEFT PANE: Live Certificate Document Preview */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* LEFT PANE: Live Certificate Document Preview — STICKY */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 'calc(var(--topbar-h, 64px) + 20px)' }}>
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 18, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1261,7 +1289,7 @@ export default function AdminReviewCertificate() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type / Scheme <span style={{ color: '#dc2626' }}>*</span></label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Certificate Type <span style={{ color: '#dc2626' }}>*</span></label>
                   <select
                     className="form-control"
                     value={form.certificate_type}
@@ -1466,25 +1494,10 @@ export default function AdminReviewCertificate() {
                   >
                     Deselect All
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowAddCustomProduct(!showAddCustomProduct)}
-                    style={{ fontSize: 11.5, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <Plus size={13} /> {showAddCustomProduct ? 'Close Custom' : 'Add Custom Product'}
-                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={handleAddProductRow}
-                    style={{ fontSize: 11.5, padding: '4px 10px' }}
-                  >
-                    <Plus size={13} style={{ marginRight: 3 }} /> Add Product Row
-                  </button>
+                  {/* product rows managed directly in table below */}
                 </div>
               )}
             </div>
@@ -1533,11 +1546,6 @@ export default function AdminReviewCertificate() {
                   }}
                 >
                   <span>1 Column (Name Only)</span>
-                  {!isGso && (
-                    <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
-                      Recommended
-                    </span>
-                  )}
                 </button>
 
                 {/* Option 2: 2 Value Columns (NO. + CODE + DESCRIPTION) */}
@@ -1560,11 +1568,6 @@ export default function AdminReviewCertificate() {
                   }}
                 >
                   <span>2 Columns (Code + Desc)</span>
-                  {isGso && (
-                    <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
-                      Recommended
-                    </span>
-                  )}
                 </button>
 
                 {/* Option 3: 3 Value Columns (NO. + CODE + DESCRIPTION + CATEGORY) */}
@@ -1830,7 +1833,7 @@ export default function AdminReviewCertificate() {
                     {form.product_details.length === 0 ? (
                       <tr>
                         <td colSpan={(form.product_table_columns || 2) === 3 ? 5 : ((form.product_table_columns || 2) === 1 ? 3 : 4)} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                          No products added yet. Click "+ Add Product Row" above to add products.
+                          No products added yet.
                         </td>
                       </tr>
                     ) : (
@@ -1912,14 +1915,6 @@ export default function AdminReviewCertificate() {
                       Clear All
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={handleAddProductRow}
-                    style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600, padding: '2px 6px' }}
-                  >
-                    + Add Product Row
-                  </button>
                 </div>
               )}
             </div>
@@ -2049,7 +2044,7 @@ export default function AdminReviewCertificate() {
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Scheme:</span>
+                  <span style={{ color: '#64748b' }}>Type:</span>
                   <strong style={{ color: '#0f172a' }}>{form.certificate_type}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>

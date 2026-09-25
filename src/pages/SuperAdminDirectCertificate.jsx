@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -232,7 +232,12 @@ export default function SuperAdminDirectCertificate() {
     setHistoryLoading(true);
     try {
       const res = await api.get('/api/certificates/direct-history');
-      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const rawList = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const list = rawList.filter(c =>
+        c.certificate_type !== 'Extension' &&
+        !c.is_extension &&
+        !c.notes?.includes('Extension Application')
+      );
       setDirectHistory(list);
     } catch (err) {
       toast.error('Failed to load issuance history');
@@ -1433,14 +1438,6 @@ export default function SuperAdminDirectCertificate() {
                       >
                         <Upload size={13} style={{ marginRight: 3 }} /> Bulk Paste
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={addProductRow}
-                        style={{ fontSize: 11.5, padding: '4px 10px' }}
-                      >
-                        <Plus size={13} style={{ marginRight: 3 }} /> Add Product Row
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1489,11 +1486,6 @@ export default function SuperAdminDirectCertificate() {
                       }}
                     >
                       <span>1 Column (Name Only)</span>
-                      {!isGso && (
-                        <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
-                          Recommended
-                        </span>
-                      )}
                     </button>
 
                     {/* Option 2: 2 Value Columns (NO. + CODE + DESCRIPTION) */}
@@ -1516,11 +1508,6 @@ export default function SuperAdminDirectCertificate() {
                       }}
                     >
                       <span>2 Columns (Code + Desc)</span>
-                      {isGso && (
-                        <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
-                          Recommended
-                        </span>
-                      )}
                     </button>
 
                     {/* Option 3: 3 Value Columns (NO. + CODE + DESCRIPTION + CATEGORY) */}
@@ -1759,14 +1746,6 @@ export default function SuperAdminDirectCertificate() {
                           Clear All
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={addProductRow}
-                        style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600, padding: '2px 6px' }}
-                      >
-                        + Add Product Row
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1775,7 +1754,7 @@ export default function SuperAdminDirectCertificate() {
 
 
             {/* Right Column: Live Certificate Document Review & Summary Action Bar */}
-            <div style={{ position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ position: 'sticky', top: 'calc(var(--topbar-h, 64px) + 20px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Document Review Pane */}
               <div className="card" style={{ padding: 18, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>

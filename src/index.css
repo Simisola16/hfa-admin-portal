@@ -202,7 +202,6 @@ body {
   margin-left: var(--sidebar-w);
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -249,7 +248,7 @@ body {
   border: 2px solid white;
 }
 
-.page-content { padding: 24px; flex: 1; min-width: 0; overflow: hidden; }
+.page-content { padding: 24px; flex: 1; min-width: 0; }
 
 /* ===== CARDS ===== */
 .card {
@@ -552,6 +551,10 @@ select.form-control { cursor: pointer; }
   display: inline-block;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin, .spin {
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
 
 .loading-overlay {
   display: flex; align-items: center; justify-content: center;

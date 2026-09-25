@@ -552,7 +552,7 @@ export default function AdminAddOnProcessing() {
       }
 
       return (
-        <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => setShowCertificateModal(true)}>
+        <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}>
           <Award size={16} style={{ marginRight: 6 }} /> Issue Certificate
         </button>
       );
@@ -1226,18 +1226,25 @@ export default function AdminAddOnProcessing() {
                     </div>
                   ))}
 
-                  {(app.assigned_ft_custom?.name || app.assigned_ft_details) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#15803d', fontSize: 12 }}>
-                        {(app.assigned_ft_custom?.name || app.assigned_ft_details).charAt(0).toUpperCase()}
+                  {Boolean(app.assigned_ft_custom?.name || app.assigned_ft_details) && (() => {
+                    const customName = typeof app.assigned_ft_custom?.name === 'string'
+                      ? app.assigned_ft_custom.name
+                      : typeof app.assigned_ft_details === 'string'
+                      ? app.assigned_ft_details
+                      : (app.assigned_ft_details?.name || app.assigned_ft_details?.full_name || 'FT Specialist');
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#15803d', fontSize: 12 }}>
+                          {String(customName || 'F').charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{customName}</div>
+                          {app.assigned_ft_custom?.email && <div style={{ fontSize: 11, color: '#64748b' }}>{app.assigned_ft_custom.email}</div>}
+                          {app.assigned_ft_custom?.notes && <div style={{ fontSize: 11, color: '#15803d', marginTop: 1 }}>{app.assigned_ft_custom.notes}</div>}
+                        </div>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{app.assigned_ft_custom?.name || app.assigned_ft_details}</div>
-                        {app.assigned_ft_custom?.email && <div style={{ fontSize: 11, color: '#64748b' }}>{app.assigned_ft_custom.email}</div>}
-                        {app.assigned_ft_custom?.notes && <div style={{ fontSize: 11, color: '#15803d', marginTop: 1 }}>{app.assigned_ft_custom.notes}</div>}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>

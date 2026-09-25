@@ -19,6 +19,31 @@ export default function AdminCertificates({ defaultTab }) {
   const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
 
   const navigate = useNavigate();
+
+  const getApplicationTypeDisplay = (c) => {
+    if (c.is_add_on) return 'Addon';
+    if (c.certificate_type === 'Extension' || c.is_extension) return 'Extension';
+    if (c.is_direct_issuance) return 'Direct';
+
+    const appType = c.application_id?.application_type || c.application_type;
+    if (appType) {
+      const lower = String(appType).toLowerCase();
+      if (lower.includes('renew')) return 'Renewal';
+      if (lower.includes('new') || lower.includes('initial')) return 'New';
+      if (lower.includes('surveill')) return 'Surveillance';
+      if (lower.includes('addon') || lower.includes('add-on')) return 'Addon';
+      if (lower.includes('extens')) return 'Extension';
+    }
+
+    const num = c.certificate_number || '';
+    if (num.includes('-RE-') || num.includes('/RE/') || num.includes('REN-')) return 'Renewal';
+    if (num.includes('-NE-') || num.includes('/NE/') || num.includes('NEW-')) return 'New';
+    if (num.includes('-SU-') || num.includes('/SU/') || num.includes('SUR-')) return 'Surveillance';
+    if (num.includes('-AD-') || num.includes('/AD/') || num.includes('ADD-')) return 'Addon';
+    if (num.includes('-EX-') || num.includes('/EX/') || num.includes('EXT-')) return 'Extension';
+
+    return 'New';
+  };
   const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState((defaultTab === 'review' && canReviewCertificate) ? 'review' : 'certs'); // 'review' | 'certs'
@@ -239,7 +264,7 @@ export default function AdminCertificates({ defaultTab }) {
                     <tr>
                       <th>Certificate No.</th>
                       <th>Company / Site</th>
-                      <th>Type &amp; Scheme</th>
+                      <th>Type</th>
                       <th>Issue Date</th>
                       <th>Expiry</th>
                       <th>Status</th>
@@ -266,7 +291,39 @@ export default function AdminCertificates({ defaultTab }) {
                             </div>
                           )}
                         </td>
-                        <td style={{ fontSize: 13 }}>{c.certificate_type || 'Halal Certification'}</td>
+                        <td style={{ fontSize: 13 }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            background: (() => {
+                              const t = getApplicationTypeDisplay(c);
+                              if (t === 'Renewal') return '#eff6ff';
+                              if (t === 'Surveillance') return '#f0f9ff';
+                              if (t === 'Addon') return '#fdf4ff';
+                              if (t === 'Extension') return '#f0fdf4';
+                              if (t === 'Direct') return '#fffbeb';
+                              return '#f8fafc';
+                            })(),
+                            color: (() => {
+                              const t = getApplicationTypeDisplay(c);
+                              if (t === 'Renewal') return '#1d4ed8';
+                              if (t === 'Surveillance') return '#0369a1';
+                              if (t === 'Addon') return '#86198f';
+                              if (t === 'Extension') return '#15803d';
+                              if (t === 'Direct') return '#b45309';
+                              return '#334155';
+                            })(),
+                            border: '1px solid #e2e8f0'
+                          }}>
+                            {getApplicationTypeDisplay(c)}
+                          </span>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            {c.certificate_type || 'Halal Certification'}
+                          </div>
+                        </td>
                         <td style={{ fontSize: 12 }}>{c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td style={{ fontSize: 12 }}>{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—'}</td>
                         <td>
@@ -385,22 +442,43 @@ export default function AdminCertificates({ defaultTab }) {
         }
         actions={[
           {
-            label: 'View Certificate (Preview)',
+            label: 'View Certificate PDF',
             icon: Eye,
             variant: 'default',
             onClick: () => {
               const cert = actionModalCert;
-              setActionModalCert(null);
-              setViewingCert(cert);
+              const pdfUrl = getPdfUrl(cert?.certificate_url);
+              if (pdfUrl) {
+                window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+              } else {
+                setActionModalCert(null);
+                setViewingCert(cert);
+              }
             }
           },
           ...(canReviewCertificate ? [{
-            label: (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? 'Review & Send to Client' : 'Review / Edit Certificate',
+            label: 'Edit Certificate',
             icon: Edit3,
-            variant: (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? 'primary' : 'default',
+            variant: 'default',
             onClick: () => {
               if (actionModalCert) {
                 navigate(`/certificates/${actionModalCert.id || actionModalCert._id}/review`);
+              }
+            }
+          }] : []),
+          ...(canReviewCertificate && (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? [{
+            label: 'Send to Client',
+            icon: Send,
+            variant: 'primary',
+            onClick: async () => {
+              const certId = actionModalCert?.id || actionModalCert?._id;
+              setActionModalCert(null);
+              try {
+                await api.put(`/api/certificates/${certId}/approve`);
+                toast.success('Certificate approved and sent to client.');
+                fetchAllData();
+              } catch (err) {
+                toast.error(err.response?.data?.error || err.message || 'Failed to send certificate.');
               }
             }
           }] : []),

@@ -243,6 +243,22 @@ export default function AdminExtensionProcessing() {
     );
   }
 
+  if (!app) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 20px', fontFamily: 'Inter, sans-serif' }}>
+        <AlertCircle size={40} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>Extension Application Not Found</h2>
+        <p style={{ color: '#64748b', fontSize: 13.5, margin: '8px 0 20px' }}>The requested extension application does not exist or has been removed.</p>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigate('/extension-applications')}
+        >
+          Back to Extension Applications
+        </button>
+      </div>
+    );
+  }
+
   const companyName = app?.company_name || app?.client_id?.company_name || app?.client_id?.business_name || 'Client Company';
 
   return (

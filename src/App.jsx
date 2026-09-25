@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import LoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
@@ -39,6 +40,7 @@ import AdminManageProducts from './pages/AdminManageProducts';
 import AdminStaff from './pages/AdminStaff';
 import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
 import AdminReviewCertificate from './pages/AdminReviewCertificate';
+import AdminCreateCertificate from './pages/AdminCreateCertificate';
 import AdminExtensionApplications from './pages/AdminExtensionApplications';
 import AdminExtensionProcessing from './pages/AdminExtensionProcessing';
 import AdminExtensionLogsheet from './pages/AdminExtensionLogsheet';
@@ -51,8 +53,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ duration: 5000, style: { borderRadius: 10, fontFamily: 'Inter, sans-serif', fontSize: 13 } }} />
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+        <ErrorBoundary isLayout={true}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
@@ -95,6 +98,11 @@ export default function App() {
             <Route path="/admin/applications/:appId" element={<ApplicationProcessing />} />
             <Route path="/admin/applications/:appId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/admin/applications/:appId/processing" element={<ApplicationProcessing />} />
+            <Route path="/applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/admin/applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/addon-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/admin/addon-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/certificates/create/:appId" element={<AdminCreateCertificate />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/certificates/review" element={<AdminCertificates defaultTab="review" />} />
             <Route path="/certificates/:id/review" element={<AdminReviewCertificate />} />
@@ -129,6 +137,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

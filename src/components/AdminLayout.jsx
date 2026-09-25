@@ -16,6 +16,7 @@ import CertificateModal from './CertificateModal';
 import AuditManageModal from './AuditManageModal';
 import ConfirmPaymentModal from './ConfirmPaymentModal';
 import AdminNotificationCenter from './AdminNotificationCenter';
+import ErrorBoundary from './ErrorBoundary';
 
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
@@ -495,7 +496,9 @@ export default function AdminLayout() {
         </header>
 
         <main className="page-content">
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
         <style dangerouslySetInnerHTML={{ __html: `
           @keyframes bellPulse {

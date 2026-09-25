@@ -505,13 +505,19 @@ export default function AdminLogsheetWaitingCertificate() {
         const extId = l.extension_application_id?._id || l.extension_application_id;
         const addonId = l.addon_application_id?._id || l.addon_application_id;
 
-        const processingUrl = isExtension
+        const isDirect = l.source_type === 'direct' || (!appId && !isExtension && !isAddon);
+
+        const issueCertUrl = isDirect
+          ? `/superadmin/direct-certificate`
+          : isExtension
           ? `/extension-applications/${extId}/processing`
           : isAddon
-          ? `/addon-applications/${addonId}/processing`
-          : `/applications/${appId}/processing`;
+          ? `/addon-applications/${addonId}/issue-certificate`
+          : `/applications/${appId}/issue-certificate`;
 
-        const logsheetUrl = isExtension
+        const logsheetUrl = isDirect
+          ? `/logsheet/direct/${l._id}`
+          : isExtension
           ? `/extension-applications/${extId}/logsheet`
           : isAddon
           ? `/addon-applications/${addonId}/logsheet`
@@ -521,8 +527,8 @@ export default function AdminLogsheetWaitingCertificate() {
           <ActionModal
             isOpen={Boolean(actionModalLogsheet)}
             onClose={() => setActionModalLogsheet(null)}
-            title="Logsheet Actions"
-            subtitle={l.company_name}
+            title={l.company_name}
+            subtitle={`App #${l.application_number || l.application_id?.application_number || '—'} · ${getCertificateTypeInfo(l).certType}`}
             badge={
               <span style={{ fontSize: 11.5, color: '#64748b' }}>
                 Status: Waiting for Certificate • {getCertificateTypeInfo(l).certType}
@@ -530,11 +536,11 @@ export default function AdminLogsheetWaitingCertificate() {
             }
             actions={[
               {
-                label: 'Go to Issue Certificate / Processing',
-                description: 'Open application stage to generate and issue certificate',
-                icon: Settings,
+                label: 'Issue Certificate Studio',
+                description: 'Open dedicated studio to generate and issue certificate',
+                icon: Award,
                 variant: 'primary',
-                onClick: () => navigate(processingUrl)
+                onClick: () => navigate(issueCertUrl)
               },
               {
                 label: 'View Signed Logsheet',

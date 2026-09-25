@@ -581,7 +581,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         <button
           className="btn btn-primary"
           style={{ gap: 8, background: '#16a34a', borderColor: '#15803d' }}
-          onClick={() => setShowCertificateModal(true)}
+          onClick={() => navigate(`/applications/${appId}/issue-certificate`)}
         >
           <Award size={16} /> Issue Certificate
         </button>
@@ -903,7 +903,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             certificate={certificate}
             status={status}
             isSurveillance={false}
-            onIssueCertificate={() => setShowCertificateModal(true)}
+            onIssueCertificate={() => navigate(`/applications/${appId}/issue-certificate`)}
           />
         </div>
 

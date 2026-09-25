@@ -141,6 +141,7 @@ export default function AdminNotificationCenter({
     const titleLower = (n.title || '').toLowerCase();
     const messageLower = (n.message || '').toLowerCase();
 
+    // Classify the notification type
     let modalType = null;
     if (titleLower.includes('payment') || messageLower.includes('payment') || titleLower.includes('proof') || messageLower.includes('proof')) modalType = 'confirm_payment';
     else if (titleLower.includes('proposal accepted') || titleLower.includes('proposal approved') || messageLower.includes('proposal accepted') || messageLower.includes('proposal approved')) modalType = 'send_initial_invoice';
@@ -152,6 +153,7 @@ export default function AdminNotificationCenter({
     else if (titleLower.includes('ready for cert') || messageLower.includes('ready for cert')) modalType = 'issue_certificate';
     else if (titleLower.includes('audit') || messageLower.includes('audit') || titleLower.includes('nc') || messageLower.includes('nc')) modalType = 'manage_audit';
 
+    // Extract the most relevant application/entity ID from the notification
     const getCleanId = (val) => {
       if (!val) return '';
       if (typeof val === 'string') return val;
@@ -160,7 +162,7 @@ export default function AdminNotificationCenter({
     };
 
     const extractAppId = () => {
-      const raw = n.application_id || n.appId || n.app_id || 
+      const raw = n.application_id || n.appId || n.app_id ||
                   n.data?.application_id || n.data?.app_id || n.data?.appId ||
                   n.audit_id || n.invoice_id || n.agreement_id || n.proposal_id;
       if (raw) {
@@ -178,14 +180,24 @@ export default function AdminNotificationCenter({
 
     const targetAppId = extractAppId();
 
+    // Route map: each notification type → the most relevant admin page
+    const typeRoutes = {
+      confirm_payment:      targetAppId ? `/applications/${targetAppId}/processing` : '/applications',
+      send_proposal:        targetAppId ? `/applications/${targetAppId}/processing` : '/proposals',
+      send_initial_invoice: targetAppId ? `/applications/${targetAppId}/processing` : '/invoices',
+      send_agreement:       targetAppId ? `/applications/${targetAppId}/processing` : '/agreements',
+      send_final_agreement: targetAppId ? `/applications/${targetAppId}/processing` : '/agreements',
+      issue_certificate:    targetAppId ? `/applications/${targetAppId}/processing` : '/certificates',
+      manage_audit:         targetAppId ? `/applications/${targetAppId}/processing` : '/audits',
+    };
+
+    // 1. If the notification carries its own specific link, honour it
     if (n.link) {
       if (n.link.includes('appId=')) {
         const match = n.link.match(/appId=([a-fA-F0-9]{24})/);
-        if (match) {
-          navigate(`/applications/${match[1]}/processing`);
-          return;
-        }
+        if (match) { navigate(`/applications/${match[1]}/processing`); return; }
       }
+      // Generic /applications link → go straight to that application's processing page
       if (targetAppId && (n.link === '/applications' || n.link === '/applications/')) {
         navigate(`/applications/${targetAppId}/processing`);
         return;
@@ -194,15 +206,15 @@ export default function AdminNotificationCenter({
       return;
     }
 
-    if (modalType && targetAppId && onOpenQuickModal) {
-      onOpenQuickModal(modalType, targetAppId);
+    // 2. Use the type-to-route map
+    if (modalType && typeRoutes[modalType]) {
+      navigate(typeRoutes[modalType]);
       return;
     }
 
+    // 3. Fallback: if we at least have an appId, go to processing
     if (targetAppId) {
       navigate(`/applications/${targetAppId}/processing`);
-    } else if (modalType && onOpenQuickModal) {
-      onOpenQuickModal(modalType, null);
     }
   };
 
@@ -451,7 +463,7 @@ export default function AdminNotificationCenter({
                       fontWeight: 700,
                       color: config.color
                     }}>
-                      <span>Process Action</span>
+                      <span>View Details</span>
                       <ArrowRight size={11} />
                     </div>
                   )}

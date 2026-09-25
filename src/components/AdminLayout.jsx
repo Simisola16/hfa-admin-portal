@@ -208,29 +208,46 @@ export default function AdminLayout() {
               onClick={(e) => {
                 e.stopPropagation();
                 toast.dismiss(t.id);
-                if (modalType && targetAppId) {
-                  setQuickModal({ type: modalType, appId: targetAppId });
-                } else if (notif.link) {
+
+                // Route map: each notification type → the most relevant admin page
+                const typeRoutes = {
+                  confirm_payment:      targetAppId ? `/applications/${targetAppId}/processing` : '/applications',
+                  send_proposal:        targetAppId ? `/applications/${targetAppId}/processing` : '/proposals',
+                  send_initial_invoice: targetAppId ? `/applications/${targetAppId}/processing` : '/invoices',
+                  send_agreement:       targetAppId ? `/applications/${targetAppId}/processing` : '/agreements',
+                  send_final_agreement: targetAppId ? `/applications/${targetAppId}/processing` : '/agreements',
+                  issue_certificate:    targetAppId ? `/applications/${targetAppId}/processing` : '/certificates',
+                  manage_audit:         targetAppId ? `/applications/${targetAppId}/processing` : '/audits',
+                };
+
+                // 1. If the notification carries its own specific link, honour it
+                if (notif.link) {
                   if (notif.link.includes('appId=')) {
                     const match = notif.link.match(/appId=([a-fA-F0-9]{24})/);
-                    if (match) {
-                      navigate(`/applications/${match[1]}/processing`);
-                      return;
-                    }
+                    if (match) { navigate(`/applications/${match[1]}/processing`); return; }
                   }
+                  // Generic /applications link → go straight to that application's processing page
                   if (targetAppId && (notif.link === '/applications' || notif.link === '/applications/')) {
                     navigate(`/applications/${targetAppId}/processing`);
                     return;
                   }
                   navigate(notif.link);
-                } else if (targetAppId) {
+                  return;
+                }
+
+                // 2. Use the type-to-route map
+                if (modalType && typeRoutes[modalType]) {
+                  navigate(typeRoutes[modalType]);
+                  return;
+                }
+
+                // 3. Fallback: if we at least have an appId, go to processing
+                if (targetAppId) {
                   navigate(`/applications/${targetAppId}/processing`);
-                } else if (modalType) {
-                  setQuickModal({ type: modalType, appId: null });
                 }
               }}
             >
-              {modalType ? 'View & Respond' : 'View Details'}
+              View Details
             </button>
           </div>
         )}

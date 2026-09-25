@@ -2,10 +2,11 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Award, ArrowLeft, Save, RefreshCw, Send, FileText, CheckCircle2,
+  Award, ArrowLeft, Save, RefreshCw, Send, FileText,
   AlertTriangle, Building, MapPin, Calendar, Package, Plus, Trash2,
   ExternalLink, Download, Check, X, Lock, ShieldCheck, Eye, UploadCloud,
-  Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle
+  Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -791,6 +792,19 @@ export default function AdminReviewCertificate() {
     });
   }, [siteProducts, productSearch, categoryFilter]);
 
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 30;
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productSearch, categoryFilter]);
+
+  const totalProductPages = Math.ceil(filteredSiteProducts.length / PRODUCTS_PER_PAGE) || 1;
+  const paginatedSiteProducts = useMemo(() => {
+    const start = (productPage - 1) * PRODUCTS_PER_PAGE;
+    return filteredSiteProducts.slice(start, start + PRODUCTS_PER_PAGE);
+  }, [filteredSiteProducts, productPage]);
+
   const selectedSiteCount = useMemo(() => {
     return siteProducts.filter(p => isProductSelected(p.name)).length;
   }, [siteProducts, form.product_details]);
@@ -1023,7 +1037,7 @@ export default function AdminReviewCertificate() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               {/* Company Info Box */}
               <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 6, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Building size={15} />
                   </div>
@@ -1034,26 +1048,11 @@ export default function AdminReviewCertificate() {
                     </div>
                   </div>
                 </div>
-
-                <div style={{ fontSize: 11.5, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
-                  {(clientUser?.full_name || cert?.contact_name) && (
-                    <div><strong style={{ color: '#334155' }}>Contact:</strong> {clientUser?.full_name || cert?.contact_name}</div>
-                  )}
-                  {(clientUser?.email || cert?.contact_email) && (
-                    <div><strong style={{ color: '#334155' }}>Email:</strong> {clientUser?.email || cert?.contact_email}</div>
-                  )}
-                  {(clientUser?.phone || cert?.contact_phone) && (
-                    <div><strong style={{ color: '#334155' }}>Phone:</strong> {clientUser?.phone || cert?.contact_phone}</div>
-                  )}
-                  {(clientUser?.address || form.company_address || cert?.company_address) && (
-                    <div style={{ marginTop: 2 }}><strong style={{ color: '#334155' }}>Address:</strong> {clientUser?.address || form.company_address || cert?.company_address}</div>
-                  )}
-                </div>
               </div>
 
               {/* Site / Facility Info Box */}
               <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 6, background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MapPin size={15} />
                   </div>
@@ -1062,20 +1061,6 @@ export default function AdminReviewCertificate() {
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
                       {siteData?.name || siteData?.trading_name || 'Manufacturing Facility'}
                     </div>
-                  </div>
-                </div>
-
-                <div style={{ fontSize: 11.5, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
-                  <div>
-                    <strong style={{ color: '#334155' }}>Facility Address:</strong> {siteData?.address_1 || siteData?.address || form.manufacturing_address || 'Same as business address'}
-                  </div>
-                  {(siteData?.city || siteData?.postcode || siteData?.country) && (
-                    <div>
-                      <strong style={{ color: '#334155' }}>Location:</strong> {[siteData?.city, siteData?.postcode, siteData?.country].filter(Boolean).join(', ')}
-                    </div>
-                  )}
-                  <div style={{ marginTop: 4, color: '#166534', fontWeight: 600, fontSize: 11 }}>
-                    ✓ Source of {siteProducts.length} approved site products
                   </div>
                 </div>
               </div>
@@ -1170,9 +1155,10 @@ export default function AdminReviewCertificate() {
                     Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <textarea
-                    rows={2}
+                    rows={1}
                     required
                     className="form-control"
+                    style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
                     value={form.company_address}
                     onChange={e => setForm({ ...form, company_address: e.target.value })}
                     placeholder="Head office / registered legal business address"
@@ -1185,9 +1171,10 @@ export default function AdminReviewCertificate() {
                     Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <textarea
-                    rows={2}
+                    rows={1}
                     required
                     className="form-control"
+                    style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
                     value={form.manufacturing_address}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
                     placeholder="Physical site location where certified products are manufactured"
@@ -1520,87 +1507,122 @@ export default function AdminReviewCertificate() {
 
 
 
-            {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
+            {/* CLIENT CATALOG CHECKBOX SELECTION TABLE (Up to 30 products at once) */}
             {siteProducts.length > 0 ? (
-              <div className="table-wrap" style={{
-                border: '1px solid #e2e8f0',
-                borderRadius: 10,
-                maxHeight: 280,
-                overflowY: 'auto',
-                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                    <tr style={{ color: '#475569', textAlign: 'left' }}>
-                      <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item.name))}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              handleSelectAllSiteProducts(filteredSiteProducts);
-                            } else {
-                              handleDeselectAllSiteProducts();
-                            }
-                          }}
-                          style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                          title="Select/Deselect All Displayed Products"
-                        />
-                      </th>
-                      <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                      <th style={{ padding: '8px 6px' }}>Product Name</th>
-                      <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSiteProducts.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                          No products found matching "{productSearch}".
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredSiteProducts.map((prod, index) => {
-                        const selected = isProductSelected(prod.name);
-                        return (
-                          <tr
-                            key={prod._id || prod.id || index}
-                            onClick={() => handleToggleProduct(prod)}
-                            style={{
-                              borderBottom: '1px solid #f1f5f9',
-                              background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
-                              cursor: 'pointer',
-                              transition: 'background-color 0.15s ease'
+              <>
+                <div className="table-wrap" style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  maxHeight: 720,
+                  overflowY: 'auto',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                      <tr style={{ color: '#475569', textAlign: 'left' }}>
+                        <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item.name))}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                handleSelectAllSiteProducts(filteredSiteProducts);
+                              } else {
+                                handleDeselectAllSiteProducts();
+                              }
                             }}
-                          >
-                            <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={selected}
-                                onChange={() => handleToggleProduct(prod)}
-                                style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                              />
-                            </td>
-                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
-                            <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
-                              {prod.name}
-                            </td>
-                            <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
-                              {prod.code || prod.barcode || '—'}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                            title="Select/Deselect All Displayed Products"
+                          />
+                        </th>
+                        <th style={{ width: 44, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '8px 6px' }}>Product Name</th>
+                        <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSiteProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                            No products found matching "{productSearch}".
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedSiteProducts.map((prod, index) => {
+                          const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
+                          const selected = isProductSelected(prod.name);
+                          return (
+                            <tr
+                              key={prod._id || prod.id || itemIndex}
+                              onClick={() => handleToggleProduct(prod)}
+                              style={{
+                                borderBottom: '1px solid #f1f5f9',
+                                background: selected ? '#f0fdf4' : (itemIndex % 2 === 0 ? '#ffffff' : '#fafafa'),
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s ease'
+                              }}
+                            >
+                              <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => handleToggleProduct(prod)}
+                                  style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                                />
+                              </td>
+                              <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{itemIndex + 1}</td>
+                              <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
+                                {prod.name}
+                              </td>
+                              <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                                {prod.code || prod.barcode || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PAGINATION BAR (When catalog has more than 30 products) */}
+                {filteredSiteProducts.length > PRODUCTS_PER_PAGE && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '8px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
+                    <span style={{ color: '#64748b' }}>
+                      Showing <strong>{(productPage - 1) * PRODUCTS_PER_PAGE + 1}</strong> – <strong>{Math.min(productPage * PRODUCTS_PER_PAGE, filteredSiteProducts.length)}</strong> of <strong>{filteredSiteProducts.length}</strong> products (30 per page)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={productPage <= 1}
+                        onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
+                        style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                      >
+                        <ChevronLeft size={13} /> Prev
+                      </button>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#334155', padding: '0 4px' }}>
+                        Page {productPage} / {totalProductPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={productPage >= totalProductPages}
+                        onClick={() => setProductPage(prev => Math.min(prev + 1, totalProductPages))}
+                        style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                      >
+                        Next <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               /* FALLBACK EDITABLE TABLE FOR CLIENTS / SITES WITHOUT CATALOG */
               <div className="table-wrap" style={{
                 border: '1px solid #e2e8f0',
                 borderRadius: 10,
-                maxHeight: 280,
+                maxHeight: 720,
                 overflowY: 'auto',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
               }}>
@@ -1696,46 +1718,7 @@ export default function AdminReviewCertificate() {
             </div>
           </div>
 
-          {/* Card 4: Quality Review Checklist & Remarks */}
-          <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              <CheckCircle2 size={16} style={{ color: '#047857' }} />
-              4. Reviewer Quality Verification Checklist
-            </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              {[
-                { key: 'company_verified', label: 'Company name and registered address verified' },
-                { key: 'site_verified', label: 'Manufacturing site matches audit & logsheet' },
-                { key: 'scope_verified', label: 'Product formulations & specifications approved' },
-                { key: 'dates_verified', label: 'Issue & expiry dates correctly aligned' },
-              ].map(chk => (
-                <label key={chk.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#334155', cursor: 'pointer', background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.checklist[chk.key]}
-                    onChange={e => setForm({
-                      ...form,
-                      checklist: { ...form.checklist, [chk.key]: e.target.checked }
-                    })}
-                    style={{ marginTop: 2 }}
-                  />
-                  <span style={{ fontWeight: 600 }}>{chk.label}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>Reviewer Audit Notes / Internal Remarks</label>
-              <input
-                type="text"
-                className="form-control"
-                value={form.review_notes}
-                onChange={e => setForm({ ...form, review_notes: e.target.value })}
-                placeholder="Optional remarks regarding this review or corrections made..."
-              />
-            </div>
-          </div>
 
         </div>
       </div>

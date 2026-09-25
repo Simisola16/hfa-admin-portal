@@ -1278,24 +1278,6 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
                     Annual Certification – Cosmetics and Personal Care
                   </option>
                 </select>
-
-                <div style={{
-                  marginTop: 12,
-                  padding: '10px 14px',
-                  background: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#f0f9ff' : '#f0fdf4',
-                  border: `1px solid ${(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#bae6fd' : '#bbf7d0'}`,
-                  borderRadius: 8
-                }}>
-                  <div style={{
-                    fontSize: 12,
-                    color: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#0369a1' : '#15803d',
-                    fontWeight: 600
-                  }}>
-                    {(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae')
-                      ? '⚡ Dual-Stage Initial Certification Scheme (Stage 1 readiness & Stage 2 on-site audit).'
-                      : '⚡ Standard Single-Stage Annual Certification Scheme.'}
-                  </div>
-                </div>
               </div>
             </div>
 

@@ -20,8 +20,9 @@ const NAV_SECTIONS = [
         icon: Users, label: 'Companies', path: '/clients',
         children: [
           { label: 'All Clients',       path: '/clients' },
-          { label: 'Sign-ups',          path: '/clients?category=signups' },
+          { label: 'Certified Clients', path: '/clients?category=company' },
           { label: 'Processing List',   path: '/clients?category=processing' },
+          { label: 'Sign-ups',          path: '/clients?category=signups' },
         ],
       },
     ],
@@ -158,6 +159,9 @@ function isChildActive(childPath, location) {
   const childQuery = childSearch ? `?${childSearch}` : '';
   if (childPathname === '/addon-applications' && childSearch === 'view=list' && location.pathname === '/addon-applications' && !location.search) {
     return true;
+  }
+  if (childPathname === '/clients' && (!childSearch || childSearch === 'category=all')) {
+    return location.pathname === '/clients' && (!location.search || location.search === '?category=all');
   }
   return location.pathname === childPathname && location.search === childQuery;
 }

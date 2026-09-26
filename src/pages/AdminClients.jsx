@@ -404,15 +404,6 @@ export default function AdminClients() {
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
             {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} Companies`}
           </span>
-          {category !== 'impersonations' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowCompanyModal(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
-              <PlusCircle size={15} /> Register Company
-            </button>
-          )}
         </div>
       </div>
 

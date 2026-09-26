@@ -10,7 +10,8 @@ import {
   CheckCircle2, AlertTriangle, FileText, Sparkles, Building2, Package,
   Calendar, Check, X, ArrowRight, RefreshCw, Upload, Eye, FileCheck2,
   Lock, ExternalLink, HelpCircle, Layers, AlertCircle, Info,
-  CheckSquare, Square, Filter, ListChecks, CheckCheck
+  CheckSquare, Square, Filter, ListChecks, CheckCheck,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES = [
@@ -536,6 +537,19 @@ export default function SuperAdminDirectCertificate() {
     }
     return list;
   }, [clientCatalog, catalogCategoryFilter, catalogSearchQuery]);
+
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 30;
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [catalogSearchQuery, catalogCategoryFilter]);
+
+  const totalProductPages = Math.ceil(filteredCatalog.length / PRODUCTS_PER_PAGE) || 1;
+  const paginatedCatalog = useMemo(() => {
+    const start = (productPage - 1) * PRODUCTS_PER_PAGE;
+    return filteredCatalog.slice(start, start + PRODUCTS_PER_PAGE);
+  }, [filteredCatalog, productPage]);
 
   const catalogCategories = useMemo(() => {
     const cats = new Set(clientCatalog.map(p => p.category).filter(Boolean));
@@ -1565,88 +1579,123 @@ export default function SuperAdminDirectCertificate() {
                   </div>
                 )}
 
-                {/* CLIENT CATALOG CHECKBOX SELECTION TABLE */}
+                {/* CLIENT CATALOG CHECKBOX SELECTION TABLE (Up to 30 products at once) */}
                 {clientCatalog.length > 0 ? (
-                  <div className="table-wrap" style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 10,
-                    maxHeight: 280,
-                    overflowY: 'auto',
-                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
-                  }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                        <tr style={{ color: '#475569', textAlign: 'left' }}>
-                          <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={filteredCatalog.length > 0 && filteredCatalog.every(item => isProductSelected(item))}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  handleSelectAllCatalog(filteredCatalog);
-                                } else {
-                                  handleDeselectAllCatalog();
-                                }
-                              }}
-                              style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                              title="Select/Deselect All Displayed Products"
-                            />
-                          </th>
-                          <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
-                          <th style={{ padding: '8px 6px' }}>Product Name</th>
-                          <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredCatalog.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                              No products found matching "{catalogSearchQuery}".
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredCatalog.map((prod, index) => {
-                            const selected = isProductSelected(prod);
-                            return (
-                              <tr
-                                key={prod._id || prod.id || index}
-                                onClick={() => toggleCatalogProduct(prod)}
-                                style={{
-                                  borderBottom: '1px solid #f1f5f9',
-                                  background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
-                                  cursor: 'pointer',
-                                  transition: 'background-color 0.15s ease'
+                  <>
+                    <div className="table-wrap" style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 10,
+                      maxHeight: 800,
+                      overflowY: 'auto',
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                    }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                          <tr style={{ color: '#475569', textAlign: 'left' }}>
+                            <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={filteredCatalog.length > 0 && filteredCatalog.every(item => isProductSelected(item))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    handleSelectAllCatalog(filteredCatalog);
+                                  } else {
+                                    handleDeselectAllCatalog();
+                                  }
                                 }}
-                              >
-                                <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    checked={selected}
-                                    onChange={() => toggleCatalogProduct(prod)}
-                                    style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                                  />
-                                </td>
-                                <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
-                                <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
-                                  {prod.name}
-                                </td>
-                                <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
-                                  {prod.code || prod.barcode || '—'}
-                                </td>
+                                style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                                title="Select/Deselect All Displayed Products"
+                              />
+                            </th>
+                            <th style={{ width: 36, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                            <th style={{ padding: '8px 6px' }}>Product Name</th>
+                            <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredCatalog.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                                No products found matching "{catalogSearchQuery}".
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedCatalog.map((prod, index) => {
+                              const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
+                              const selected = isProductSelected(prod);
+                              return (
+                                <tr
+                                  key={prod._id || prod.id || itemIndex}
+                                  onClick={() => toggleCatalogProduct(prod)}
+                                  style={{
+                                    borderBottom: '1px solid #f1f5f9',
+                                    background: selected ? '#f0fdf4' : (itemIndex % 2 === 0 ? '#ffffff' : '#fafafa'),
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.15s ease'
+                                  }}
+                                >
+                                  <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={() => toggleCatalogProduct(prod)}
+                                      style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                                    />
+                                  </td>
+                                  <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{itemIndex + 1}</td>
+                                  <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
+                                    {prod.name}
+                                  </td>
+                                  <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                                    {prod.code || prod.barcode || '—'}
+                                  </td>
 
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* PAGINATION BAR (When catalog has more than 30 products) */}
+                    {filteredCatalog.length > PRODUCTS_PER_PAGE && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '8px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
+                        <span style={{ color: '#64748b' }}>
+                          Showing <strong>{(productPage - 1) * PRODUCTS_PER_PAGE + 1}</strong> – <strong>{Math.min(productPage * PRODUCTS_PER_PAGE, filteredCatalog.length)}</strong> of <strong>{filteredCatalog.length}</strong> products (30 per page)
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            disabled={productPage <= 1}
+                            onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
+                            style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                          >
+                            <ChevronLeft size={13} /> Prev
+                          </button>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#334155', padding: '0 4px' }}>
+                            Page {productPage} / {totalProductPages}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            disabled={productPage >= totalProductPages}
+                            onClick={() => setProductPage(prev => Math.min(prev + 1, totalProductPages))}
+                            style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                          >
+                            Next <ChevronRight size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   /* FALLBACK EDITABLE TABLE FOR NEW CLIENTS / CLIENTS WITHOUT CATALOG */
                   <div className="table-wrap" style={{
                     border: '1px solid #e2e8f0',
                     borderRadius: 10,
-                    maxHeight: 280,
+                    maxHeight: 800,
                     overflowY: 'auto',
                     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
                   }}>

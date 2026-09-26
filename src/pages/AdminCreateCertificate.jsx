@@ -6,7 +6,7 @@ import {
   AlertTriangle, Building, Building2, MapPin, Calendar, Package, Plus, Trash2,
   ExternalLink, Download, Check, X, ShieldCheck, Eye,
   Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle,
-  CheckCircle2, ArrowRight
+  CheckCircle2, ArrowRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -664,6 +664,19 @@ export default function AdminCreateCertificate() {
       return matchesSearch && matchesCat;
     });
   }, [siteProducts, productSearch, categoryFilter]);
+
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 30;
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productSearch, categoryFilter]);
+
+  const totalProductPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE) || 1;
+  const paginatedProducts = useMemo(() => {
+    const start = (productPage - 1) * PRODUCTS_PER_PAGE;
+    return filteredProducts.slice(start, start + PRODUCTS_PER_PAGE);
+  }, [filteredProducts, productPage]);
 
   // Live PDF Preview Generator
   const generateLivePreview = async (silent = false) => {
@@ -1582,75 +1595,6 @@ export default function AdminCreateCertificate() {
                 </div>
               </div>
 
-              {/* Optional Custom Product Add */}
-              {showAddCustomProduct && (
-                <div style={{
-                  background: '#f8fafc',
-                  border: '1.5px dashed #cbd5e1',
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                  marginBottom: 14,
-                  display: 'flex',
-                  gap: 10,
-                  alignItems: 'flex-end',
-                  flexWrap: 'wrap'
-                }}>
-                  <div style={{ flex: 2, minWidth: 200 }}>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                      Product Name / Description *
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      style={{ fontSize: 12, height: 32 }}
-                      placeholder="e.g. Frozen Halal Beef Burger"
-                      value={newProdName}
-                      onChange={e => setNewProdName(e.target.value)}
-                    />
-                  </div>
-                  {(form.product_table_columns || 2) >= 2 && (
-                    <div style={{ flex: 1, minWidth: 120 }}>
-                      <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                        Product Code / SKU
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        style={{ fontSize: 12, height: 32 }}
-                        placeholder="e.g. PRD-001"
-                        value={newProdCode}
-                        onChange={e => setNewProdCode(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {(form.product_table_columns || 2) === 3 && (
-                    <div style={{ flex: 1.2, minWidth: 150 }}>
-                      <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                        Category
-                      </label>
-                      <select
-                        className="form-control"
-                        style={{ fontSize: 12, height: 32 }}
-                        value={newProdCat}
-                        onChange={e => setNewProdCat(e.target.value)}
-                      >
-                        {PRODUCT_CATEGORIES.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={handleAddCustomProduct}
-                    style={{ height: 32, fontSize: 12, padding: '0 14px' }}
-                  >
-                    Add to Cert
-                  </button>
-                </div>
-              )}
-
               {/* Search & Category Filter Bar */}
               {siteProducts.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1678,22 +1622,14 @@ export default function AdminCreateCertificate() {
                       ))}
                     </select>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCustomProduct(prev => !prev)}
-                    className="btn btn-outline btn-sm"
-                    style={{ fontSize: 11.5, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <Plus size={13} /> {showAddCustomProduct ? 'Hide Add Row' : 'Add Custom Product'}
-                  </button>
                 </div>
               )}
 
-              {/* Client Catalog Products Table (identical to AdminReviewCertificate) */}
+              {/* Client Catalog Products Table (30 products at once with pagination) */}
               <div className="table-wrap" style={{
                 border: '1px solid #e2e8f0',
                 borderRadius: 10,
-                maxHeight: 480,
+                maxHeight: 1100,
                 overflowY: 'auto',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
               }}>
@@ -1722,16 +1658,17 @@ export default function AdminCreateCertificate() {
                         </td>
                       </tr>
                     ) : (
-                      filteredProducts.map((prod, index) => {
+                      paginatedProducts.map((prod, index) => {
+                        const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
                         const actualIdx = siteProducts.findIndex(sp => (sp._id && sp._id === prod._id) || (sp.name === prod.name && sp.code === prod.code));
                         const selected = prod.isSelected !== false;
                         return (
                           <tr
-                            key={prod._id || index}
+                            key={prod._id || prod.code || itemIndex}
                             onClick={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
                             style={{
                               borderBottom: '1px solid #f1f5f9',
-                              background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
+                              background: selected ? '#f0fdf4' : (itemIndex % 2 === 0 ? '#ffffff' : '#fafafa'),
                               cursor: 'pointer',
                               transition: 'background-color 0.15s ease'
                             }}
@@ -1744,7 +1681,7 @@ export default function AdminCreateCertificate() {
                                 style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
                               />
                             </td>
-                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{itemIndex + 1}</td>
                             <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
                               {prod.name}
                             </td>
@@ -1758,6 +1695,38 @@ export default function AdminCreateCertificate() {
                   </tbody>
                 </table>
               </div>
+
+              {/* PAGINATION BAR (When catalog has more than 30 products) */}
+              {filteredProducts.length > PRODUCTS_PER_PAGE && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '8px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
+                  <span style={{ color: '#64748b' }}>
+                    Showing <strong>{(productPage - 1) * PRODUCTS_PER_PAGE + 1}</strong> – <strong>{Math.min(productPage * PRODUCTS_PER_PAGE, filteredProducts.length)}</strong> of <strong>{filteredProducts.length}</strong> products (30 per page)
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={productPage <= 1}
+                      onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
+                      style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                    >
+                      <ChevronLeft size={13} /> Prev
+                    </button>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#334155', padding: '0 4px' }}>
+                      Page {productPage} / {totalProductPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={productPage >= totalProductPages}
+                      onClick={() => setProductPage(prev => Math.min(prev + 1, totalProductPages))}
+                      style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                    >
+                      Next <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <span style={{ fontSize: 11.5, color: '#64748b' }}>

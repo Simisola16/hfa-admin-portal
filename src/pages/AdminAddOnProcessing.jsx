@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users,
-  HelpCircle, MessageSquare, CheckCircle2, ShieldCheck
+  HelpCircle, MessageSquare, CheckCircle2, ShieldCheck, Sparkles
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -89,7 +89,23 @@ export default function AdminAddOnProcessing() {
     );
   };
 
-  const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
+  const userRoles = Array.isArray(user?.roles) && user.roles.length > 0
+    ? user.roles
+    : (user?.role ? [user.role] : []);
+  const isManagerOrAdmin = userRoles.some(r =>
+    ['admin', 'superadmin', 'food_tech_manager', 'food_tech', 'officer', 'staff', 'manager', 'operations'].includes(String(r).toLowerCase())
+  ) || !user;
+
+  const isReadyForCert = Boolean(
+    app && (
+      app.status === 'ready_for_certificate' ||
+      app.status === 'product_form_approved' ||
+      app.status === 'waiting_certificate' ||
+      app.status === 'waiting_for_certificate' ||
+      app.is_ready_for_certificate ||
+      (app.logsheet_id && app.logsheet_status === 'Waiting For Certificate')
+    )
+  );
 
   const fetchApp = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -522,47 +538,78 @@ export default function AdminAddOnProcessing() {
       );
     }
 
-    if (app.status === 'product_form_approved' || app.status === 'ready_for_certificate' || (certificate && app.status !== 'completed')) {
-      const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
-      const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
-
-      if (isUnderReview && certId) {
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
-              onClick={() => navigate(`/certificates/${certId}/review`)}
-            >
-              <FileText size={16} /> Open Review Certificate
-            </button>
-            <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
-            </span>
-          </div>
-        );
-      }
-
-      if (app.status === 'completed' || certificate?.status === 'active') {
-        return (
-          <span className="badge badge-green" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <CheckCircle size={15} /> Certificate Updated & Endorsed
-          </span>
-        );
-      }
-
-      return (
-        <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}>
-          <Award size={16} style={{ marginRight: 6 }} /> Issue Certificate
-        </button>
-      );
-    }
-
-    if (app.status === 'completed' || certificate?.status === 'active') {
+    if (app.status === 'completed') {
       return (
         <span className="badge badge-green" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <CheckCircle size={15} /> Certificate Updated & Endorsed
         </span>
+      );
+    }
+
+    const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+    const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
+
+    if (isUnderReview && certId) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+            onClick={() => navigate(`/certificates/${certId}/review`)}
+          >
+            <FileText size={16} /> Open Review Certificate
+          </button>
+          <span style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ShieldCheck size={14} /> Under Committee Review ({certificate.certificate_number})
+          </span>
+        </div>
+      );
+    }
+
+    if (isReadyForCert) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{
+              background: '#16a34a',
+              borderColor: '#16a34a',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: 13.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '9px 18px',
+              borderRadius: 10,
+              boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+              cursor: 'pointer'
+            }}
+            onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
+            title="Open Certificate Studio to issue certificate"
+          >
+            <Award size={16} /> Issue Certificate
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              border: '1.5px solid #cbd5e1',
+              fontSize: 12.5,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '8px 12px',
+              borderRadius: 8,
+              cursor: 'pointer'
+            }}
+            onClick={() => setShowCertificateModal(true)}
+            title="Open Quick Issue Modal"
+          >
+            <Sparkles size={14} color="#16a34a" /> Quick Modal
+          </button>
+        </div>
       );
     }
 
@@ -966,18 +1013,25 @@ export default function AdminAddOnProcessing() {
 
             <div style={{ padding: '20px 24px' }}>
               {app.logsheet_id ? (
-                <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', padding: '16px 20px', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ background: '#f0fdf4', border: '1px solid #99f6e4', padding: '16px 20px', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Logsheet Generated
+                      {isReadyForCert ? 'Committee Sign-Off Complete' : 'Logsheet Generated'}
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#134e4a', marginTop: 2 }}>
-                      Halal Committee Review in Progress
+                      {isReadyForCert ? 'All required committee signatures verified — Ready for Certificate' : 'Halal Committee Review in Progress'}
                     </div>
                   </div>
-                  <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
-                    Open Logsheet
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
+                      Open Logsheet
+                    </button>
+                    {isReadyForCert && app.status !== 'completed' && (
+                      <button className="btn btn-primary btn-sm" style={{ background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}>
+                        <Award size={14} /> Issue Certificate
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '20px', borderRadius: 12, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
@@ -986,6 +1040,91 @@ export default function AdminAddOnProcessing() {
               )}
             </div>
           </div>
+
+          {/* Card 4: Ready for Certificate Action Banner */}
+          {isReadyForCert && app.status !== 'completed' && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+              borderRadius: 20,
+              border: '1.5px solid #86efac',
+              padding: '24px 28px',
+              boxShadow: '0 4px 12px -2px rgba(22, 163, 74, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: '#22c55e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  boxShadow: '0 4px 10px rgba(34, 197, 94, 0.35)',
+                  flexShrink: 0
+                }}>
+                  <Award size={26} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#14532d', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Application is Ready for Certificate
+                    <span style={{ fontSize: 11, fontWeight: 700, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 12, border: '1px solid #bbf7d0' }}>
+                      Final Step
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#166534', marginTop: 4, lineHeight: 1.5 }}>
+                    Technical &amp; Shariah committee review is complete. You can now launch the Certificate Studio to review products, apply signatures, and issue the updated certificate.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    background: '#16a34a',
+                    borderColor: '#16a34a',
+                    padding: '10px 22px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    borderRadius: 10,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 8px rgba(22, 163, 74, 0.25)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
+                >
+                  <Award size={18} /> Issue Certificate Studio
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    border: '1.5px solid #86efac',
+                    background: 'white',
+                    color: '#15803d',
+                    padding: '10px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 10,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setShowCertificateModal(true)}
+                >
+                  <Sparkles size={16} /> Quick Modal
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Client Notes (if provided) */}
           {(app.message || app.rejection_reason) && (

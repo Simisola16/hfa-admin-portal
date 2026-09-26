@@ -8,7 +8,7 @@ import {
   Clock, Package, RefreshCw, ChevronDown, ChevronUp, User,
   CheckCircle, Users, ArrowRight, Building2, Calendar,
   Layers, ShieldCheck, CheckCheck, ExternalLink, Sparkles,
-  Tag, ArrowUpRight
+  Tag, ArrowUpRight, Award
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -553,6 +553,17 @@ export default function AdminAddOnApplications() {
 
                       {/* 4. Action Buttons */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+
+                        {/* Issue Certificate Button when ready */}
+                        {['ready_for_certificate', 'product_form_approved'].includes(app.status) && (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => navigate(`/addon-applications/${app._id}/issue-certificate`)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12, background: '#16a34a', borderColor: '#16a34a', borderRadius: 8, padding: '7px 12px', color: 'white', whiteSpace: 'nowrap', boxShadow: '0 2px 4px rgba(22,163,74,0.25)' }}
+                          >
+                            <Award size={13} /> Issue Certificate
+                          </button>
+                        )}
 
                         {/* Process & Track Details Button */}
                         <button

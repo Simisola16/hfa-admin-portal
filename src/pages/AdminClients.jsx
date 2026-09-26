@@ -238,13 +238,13 @@ export default function AdminClients() {
     } else {
       if (isSuspended) return false;
       if (category === 'processing') {
-        return c.appCount > 0 && (c.certCount || 0) === 0;
+        return c.company_category === 'processing' || (c.appCount > 0 && (c.certCount || 0) === 0);
       } else if (category === 'signups') {
-        return (c.appCount || 0) === 0 && (c.certCount || 0) === 0;
+        return c.company_category === 'signup' || ((c.appCount || 0) === 0 && (c.certCount || 0) === 0);
       } else if (category === 'all') {
         return true;
       } else if (category === 'company') {
-        return (c.certCount || 0) > 0 || (c.appCount > 0 && c.approvedAppCount > 0);
+        return c.company_category === 'certified' || (c.certCount || 0) > 0 || (c.appCount > 0 && c.approvedAppCount > 0);
       }
     }
     return true;

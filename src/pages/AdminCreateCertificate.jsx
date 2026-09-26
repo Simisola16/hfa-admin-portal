@@ -101,6 +101,39 @@ export default function AdminCreateCertificate() {
   const isAddOn = Boolean(app?.application_type === 'addon' || app?.is_add_on || app?.addon_application_id);
   const isSurveillance = Boolean(app?.application_type === 'surveillance' || app?.category === 'Surveillance');
 
+  const formatSiteAddress = (site) => {
+    if (!site) return '';
+    if (typeof site === 'string') return site.trim();
+    const parts = [site.address_1 || site.address, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const formatClientAddress = (client) => {
+    if (!client) return '';
+    if (typeof client === 'string') return client.trim();
+    const baseAddr = (client.address || client.address_1 || client.establishment_address || client.registered_address || '').trim();
+    const parts = [];
+    if (baseAddr) parts.push(baseAddr);
+
+    const baseLower = baseAddr.toLowerCase();
+    if (client.address_2 && !baseLower.includes(client.address_2.toLowerCase())) {
+      parts.push(client.address_2.trim());
+    }
+    if (client.city && !baseLower.includes(client.city.toLowerCase())) {
+      parts.push(client.city.trim());
+    }
+    if (client.state && !baseLower.includes(client.state.toLowerCase())) {
+      parts.push(client.state.trim());
+    }
+    if (client.postcode && !baseLower.includes(client.postcode.toLowerCase())) {
+      parts.push(client.postcode.trim());
+    }
+    if (client.country && !baseLower.includes(client.country.toLowerCase())) {
+      parts.push(client.country.trim());
+    }
+    return parts.filter(Boolean).join(', ');
+  };
+
   // 1. Fetch Application & Associated Data
   useEffect(() => {
     let isMounted = true;
@@ -157,18 +190,24 @@ export default function AdminCreateCertificate() {
           }
         } catch (_) {}
 
-        // Resolve client details
+        // Resolve client details & full company profile (address, country, postcode)
         const clientId = appData.client_id?._id || appData.client_id?.id || appData.client_id || appData.profiles?._id || appData.profiles?.id || appData.profiles;
-        let resolvedClient = appData.client_id && typeof appData.client_id === 'object' ? appData.client_id : (appData.profiles || null);
+        let resolvedClient = (appData.client_id && typeof appData.client_id === 'object' && (appData.client_id.company_name || appData.client_id.address))
+          ? { ...appData.client_id }
+          : (appData.profiles && typeof appData.profiles === 'object' ? { ...appData.profiles } : null);
 
-        if (clientId && typeof clientId === 'string') {
-          const foundClientInList = clientAccounts.find(c => String(c._id || c.id) === String(clientId));
+        const clientIdStr = clientId ? (clientId._id ? String(clientId._id) : String(clientId)) : '';
+        if ((!resolvedClient || !resolvedClient.address || !resolvedClient.company_name) && clientIdStr) {
+          const foundClientInList = clientAccounts.find(c => String(c._id || c.id) === clientIdStr);
           if (foundClientInList) {
-            resolvedClient = foundClientInList;
+            resolvedClient = { ...(resolvedClient || {}), ...foundClientInList };
           } else {
             try {
-              const userRes = await api.get(`/api/users/${clientId}`);
-              resolvedClient = userRes.data?.data || userRes.data || resolvedClient;
+              const userRes = await api.get(`/api/users/${clientIdStr}`);
+              const uData = userRes.data?.data || userRes.data;
+              if (uData) {
+                resolvedClient = { ...(resolvedClient || {}), ...uData };
+              }
             } catch (_) {}
           }
         }
@@ -184,14 +223,15 @@ export default function AdminCreateCertificate() {
 
         // If site is not directly on add-on, resolve from parent application or linked certificate
         let parentCertData = null;
+        let parentAppData = null;
         if (!siteId && (appData.application_id || appData.original_application_id || appData.certificate_id)) {
           const parentAppId = appData.application_id?._id || appData.application_id || appData.original_application_id?._id || appData.original_application_id;
           if (parentAppId) {
             try {
               const pAppRes = await api.get(`/api/applications/${parentAppId}`);
-              const pAppData = pAppRes.data?.data || pAppRes.data;
-              if (pAppData?.site_id) {
-                siteId = pAppData.site_id?._id || pAppData.site_id?.id || pAppData.site_id;
+              parentAppData = pAppRes.data?.data || pAppRes.data;
+              if (parentAppData?.site_id) {
+                siteId = parentAppData.site_id?._id || parentAppData.site_id?.id || parentAppData.site_id;
               }
             } catch (_) {}
           }
@@ -230,15 +270,56 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        // Fetch Logsheet for reviewer suggestion
+        // Fetch Logsheet for reviewer suggestion & product category & registered company address
+        let detectedLogsheetCat = '';
+        let detectedLogsheetCompAddr = '';
+        let detectedLogsheetMfgAddr = '';
         try {
-          const logsRes = await api.get('/api/application-logsheets');
-          const allLogs = logsRes.data?.data || logsRes.data || [];
-          const matchedLog = allLogs.find(l => String(l.application_id?._id || l.application_id) === String(appId));
-          if (matchedLog?.suggested_certificate_type) {
-            setSuggestedCertType(matchedLog.suggested_certificate_type);
-          }
+          const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
+          const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
+          const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
+          logsheets.forEach(l => {
+            if (l.suggested_certificate_type) {
+              setSuggestedCertType(l.suggested_certificate_type);
+            }
+            if (l.product_category || l.productCategory) {
+              detectedLogsheetCat = l.product_category || l.productCategory;
+            }
+            if (l.company_address) {
+              detectedLogsheetCompAddr = l.company_address;
+            }
+            if (l.manufacturing_address) {
+              detectedLogsheetMfgAddr = l.manufacturing_address;
+            }
+            if (!detectedLogsheetCat && Array.isArray(l.products_list) && l.products_list.length > 0) {
+              const pWithCat = l.products_list.find(p => p.category && p.category !== 'Halal Certified' && p.category !== 'General Food Products');
+              if (pWithCat?.category) detectedLogsheetCat = pWithCat.category;
+            }
+          });
         } catch (_) {}
+
+        if ((!detectedLogsheetCat || !detectedLogsheetCompAddr) && clientIdStr) {
+          try {
+            const logsheetRes2 = await api.get(`/api/application-logsheets?client_id=${clientIdStr}&limit=1`).catch(() => null);
+            const logsheetData2 = logsheetRes2?.data?.data || logsheetRes2?.data;
+            const logsheets2 = Array.isArray(logsheetData2) ? logsheetData2 : (logsheetData2 ? [logsheetData2] : []);
+            if (logsheets2.length > 0) {
+              const l2 = logsheets2[0];
+              if (l2.suggested_certificate_type && !suggestedCertType) {
+                setSuggestedCertType(l2.suggested_certificate_type);
+              }
+              if (!detectedLogsheetCat && (l2.product_category || l2.productCategory)) {
+                detectedLogsheetCat = l2.product_category || l2.productCategory;
+              }
+              if (!detectedLogsheetCompAddr && l2.company_address) {
+                detectedLogsheetCompAddr = l2.company_address;
+              }
+              if (!detectedLogsheetMfgAddr && l2.manufacturing_address) {
+                detectedLogsheetMfgAddr = l2.manufacturing_address;
+              }
+            }
+          } catch (_) {}
+        }
 
         // Fetch Site Products (for add-on applications, must load all site products)
         let prodList = [];
@@ -305,11 +386,51 @@ export default function AdminCreateCertificate() {
 
         setSiteProducts(scheduledProds);
 
-        // Prepopulate form
-        const compName = appData.establishment_name || resolvedClient?.company_name || resolvedClient?.full_name || '';
-        const compAddr = appData.establishment_address || resolvedClient?.address || '';
-        const mfgAddr = appData.site_id?.address || appData.site_address || appData.manufacturer_address || compAddr;
-        const initialScope = appData.scope || 'Halal Food Certification';
+        // Prepopulate form: automatically resolve company registered address & product category
+        const compName = appData.establishment_name || parentAppData?.establishment_name || resolvedClient?.company_name || resolvedClient?.full_name || '';
+
+        // Auto-fill Company Registered Address from the address of the company
+        const clientFullAddress = formatClientAddress(resolvedClient) || resolvedClient?.address || '';
+        const appAddress = (appData.establishment_address || appData.company_address || appData.registered_address || parentAppData?.establishment_address || parentAppData?.company_address || '').trim();
+        const compAddr = (clientFullAddress || appAddress || detectedLogsheetCompAddr || '').trim() || appAddress || clientFullAddress;
+
+        // Auto-fill Manufacturing / Facility Address
+        const siteFullAddress = formatSiteAddress(resolvedSite) || (resolvedSite?.address || '').trim();
+        const appMfgAddress = (appData.site_id?.address || appData.site_address || appData.manufacturer_address || parentAppData?.manufacturer_address || '').trim();
+        const mfgAddr = (siteFullAddress || appMfgAddress || detectedLogsheetMfgAddr || compAddr).trim();
+
+        // Resolve Product Category:
+        // Priority: Logsheet Category -> Application Category -> Parent App Category -> Products Schedule -> Scope
+        let resolvedCategory = detectedLogsheetCat;
+        const rawCategory = appData.category || parentAppData?.category || '';
+        if (!resolvedCategory && rawCategory) {
+          if (PRODUCT_CATEGORIES.includes(rawCategory)) {
+            resolvedCategory = rawCategory;
+          } else if (rawCategory.toLowerCase().includes('meat') && !rawCategory.toLowerCase().includes('non')) {
+            resolvedCategory = 'Meat & Poultry';
+          } else if (rawCategory.toLowerCase().includes('dairy')) {
+            resolvedCategory = 'Dairy & Eggs';
+          } else if (rawCategory.toLowerCase().includes('beverage')) {
+            resolvedCategory = 'Beverages';
+          } else if (rawCategory.toLowerCase().includes('bakery')) {
+            resolvedCategory = 'Bakery & Confectionery';
+          } else {
+            resolvedCategory = rawCategory;
+          }
+        }
+        if (!resolvedCategory && scheduledProds.length > 0) {
+          const prodWithCat = scheduledProds.find(p => p.category && p.category !== 'Halal Certified' && p.category !== 'General Food Products');
+          if (prodWithCat) resolvedCategory = prodWithCat.category;
+        }
+        if (!resolvedCategory) {
+          const appScope = appData.scope || parentAppData?.scope;
+          if (appScope && appScope !== 'Halal Food and Consumer Products Certification' && appScope !== 'Halal Food Certification') {
+            resolvedCategory = appScope;
+          } else {
+            resolvedCategory = 'Meat & Poultry';
+          }
+        }
+
         const typeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(appData.application_type);
         const certNum = generateHfaId(compName || 'HFA', typeCode);
 
@@ -328,8 +449,8 @@ export default function AdminCreateCertificate() {
           company_name: compName,
           company_address: compAddr,
           manufacturing_address: mfgAddr,
-          scope: initialScope,
-          product_category: initialScope,
+          scope: resolvedCategory,
+          product_category: resolvedCategory,
           expiry_date: expDate.toISOString().split('T')[0],
           product_table_columns: isInitGso ? 2 : 1,
           product_details: scheduledProds,
@@ -348,18 +469,6 @@ export default function AdminCreateCertificate() {
 
     return () => { isMounted = false; };
   }, [appId, navigate]);
-
-  const formatSiteAddress = (site) => {
-    if (!site) return '';
-    const parts = [site.address_1 || site.address, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
-  };
-
-  const formatClientAddress = (client) => {
-    if (!client) return '';
-    const parts = [client.address, client.postcode, client.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
-  };
 
   const filteredClients = useMemo(() => {
     if (!clientSearchQuery.trim()) return [];
@@ -628,6 +737,7 @@ export default function AdminCreateCertificate() {
       formData.append('company_address', form.company_address);
       formData.append('manufacturing_address', form.manufacturing_address);
       formData.append('scope', form.scope);
+      formData.append('product_category', form.product_category || form.scope);
       formData.append('issue_date', form.issue_date);
       formData.append('expiry_date', form.expiry_date);
       formData.append('current_cycle_start_date', form.current_cycle_start_date || form.issue_date);
@@ -1018,6 +1128,33 @@ export default function AdminCreateCertificate() {
                 </div>
 
                 <div>
+                  <label className="form-label">
+                    Product Category <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="create-cert-category-list"
+                    className="form-control"
+                    value={form.product_category || form.scope || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(f => ({ ...f, product_category: val, scope: val }));
+                    }}
+                    placeholder="e.g. Meat & Poultry, Dairy & Eggs..."
+                    style={{ fontWeight: 600 }}
+                    required
+                  />
+                  <datalist id="create-cert-category-list">
+                    {PRODUCT_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Standard product category or custom category for this certificate (editable)
+                  </div>
+                </div>
+
+                <div>
                   <label className="form-label">Certification Scope</label>
                   <textarea
                     rows={2}
@@ -1165,25 +1302,79 @@ export default function AdminCreateCertificate() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                     <div>
-                      <label className="form-label">Company Registered Address</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label className="form-label" style={{ margin: 0 }}>
+                          Company Registered Address <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        {formatClientAddress(selectedClient || clientUser) && (
+                          <button
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, company_address: formatClientAddress(selectedClient || clientUser) }))}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#16a34a',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: 0,
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            Fill from Company Profile
+                          </button>
+                        )}
+                      </div>
                       <textarea
                         rows={2}
                         className="form-control"
                         value={form.company_address}
                         onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
+                        required
                         placeholder="Headquarters / Registered Address"
+                        style={{ fontWeight: 500 }}
                       />
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                        Automatically populated from company address. Editable for certificate printing.
+                      </div>
                     </div>
 
                     <div>
-                      <label className="form-label">Manufacturing / Facility Address</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label className="form-label" style={{ margin: 0 }}>
+                          Manufacturing / Facility Address <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        {(selectedSite || siteData) && (
+                          <button
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, manufacturing_address: formatSiteAddress(selectedSite || siteData) }))}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#16a34a',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: 0,
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            Fill from Facility Site
+                          </button>
+                        )}
+                      </div>
                       <textarea
                         rows={2}
                         className="form-control"
                         value={form.manufacturing_address}
                         onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
+                        required
                         placeholder="Site production facility address"
+                        style={{ fontWeight: 500 }}
                       />
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                        Official facility address printed on the certificate document.
+                      </div>
                     </div>
                   </div>
                 </div>

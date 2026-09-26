@@ -33,6 +33,7 @@ export default function AdminExtensionLogsheet() {
     facility_address: '',
     contact_person: '',
     product_category: '',
+    certificate_type: '',
     scheme: 'HFA',
     certificate_expiry_date: '',
     justification: '',
@@ -86,12 +87,25 @@ export default function AdminExtensionLogsheet() {
 
       const resolvedFacilityAddress = loadedLog?.facility_address || siteAddress || loadedApp?.client_id?.address || loadedApp?.client_id?.company_address || '';
 
+      // Auto-extract and resolve Certificate Type & Scheme
+      const rawCertType = loadedLog?.certificate_type || loadedApp?.detected_certificate_type || loadedApp?.certificate_id?.certificate_type || '';
+      let detectedScheme = loadedLog?.scheme || loadedApp?.detected_scheme || 'HFA';
+      if (rawCertType) {
+        const u = rawCertType.toUpperCase();
+        const hasGSO = u.includes('GSO') || u.includes('UAE') || u.includes('GCC');
+        const hasHFA = u.includes('HFA');
+        if (hasGSO && hasHFA) detectedScheme = 'Both';
+        else if (hasGSO) detectedScheme = 'GSO';
+        else if (hasHFA) detectedScheme = 'HFA';
+      }
+
       setFormData({
         company_name: loadedLog?.company_name || loadedApp?.company_name || loadedApp?.client_id?.company_name || '',
         facility_address: resolvedFacilityAddress,
         contact_person: loadedLog?.contact_person || loadedApp?.contact_person || '',
         product_category: loadedLog?.product_category || '',
-        scheme: loadedLog?.scheme || 'HFA',
+        certificate_type: rawCertType || (detectedScheme === 'GSO' ? 'GSO SCHEME' : detectedScheme === 'Both' ? 'GSO & HFA SCHEME' : 'HFA SCHEME'),
+        scheme: detectedScheme,
         certificate_expiry_date: loadedLog?.certificate_expiry_date ? new Date(loadedLog.certificate_expiry_date).toISOString().split('T')[0] : '',
         justification: loadedLog?.justification || loadedApp?.description || '',
         extension_duration_type: loadedLog?.extension_duration_type || '30_days',
@@ -636,51 +650,62 @@ export default function AdminExtensionLogsheet() {
             />
           </div>
 
-          {/* Scheme: [ ] GSO  [ ] HFA */}
+          {/* Certificate Type / Scheme (Auto-detected, Read-Only / Non-Changeable) */}
           <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', alignItems: 'center', gap: 16 }}>
-            <label style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-              Scheme:
+            <label style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Certificate Type / Scheme:</span>
+              <Lock size={14} style={{ color: '#64748b' }} title="Auto-detected from certified facility - cannot be changed" />
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
-                cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.8 : 1
-              }}>
-                <input
-                  type="checkbox"
-                  disabled={isLocked}
-                  checked={formData.scheme === 'GSO' || formData.scheme === 'Both'}
-                  onChange={(e) => {
-                    const isChecked = e.target.checked;
-                    setFormData(f => ({
-                      ...f,
-                      scheme: isChecked ? (f.scheme === 'HFA' ? 'Both' : 'GSO') : (f.scheme === 'Both' ? 'HFA' : 'HFA')
-                    }));
-                  }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                />
-                GSO
-              </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700,
+                  color: (formData.scheme === 'GSO' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8',
+                  cursor: 'not-allowed', opacity: (formData.scheme === 'GSO' || formData.scheme === 'Both') ? 1 : 0.65
+                }}>
+                  <input
+                    type="checkbox"
+                    disabled={true}
+                    checked={formData.scheme === 'GSO' || formData.scheme === 'Both'}
+                    readOnly
+                    style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'not-allowed' }}
+                  />
+                  GSO
+                </label>
 
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f172a',
-                cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.8 : 1
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700,
+                  color: (formData.scheme === 'HFA' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8',
+                  cursor: 'not-allowed', opacity: (formData.scheme === 'HFA' || formData.scheme === 'Both') ? 1 : 0.65
+                }}>
+                  <input
+                    type="checkbox"
+                    disabled={true}
+                    checked={formData.scheme === 'HFA' || formData.scheme === 'Both'}
+                    readOnly
+                    style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'not-allowed' }}
+                  />
+                  HFA
+                </label>
+              </div>
+
+              {/* Detected Badge */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '6px 12px', borderRadius: 8,
+                background: '#f8fafc', border: '1px solid #cbd5e1',
+                fontSize: 12.5, fontWeight: 700, color: '#1e293b'
               }}>
-                <input
-                  type="checkbox"
-                  disabled={isLocked}
-                  checked={formData.scheme === 'HFA' || formData.scheme === 'Both'}
-                  onChange={(e) => {
-                    const isChecked = e.target.checked;
-                    setFormData(f => ({
-                      ...f,
-                      scheme: isChecked ? (f.scheme === 'GSO' ? 'Both' : 'HFA') : (f.scheme === 'Both' ? 'GSO' : 'GSO')
-                    }));
-                  }}
-                  style={{ width: 18, height: 18, accentColor: '#008744', cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                />
-                HFA
-              </label>
+                <span style={{ color: '#008744', fontSize: 14 }}>●</span>
+                <span>{formData.certificate_type || (formData.scheme === 'GSO' ? 'GSO SCHEME' : formData.scheme === 'Both' ? 'GSO & HFA SCHEME' : 'HFA SCHEME')}</span>
+                <span style={{
+                  fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase',
+                  color: '#475569', background: '#e2e8f0', padding: '2px 6px', borderRadius: 4,
+                  letterSpacing: '0.04em'
+                }}>
+                  Auto-detected (Locked)
+                </span>
+              </div>
             </div>
           </div>
 

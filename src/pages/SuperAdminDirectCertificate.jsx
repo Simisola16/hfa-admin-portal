@@ -538,18 +538,18 @@ export default function SuperAdminDirectCertificate() {
     return list;
   }, [clientCatalog, catalogCategoryFilter, catalogSearchQuery]);
 
-  const [productPage, setProductPage] = useState(1);
-  const PRODUCTS_PER_PAGE = 30;
+  const [catalogPage, setCatalogPage] = useState(1);
+  const CATALOG_PRODUCTS_PER_PAGE = 30;
 
   useEffect(() => {
-    setProductPage(1);
+    setCatalogPage(1);
   }, [catalogSearchQuery, catalogCategoryFilter]);
 
-  const totalProductPages = Math.ceil(filteredCatalog.length / PRODUCTS_PER_PAGE) || 1;
+  const totalCatalogPages = Math.ceil(filteredCatalog.length / CATALOG_PRODUCTS_PER_PAGE) || 1;
   const paginatedCatalog = useMemo(() => {
-    const start = (productPage - 1) * PRODUCTS_PER_PAGE;
-    return filteredCatalog.slice(start, start + PRODUCTS_PER_PAGE);
-  }, [filteredCatalog, productPage]);
+    const start = (catalogPage - 1) * CATALOG_PRODUCTS_PER_PAGE;
+    return filteredCatalog.slice(start, start + CATALOG_PRODUCTS_PER_PAGE);
+  }, [filteredCatalog, catalogPage]);
 
   const catalogCategories = useMemo(() => {
     const cats = new Set(clientCatalog.map(p => p.category).filter(Boolean));
@@ -1579,13 +1579,13 @@ export default function SuperAdminDirectCertificate() {
                   </div>
                 )}
 
-                {/* CLIENT CATALOG CHECKBOX SELECTION TABLE (Up to 30 products at once) */}
+                {/* CLIENT CATALOG CHECKBOX SELECTION TABLE (30 products at once with pagination) */}
                 {clientCatalog.length > 0 ? (
                   <>
                     <div className="table-wrap" style={{
                       border: '1px solid #e2e8f0',
                       borderRadius: 10,
-                      maxHeight: 800,
+                      maxHeight: 1100,
                       overflowY: 'auto',
                       boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
                     }}>
@@ -1621,7 +1621,7 @@ export default function SuperAdminDirectCertificate() {
                             </tr>
                           ) : (
                             paginatedCatalog.map((prod, index) => {
-                              const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
+                              const itemIndex = (catalogPage - 1) * CATALOG_PRODUCTS_PER_PAGE + index;
                               const selected = isProductSelected(prod);
                               return (
                                 <tr
@@ -1649,7 +1649,6 @@ export default function SuperAdminDirectCertificate() {
                                   <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
                                     {prod.code || prod.barcode || '—'}
                                   </td>
-
                                 </tr>
                               );
                             })
@@ -1659,29 +1658,29 @@ export default function SuperAdminDirectCertificate() {
                     </div>
 
                     {/* PAGINATION BAR (When catalog has more than 30 products) */}
-                    {filteredCatalog.length > PRODUCTS_PER_PAGE && (
+                    {filteredCatalog.length > CATALOG_PRODUCTS_PER_PAGE && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '8px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
                         <span style={{ color: '#64748b' }}>
-                          Showing <strong>{(productPage - 1) * PRODUCTS_PER_PAGE + 1}</strong> – <strong>{Math.min(productPage * PRODUCTS_PER_PAGE, filteredCatalog.length)}</strong> of <strong>{filteredCatalog.length}</strong> products (30 per page)
+                          Showing <strong>{(catalogPage - 1) * CATALOG_PRODUCTS_PER_PAGE + 1}</strong> – <strong>{Math.min(catalogPage * CATALOG_PRODUCTS_PER_PAGE, filteredCatalog.length)}</strong> of <strong>{filteredCatalog.length}</strong> products (30 per page)
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
-                            disabled={productPage <= 1}
-                            onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
+                            disabled={catalogPage <= 1}
+                            onClick={() => setCatalogPage(prev => Math.max(prev - 1, 1))}
                             style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
                           >
                             <ChevronLeft size={13} /> Prev
                           </button>
                           <span style={{ fontSize: 11.5, fontWeight: 700, color: '#334155', padding: '0 4px' }}>
-                            Page {productPage} / {totalProductPages}
+                            Page {catalogPage} / {totalCatalogPages}
                           </span>
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
-                            disabled={productPage >= totalProductPages}
-                            onClick={() => setProductPage(prev => Math.min(prev + 1, totalProductPages))}
+                            disabled={catalogPage >= totalCatalogPages}
+                            onClick={() => setCatalogPage(prev => Math.min(prev + 1, totalCatalogPages))}
                             style={{ padding: '3px 8px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
                           >
                             Next <ChevronRight size={13} />

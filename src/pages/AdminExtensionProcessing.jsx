@@ -10,6 +10,7 @@ import {
   ChevronRight, ExternalLink, Sparkles, CheckCheck, XCircle,
   Lock, Unlock, ArrowRight
 } from 'lucide-react';
+import { generateHfaId } from '../lib/idGenerator';
 
 export default function AdminExtensionProcessing() {
   const { id } = useParams();
@@ -35,6 +36,33 @@ export default function AdminExtensionProcessing() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+
+  const handleOpenApproveModal = () => {
+    const companyForId = app?.company_name || app?.client_id?.company_name || app?.client_id?.business_name || app?.site_name || 'SM';
+    if (!certNumber) {
+      setCertNumber(generateHfaId(companyForId, 'EX'));
+    }
+    if (!extendedUntil) {
+      const days = logsheet?.extension_days || 30;
+      let baseDate = logsheet?.certificate_expiry_date ? new Date(logsheet.certificate_expiry_date) : new Date();
+      if (isNaN(baseDate.getTime())) baseDate = new Date();
+      const targetDate = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+      setExtendedUntil(targetDate.toISOString().split('T')[0]);
+    }
+    setShowApproveModal(true);
+  };
+
+  const handleRegenerateCertNumber = () => {
+    const companyForId = app?.company_name || app?.client_id?.company_name || app?.client_id?.business_name || app?.site_name || 'SM';
+    setCertNumber(generateHfaId(companyForId, 'EX'));
+  };
+
+  useEffect(() => {
+    if (showApproveModal && !certNumber) {
+      const companyForId = app?.company_name || app?.client_id?.company_name || app?.client_id?.business_name || app?.site_name || 'SM';
+      setCertNumber(generateHfaId(companyForId, 'EX'));
+    }
+  }, [showApproveModal, certNumber, app]);
 
   const fetchDetails = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -382,7 +410,7 @@ export default function AdminExtensionProcessing() {
             {/* Stage 4 Action: Issue Certificate (Only when fully signed) */}
             {isStep4Unlocked && !isApproved && !isRejected && (
               <button
-                onClick={() => setShowApproveModal(true)}
+                onClick={handleOpenApproveModal}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   background: '#008744', color: 'white', border: 'none',
@@ -862,7 +890,7 @@ export default function AdminExtensionProcessing() {
                 </div>
 
                 <button
-                  onClick={() => setShowApproveModal(true)}
+                  onClick={handleOpenApproveModal}
                   disabled={isRejected}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1206,19 +1234,36 @@ export default function AdminExtensionProcessing() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Certificate Number (Auto-generated if left blank)
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155' }}>
+                    Certificate Number <span style={{ color: '#008744', fontWeight: 700 }}>(Auto-generated)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateCertNumber}
+                    title="Generate another certificate number"
+                    style={{
+                      background: 'transparent', border: 'none', color: '#008744',
+                      fontSize: 11.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                    }}
+                  >
+                    <RefreshCw size={12} /> Regenerate
+                  </button>
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. EXT-CERT-2026-4821"
+                  placeholder="e.g. HFA-SM-EX-17256"
                   value={certNumber}
                   onChange={(e) => setCertNumber(e.target.value)}
                   style={{
                     width: '100%', padding: '9px 12px', borderRadius: 8,
-                    border: '1px solid #d1d5db', fontSize: 13.5
+                    border: '1.5px solid #008744', fontSize: 13.5, fontWeight: 700,
+                    letterSpacing: '0.03em', color: '#0f172a', background: '#f0fdf4'
                   }}
                 />
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                  Official format: <code>HFA-[CODE]-EX-[DIGITS]</code> (e.g. {certNumber || 'HFA-SM-EX-17256'})
+                </div>
               </div>
 
               <div>

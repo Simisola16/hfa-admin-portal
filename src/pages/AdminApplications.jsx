@@ -276,7 +276,7 @@ export default function AdminApplications() {
                       <div style={{fontWeight:600,fontSize:13}}>{app.profiles?.full_name || app.managing_director || '—'}</div>
                       <div style={{fontSize:11,color:'var(--text-muted)'}}>{app.profiles?.email || '—'}</div>
                     </td>
-                    <td style={{fontSize:12}}>{app.site_name || '—'}</td>
+                    <td style={{fontSize:12}}>{app.site_name || app.site_id?.name || app.site?.name || app.establishment_name || '—'}</td>
                     <td>
                       <div style={{fontSize:11,fontWeight:700,color:'var(--primary)',textTransform:'uppercase',marginBottom:2}}>{app.application_type}</div>
                       <div style={{fontSize:12,color:'var(--text-muted)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{app.category}</div>

@@ -74,6 +74,7 @@ export default function AdminCreateCertificate() {
 
   // Live PDF Preview
   const [livePreviewUrl, setLivePreviewUrl] = useState(null);
+  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const previewAbortRef = useRef(null);
 
@@ -93,7 +94,7 @@ export default function AdminCreateCertificate() {
     expiry_date: '',
     products_covered: [],
     product_details: [],
-    product_table_columns: 2,
+    product_table_columns: 1,
     review_notes: ''
   });
 
@@ -179,7 +180,34 @@ export default function AdminCreateCertificate() {
         }
 
         // Resolve Site
-        const siteId = appData.site_id?._id || appData.site_id?.id || appData.site_id;
+        let siteId = appData.site_id?._id || appData.site_id?.id || appData.site_id;
+        const isAppAddOn = Boolean(appData.application_type === 'addon' || appData.is_add_on || appData.addon_application_id || appData.type === 'addon');
+
+        // If site is not directly on add-on, resolve from parent application or linked certificate
+        let parentCertData = null;
+        if (!siteId && (appData.application_id || appData.original_application_id || appData.certificate_id)) {
+          const parentAppId = appData.application_id?._id || appData.application_id || appData.original_application_id?._id || appData.original_application_id;
+          if (parentAppId) {
+            try {
+              const pAppRes = await api.get(`/api/applications/${parentAppId}`);
+              const pAppData = pAppRes.data?.data || pAppRes.data;
+              if (pAppData?.site_id) {
+                siteId = pAppData.site_id?._id || pAppData.site_id?.id || pAppData.site_id;
+              }
+            } catch (_) {}
+          }
+          if (!siteId && appData.certificate_id) {
+            const certId = appData.certificate_id?._id || appData.certificate_id;
+            try {
+              const certRes = await api.get(`/api/certificates/${certId}`);
+              parentCertData = certRes.data?.data || certRes.data;
+              if (parentCertData?.site_id) {
+                siteId = parentCertData.site_id?._id || parentCertData.site_id?.id || parentCertData.site_id;
+              }
+            } catch (_) {}
+          }
+        }
+
         let resolvedSite = null;
         if (siteId && typeof siteId === 'string') {
           const foundSiteInList = siteList.find(s => String(s._id || s.id) === String(siteId));
@@ -213,26 +241,53 @@ export default function AdminCreateCertificate() {
           }
         } catch (_) {}
 
-        // Fetch Site Products
+        // Fetch Site Products (for add-on applications, must load all site products)
         let prodList = [];
         try {
           const prodRes = await api.get('/api/products');
           const allProds = prodRes.data?.data || prodRes.data || [];
           if (Array.isArray(allProds)) {
-            prodList = allProds.filter(p => {
-              const pSiteId = String(p.site_id?._id || p.site_id || '');
-              const pClientId = String(p.client_id?._id || p.client_id || '');
-              const curSiteId = String(siteId?._id || siteId || '');
-              const curClientId = String(clientId || '');
-              if (curSiteId && pSiteId === curSiteId) return true;
-              if (curClientId && pClientId === curClientId) return true;
-              return false;
-            });
+            const curSiteId = String(resolvedSite?._id || resolvedSite?.id || siteId?._id || siteId || '');
+            const curClientId = String(clientId || '');
+
+            if (curSiteId) {
+              prodList = allProds.filter(p => {
+                const pSiteId = String(p.site_id?._id || p.site_id || '');
+                return pSiteId === curSiteId;
+              });
+            }
+
+            // Fallback for standard (non-addon) apps to client ID if site had no products
+            if (prodList.length === 0 && !isAppAddOn && curClientId) {
+              prodList = allProds.filter(p => {
+                const pClientId = String(p.client_id?._id || p.client_id || '');
+                return pClientId === curClientId;
+              });
+            }
           }
         } catch (_) {}
 
-        // If no catalog products, use products from application form
-        if (prodList.length === 0 && Array.isArray(appData.products) && appData.products.length > 0) {
+        // For add-on apps, if catalog query yielded 0, check the linked certificate's certified_products
+        if (isAppAddOn && prodList.length === 0) {
+          if (!parentCertData && appData.certificate_id) {
+            try {
+              const certId = appData.certificate_id?._id || appData.certificate_id;
+              const certRes = await api.get(`/api/certificates/${certId}`);
+              parentCertData = certRes.data?.data || certRes.data;
+            } catch (_) {}
+          }
+          if (Array.isArray(parentCertData?.certified_products) && parentCertData.certified_products.length > 0) {
+            prodList = parentCertData.certified_products.map((p, idx) => ({
+              _id: p._id || `cert-prod-${idx}`,
+              name: p.name || p.product_name || `Product ${idx + 1}`,
+              code: p.code || p.product_code || `PRD-${idx + 1}`,
+              category: p.category || 'General Food Products'
+            }));
+          }
+        }
+
+        // If no catalog products, use products from application form ONLY for non-add-on applications
+        if (!isAppAddOn && prodList.length === 0 && Array.isArray(appData.products) && appData.products.length > 0) {
           prodList = appData.products.map((p, idx) => ({
             _id: `app-prod-${idx}`,
             name: typeof p === 'string' ? p : (p.name || p.product_name || `Product ${idx + 1}`),
@@ -264,15 +319,20 @@ export default function AdminCreateCertificate() {
         const expDate = new Date(today);
         expDate.setFullYear(expDate.getFullYear() + enforcedYears);
 
+        const initialCertType = appData.suggested_certificate_type || appData.certificate_type || (appData.category?.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+        const isInitGso = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
+
         setForm(f => ({
           ...f,
           certificate_number: certNum,
-          certificate_type: appData.suggested_certificate_type || appData.certificate_type || (appData.category?.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+          certificate_type: initialCertType,
           company_name: compName,
           company_address: compAddr,
           manufacturing_address: mfgAddr,
           scope: initialScope,
+          product_category: initialScope,
           expiry_date: expDate.toISOString().split('T')[0],
+          product_table_columns: isInitGso ? 2 : 1,
           product_details: scheduledProds,
           products_covered: scheduledProds.map(p => p.name).filter(Boolean)
         }));
@@ -411,7 +471,8 @@ export default function AdminCreateCertificate() {
     setForm(f => ({
       ...f,
       certificate_type: newType,
-      expiry_date: end.toISOString().split('T')[0]
+      expiry_date: end.toISOString().split('T')[0],
+      product_table_columns: isNewTypeGso ? 2 : 1
     }));
   };
 
@@ -491,6 +552,12 @@ export default function AdminCreateCertificate() {
     if (!silent) setGeneratingPreview(true);
     try {
       const selectedProds = siteProducts.filter(p => p.isSelected);
+      const validProducts = selectedProds.map(p => ({
+        name: p.name,
+        code: p.code,
+        category: p.category
+      }));
+
       const res = await api.post('/api/certificates/preview-live', {
         certificate_number: form.certificate_number,
         certificate_type: form.certificate_type,
@@ -498,17 +565,14 @@ export default function AdminCreateCertificate() {
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
         scope: form.scope,
+        product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
         expiry_date: form.expiry_date,
-        current_cycle_start_date: form.current_cycle_start_date,
-        original_cycle_start_date: form.original_cycle_start_date,
-        certification_start_date: form.certification_start_date,
+        current_cycle_start_date: isGso ? form.current_cycle_start_date : form.issue_date,
+        original_cycle_start_date: isGso ? form.original_cycle_start_date : form.issue_date,
+        certification_start_date: form.certification_start_date || form.issue_date,
         product_table_columns: form.product_table_columns,
-        products: selectedProds.map(p => ({
-          name: p.name,
-          code: p.code,
-          category: p.category
-        }))
+        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
       }, { signal: controller.signal });
 
       const rawUrl =
@@ -522,6 +586,7 @@ export default function AdminCreateCertificate() {
       const liveUrl = getPdfUrl(rawUrl);
       if (liveUrl) {
         setLivePreviewUrl(liveUrl);
+        setPreviewTimestamp(Date.now());
       }
     } catch (err) {
       if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
@@ -550,6 +615,9 @@ export default function AdminCreateCertificate() {
     form.issue_date,
     form.expiry_date,
     form.product_table_columns,
+    form.current_cycle_start_date,
+    form.original_cycle_start_date,
+    form.certification_start_date,
     siteProducts,
     loading
   ]);
@@ -803,7 +871,7 @@ export default function AdminCreateCertificate() {
                   </button>
                   {livePreviewUrl && (
                     <a
-                      href={livePreviewUrl}
+                      href={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-ghost"
@@ -829,7 +897,8 @@ export default function AdminCreateCertificate() {
               }}>
                 {livePreviewUrl ? (
                   <iframe
-                    src={`${livePreviewUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                    key={`${livePreviewUrl}-${previewTimestamp}`}
+                    src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
                     title="Live Certificate Preview"
                     style={{ width: '100%', height: '100%', border: 'none' }}
                   />

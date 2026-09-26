@@ -43,8 +43,6 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const [certificate, setCertificate] = useState(initialData?.certificate || null);
 
   // Modal Visibility States
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approveCategory, setApproveCategory] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -274,23 +272,15 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleApprove = async () => {
     setActionSubmitting(true);
     try {
-      const categoryToSet = approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE';
-      const isReclassified = categoryToSet !== (app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE');
+      const categoryToSet = app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE';
 
       const res = await api.put(`/api/applications/${appId}/approve`, {
         category: categoryToSet
       });
       setApp(res.data?.data || res.data || { ...app, status: 'approved', category: categoryToSet });
       setShowApproveModal(false);
-      toast.success(isReclassified
-        ? `Surveillance application accepted and reclassified to ${categoryToSet}!`
-        : 'GSO Surveillance Application accepted!'
-      );
-      if (isReclassified) {
-        window.location.reload();
-      } else {
-        fetchApp(true);
-      }
+      toast.success('Surveillance Application accepted successfully!');
+      fetchApp(true);
     } catch (err) {
       toast.error(err.message || 'Failed to accept surveillance application.');
     } finally {
@@ -529,8 +519,13 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
           >
             <Clock size={16} style={{ color: '#d97706' }} /> Put On Hold
           </button>
-          <button className="btn btn-primary" style={{ gap: 8 }} onClick={() => setShowApproveModal(true)}>
-            <CheckCircle size={16} /> Accept Application
+          <button 
+            className="btn btn-primary" 
+            style={{ gap: 8 }} 
+            onClick={handleApprove}
+            disabled={actionSubmitting}
+          >
+            <CheckCircle size={16} /> {actionSubmitting ? 'Accepting...' : 'Accept Application'}
           </button>
         </>
       );
@@ -978,78 +973,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         </div>
       </div>
 
-      {/* Approve Modal */}
-      {showApproveModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowApproveModal(false)}>
-          <div className="modal" style={{ maxWidth: 560, width: '92%', padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
-                  <CheckCircle size={22} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Accept Surveillance Application</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Confirm certification category before proceeding</div>
-                </div>
-              </div>
-              <button className="modal-close" onClick={() => setShowApproveModal(false)}><X size={18} /></button>
-            </div>
 
-            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', marginBottom: 8 }}>
-                  Certification Category
-                </label>
-                <select
-                  className="form-control"
-                  value={approveCategory || app?.category || 'UAE/GSO Approved Halal Certification For Exporters To UAE'}
-                  onChange={e => setApproveCategory(e.target.value)}
-                  disabled={actionSubmitting}
-                  style={{ fontSize: 13.5, padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1.5px solid #cbd5e1', fontWeight: 600 }}
-                >
-                  <option value="UAE/GSO Approved Halal Certification For Exporters To UAE">
-                    UAE/GSO Approved Halal Certification For Exporters To UAE
-                  </option>
-                  <option value="Annual Certification – Food and General processing">
-                    Annual Certification – Food and General processing
-                  </option>
-                  <option value="Annual Certification – Meat Processing">
-                    Annual Certification – Meat Processing
-                  </option>
-                  <option value="Annual Certification – Cosmetics and Personal Care">
-                    Annual Certification – Cosmetics and Personal Care
-                  </option>
-                </select>
-
-                <div style={{
-                  marginTop: 12,
-                  padding: '10px 14px',
-                  background: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#f0f9ff' : '#f0fdf4',
-                  border: `1px solid ${(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#bae6fd' : '#bbf7d0'}`,
-                  borderRadius: 8
-                }}>
-                  <div style={{
-                    fontSize: 12,
-                    color: (approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae') ? '#0369a1' : '#15803d',
-                    fontWeight: 600
-                  }}>
-                    {(approveCategory || app?.category || '').toLowerCase().includes('gso') || (approveCategory || app?.category || '').toLowerCase().includes('uae')
-                      ? '⚡ UAE/GSO 3-Year Halal Surveillance Scheme.'
-                      : '⚡ Standard Annual Certification Scheme.'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-              <button className="btn btn-ghost" onClick={() => setShowApproveModal(false)} disabled={actionSubmitting}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleApprove} disabled={actionSubmitting}>
-                {actionSubmitting ? 'Accepting...' : 'Confirm Acceptance'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reject Modal */}
       {showRejectModal && (

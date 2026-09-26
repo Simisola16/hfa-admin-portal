@@ -102,7 +102,7 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
-          { label: 'Direct Products', path: '/products/direct' },
+          { label: 'Manage Product', path: '/products/direct' },
         ],
       },
     ],
@@ -144,7 +144,7 @@ const NAV_SECTIONS = [
       },
       {
         icon: Package,
-        label: 'Direct Product',
+        label: 'Manage Product',
         path: '/superadmin/direct-product',
         badge: '⚡ DIRECT'
       },

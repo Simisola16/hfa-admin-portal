@@ -901,7 +901,7 @@ export default function AdminReviewCertificate() {
         {/* Quick meta details */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#ffffff', padding: '8px 16px', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            <strong>Client:</strong> {form.company_name || '—'}
+            <strong>Client:</strong> {cert?.client_id?.company_name || cert?.client_id?.full_name || applicationData?.client_id?.company_name || applicationData?.client_id?.full_name || form.company_name || '—'}
           </div>
           <span style={{ color: '#e2e8f0' }}>|</span>
           <div style={{ fontSize: 12, color: '#64748b' }}>
@@ -1154,36 +1154,6 @@ export default function AdminReviewCertificate() {
                   />
                 </div>
 
-                {/* Product Category (auto-filled from logsheet) */}
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                      Product Category <span style={{ color: '#dc2626' }}>*</span>
-                    </label>
-                    {logsheetCategory ? (
-                      <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-                        ✓ Auto-filled from Logsheet ({logsheetCategory})
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Product Category</span>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    list="review-cert-category-list"
-                    className="form-control"
-                    placeholder="e.g. Meat & Poultry, Dairy & Eggs, etc."
-                    value={form.product_category || form.scope || ''}
-                    onChange={e => setForm({ ...form, product_category: e.target.value, scope: e.target.value })}
-                    style={{ fontWeight: 600, fontSize: 13 }}
-                  />
-                  <datalist id="review-cert-category-list">
-                    {PRODUCT_CATEGORIES.map(cat => (
-                      <option key={cat} value={cat} />
-                    ))}
-                  </datalist>
-                </div>
-
                 {/* Registered Business Address */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label" style={{ fontWeight: 700 }}>
@@ -1214,6 +1184,36 @@ export default function AdminReviewCertificate() {
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
                     placeholder="Physical site location where certified products are manufactured"
                   />
+                </div>
+
+                {/* Product Category (auto-filled from logsheet, after Manufacturing Site) */}
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Product Category <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    {logsheetCategory ? (
+                      <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                        ✓ Auto-filled from Logsheet ({logsheetCategory})
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Product Category</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    list="review-cert-category-list"
+                    className="form-control"
+                    placeholder="e.g. Meat & Poultry, Dairy & Eggs, etc."
+                    value={form.product_category || form.scope || ''}
+                    onChange={e => setForm({ ...form, product_category: e.target.value, scope: e.target.value })}
+                    style={{ fontWeight: 600, fontSize: 13 }}
+                  />
+                  <datalist id="review-cert-category-list">
+                    {PRODUCT_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
             </div>
@@ -1593,75 +1593,6 @@ export default function AdminReviewCertificate() {
                 </button>
               </div>
             </div>
-
-            {/* OPTIONAL CUSTOM PRODUCT INPUT CARD */}
-            {showAddCustomProduct && (
-              <div style={{
-                background: '#f8fafc',
-                border: '1.5px dashed #cbd5e1',
-                borderRadius: 10,
-                padding: '12px 14px',
-                marginBottom: 14,
-                display: 'flex',
-                gap: 10,
-                alignItems: 'flex-end',
-                flexWrap: 'wrap'
-              }}>
-                <div style={{ flex: 2, minWidth: 200 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                    Product Name / Description *
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ fontSize: 12, height: 32 }}
-                    placeholder="e.g. Frozen Halal Beef Burger"
-                    value={newProdName}
-                    onChange={e => setNewProdName(e.target.value)}
-                  />
-                </div>
-                {(form.product_table_columns || 2) >= 2 && (
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                      Product Code / SKU
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      style={{ fontSize: 12, height: 32 }}
-                      placeholder="e.g. PRD-001"
-                      value={newProdCode}
-                      onChange={e => setNewProdCode(e.target.value)}
-                    />
-                  </div>
-                )}
-                {(form.product_table_columns || 2) === 3 && (
-                  <div style={{ flex: 1.2, minWidth: 150 }}>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                      Category
-                    </label>
-                    <select
-                      className="form-control"
-                      style={{ fontSize: 12, height: 32 }}
-                      value={newProdCat || form.product_category || 'Meat & Poultry'}
-                      onChange={e => setNewProdCat(e.target.value)}
-                    >
-                      {PRODUCT_CATEGORIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleAddProduct}
-                  style={{ height: 32, fontSize: 12, padding: '0 14px' }}
-                >
-                  Add to Cert
-                </button>
-              </div>
-            )}
 
             {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
             {siteProducts.length > 0 && (

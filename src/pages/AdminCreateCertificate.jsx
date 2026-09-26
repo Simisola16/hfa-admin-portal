@@ -410,7 +410,7 @@ export default function AdminCreateCertificate() {
         // Auto-fill Manufacturing / Facility Address
         const siteFullAddress = formatSiteAddress(resolvedSite) || (resolvedSite?.address || '').trim();
         const appMfgAddress = (appData.site_id?.address || appData.site_address || appData.manufacturer_address || parentAppData?.manufacturer_address || '').trim();
-        const mfgAddr = (siteFullAddress || appMfgAddress || detectedLogsheetMfgAddr || compAddr).trim();
+        const mfgAddr = (siteFullAddress || appMfgAddress || detectedLogsheetMfgAddr || '').trim();
 
         // Resolve Product Category:
         // Priority: Logsheet Category -> Application Category -> Parent App Category -> Products Schedule -> Scope
@@ -534,7 +534,7 @@ export default function AdminCreateCertificate() {
       certificate_number: newCertNum,
       company_name: compName,
       company_address: cAddr || f.company_address,
-      manufacturing_address: cAddr || f.manufacturing_address
+      manufacturing_address: f.manufacturing_address || ''
     }));
     setSelectedSiteId('');
     setCustomSiteAddress('');
@@ -695,9 +695,9 @@ export default function AdminCreateCertificate() {
         barcode: p.barcode || ''
       })).filter(p => p.name);
 
-      const compName = (form.company_name || selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client').trim();
-      const compAddr = (form.company_address || formatClientAddress(selectedClient) || '').trim() || 'Registered Business Address';
-      const mfgAddr = (form.manufacturing_address || compAddr).trim() || 'Manufacturing Facility Address';
+      const compName = (form.company_name || selectedClient?.company_name || selectedClient?.full_name || '').trim();
+      const compAddr = (form.company_address || '').trim();
+      const mfgAddr = (form.manufacturing_address || '').trim();
 
       const payload = {
         certificate_number: (form.certificate_number || 'HFA-PREVIEW-001').trim(),
@@ -705,8 +705,8 @@ export default function AdminCreateCertificate() {
         company_name: compName,
         company_address: compAddr,
         manufacturing_address: mfgAddr,
-        scope: form.product_category || form.scope || 'Halal Food Certification',
-        product_category: form.product_category || form.scope || 'Halal Food Certification',
+        scope: (form.product_category || form.scope || '').trim(),
+        product_category: (form.product_category || form.scope || '').trim(),
         issue_date: form.issue_date || new Date().toISOString().split('T')[0],
         expiry_date: form.expiry_date || '',
         current_cycle_start_date: isGso ? (form.current_cycle_start_date || form.issue_date) : form.issue_date,

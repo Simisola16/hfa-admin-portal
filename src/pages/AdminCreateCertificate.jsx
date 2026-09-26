@@ -391,7 +391,16 @@ export default function AdminCreateCertificate() {
         setSiteProducts(scheduledProds);
 
         // Prepopulate form: automatically resolve company registered address & product category
-        const compName = appData.establishment_name || parentAppData?.establishment_name || resolvedClient?.company_name || resolvedClient?.full_name || '';
+        const clientCompName = (
+          resolvedClient?.company_name ||
+          resolvedClient?.company ||
+          (typeof appData.client_id === 'object' ? appData.client_id?.company_name : '') ||
+          appData.company_name ||
+          parentAppData?.company_name ||
+          (typeof parentAppData?.client_id === 'object' ? parentAppData.client_id?.company_name : '') ||
+          ''
+        ).trim();
+        const compName = clientCompName || resolvedClient?.full_name || appData.establishment_name || parentAppData?.establishment_name || '';
 
         // Auto-fill Company Registered Address from the address of the company
         const clientFullAddress = formatClientAddress(resolvedClient) || resolvedClient?.address || '';
@@ -906,7 +915,7 @@ export default function AdminCreateCertificate() {
         {/* Quick meta details */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#ffffff', padding: '8px 16px', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            <strong>Client:</strong> {form.company_name || '—'}
+            <strong>Client:</strong> {selectedClient?.company_name || selectedClient?.full_name || clientUser?.company_name || clientUser?.full_name || (typeof app?.client_id === 'object' ? app?.client_id?.company_name : '') || app?.company_name || form.company_name || '—'}
           </div>
           <span style={{ color: '#e2e8f0' }}>|</span>
           <div style={{ fontSize: 12, color: '#64748b' }}>
@@ -1194,7 +1203,61 @@ export default function AdminCreateCertificate() {
                     />
                   </div>
 
-                  {/* 2. Product Category (auto-filled from logsheet / application, arranged one by one) */}
+                  {/* 2. Registered Business Address */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {formatClientAddress(selectedClient || clientUser) && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, company_address: formatClientAddress(selectedClient || clientUser) }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Fill from Company Profile
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      rows={1}
+                      required
+                      className="form-control"
+                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      value={form.company_address}
+                      onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
+                      placeholder="Head office / registered legal business address"
+                    />
+                  </div>
+
+                  {/* 3. Manufacturing Site */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {(selectedSite || siteData) && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, manufacturing_address: formatSiteAddress(selectedSite || siteData) }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Fill from Facility Site
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      rows={1}
+                      required
+                      className="form-control"
+                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      value={form.manufacturing_address}
+                      onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
+                      placeholder="Physical site location where certified products are manufactured"
+                    />
+                  </div>
+
+                  {/* 4. Product Category (after Manufacturing Site) */}
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
@@ -1226,60 +1289,6 @@ export default function AdminCreateCertificate() {
                         <option key={cat} value={cat} />
                       ))}
                     </datalist>
-                  </div>
-
-                  {/* 3. Registered Business Address */}
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                        Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
-                      </label>
-                      {formatClientAddress(selectedClient || clientUser) && (
-                        <button
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, company_address: formatClientAddress(selectedClient || clientUser) }))}
-                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                        >
-                          Fill from Company Profile
-                        </button>
-                      )}
-                    </div>
-                    <textarea
-                      rows={1}
-                      required
-                      className="form-control"
-                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
-                      value={form.company_address}
-                      onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
-                      placeholder="Head office / registered legal business address"
-                    />
-                  </div>
-
-                  {/* 4. Manufacturing Site Address */}
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                        Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
-                      </label>
-                      {(selectedSite || siteData) && (
-                        <button
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, manufacturing_address: formatSiteAddress(selectedSite || siteData) }))}
-                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                        >
-                          Fill from Facility Site
-                        </button>
-                      )}
-                    </div>
-                    <textarea
-                      rows={1}
-                      required
-                      className="form-control"
-                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
-                      value={form.manufacturing_address}
-                      onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
-                      placeholder="Physical site location where certified products are manufactured"
-                    />
                   </div>
                 </div>
               </div>

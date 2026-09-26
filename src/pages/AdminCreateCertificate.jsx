@@ -76,7 +76,6 @@ export default function AdminCreateCertificate() {
   const [livePreviewUrl, setLivePreviewUrl] = useState(null);
   const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
   const [generatingPreview, setGeneratingPreview] = useState(false);
-  const previewAbortRef = useRef(null);
 
   // Form State
   const [form, setForm] = useState({
@@ -543,84 +542,69 @@ export default function AdminCreateCertificate() {
 
   // Live PDF Preview Generator
   const generateLivePreview = async (silent = false) => {
-    if (previewAbortRef.current) {
-      previewAbortRef.current.abort();
+    if (!form.company_name?.trim() && !selectedClient) {
+      if (!silent) toast.error('Please specify company details first.');
+      return;
     }
-    const controller = new AbortController();
-    previewAbortRef.current = controller;
 
-    if (!silent) setGeneratingPreview(true);
+    setGeneratingPreview(true);
     try {
       const selectedProds = siteProducts.filter(p => p.isSelected);
-      const validProducts = selectedProds.map(p => ({
-        name: p.name,
-        code: p.code,
-        category: p.category
-      }));
+      const validProducts = selectedProds.map((p, idx) => ({
+        name: (p.name || '').trim(),
+        code: (p.code || '').trim() || `PRD-${String(idx + 1).padStart(2, '0')}`,
+        category: p.category || form.product_category || 'Halal Certified',
+        barcode: p.barcode || ''
+      })).filter(p => p.name);
 
-      const res = await api.post('/api/certificates/preview-live', {
-        certificate_number: form.certificate_number,
-        certificate_type: form.certificate_type,
-        company_name: form.company_name,
-        company_address: form.company_address,
-        manufacturing_address: form.manufacturing_address,
-        scope: form.scope,
-        product_category: form.product_category || form.scope,
-        issue_date: form.issue_date,
-        expiry_date: form.expiry_date,
-        current_cycle_start_date: isGso ? form.current_cycle_start_date : form.issue_date,
-        original_cycle_start_date: isGso ? form.original_cycle_start_date : form.issue_date,
+      const compName = (form.company_name || selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client').trim();
+      const compAddr = (form.company_address || formatClientAddress(selectedClient) || '').trim() || 'Registered Business Address';
+      const mfgAddr = (form.manufacturing_address || compAddr).trim() || 'Manufacturing Facility Address';
+
+      const payload = {
+        certificate_number: (form.certificate_number || 'HFA-PREVIEW-001').trim(),
+        certificate_type: form.certificate_type || 'HFA SCHEME MEAT',
+        company_name: compName,
+        company_address: compAddr,
+        manufacturing_address: mfgAddr,
+        scope: form.product_category || form.scope || 'Halal Food Certification',
+        product_category: form.product_category || form.scope || 'Halal Food Certification',
+        issue_date: form.issue_date || new Date().toISOString().split('T')[0],
+        expiry_date: form.expiry_date || '',
+        current_cycle_start_date: isGso ? (form.current_cycle_start_date || form.issue_date) : form.issue_date,
+        original_cycle_start_date: isGso ? (form.original_cycle_start_date || form.issue_date) : form.issue_date,
         certification_start_date: form.certification_start_date || form.issue_date,
-        product_table_columns: form.product_table_columns,
-        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
-      }, { signal: controller.signal });
+        product_table_columns: Number(form.product_table_columns) || (isGso ? 2 : 1),
+        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }],
+        product_details: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }]
+      };
 
-      const rawUrl =
-        res?.data?.previewUrl ||
-        res?.previewUrl ||
-        res?.data?.data?.certificate_url ||
-        res?.data?.certificate_url ||
-        res?.data?.data?.previewUrl ||
-        res?.data?.data?.url ||
-        res?.data?.url;
-      const liveUrl = getPdfUrl(rawUrl);
-      if (liveUrl) {
-        setLivePreviewUrl(liveUrl);
+      const res = await api.post('/api/certificates/preview-live', payload);
+
+      const url = res?.previewUrl || res?.data?.previewUrl || res?.certificateUrl || res?.data?.certificateUrl || res?.url;
+      if (url) {
+        setLivePreviewUrl(url);
         setPreviewTimestamp(Date.now());
+        if (!silent) toast.success('Live certificate preview updated!');
+      } else {
+        if (!silent) toast.error('Preview generated but no URL returned.');
       }
     } catch (err) {
-      if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-        if (!silent) toast.error('Could not generate live preview.');
-      }
+      console.error('PDF preview error:', err);
+      if (!silent) toast.error('PDF Preview failed: ' + (err.message || 'Unknown error'));
     } finally {
-      if (!silent) setGeneratingPreview(false);
+      setGeneratingPreview(false);
     }
   };
 
-  // Debounced Live Preview Generator
+  const handleRegeneratePdf = () => generateLivePreview(false);
+
+  // Auto-generate preview on initial load once application & client data are loaded
   useEffect(() => {
-    if (!loading && form.company_name) {
-      const t = setTimeout(() => {
-        generateLivePreview(true);
-      }, 1000);
-      return () => clearTimeout(t);
+    if (!loading && form.company_name && !livePreviewUrl) {
+      generateLivePreview(true);
     }
-  }, [
-    form.certificate_number,
-    form.certificate_type,
-    form.company_name,
-    form.company_address,
-    form.manufacturing_address,
-    form.scope,
-    form.issue_date,
-    form.expiry_date,
-    form.product_table_columns,
-    form.current_cycle_start_date,
-    form.original_cycle_start_date,
-    form.certification_start_date,
-    siteProducts,
-    loading
-  ]);
+  }, [loading, form.company_name, livePreviewUrl]);
 
   // Handle Form Submission
   const handleSubmit = async (e) => {
@@ -698,10 +682,21 @@ export default function AdminCreateCertificate() {
   }
 
   const selectedCount = siteProducts.filter(p => p.isSelected).length;
+  const rawPdfUrl = getPdfUrl(livePreviewUrl);
+  const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
+  const regenerating = generatingPreview;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400, margin: '0 auto', paddingBottom: 60 }}>
       <style>{`
+        .spinner {
+          animation: spin 0.8s linear infinite;
+          display: inline-block;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
         .custom-card {
           background: #ffffff;
           border-radius: 14px;
@@ -844,34 +839,29 @@ export default function AdminCreateCertificate() {
       <form onSubmit={handleSubmit}>
         <div className="dual-pane-grid" style={{ gap: 24, alignItems: 'start' }}>
 
-          {/* LEFT PANE: Sticky Live Certificate Document Preview */}
+          {/* LEFT PANE: Live Certificate Document Preview — STICKY */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 'calc(var(--topbar-h, 64px) + 20px)' }}>
             <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 18, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FileText size={18} style={{ color: '#16a34a' }} />
+                  <FileText size={18} style={{ color: '#047857' }} />
                   <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Live Certificate Document</span>
-                  {generatingPreview && (
-                    <span style={{ fontSize: 11, color: '#16a34a', background: '#f0fdf4', padding: '2px 8px', borderRadius: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <RefreshCw size={10} className="spin" /> Generating...
-                    </span>
-                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => generateLivePreview(false)}
-                    disabled={generatingPreview}
+                    onClick={handleRegeneratePdf}
+                    disabled={regenerating}
                     className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#16a34a', borderColor: '#dcfce7' }}
+                    style={{ fontSize: 12, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, color: '#047857', borderColor: '#d1fae5' }}
                     title="Re-render PDF with current form values"
                   >
-                    <RefreshCw size={13} className={generatingPreview ? 'spin' : ''} />
-                    {generatingPreview ? 'Rendering...' : 'Sync & Refresh'}
+                    <RefreshCw size={13} className={regenerating ? 'spinner' : ''} />
+                    {regenerating ? 'Regenerating...' : 'Sync & Refresh'}
                   </button>
-                  {livePreviewUrl && (
+                  {pdfUrl && (
                     <a
-                      href={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}`}
+                      href={pdfUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-ghost"
@@ -895,26 +885,26 @@ export default function AdminCreateCertificate() {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                {livePreviewUrl ? (
+                {pdfUrl ? (
                   <iframe
-                    key={`${livePreviewUrl}-${previewTimestamp}`}
-                    src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
-                    title="Live Certificate Preview"
+                    key={pdfUrl}
+                    src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                    title="Certificate PDF Preview"
                     style={{ width: '100%', height: '100%', border: 'none' }}
                   />
                 ) : (
                   <div style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>
                     <Award size={48} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
-                    <div style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>Generating Live Document Preview...</div>
-                    <p style={{ fontSize: 12, margin: '6px 0 16px' }}>Click "Sync &amp; Refresh" to render the real-time official certificate preview.</p>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>No PDF Generated Yet</div>
+                    <p style={{ fontSize: 12, margin: '6px 0 16px' }}>Click "Regenerate PDF" to render the official certificate document with your details.</p>
                     <button
                       type="button"
-                      onClick={() => generateLivePreview(false)}
-                      disabled={generatingPreview}
+                      onClick={handleRegeneratePdf}
+                      disabled={regenerating}
                       className="btn btn-primary"
                       style={{ fontSize: 12 }}
                     >
-                      <RefreshCw size={13} /> Render Live PDF
+                      <RefreshCw size={13} /> Generate Preview PDF
                     </button>
                   </div>
                 )}
@@ -929,23 +919,19 @@ export default function AdminCreateCertificate() {
                   </div>
                 </div>
                 <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Products</div>
-                  <div style={{ fontWeight: 700, color: '#16a34a', marginTop: 2 }}>
-                    {selectedCount} item{selectedCount === 1 ? '' : 's'}
-                  </div>
-                </div>
-                <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Validity</div>
-                  <div style={{ fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                    {form.expiry_date ? new Date(form.expiry_date).toLocaleDateString('en-GB') : '—'}
-                  </div>
+                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Issue Date</div>
+                  <div style={{ fontWeight: 700, color: '#047857', marginTop: 2 }}>{form.issue_date || '—'}</div>
                 </div>
                 {isGso && (
-                  <div style={{ background: '#f0fdf4', padding: '8px 10px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                    <div style={{ color: '#166534', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Standard</div>
-                    <div style={{ fontWeight: 700, color: '#15803d', marginTop: 2 }}>GSO 2055-1</div>
+                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Cycle Start</div>
+                    <div style={{ fontWeight: 700, color: '#2563eb', marginTop: 2 }}>{form.current_cycle_start_date || form.issue_date || '—'}</div>
                   </div>
                 )}
+                <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
+                  <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{form.expiry_date || '—'}</div>
+                </div>
               </div>
             </div>
           </div>

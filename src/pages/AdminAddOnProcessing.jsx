@@ -11,7 +11,6 @@ import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
-import CertificateModal from '../components/CertificateModal';
 import { getSocket } from '../lib/socket';
 
 const STATUS_LABELS = {
@@ -69,7 +68,6 @@ export default function AdminAddOnProcessing() {
 
   // Modal Action states
   const [actionType, setActionType] = useState(null); // 'review' | 'assign_ft' | 'enable_form' | 'approve_form' | 'complete'
-  const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [decision, setDecision] = useState('accepted');
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -104,6 +102,15 @@ export default function AdminAddOnProcessing() {
       app.status === 'waiting_for_certificate' ||
       app.is_ready_for_certificate ||
       (app.logsheet_id && app.logsheet_status === 'Waiting For Certificate')
+    )
+  );
+
+  const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
+  const isUnderReview = Boolean(
+    certificate && (
+      certificate.status === 'under_review' ||
+      certificate.status === 'draft' ||
+      (typeof app?.certificate_id === 'object' && (app.certificate_id.status === 'under_review' || app.certificate_id.status === 'draft'))
     )
   );
 
@@ -546,15 +553,26 @@ export default function AdminAddOnProcessing() {
       );
     }
 
-    const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
-    const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
-
+    // After certificate is issued, change button to "Open Review Certificate"
     if (isUnderReview && certId) {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button
             className="btn btn-primary"
-            style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
+            style={{
+              gap: 8,
+              background: '#0284c7',
+              borderColor: '#0284c7',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: 13.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '9px 18px',
+              borderRadius: 10,
+              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+              cursor: 'pointer'
+            }}
             onClick={() => navigate(`/certificates/${certId}/review`)}
           >
             <FileText size={16} /> Open Review Certificate
@@ -566,50 +584,30 @@ export default function AdminAddOnProcessing() {
       );
     }
 
+    // Before certificate is issued, when ready for certificate: show "Issue Certificate"
     if (isReadyForCert) {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            style={{
-              background: '#16a34a',
-              borderColor: '#16a34a',
-              color: 'white',
-              fontWeight: 700,
-              fontSize: 13.5,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '9px 18px',
-              borderRadius: 10,
-              boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
-              cursor: 'pointer'
-            }}
-            onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
-            title="Open Certificate Studio to issue certificate"
-          >
-            <Award size={16} /> Issue Certificate
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{
-              border: '1.5px solid #cbd5e1',
-              fontSize: 12.5,
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '8px 12px',
-              borderRadius: 8,
-              cursor: 'pointer'
-            }}
-            onClick={() => setShowCertificateModal(true)}
-            title="Open Quick Issue Modal"
-          >
-            <Sparkles size={14} color="#16a34a" /> Quick Modal
-          </button>
-        </div>
+        <button
+          className="btn btn-primary"
+          style={{
+            background: '#16a34a',
+            borderColor: '#16a34a',
+            color: 'white',
+            fontWeight: 700,
+            fontSize: 13.5,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '9px 18px',
+            borderRadius: 10,
+            boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+            cursor: 'pointer'
+          }}
+          onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
+          title="Open Certificate Studio to issue certificate"
+        >
+          <Award size={16} /> Issue Certificate
+        </button>
       );
     }
 
@@ -1026,11 +1024,15 @@ export default function AdminAddOnProcessing() {
                     <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
                       Open Logsheet
                     </button>
-                    {isReadyForCert && app.status !== 'completed' && (
+                    {isUnderReview && certId ? (
+                      <button className="btn btn-primary btn-sm" style={{ background: '#0284c7', borderColor: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => navigate(`/certificates/${certId}/review`)}>
+                        <FileText size={14} /> Open Review Certificate
+                      </button>
+                    ) : isReadyForCert && app.status !== 'completed' ? (
                       <button className="btn btn-primary btn-sm" style={{ background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}>
                         <Award size={14} /> Issue Certificate
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -1041,8 +1043,75 @@ export default function AdminAddOnProcessing() {
             </div>
           </div>
 
-          {/* Card 4: Ready for Certificate Action Banner */}
-          {isReadyForCert && app.status !== 'completed' && (
+          {/* Card 4a: Certificate Under Review Banner (After Issuance) */}
+          {isUnderReview && certId && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              borderRadius: 20,
+              border: '1.5px solid #7dd3fc',
+              padding: '24px 28px',
+              boxShadow: '0 4px 12px -2px rgba(2, 132, 199, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: '#0284c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  boxShadow: '0 4px 10px rgba(2, 132, 199, 0.35)',
+                  flexShrink: 0
+                }}>
+                  <FileText size={26} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Certificate Draft Under Review
+                    {certificate?.certificate_number && (
+                      <span style={{ fontSize: 11, fontWeight: 700, background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 12, border: '1px solid #fde68a' }}>
+                        {certificate.certificate_number}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#0369a1', marginTop: 4, lineHeight: 1.5 }}>
+                    The certificate for this add-on has been generated and is awaiting committee review and sign-off.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    background: '#0284c7',
+                    borderColor: '#0284c7',
+                    padding: '10px 22px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    borderRadius: 10,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 8px rgba(2, 132, 199, 0.25)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigate(`/certificates/${certId}/review`)}
+                >
+                  <FileText size={18} /> Open Review Certificate
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Card 4b: Ready for Certificate Action Banner (Before Issuance) */}
+          {isReadyForCert && !isUnderReview && app.status !== 'completed' && (
             <div style={{
               background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
               borderRadius: 20,
@@ -1101,26 +1170,6 @@ export default function AdminAddOnProcessing() {
                   onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
                 >
                   <Award size={18} /> Issue Certificate Studio
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{
-                    border: '1.5px solid #86efac',
-                    background: 'white',
-                    color: '#15803d',
-                    padding: '10px 16px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    borderRadius: 10,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setShowCertificateModal(true)}
-                >
-                  <Sparkles size={16} /> Quick Modal
                 </button>
               </div>
             </div>
@@ -1625,15 +1674,6 @@ export default function AdminAddOnProcessing() {
         </div>
       )}
 
-      {/* 5. Issue Certificate Modal (Matching New and Renewal Applications) */}
-      <CertificateModal
-        isOpen={showCertificateModal}
-        onClose={() => setShowCertificateModal(false)}
-        app={app}
-        appId={app?._id}
-        isAddOn={true}
-        onSuccess={() => fetchApp(true)}
-      />
 
       {/* 6. Request for More Information Modal */}
       {actionType === 'request_more_info' && (

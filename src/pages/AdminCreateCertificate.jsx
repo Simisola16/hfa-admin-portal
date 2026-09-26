@@ -1243,11 +1243,11 @@ export default function AdminCreateCertificate() {
                     />
                   </div>
 
-                  {/* 3. Manufacturing Site */}
+                  {/* 3. Manufacturing Facility / Site (Optional) */}
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                        Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                        Manufacturing Facility / Site <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
                       </label>
                       {(selectedSite || siteData) && (
                         <button
@@ -1261,12 +1261,11 @@ export default function AdminCreateCertificate() {
                     </div>
                     <textarea
                       rows={1}
-                      required
                       className="form-control"
                       style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
                       value={form.manufacturing_address}
                       onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
-                      placeholder="Physical site location where certified products are manufactured"
+                      placeholder="Physical facility location where certified products are manufactured (Optional)"
                     />
                   </div>
 

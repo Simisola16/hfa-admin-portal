@@ -74,6 +74,7 @@ export default function AdminCreateCertificate() {
 
   // Live PDF Preview
   const [livePreviewUrl, setLivePreviewUrl] = useState(null);
+  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const previewAbortRef = useRef(null);
 
@@ -93,7 +94,7 @@ export default function AdminCreateCertificate() {
     expiry_date: '',
     products_covered: [],
     product_details: [],
-    product_table_columns: 2,
+    product_table_columns: 1,
     review_notes: ''
   });
 
@@ -318,15 +319,20 @@ export default function AdminCreateCertificate() {
         const expDate = new Date(today);
         expDate.setFullYear(expDate.getFullYear() + enforcedYears);
 
+        const initialCertType = appData.suggested_certificate_type || appData.certificate_type || (appData.category?.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+        const isInitGso = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
+
         setForm(f => ({
           ...f,
           certificate_number: certNum,
-          certificate_type: appData.suggested_certificate_type || appData.certificate_type || (appData.category?.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+          certificate_type: initialCertType,
           company_name: compName,
           company_address: compAddr,
           manufacturing_address: mfgAddr,
           scope: initialScope,
+          product_category: initialScope,
           expiry_date: expDate.toISOString().split('T')[0],
+          product_table_columns: isInitGso ? 2 : 1,
           product_details: scheduledProds,
           products_covered: scheduledProds.map(p => p.name).filter(Boolean)
         }));
@@ -465,7 +471,8 @@ export default function AdminCreateCertificate() {
     setForm(f => ({
       ...f,
       certificate_type: newType,
-      expiry_date: end.toISOString().split('T')[0]
+      expiry_date: end.toISOString().split('T')[0],
+      product_table_columns: isNewTypeGso ? 2 : 1
     }));
   };
 
@@ -545,6 +552,12 @@ export default function AdminCreateCertificate() {
     if (!silent) setGeneratingPreview(true);
     try {
       const selectedProds = siteProducts.filter(p => p.isSelected);
+      const validProducts = selectedProds.map(p => ({
+        name: p.name,
+        code: p.code,
+        category: p.category
+      }));
+
       const res = await api.post('/api/certificates/preview-live', {
         certificate_number: form.certificate_number,
         certificate_type: form.certificate_type,
@@ -552,17 +565,14 @@ export default function AdminCreateCertificate() {
         company_address: form.company_address,
         manufacturing_address: form.manufacturing_address,
         scope: form.scope,
+        product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
         expiry_date: form.expiry_date,
-        current_cycle_start_date: form.current_cycle_start_date,
-        original_cycle_start_date: form.original_cycle_start_date,
-        certification_start_date: form.certification_start_date,
+        current_cycle_start_date: isGso ? form.current_cycle_start_date : form.issue_date,
+        original_cycle_start_date: isGso ? form.original_cycle_start_date : form.issue_date,
+        certification_start_date: form.certification_start_date || form.issue_date,
         product_table_columns: form.product_table_columns,
-        products: selectedProds.map(p => ({
-          name: p.name,
-          code: p.code,
-          category: p.category
-        }))
+        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
       }, { signal: controller.signal });
 
       const rawUrl =
@@ -576,6 +586,7 @@ export default function AdminCreateCertificate() {
       const liveUrl = getPdfUrl(rawUrl);
       if (liveUrl) {
         setLivePreviewUrl(liveUrl);
+        setPreviewTimestamp(Date.now());
       }
     } catch (err) {
       if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
@@ -604,6 +615,9 @@ export default function AdminCreateCertificate() {
     form.issue_date,
     form.expiry_date,
     form.product_table_columns,
+    form.current_cycle_start_date,
+    form.original_cycle_start_date,
+    form.certification_start_date,
     siteProducts,
     loading
   ]);
@@ -857,7 +871,7 @@ export default function AdminCreateCertificate() {
                   </button>
                   {livePreviewUrl && (
                     <a
-                      href={livePreviewUrl}
+                      href={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-ghost"
@@ -883,7 +897,8 @@ export default function AdminCreateCertificate() {
               }}>
                 {livePreviewUrl ? (
                   <iframe
-                    src={`${livePreviewUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                    key={`${livePreviewUrl}-${previewTimestamp}`}
+                    src={`${livePreviewUrl}${livePreviewUrl.includes('?') ? '&' : '?'}t=${previewTimestamp}#toolbar=0&navpanes=0&scrollbar=1`}
                     title="Live Certificate Preview"
                     style={{ width: '100%', height: '100%', border: 'none' }}
                   />

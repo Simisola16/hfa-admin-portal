@@ -53,6 +53,7 @@ export default function AdminCreateCertificate() {
   const [clientUser, setClientUser] = useState(null);
   const [siteData, setSiteData] = useState(null);
   const [suggestedCertType, setSuggestedCertType] = useState('');
+  const [logsheetCategory, setLogsheetCategory] = useState('');
   const [existingCert, setExistingCert] = useState(null);
 
   // Client & Site Selection (Direct Certificate Pattern)
@@ -320,6 +321,9 @@ export default function AdminCreateCertificate() {
             }
           } catch (_) {}
         }
+        if (detectedLogsheetCat) {
+          setLogsheetCategory(detectedLogsheetCat);
+        }
 
         // Fetch Site Products (for add-on applications, must load all site products)
         let prodList = [];
@@ -429,6 +433,9 @@ export default function AdminCreateCertificate() {
           } else {
             resolvedCategory = 'Meat & Poultry';
           }
+        }
+        if (resolvedCategory && !detectedLogsheetCat) {
+          setLogsheetCategory(resolvedCategory);
         }
 
         const typeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(appData.application_type);
@@ -1085,34 +1092,238 @@ export default function AdminCreateCertificate() {
               </div>
             )}
 
-            {/* CARD 1: Certificate & Scheme Details */}
-            <div className="custom-card">
-              <div className="custom-card-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Award size={18} style={{ color: '#16a34a' }} />
-                  <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>1. Certificate Details &amp; Type</span>
+            {/* Card 1: Assigned Company & Manufacturing Facility */}
+            <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <Building size={16} style={{ color: '#047857' }} />
+                    1. Assigned Company &amp; Manufacturing Facility
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                    The verified organization and facility site this certificate is assigned to, and where products are sourced from.
+                  </p>
+                </div>
+                <span style={{ fontSize: 11, background: '#f0fdf4', color: '#166534', fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: '1px solid #bbf7d0' }}>
+                  ✓ Assignment Verified
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {/* Company Info Box */}
+                <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Building size={15} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Client Organization</span>
+                      <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
+                        {selectedClient?.company_name || selectedClient?.full_name || clientUser?.company_name || clientUser?.full_name || form.company_name || 'Client Company'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Site / Facility Info Box */}
+                <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <MapPin size={15} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Manufacturing Site</span>
+                      <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
+                        {selectedSite?.name || siteData?.name || siteData?.trading_name || 'Manufacturing Facility'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="custom-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-                  <div>
-                    <label className="form-label">
-                      Certificate Number <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
+            </div>
+
+            {/* Card 2: Certificate Details & Document Schedule */}
+            <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 20, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <Award size={16} style={{ color: '#047857' }} />
+                    2. Certificate Details &amp; Printed Schedule
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                    All fields below print directly onto the official certificate document and can be modified.
+                  </p>
+                </div>
+                <span style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+                  Editable Fields
+                </span>
+              </div>
+
+              {/* Sub-section: Company Information on Certificate */}
+              <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Building size={14} style={{ color: '#047857' }} />
+                  Company Information on Certificate
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  {/* 1. Company Name on Certificate */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Company Name on Certificate <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {(selectedClient?.company_name || clientUser?.company_name) && form.company_name !== (selectedClient?.company_name || clientUser?.company_name) && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, company_name: selectedClient?.company_name || clientUser?.company_name }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Reset to "{selectedClient?.company_name || clientUser?.company_name}"
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="text"
-                      className="form-control"
-                      value={form.certificate_number}
-                      onChange={e => setForm(f => ({ ...f, certificate_number: e.target.value }))}
                       required
-                      placeholder="e.g. HFA-NE-2026-102"
-                      style={{ fontWeight: 700, color: '#047857' }}
+                      className="form-control"
+                      value={form.company_name}
+                      onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                      placeholder="Official registered company name printed on certificate"
+                      style={{ fontWeight: 700, fontSize: 13.5 }}
                     />
                   </div>
 
-                  <div>
-                    <label className="form-label">
-                      Certificate Type <span style={{ color: '#ef4444' }}>*</span>
+                  {/* 2. Product Category (auto-filled from logsheet / application, arranged one by one) */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Product Category <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {logsheetCategory ? (
+                        <span style={{ fontSize: 10.5, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                          ✓ Auto-filled from Logsheet ({logsheetCategory})
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10.5, color: '#64748b' }}>Printed under Product Category</span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      list="create-cert-category-list"
+                      className="form-control"
+                      placeholder="e.g. Meat & Poultry, Dairy & Eggs, etc."
+                      value={form.product_category || form.scope || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setForm(f => ({ ...f, product_category: val, scope: val }));
+                      }}
+                      style={{ fontWeight: 600, fontSize: 13 }}
+                      required
+                    />
+                    <datalist id="create-cert-category-list">
+                      {PRODUCT_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  {/* 3. Registered Business Address */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {formatClientAddress(selectedClient || clientUser) && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, company_address: formatClientAddress(selectedClient || clientUser) }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Fill from Company Profile
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      rows={1}
+                      required
+                      className="form-control"
+                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      value={form.company_address}
+                      onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
+                      placeholder="Head office / registered legal business address"
+                    />
+                  </div>
+
+                  {/* 4. Manufacturing Site Address */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      {(selectedSite || siteData) && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, manufacturing_address: formatSiteAddress(selectedSite || siteData) }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Fill from Facility Site
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      rows={1}
+                      required
+                      className="form-control"
+                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      value={form.manufacturing_address}
+                      onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
+                      placeholder="Physical site location where certified products are manufactured"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-section: Certificate Reference & Validity Schedule */}
+              <div style={{ background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Calendar size={14} style={{ color: '#047857' }} />
+                  Certificate Reference &amp; Validity Schedule {isGso && <span style={{ fontSize: 10.5, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>4 {form.certificate_type?.includes('SMIIC') ? 'SMIIC' : 'GSO'} Dates</span>}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        Certificate Number <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const compName = (form.company_name || selectedClient?.company_name || clientUser?.company_name || 'HFA').trim();
+                          const typeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(app?.application_type);
+                          const newId = generateHfaId(compName, typeCode);
+                          setForm(f => ({ ...f, certificate_number: newId }));
+                          toast.success(`Generated ID: ${newId}`);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Regenerate ID
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      value={form.certificate_number}
+                      onChange={e => setForm(f => ({ ...f, certificate_number: e.target.value }))}
+                      style={{ fontWeight: 700, color: '#0f172a' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>
+                      Certificate Type <span style={{ color: '#dc2626' }}>*</span>
                     </label>
                     <select
                       className="form-control"
@@ -1127,544 +1338,427 @@ export default function AdminCreateCertificate() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="form-label">
-                    Product Category <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    list="create-cert-category-list"
-                    className="form-control"
-                    value={form.product_category || form.scope || ''}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setForm(f => ({ ...f, product_category: val, scope: val }));
-                    }}
-                    placeholder="e.g. Meat & Poultry, Dairy & Eggs..."
-                    style={{ fontWeight: 600 }}
-                    required
-                  />
-                  <datalist id="create-cert-category-list">
-                    {PRODUCT_CATEGORIES.map(cat => (
-                      <option key={cat} value={cat} />
-                    ))}
-                  </datalist>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                    Standard product category or custom category for this certificate (editable)
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form-label">Certification Scope</label>
-                  <textarea
-                    rows={2}
-                    className="form-control"
-                    value={form.scope}
-                    onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}
-                    placeholder="e.g. Halal Food Production, Processing and Packaging"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 2: Company & Facility Information — READ ONLY (locked from application) */}
-            <div className="custom-card">
-              <div className="custom-card-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Building2 size={18} style={{ color: '#16a34a' }} />
-                  <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>2. Company &amp; Facility Information</span>
-                </div>
-                {/* Locked badge */}
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  background: '#f1f5f9', border: '1px solid #e2e8f0',
-                  borderRadius: 20, padding: '4px 10px',
-                  fontSize: 11.5, fontWeight: 700, color: '#64748b'
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                  Linked from Application
-                </div>
-              </div>
-              <div className="custom-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                {/* Read-only client info strip */}
-                <div style={{
-                  background: '#f0fdf4',
-                  border: '1.5px solid #86efac',
-                  borderRadius: 12,
-                  overflow: 'hidden'
-                }}>
-                  {/* Company row */}
-                  <div style={{
-                    padding: '14px 18px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    borderBottom: '1px solid #dcfce7'
-                  }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: '#dcfce7', color: '#15803d',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <Building2 size={20} />
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-                        Certified Company
-                      </div>
-                      <div style={{ fontWeight: 800, fontSize: 15, color: '#14532d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {selectedClient?.company_name || selectedClient?.full_name || clientUser?.company_name || clientUser?.full_name || form.company_name || '—'}
-                      </div>
-                      {(selectedClient?.email || clientUser?.email) && (
-                        <div style={{ fontSize: 12, color: '#16a34a', marginTop: 2 }}>
-                          {selectedClient?.email || clientUser?.email}
-                          {(selectedClient?.country || clientUser?.country) ? ` · ${selectedClient?.country || clientUser?.country}` : ''}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{
-                      background: '#dcfce7', border: '1px solid #86efac',
-                      borderRadius: 8, padding: '4px 10px',
-                      fontSize: 11, fontWeight: 700, color: '#15803d',
-                      flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4
-                    }}>
-                      <CheckCircle2 size={12} /> Confirmed
-                    </div>
-                  </div>
-
-                  {/* Site row */}
-                  <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, background: '#f8fffe' }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: '#ecfdf5', color: '#059669',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <MapPin size={20} />
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-                        Certified Facility / Site
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>
-                        {selectedSite?.name || siteData?.name || '—'}
-                      </div>
-                      {(selectedSite || siteData) && (
-                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                          {formatSiteAddress(selectedSite || siteData)}
-                        </div>
-                      )}
-                    </div>
-                    {selectedSiteId && (
-                      <div style={{
-                        background: '#ecfdf5', border: '1px solid #6ee7b7',
-                        borderRadius: 8, padding: '4px 10px',
-                        fontSize: 11, fontWeight: 700, color: '#059669',
-                        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4
-                      }}>
-                        <CheckCircle2 size={12} /> Assigned
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Note explaining lock */}
-                <div style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 8,
-                  background: '#f8fafc', border: '1px solid #e2e8f0',
-                  borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#64748b'
-                }}>
-                  <Info size={14} style={{ color: '#94a3b8', marginTop: 1, flexShrink: 0 }} />
-                  <span>Company and site are <strong>linked from the original application</strong> and cannot be changed here. The certificate addresses below can be adjusted if needed for printing.</span>
-                </div>
-
-                {/* Editable Document Fields — address formatting for the PDF */}
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <label className="form-label">
-                      Certified Company Legal Name <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={form.company_name}
-                      onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                      required
-                      placeholder="Official Registered Company Name"
-                      style={{ fontWeight: 600 }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <label className="form-label" style={{ margin: 0 }}>
-                          Company Registered Address <span style={{ color: '#ef4444' }}>*</span>
-                        </label>
-                        {formatClientAddress(selectedClient || clientUser) && (
-                          <button
-                            type="button"
-                            onClick={() => setForm(f => ({ ...f, company_address: formatClientAddress(selectedClient || clientUser) }))}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#16a34a',
-                              fontSize: 11.5,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              padding: 0,
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            Fill from Company Profile
-                          </button>
-                        )}
-                      </div>
-                      <textarea
-                        rows={2}
-                        className="form-control"
-                        value={form.company_address}
-                        onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
+                {/* Dates Grid */}
+                {isGso ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {/* 1. Issue Date */}
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        type="date"
                         required
-                        placeholder="Headquarters / Registered Address"
-                        style={{ fontWeight: 500 }}
-                      />
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                        Automatically populated from company address. Editable for certificate printing.
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <label className="form-label" style={{ margin: 0 }}>
-                          Manufacturing / Facility Address <span style={{ color: '#ef4444' }}>*</span>
-                        </label>
-                        {(selectedSite || siteData) && (
-                          <button
-                            type="button"
-                            onClick={() => setForm(f => ({ ...f, manufacturing_address: formatSiteAddress(selectedSite || siteData) }))}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#16a34a',
-                              fontSize: 11.5,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              padding: 0,
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            Fill from Facility Site
-                          </button>
-                        )}
-                      </div>
-                      <textarea
-                        rows={2}
                         className="form-control"
-                        value={form.manufacturing_address}
-                        onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
-                        required
-                        placeholder="Site production facility address"
-                        style={{ fontWeight: 500 }}
+                        value={form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))}
                       />
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                        Official facility address printed on the certificate document.
-                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* CARD 3: Validity & Lifecycle Dates */}
-            <div className="custom-card">
-              <div className="custom-card-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Calendar size={18} style={{ color: '#16a34a' }} />
-                  <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>3. Validity &amp; Lifecycle Dates</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Presets:</span>
-                  <button type="button" className="btn-preset" onClick={() => applyValidityPreset(1)}>+1 Year</button>
-                  <button type="button" className="btn-preset" onClick={() => applyValidityPreset(2)}>+2 Years</button>
-                  <button type="button" className="btn-preset" onClick={() => applyValidityPreset(3)}>+3 Years</button>
-                </div>
-              </div>
-              <div className="custom-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                  <div>
-                    <label className="form-label">
-                      Issue Date <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={form.issue_date}
-                      onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Expiry Date <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={form.expiry_date}
-                      onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
-                      required
-                      style={{ fontWeight: 700, color: '#b91c1c' }}
-                    />
-                  </div>
-
-                  {isGso && (
-                    <>
-                      <div>
-                        <label className="form-label">Current Cycle Start</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={form.current_cycle_start_date}
-                          onChange={e => setForm(f => ({ ...f, current_cycle_start_date: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Original Cycle Start</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={form.original_cycle_start_date}
-                          onChange={e => setForm(f => ({ ...f, original_cycle_start_date: e.target.value }))}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 4: Certified Product Schedule */}
-            <div className="custom-card">
-              <div className="custom-card-header">
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Package size={18} style={{ color: '#16a34a' }} />
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>4. Certified Product Schedule</span>
-                    <span style={{ fontSize: 12, background: '#f0fdf4', color: '#166534', fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>
-                      {selectedCount} Selected
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => toggleAllProducts(true)}
-                    style={{ fontSize: 12, color: '#16a34a' }}
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => toggleAllProducts(false)}
-                    style={{ fontSize: 12, color: '#64748b' }}
-                  >
-                    Deselect All
-                  </button>
-                </div>
-              </div>
-              <div className="custom-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                {/* Table Layout Selector (All 3 on one line) */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: '#f8fafc', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#334155' }}>
-                    Schedule Table Column Format:
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {[
-                      { cols: 1, label: '1 Column (Name Only)' },
-                      { cols: 2, label: '2 Columns (Code + Desc)' },
-                      { cols: 3, label: '3 Columns (+ Category)' }
-                    ].map(({ cols, label }) => (
-                      <button
-                        key={cols}
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, product_table_columns: cols }))}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: 8,
-                          fontSize: 12,
-                          fontWeight: form.product_table_columns === cols ? 700 : 500,
-                          border: form.product_table_columns === cols ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-                          background: form.product_table_columns === cols ? '#eff6ff' : '#ffffff',
-                          color: form.product_table_columns === cols ? '#1d4ed8' : '#475569',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <span>{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Add Custom Product Form (collapsible) */}
-                {showAddCustomProduct && (
-                  <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, padding: 14 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#166534', marginBottom: 10 }}>
-                      Add Custom Product to Schedule
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 180px auto', gap: 10, alignItems: 'end' }}>
-                      <div>
-                        <label className="form-label" style={{ fontSize: 11.5 }}>Product Name *</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="e.g. Pure Halal Beef Patty"
-                          value={newProdName}
-                          onChange={e => setNewProdName(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label" style={{ fontSize: 11.5 }}>Product Code</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="e.g. PRD-01"
-                          value={newProdCode}
-                          onChange={e => setNewProdCode(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label" style={{ fontSize: 11.5 }}>Category</label>
-                        <select
-                          className="form-control"
-                          value={newProdCat}
-                          onChange={e => setNewProdCat(e.target.value)}
+                    {/* 2. Current Cycle Start Date */}
+                    <div className="form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, current_cycle_start_date: f.issue_date }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                         >
-                          {PRODUCT_CATEGORIES.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                          Match Issue Date
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleAddCustomProduct}
-                        className="btn btn-primary"
-                        style={{ background: '#16a34a', borderColor: '#16a34a', height: 38 }}
-                      >
-                        Add
-                      </button>
+                      <input
+                        type="date"
+                        required
+                        className="form-control"
+                        value={form.current_cycle_start_date || form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, current_cycle_start_date: e.target.value }))}
+                      />
+                    </div>
+
+                    {/* 3. Expiry Date */}
+                    <div className="form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => applyValidityPreset(3)}
+                            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            +3 Yrs (Standard)
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="date"
+                        required
+                        className="form-control"
+                        value={form.expiry_date}
+                        onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
+                        style={{ fontWeight: 700, color: '#dc2626' }}
+                      />
+                    </div>
+
+                    {/* 4. Original Cycle Start Date */}
+                    <div className="form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, original_cycle_start_date: f.issue_date }))}
+                          style={{ background: 'none', border: 'none', color: '#047857', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                        >
+                          Match Issue Date
+                        </button>
+                      </div>
+                      <input
+                        type="date"
+                        required
+                        className="form-control"
+                        value={form.original_cycle_start_date || form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, original_cycle_start_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Issue Date <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        type="date"
+                        required
+                        className="form-control"
+                        value={form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Expiry Date <span style={{ color: '#dc2626' }}>*</span></label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => applyValidityPreset(1)}
+                            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            +1 Yr (Standard)
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="date"
+                        required
+                        className="form-control"
+                        value={form.expiry_date}
+                        onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
+                        style={{ fontWeight: 700, color: '#dc2626' }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={form.certification_start_date || form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, certification_start_date: e.target.value }))}
+                      />
                     </div>
                   </div>
                 )}
-
-                {/* Search and Category Filter */}
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Search scheduled products..."
-                      value={productSearch}
-                      onChange={e => setProductSearch(e.target.value)}
-                      style={{ paddingLeft: 32, fontSize: 12.5 }}
-                    />
-                  </div>
-                  <select
-                    className="form-control"
-                    value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
-                    style={{ width: 180, fontSize: 12.5 }}
-                  >
-                    <option value="ALL">All Categories</option>
-                    {PRODUCT_CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Products List with Checkboxes */}
-                <div style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 10,
-                  maxHeight: 280,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  padding: 8
-                }}>
-                  {filteredProducts.length > 0 ? (
-                    filteredProducts.map((p, idx) => {
-                      const actualIdx = siteProducts.findIndex(sp => sp._id === p._id || (sp.name === p.name && sp.code === p.code));
-                      const isChecked = p.isSelected !== false;
-                      return (
-                        <div
-                          key={p._id || idx}
-                          onClick={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            background: isChecked ? '#ffffff' : '#f1f5f9',
-                            border: isChecked ? '1px solid #16a34a' : '1px solid #cbd5e1',
-                            borderRadius: 8,
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
-                              onClick={e => e.stopPropagation()}
-                              style={{ accentColor: '#16a34a', width: 16, height: 16, cursor: 'pointer' }}
-                            />
-                            <div>
-                              <span style={{ fontWeight: 700, fontSize: 13, color: isChecked ? '#0f172a' : '#64748b' }}>
-                                {p.name}
-                              </span>
-                              {p.code && (
-                                <span style={{ marginLeft: 8, fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: 4 }}>
-                                  {p.code}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span style={{ fontSize: 11.5, color: '#64748b', fontWeight: 500 }}>
-                            {p.category || 'General Food Products'}
-                          </span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>
-                      <Package size={28} style={{ margin: '0 auto 6px', opacity: 0.5 }} />
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>No products matched filter</div>
-                      <div style={{ fontSize: 11.5, marginTop: 2 }}>Select certified products from the schedule list above.</div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
+            {/* Card 3: Certified Products Schedule */}
+            <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Package size={20} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>3. Certified Products Schedule</h3>
+                      <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11.5, fontWeight: 800, padding: '2px 9px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Check size={12} strokeWidth={3} />
+                        {selectedCount} Product(s) Selected
+                      </span>
+                      {siteProducts.length > 0 && (
+                        <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12 }}>
+                          {selectedCount} / {siteProducts.length} Client Items Picked
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                      {siteProducts.length > 0
+                        ? `Select products from ${(selectedSite?.name || siteData?.name || selectedClient?.company_name || clientUser?.company_name || 'client')}'s catalog to include on this certificate:`
+                        : 'Add and certify products directly covered under this certificate'}
+                    </p>
+                  </div>
+                </div>
 
+                {siteProducts.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => toggleAllProducts(true)}
+                      style={{ fontSize: 11.5, padding: '4px 10px' }}
+                    >
+                      Select All ({filteredProducts.length})
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => toggleAllProducts(false)}
+                      style={{ fontSize: 11.5, padding: '4px 10px', color: '#dc2626' }}
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Table Layout Selector */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: 10,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
+                    <Layers size={15} style={{ color: '#2563eb' }} />
+                    <span>Product Schedule Table Layout</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                    Configure printed column layout on official certificate attachment
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    { cols: 1, label: '1 Column (Name Only)' },
+                    { cols: 2, label: '2 Columns (Code + Desc)' },
+                    { cols: 3, label: '3 Columns (+ Category)' }
+                  ].map(({ cols, label }) => (
+                    <button
+                      key={cols}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, product_table_columns: cols }))}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: (form.product_table_columns || 2) === cols ? 700 : 500,
+                        border: (form.product_table_columns || 2) === cols ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: (form.product_table_columns || 2) === cols ? '#eff6ff' : '#ffffff',
+                        color: (form.product_table_columns || 2) === cols ? '#1d4ed8' : '#475569',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Custom Product Add */}
+              {showAddCustomProduct && (
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1.5px dashed #cbd5e1',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  marginBottom: 14,
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'flex-end',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ flex: 2, minWidth: 200 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                      Product Name / Description *
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ fontSize: 12, height: 32 }}
+                      placeholder="e.g. Frozen Halal Beef Burger"
+                      value={newProdName}
+                      onChange={e => setNewProdName(e.target.value)}
+                    />
+                  </div>
+                  {(form.product_table_columns || 2) >= 2 && (
+                    <div style={{ flex: 1, minWidth: 120 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                        Product Code / SKU
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ fontSize: 12, height: 32 }}
+                        placeholder="e.g. PRD-001"
+                        value={newProdCode}
+                        onChange={e => setNewProdCode(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {(form.product_table_columns || 2) === 3 && (
+                    <div style={{ flex: 1.2, minWidth: 150 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                        Category
+                      </label>
+                      <select
+                        className="form-control"
+                        style={{ fontSize: 12, height: 32 }}
+                        value={newProdCat}
+                        onChange={e => setNewProdCat(e.target.value)}
+                      >
+                        {PRODUCT_CATEGORIES.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddCustomProduct}
+                    style={{ height: 32, fontSize: 12, padding: '0 14px' }}
+                  >
+                    Add to Cert
+                  </button>
+                </div>
+              )}
+
+              {/* Search & Category Filter Bar */}
+              {siteProducts.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 260 }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ paddingLeft: 30, fontSize: 12, height: 32 }}
+                        placeholder="Search site catalog by product name or code..."
+                        value={productSearch}
+                        onChange={e => setProductSearch(e.target.value)}
+                      />
+                    </div>
+                    <select
+                      className="form-control"
+                      style={{ width: 160, fontSize: 12, height: 32 }}
+                      value={categoryFilter}
+                      onChange={e => setCategoryFilter(e.target.value)}
+                    >
+                      <option value="ALL">All Categories</option>
+                      {PRODUCT_CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomProduct(prev => !prev)}
+                    className="btn btn-outline btn-sm"
+                    style={{ fontSize: 11.5, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Plus size={13} /> {showAddCustomProduct ? 'Hide Add Row' : 'Add Custom Product'}
+                  </button>
+                </div>
+              )}
+
+              {/* Client Catalog Products Table (identical to AdminReviewCertificate) */}
+              <div className="table-wrap" style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: 10,
+                maxHeight: 480,
+                overflowY: 'auto',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                    <tr style={{ color: '#475569', textAlign: 'left' }}>
+                      <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={filteredProducts.length > 0 && filteredProducts.every(item => item.isSelected !== false)}
+                          onChange={(e) => toggleAllProducts(e.target.checked)}
+                          style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                          title="Select/Deselect All Displayed Products"
+                        />
+                      </th>
+                      <th style={{ width: 44, padding: '8px 6px', textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '8px 6px' }}>Product Name</th>
+                      <th style={{ width: '28%', padding: '8px 6px' }}>Code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                          No products found matching "{productSearch}".
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredProducts.map((prod, index) => {
+                        const actualIdx = siteProducts.findIndex(sp => (sp._id && sp._id === prod._id) || (sp.name === prod.name && sp.code === prod.code));
+                        const selected = prod.isSelected !== false;
+                        return (
+                          <tr
+                            key={prod._id || index}
+                            onClick={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
+                            style={{
+                              borderBottom: '1px solid #f1f5f9',
+                              background: selected ? '#f0fdf4' : (index % 2 === 0 ? '#ffffff' : '#fafafa'),
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                          >
+                            <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
+                                style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                              />
+                            </td>
+                            <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{index + 1}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: selected ? 700 : 500, color: selected ? '#14532d' : '#0f172a' }}>
+                              {prod.name}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: '#64748b', fontFamily: 'monospace', fontSize: 11.5 }}>
+                              {prod.code || prod.barcode || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                  💡 Printed on certificate: <strong>{selectedCount}</strong> item(s).
+                </span>
+                <span style={{ fontSize: 11.5, color: '#166534', fontWeight: 600 }}>
+                  ✓ Selecting from official client portal catalog
+                </span>
+              </div>
+            </div>
 
             {/* Bottom Action Buttons */}
             <div style={{
@@ -1721,6 +1815,10 @@ export default function AdminCreateCertificate() {
                 </button>
               </div>
             </div>
+
+
+
+
 
           </div>
 

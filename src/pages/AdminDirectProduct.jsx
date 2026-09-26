@@ -100,11 +100,7 @@ export default function AdminDirectProduct() {
     name: '',
     code: '',
     category: 'General Food Products',
-    product_type: 'Processed',
-    application_type: 'Direct',
-    site_id: '',
-    source: 'admin',
-    description: ''
+    product_type: 'Processed'
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -355,19 +351,11 @@ export default function AdminDirectProduct() {
   // Edit Product Handlers
   const handleOpenEdit = (prod) => {
     setEditingProduct(prod);
-    const pSiteId = prod.site_id?._id || prod.site_id?.id || (typeof prod.site_id === 'string' ? prod.site_id : '');
-    const currentAppType = prod.application_type || (prod.notes?.toLowerCase().includes('renewal') ? 'Renewal' : (prod.notes?.toLowerCase().includes('addon') ? 'Extension' : (prod.notes?.toLowerCase().includes('direct') ? 'Direct' : 'New')));
-    const currentSource = prod.source || (prod.notes?.toLowerCase().includes('administrator') || prod.notes?.toLowerCase().includes('direct') ? 'admin' : 'client');
-
     setEditForm({
       name: prod.name || '',
       code: prod.code || prod.barcode || '',
       category: prod.category || 'General Food Products',
-      product_type: prod.product_type || 'Processed',
-      application_type: currentAppType,
-      site_id: String(pSiteId),
-      source: currentSource,
-      description: prod.description || ''
+      product_type: prod.product_type || 'Processed'
     });
   };
 
@@ -383,23 +371,20 @@ export default function AdminDirectProduct() {
         code: editForm.code.trim(),
         barcode: editForm.code.trim(),
         category: editForm.category,
-        product_type: editForm.product_type,
-        application_type: editForm.application_type,
-        site_id: editForm.site_id || undefined,
-        source: editForm.source,
-        description: editForm.description
+        product_type: editForm.product_type
       };
 
-      await api.put(`/api/products/${id}`, payload);
-
-      const targetSite = sites.find(s => String(s._id || s.id) === String(editForm.site_id)) || editingProduct.site_id;
+      const res = await api.put(`/api/products/${id}`, payload);
+      const updatedData = res.data?.data || res.data || {};
 
       setHistoryProducts(prev => prev.map(p => {
         if (String(p._id || p.id) === String(id)) {
           return {
             ...p,
             ...payload,
-            site_id: targetSite
+            last_modified_by: updatedData.last_modified_by || p.last_modified_by,
+            last_modified_by_name: updatedData.last_modified_by_name || 'Admin',
+            last_modified_at: updatedData.last_modified_at || new Date().toISOString()
           };
         }
         return p;
@@ -1413,20 +1398,21 @@ export default function AdminDirectProduct() {
                       <th style={{ padding: '11px 14px', width: 44, color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>#</th>
                       <th style={{ padding: '11px 14px', color: '#334155', fontWeight: 700 }}>Product Name</th>
                       <th style={{ padding: '11px 14px', width: 110, color: '#334155', fontWeight: 700 }}>Code</th>
-                      <th style={{ padding: '11px 14px', width: 140, color: '#334155', fontWeight: 700 }}>Category</th>
                       <th style={{ padding: '11px 14px', width: 160, color: '#334155', fontWeight: 700 }}>Company</th>
                       <th style={{ padding: '11px 14px', width: 160, color: '#334155', fontWeight: 700 }}>Site</th>
-                      <th style={{ padding: '11px 14px', width: 140, color: '#334155', fontWeight: 700 }}>Type of Application</th>
-                      <th style={{ padding: '11px 14px', width: 120, color: '#334155', fontWeight: 700 }}>Source</th>
+                      <th style={{ padding: '11px 14px', width: 120, color: '#334155', fontWeight: 700 }}>Type</th>
+                      <th style={{ padding: '11px 14px', width: 150, color: '#334155', fontWeight: 700 }}>Source</th>
                       <th style={{ padding: '11px 14px', width: 150, textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredHistory.map((p, pIdx) => {
-                      const isByAdmin = p.source === 'admin' || (!p.source && (p.notes?.toLowerCase().includes('administrator') || p.notes?.toLowerCase().includes('direct')));
                       const appType = p.application_type || (p.notes?.toLowerCase().includes('renewal') ? 'Renewal' : (p.notes?.toLowerCase().includes('addon') ? 'Extension' : (p.notes?.toLowerCase().includes('direct') ? 'Direct' : 'New')));
+                      const isByApp = ['New', 'Renewal', 'Extension'].includes(appType) || p.source === 'client';
+                      const isDirect = !isByApp && (appType === 'Direct' || p.source === 'admin' || (p.notes?.toLowerCase().includes('administrator') || p.notes?.toLowerCase().includes('direct')));
                       const siteName = p.site_id?.name || p.site_id?.est_name || p.site_id?.trading_name || 'Unassigned';
                       const companyName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '—';
+                      const adminCreator = p.created_by_name || (p.notes?.replace(/.*by\s+/i, '') || 'Admin');
 
                       return (
                         <tr key={p._id || p.id || pIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -1435,17 +1421,18 @@ export default function AdminDirectProduct() {
                           </td>
                           <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
                             <div>{p.name}</div>
-                            {p.description && (
-                              <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 400, marginTop: 2 }}>
-                                {p.description}
+                            {p.last_modified_at && (
+                              <div style={{ fontSize: 11, color: '#0284c7', fontWeight: 500, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Edit3 size={10} />
+                                <span>
+                                  Edited by <strong>{p.last_modified_by_name || 'Admin'}</strong> on{' '}
+                                  {new Date(p.last_modified_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
                               </div>
                             )}
                           </td>
                           <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: '#475569' }}>
                             {p.code || p.barcode || '—'}
-                          </td>
-                          <td style={{ padding: '12px 14px', color: '#475569', fontSize: 12 }}>
-                            {p.category || 'General'}
                           </td>
                           <td style={{ padding: '12px 14px', color: '#334155', fontSize: 12 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
@@ -1474,18 +1461,39 @@ export default function AdminDirectProduct() {
                             </span>
                           </td>
                           <td style={{ padding: '12px 14px' }}>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              background: isByAdmin ? '#eff6ff' : '#f0fdf4',
-                              color: isByAdmin ? '#1d4ed8' : '#15803d',
-                              border: `1px solid ${isByAdmin ? '#bfdbfe' : '#bbf7d0'}`
-                            }}>
-                              {isByAdmin ? 'Source: Admin' : 'Source: Client'}
-                            </span>
+                            {isDirect ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: '#ecfdf5',
+                                  color: '#047857',
+                                  border: '1px solid #a7f3d0',
+                                  width: 'fit-content'
+                                }}>
+                                  Direct
+                                </span>
+                                <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 500 }}>
+                                  by {adminCreator}
+                                </span>
+                              </div>
+                            ) : (
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe'
+                              }}>
+                                App
+                              </span>
+                            )}
                           </td>
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -1697,19 +1705,19 @@ export default function AdminDirectProduct() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                      Product Code / Barcode
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={editForm.code}
-                      onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))}
-                    />
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                    Product Code / Barcode
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editForm.code}
+                    onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))}
+                  />
+                </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
                       Category
@@ -1724,9 +1732,7 @@ export default function AdminDirectProduct() {
                       ))}
                     </select>
                   </div>
-                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
                       Product Type
@@ -1741,68 +1747,6 @@ export default function AdminDirectProduct() {
                       ))}
                     </select>
                   </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                      Type of Application
-                    </label>
-                    <select
-                      className="form-control"
-                      value={editForm.application_type}
-                      onChange={e => setEditForm(f => ({ ...f, application_type: e.target.value }))}
-                    >
-                      {APPLICATION_TYPES.map(a => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                      Assigned Site
-                    </label>
-                    <select
-                      className="form-control"
-                      value={editForm.site_id}
-                      onChange={e => setEditForm(f => ({ ...f, site_id: e.target.value }))}
-                    >
-                      <option value="">-- No Specific Site --</option>
-                      {sites.map(s => (
-                        <option key={s._id || s.id} value={s._id || s.id}>
-                          {s.name || s.est_name || s.trading_name || 'Site'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                      Source Attribution
-                    </label>
-                    <select
-                      className="form-control"
-                      value={editForm.source}
-                      onChange={e => setEditForm(f => ({ ...f, source: e.target.value }))}
-                    >
-                      <option value="admin">Source: Admin</option>
-                      <option value="client">Source: Client</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                    Description / Notes
-                  </label>
-                  <textarea
-                    rows={2}
-                    className="form-control"
-                    value={editForm.description}
-                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Optional product notes..."
-                  />
                 </div>
               </div>
 

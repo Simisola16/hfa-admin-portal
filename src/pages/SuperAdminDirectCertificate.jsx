@@ -168,10 +168,9 @@ export default function SuperAdminDirectCertificate() {
   // Live Certificate Document Preview Generator
   const generateLivePreview = async (silent = false) => {
     const validProducts = products.filter(p => p.name && p.name.trim());
-    const companyName = certCompanyName ||
-      (selectedClient?.company_name || selectedClient?.full_name || 'Valued Halal Client');
+    const companyName = (certCompanyName || selectedClient?.company_name || selectedClient?.full_name || '').trim();
     const businessAddr = (certCompanyAddress || customSiteAddress || resolvedBusinessAddress || '').trim();
-    const mfgAddr = (certManufacturingFacility || businessAddr).trim();
+    const mfgAddr = (certManufacturingFacility || '').trim();
 
     setGeneratingPreview(true);
     try {
@@ -179,10 +178,10 @@ export default function SuperAdminDirectCertificate() {
         certificate_type: certType,
         certificate_number: certNumber,
         company_name: companyName,
-        company_address: businessAddr || 'Registered Business Address',
-        manufacturing_address: mfgAddr || businessAddr || 'Manufacturing Facility Address',
-        scope: certProductCategory || 'PRODUCTION AND SUPPLY OF HALAL CERTIFIED PRODUCTS',
-        product_category: certProductCategory,
+        company_address: businessAddr,
+        manufacturing_address: mfgAddr,
+        scope: certProductCategory || '',
+        product_category: certProductCategory || '',
         issue_date: issueDate,
         current_cycle_start_date: isGso ? currentCycleStartDate : issueDate,
         original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,

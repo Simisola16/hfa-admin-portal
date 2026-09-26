@@ -12,9 +12,16 @@ export default function AdminClients() {
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState(null);
-  const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const category = searchParams.get('category') || 'company';
+  const category = searchParams.get('category') || 'all';
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q !== null && q !== undefined) {
+      setSearch(q);
+    }
+  }, [searchParams]);
 
   // Company Action Pop-up Modal State
   const [actionModalCompany, setActionModalCompany] = useState(null);
@@ -193,33 +200,57 @@ export default function AdminClients() {
   };
 
   const getTitle = () => {
+    if (category === 'all') return 'All Registered Companies';
+    if (category === 'company') return 'Company List (Certified Clients)';
     if (category === 'processing') return 'Processing List (Pending Applications)';
     if (category === 'signups') return 'Company List (New Sign-ups)';
     if (category === 'bin') return 'Bin List (Suspended Companies)';
     if (category === 'staff') return 'HFA Staff & User Management';
     if (category === 'impersonations') return 'Admin Impersonation Logs';
-    if (category === 'all') return 'All Registered Companies';
-    return 'Company List (Certified Clients)';
+    return 'All Registered Companies';
   };
 
   const getIcon = () => {
+    if (category === 'all') return <Building2 size={20} />;
+    if (category === 'company') return <Award size={20} />;
     if (category === 'processing') return <Briefcase size={20} />;
     if (category === 'signups') return <UserPlus size={20} />;
     if (category === 'bin') return <Trash2 size={20} />;
     if (category === 'staff') return <UserCheck size={20} />;
     if (category === 'impersonations') return <History size={20} />;
-    if (category === 'all') return <Users size={20} />;
-    return <Award size={20} />;
+    return <Building2 size={20} />;
+  };
+
+  // Helper to determine company classification consistently
+  const getCompanyClassification = (c) => {
+    const isCertified = c.company_category === 'certified' || (c.certCount || 0) > 0 || (c.approvedAppCount || 0) > 0;
+    const isProcessing = !isCertified && (c.company_category === 'processing' || (c.appCount || 0) > 0);
+    const isSignup = !isCertified && !isProcessing;
+    return { isCertified, isProcessing, isSignup };
+  };
+
+  // Pre-calculate counts for all tabs
+  const clientUsers = users.filter(c => c.role === 'client');
+  const counts = {
+    all: clientUsers.length,
+    company: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isCertified).length,
+    processing: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isProcessing).length,
+    signups: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isSignup).length,
+    bin: clientUsers.filter(c => c.suspension_reason || c.is_active === false).length,
   };
 
   // Filter clients/staff based on category and search
   const filtered = users.filter(c => {
     // 1. Search Filter
     if (search) {
-      const s = search.toLowerCase();
+      const s = search.trim().toLowerCase();
       const nameMatch = c.full_name?.toLowerCase().includes(s) || c.company_name?.toLowerCase().includes(s);
       const emailMatch = c.email?.toLowerCase().includes(s);
-      if (!nameMatch && !emailMatch) return false;
+      const phoneMatch = c.phone?.toLowerCase().includes(s);
+      const notesMatch = c.notes?.toLowerCase().includes(s);
+      const addressMatch = c.address?.toLowerCase().includes(s) || c.postcode?.toLowerCase().includes(s);
+      const idMatch = c._id?.toString().toLowerCase().includes(s);
+      if (!nameMatch && !emailMatch && !phoneMatch && !notesMatch && !addressMatch && !idMatch) return false;
     }
 
     // 2. Staff filtering
@@ -235,18 +266,26 @@ export default function AdminClients() {
 
     if (category === 'bin') {
       return isSuspended || !isActive;
-    } else {
-      if (isSuspended) return false;
-      if (category === 'processing') {
-        return c.company_category === 'processing' || (c.appCount > 0 && (c.certCount || 0) === 0);
-      } else if (category === 'signups') {
-        return c.company_category === 'signup' || ((c.appCount || 0) === 0 && (c.certCount || 0) === 0);
-      } else if (category === 'all') {
-        return true;
-      } else if (category === 'company') {
-        return c.company_category === 'certified' || (c.certCount || 0) > 0 || (c.appCount > 0 && c.approvedAppCount > 0);
-      }
     }
+
+    const { isCertified, isProcessing, isSignup } = getCompanyClassification(c);
+
+    // "All Companies" shows all registered client companies
+    if (category === 'all') {
+      return true;
+    }
+
+    // For other tabs (Certified, Processing, Sign-ups), exclude suspended / inactive
+    if (isSuspended || !isActive) return false;
+
+    if (category === 'company') {
+      return isCertified;
+    } else if (category === 'processing') {
+      return isProcessing;
+    } else if (category === 'signups') {
+      return isSignup;
+    }
+
     return true;
   });
 
@@ -255,34 +294,116 @@ export default function AdminClients() {
   return (
     <div className="animate-in">
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12, flexWrap: 'wrap' }}>
-        <button className={`btn btn-sm ${category === 'company' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'company' })}>Certified Clients</button>
-        <button className={`btn btn-sm ${category === 'processing' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'processing' })}>Processing</button>
-        <button className={`btn btn-sm ${category === 'signups' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'signups' })}>Sign-ups</button>
-        <button className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'all' })}>All Companies</button>
-        <button className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'bin' })}>Suspended</button>
+        <button
+          className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setSearchParams({ category: 'all' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          All Companies
+          <span style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '1px 7px',
+            borderRadius: 999,
+            background: category === 'all' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+            color: category === 'all' ? '#ffffff' : '#475569'
+          }}>
+            {counts.all}
+          </span>
+        </button>
+        <button
+          className={`btn btn-sm ${category === 'company' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setSearchParams({ category: 'company' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Certified Clients
+          <span style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '1px 7px',
+            borderRadius: 999,
+            background: category === 'company' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+            color: category === 'company' ? '#ffffff' : '#475569'
+          }}>
+            {counts.company}
+          </span>
+        </button>
+        <button
+          className={`btn btn-sm ${category === 'processing' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setSearchParams({ category: 'processing' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Processing
+          <span style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '1px 7px',
+            borderRadius: 999,
+            background: category === 'processing' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+            color: category === 'processing' ? '#ffffff' : '#475569'
+          }}>
+            {counts.processing}
+          </span>
+        </button>
+        <button
+          className={`btn btn-sm ${category === 'signups' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setSearchParams({ category: 'signups' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Sign-ups
+          <span style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '1px 7px',
+            borderRadius: 999,
+            background: category === 'signups' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+            color: category === 'signups' ? '#ffffff' : '#475569'
+          }}>
+            {counts.signups}
+          </span>
+        </button>
+        <button
+          className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setSearchParams({ category: 'bin' })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Suspended
+          {counts.bin > 0 && (
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '1px 7px',
+              borderRadius: 999,
+              background: category === 'bin' ? 'rgba(255,255,255,0.25)' : '#fee2e2',
+              color: category === 'bin' ? '#ffffff' : '#b91c1c'
+            }}>
+              {counts.bin}
+            </span>
+          )}
+        </button>
         {isAdmin && (
-          <button className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSearchParams({ category: 'impersonations' })}>Impersonation Logs</button>
+          <button
+            className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setSearchParams({ category: 'impersonations' })}
+          >
+            Impersonation Logs
+          </button>
         )}
       </div>
 
       <div className="toolbar">
         <div className="search-box">
           <Search size={15} className="search-icon" />
-          <input placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            placeholder="Search companies by name, email, contact, CID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
             {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} Companies`}
           </span>
-          {category !== 'impersonations' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowCompanyModal(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
-              <PlusCircle size={15} /> Register Company
-            </button>
-          )}
         </div>
       </div>
 
@@ -296,8 +417,9 @@ export default function AdminClients() {
                 category === 'impersonations' ? 'Tamper-evident audit trail of all administrator impersonation actions' :
                 category === 'signups' ? 'Newly registered corporate companies who recently signed up' :
                 category === 'processing' ? 'Corporate clients with active applications under review' :
-                category === 'all' ? 'Comprehensive directory of all registered corporate clients' :
-                'Manage corporate clients and their status'}
+                category === 'bin' ? 'Suspended and deactivated client accounts' :
+                category === 'company' ? 'Active corporate clients with certified halal status' :
+                'Comprehensive directory of all registered corporate clients'}
             </div>
           </div>
         </div>
@@ -378,7 +500,9 @@ export default function AdminClients() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(c => (
+                  {filtered.map(c => {
+                    const { isCertified, isProcessing } = getCompanyClassification(c);
+                    return (
                     <tr key={c._id} className="hover-row">
                       <td>
                         <div style={{ fontWeight: 700, color: '#111827', fontSize: 14 }}>{c.company_name || c.full_name || '—'}</div>
@@ -409,14 +533,22 @@ export default function AdminClients() {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span className={`badge ${c.is_verified ? 'badge-green' : 'badge-yellow'}`}>
-                              {c.is_verified ? 'Email Verified' : 'Unverified Email'}
-                            </span>
-                            {(c.appCount || 0) === 0 && (c.certCount || 0) === 0 && (
+                            {isCertified ? (
+                              <span className="badge badge-green" style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px' }}>
+                                Certified
+                              </span>
+                            ) : isProcessing ? (
+                              <span className="badge badge-yellow" style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+                                Processing
+                              </span>
+                            ) : (
                               <span className="badge badge-blue" style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
                                 New Sign-up
                               </span>
                             )}
+                            <span className={`badge ${c.is_verified ? 'badge-gray' : 'badge-yellow'}`} style={{ fontSize: 10 }}>
+                              {c.is_verified ? 'Email Verified' : 'Unverified Email'}
+                            </span>
                           </div>
                         )}
                       </td>
@@ -449,7 +581,8 @@ export default function AdminClients() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )

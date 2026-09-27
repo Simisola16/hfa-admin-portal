@@ -17,6 +17,7 @@ export default function AdminLogsheetManage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [filterSite, setFilterSite] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
@@ -107,6 +108,15 @@ export default function AdminLogsheetManage() {
     return 'HFA Admin';
   };
 
+  // Active company filter: explicit selection or exact typed match
+  const activeCompany = useMemo(() => {
+    if (selectedCompany) return selectedCompany;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+    const exact = directoryCompanies.find(c => c.name.trim().toLowerCase() === q);
+    return exact ? exact.name : null;
+  }, [selectedCompany, searchQuery, directoryCompanies]);
+
   // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -114,30 +124,57 @@ export default function AdminLogsheetManage() {
 
     const companySitesMap = new Map();
 
-    // 1. From all companies directory
-    directoryCompanies.forEach(c => {
-      if (c.name.toLowerCase().includes(q)) {
-        (c.sites || []).forEach(s => {
-          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
-            companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
-          }
-        });
-      }
-    });
+    if (activeCompany) {
+      // EXACT COMPANY SELECTED: Only show sites for THIS specific company!
+      const targetLower = activeCompany.trim().toLowerCase();
 
-    // 2. Filter sites to those matching the searched company from loaded logsheets
-    logsheets.forEach(l => {
-      const comp = (l.company_name || '').toLowerCase();
-      if (comp.includes(q)) {
-        const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
-        if (site && !companySitesMap.has(site.toLowerCase())) {
-          companySitesMap.set(site.toLowerCase(), { name: site, company: l.company_name });
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.trim().toLowerCase() === targetLower) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
         }
-      }
-    });
+      });
+
+      // 2. Filter sites to those matching the selected company from loaded logsheets
+      logsheets.forEach(l => {
+        const comp = (l.company_name || '').trim().toLowerCase();
+        if (comp === targetLower) {
+          const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: l.company_name });
+          }
+        }
+      });
+    } else {
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.toLowerCase().includes(q)) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
+        }
+      });
+
+      // 2. Filter sites to those matching the searched company from loaded logsheets
+      logsheets.forEach(l => {
+        const comp = (l.company_name || '').toLowerCase();
+        if (comp.includes(q)) {
+          const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: l.company_name });
+          }
+        }
+      });
+    }
 
     return Array.from(companySitesMap.values());
-  }, [searchQuery, directoryCompanies, logsheets]);
+  }, [searchQuery, activeCompany, directoryCompanies, logsheets]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -218,6 +255,11 @@ export default function AdminLogsheetManage() {
     if (filterSite) {
       const site = (l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || '').toLowerCase();
       if (site !== filterSite.toLowerCase()) return false;
+    }
+
+    if (activeCompany) {
+      const comp = (l.company_name || '').trim().toLowerCase();
+      return comp === activeCompany.trim().toLowerCase();
     }
 
     if (!searchQuery) return true;
@@ -321,6 +363,19 @@ export default function AdminLogsheetManage() {
           value={searchQuery}
           onChange={val => {
             setSearchQuery(val);
+            if (selectedCompany && val.trim().toLowerCase() !== selectedCompany.trim().toLowerCase()) {
+              setSelectedCompany(null);
+            }
+            setPage(1);
+          }}
+          onSelect={item => {
+            if (item.type === 'Company') {
+              setSelectedCompany(item.label);
+              setSearchQuery(item.label);
+            } else {
+              setSelectedCompany(null);
+              setSearchQuery(item.label);
+            }
             setPage(1);
           }}
           suggestions={searchSuggestions}

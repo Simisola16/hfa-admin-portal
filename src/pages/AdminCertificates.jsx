@@ -55,6 +55,7 @@ export default function AdminCertificates({ defaultTab }) {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSite, setFilterSite] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +153,15 @@ export default function AdminCertificates({ defaultTab }) {
     return certs.filter(c => c.status === 'under_review' || c.status === 'draft');
   }, [certs]);
 
+  // Active company filter: explicit selection or exact typed match
+  const activeCompany = useMemo(() => {
+    if (selectedCompany) return selectedCompany;
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    const exact = directoryCompanies.find(c => c.name.trim().toLowerCase() === q);
+    return exact ? exact.name : null;
+  }, [selectedCompany, search, directoryCompanies]);
+
   // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -159,30 +169,53 @@ export default function AdminCertificates({ defaultTab }) {
 
     const companySitesMap = new Map();
 
-    // 1. From all companies directory
-    directoryCompanies.forEach(c => {
-      if (c.name.toLowerCase().includes(q)) {
-        (c.sites || []).forEach(s => {
-          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
-            companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
-          }
-        });
-      }
-    });
-
-    // 2. Also merge sites from loaded certs matching company
-    certs.forEach(c => {
-      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
-      if (comp.includes(q)) {
-        const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
-        if (site && !companySitesMap.has(site.toLowerCase())) {
-          companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+    if (activeCompany) {
+      // EXACT COMPANY SELECTED: Only show sites for THIS specific company!
+      const targetLower = activeCompany.trim().toLowerCase();
+      directoryCompanies.forEach(c => {
+        if (c.name.trim().toLowerCase() === targetLower) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
         }
-      }
-    });
+      });
+
+      certs.forEach(c => {
+        const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').trim().toLowerCase();
+        if (comp === targetLower) {
+          const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+          }
+        }
+      });
+    } else {
+      // Partial typing: show matching sites
+      directoryCompanies.forEach(c => {
+        if (c.name.toLowerCase().includes(q)) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
+        }
+      });
+
+      certs.forEach(c => {
+        const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
+        if (comp.includes(q)) {
+          const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+          }
+        }
+      });
+    }
 
     return Array.from(companySitesMap.values());
-  }, [search, directoryCompanies, certs]);
+  }, [search, activeCompany, directoryCompanies, certs]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -276,12 +309,21 @@ export default function AdminCertificates({ defaultTab }) {
       if (filterSite && site !== filterSite.toLowerCase()) {
         return false;
       }
+
+      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').trim().toLowerCase();
+
+      // If a specific company is chosen/exact-matched, only show data for THAT company!
+      if (activeCompany) {
+        return comp === activeCompany.trim().toLowerCase();
+      }
+
+      if (!search.trim()) return true;
+
       const q = search.toLowerCase();
       const certNo = (c.certificate_number || '').toLowerCase();
-      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
       return certNo.includes(q) || comp.includes(q) || site.includes(q);
     });
-  }, [certs, activeTab, filterStatus, filterSite, search]);
+  }, [certs, activeTab, filterStatus, filterSite, search, activeCompany]);
 
   useEffect(() => {
     setPage(1);
@@ -354,6 +396,19 @@ export default function AdminCertificates({ defaultTab }) {
           value={search}
           onChange={val => {
             setSearch(val);
+            if (selectedCompany && val.trim().toLowerCase() !== selectedCompany.trim().toLowerCase()) {
+              setSelectedCompany(null);
+            }
+            setPage(1);
+          }}
+          onSelect={item => {
+            if (item.type === 'Company') {
+              setSelectedCompany(item.label);
+              setSearch(item.label);
+            } else {
+              setSelectedCompany(null);
+              setSearch(item.label);
+            }
             setPage(1);
           }}
           suggestions={searchSuggestions}

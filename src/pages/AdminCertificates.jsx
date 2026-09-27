@@ -170,7 +170,7 @@ export default function AdminCertificates({ defaultTab }) {
     const now = Date.now();
     const exp = new Date(c.expiry_date).getTime();
     const diff = exp - now;
-    return diff > 0 && diff <= 60 * 24 * 60 * 60 * 1000;
+    return diff > 0 && diff <= 90 * 24 * 60 * 60 * 1000;
   };
 
   const isCertExpired = (c) => {
@@ -617,7 +617,7 @@ export default function AdminCertificates({ defaultTab }) {
             <option value="">All Statuses</option>
             <option value="under_review">Under Review / Pending Review</option>
             <option value="active">Active</option>
-            <option value="expiring">Expiring Soon (within 60d)</option>
+            <option value="expiring">Expiring Soon (within 90d / 3 months)</option>
             <option value="expired">Expired</option>
             <option value="outdated">Outdated</option>
           </select>

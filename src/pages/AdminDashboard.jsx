@@ -98,10 +98,11 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const res = await api.get('/api/reports/dashboard-overview');
-      if (res?.stats) {
+      const payload = res?.data?.stats ? res.data : (res?.stats ? res : null);
+      if (payload?.stats) {
         setData({
-          stats: res.stats,
-          pipeline: res.pipeline || []
+          stats: payload.stats,
+          pipeline: payload.pipeline || []
         });
       }
       setLastUpdated(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));

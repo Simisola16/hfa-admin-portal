@@ -747,8 +747,8 @@ export default function AdminCreateLogsheet() {
             contact_email: autoContactEmail,
             nature_of_business: autoNature,
             product_category: autoProductCategory,
-            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
-            certificate_standard: appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
+            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
+            certificate_standard: appData?.certificate_type || '',
             suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
             issue_date: todayStr,
             expiry_date: oneYearLater,
@@ -985,6 +985,11 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
+    if (!form.certificate_type?.trim()) {
+      toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
+      return;
+    }
+
     if (isGSO) {
       setShowNextSurvModal(true);
       return;
@@ -1023,6 +1028,11 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleConfirmNextSurveillanceFromLogsheet = async ({ next_surveillance_due_date, admin_name, notes }) => {
+    if (!form.certificate_type?.trim()) {
+      toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
+      setShowNextSurvModal(false);
+      return;
+    }
     setIsFinalizing(true);
     try {
       const chosenCertType = currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || form.certificate_type || form.certificate_standard;

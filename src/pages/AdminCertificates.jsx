@@ -8,8 +8,10 @@ import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import useCompanyDirectory from '../lib/useCompanyDirectory';
 
 export default function AdminCertificates({ defaultTab }) {
+  const { companies: directoryCompanies } = useCompanyDirectory();
   const { user, profile } = useAuth();
   const currentUser = profile || user;
   const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
@@ -148,22 +150,32 @@ export default function AdminCertificates({ defaultTab }) {
     const q = search.trim().toLowerCase();
     if (!q) return []; // Do not show any sites unless a company is searched/picked
 
-    // Filter sites to those matching the searched company
-    const matchingCerts = certs.filter(c => {
-      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
-      return comp.includes(q);
+    const companySitesMap = new Map();
+
+    // 1. From all companies directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q)) {
+        (c.sites || []).forEach(s => {
+          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+            companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+          }
+        });
+      }
     });
 
-    const companySitesMap = new Map();
-    matchingCerts.forEach(c => {
-      const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
-      if (site && !companySitesMap.has(site.toLowerCase())) {
-        companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+    // 2. Also merge sites from loaded certs matching company
+    certs.forEach(c => {
+      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
+      if (comp.includes(q)) {
+        const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+        if (site && !companySitesMap.has(site.toLowerCase())) {
+          companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+        }
       }
     });
 
     return Array.from(companySitesMap.values());
-  }, [search, certs]);
+  }, [search, directoryCompanies, certs]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -172,17 +184,39 @@ export default function AdminCertificates({ defaultTab }) {
     }
   }, [search, filterSite]);
 
-  // Autocomplete search suggestions (companies & sites)
+  // Autocomplete search suggestions (ALL registered companies, sites, and certificate numbers)
   const searchSuggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
 
     const companiesMap = new Map();
     const sitesMap = new Map();
+    const certsMap = new Map();
 
+    // 1. ALL registered companies and their sites from directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q) && !companiesMap.has(c.name.toLowerCase())) {
+        companiesMap.set(c.name.toLowerCase(), {
+          label: c.name,
+          type: 'Company',
+          subtext: `${c.sites?.length || 0} registered site${(c.sites?.length || 0) === 1 ? '' : 's'}`
+        });
+      }
+      (c.sites || []).forEach(s => {
+        if (s.name && s.name.toLowerCase().includes(q) && !sitesMap.has(s.name.toLowerCase())) {
+          sitesMap.set(s.name.toLowerCase(), {
+            label: s.name,
+            type: 'Site',
+            subtext: c.name
+          });
+        }
+      });
+    });
+
+    // 2. Fallback to loaded certs (companies, sites, and certificate numbers)
     certs.forEach(c => {
       const comp = c.company_name || c.profiles?.company_name || c.application_id?.establishment_name;
-      if (comp && !companiesMap.has(comp.toLowerCase())) {
+      if (comp && comp.toLowerCase().includes(q) && !companiesMap.has(comp.toLowerCase())) {
         companiesMap.set(comp.toLowerCase(), {
           label: comp,
           type: 'Company',
@@ -190,20 +224,33 @@ export default function AdminCertificates({ defaultTab }) {
         });
       }
       const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
-      if (site && !sitesMap.has(site.toLowerCase())) {
+      if (site && site.toLowerCase().includes(q) && !sitesMap.has(site.toLowerCase())) {
         sitesMap.set(site.toLowerCase(), {
           label: site,
           type: 'Site',
           subtext: comp || 'Certified Facility'
         });
       }
+      const certNo = c.certificate_number;
+      if (certNo && certNo.toLowerCase().includes(q) && !certsMap.has(certNo.toLowerCase())) {
+        certsMap.set(certNo.toLowerCase(), {
+          label: certNo,
+          type: 'Certificate',
+          subtext: comp || 'Certificate #'
+        });
+      }
     });
 
-    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
-    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+    const matchingCompanies = Array.from(companiesMap.values());
+    const matchingSites = Array.from(sitesMap.values());
+    const matchingCerts = Array.from(certsMap.values());
 
-    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
-  }, [search, certs]);
+    return [
+      ...matchingCompanies.slice(0, 8),
+      ...matchingSites.slice(0, 5),
+      ...matchingCerts.slice(0, 4)
+    ];
+  }, [search, directoryCompanies, certs]);
 
   const filteredCerts = certs.filter(c => {
     if (activeTab === 'review') {

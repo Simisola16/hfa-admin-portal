@@ -11,6 +11,7 @@ import AuditManageModal from '../components/AuditManageModal';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import useCompanyDirectory from '../lib/useCompanyDirectory';
 
 
 // STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
@@ -47,6 +48,7 @@ const ALL_STATUSES = [
 ];
 
 export default function AdminApplications() {
+  const { companies: directoryCompanies } = useCompanyDirectory();
   const [apps, setApps] = useState([]);
   const [inspectors, setInspectors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,22 +151,32 @@ export default function AdminApplications() {
     const q = search.trim().toLowerCase();
     if (!q) return []; // Do not show any sites unless a company is searched/picked
 
-    // Filter sites to those matching the searched company
-    const matchingApps = safeApps.filter(a => {
-      const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').toLowerCase();
-      return comp.includes(q);
+    const companySitesMap = new Map();
+
+    // 1. From all companies directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q)) {
+        (c.sites || []).forEach(s => {
+          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+            companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+          }
+        });
+      }
     });
 
-    const companySitesMap = new Map();
-    matchingApps.forEach(a => {
-      const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
-      if (site && !companySitesMap.has(site.toLowerCase())) {
-        companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name });
+    // 2. Filter sites to those matching the searched company from loaded applications
+    safeApps.forEach(a => {
+      const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').toLowerCase();
+      if (comp.includes(q)) {
+        const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+        if (site && !companySitesMap.has(site.toLowerCase())) {
+          companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name });
+        }
       }
     });
 
     return Array.from(companySitesMap.values());
-  }, [search, safeApps]);
+  }, [search, directoryCompanies, safeApps]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -173,17 +185,39 @@ export default function AdminApplications() {
     }
   }, [search, filterSite]);
 
-  // Autocomplete search suggestions (companies & sites)
+  // Autocomplete search suggestions (ALL registered companies, sites, and application IDs)
   const searchSuggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
 
     const companiesMap = new Map();
     const sitesMap = new Map();
+    const appsMap = new Map();
 
+    // 1. ALL registered companies and their sites from directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q) && !companiesMap.has(c.name.toLowerCase())) {
+        companiesMap.set(c.name.toLowerCase(), {
+          label: c.name,
+          type: 'Company',
+          subtext: `${c.sites?.length || 0} registered site${(c.sites?.length || 0) === 1 ? '' : 's'}`
+        });
+      }
+      (c.sites || []).forEach(s => {
+        if (s.name && s.name.toLowerCase().includes(q) && !sitesMap.has(s.name.toLowerCase())) {
+          sitesMap.set(s.name.toLowerCase(), {
+            label: s.name,
+            type: 'Site',
+            subtext: c.name
+          });
+        }
+      });
+    });
+
+    // 2. Fallback to loaded applications
     safeApps.forEach(a => {
       const comp = a.profiles?.company_name || a.company_name || a.establishment_name;
-      if (comp && !companiesMap.has(comp.toLowerCase())) {
+      if (comp && comp.toLowerCase().includes(q) && !companiesMap.has(comp.toLowerCase())) {
         companiesMap.set(comp.toLowerCase(), {
           label: comp,
           type: 'Company',
@@ -191,20 +225,33 @@ export default function AdminApplications() {
         });
       }
       const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
-      if (site && !sitesMap.has(site.toLowerCase())) {
+      if (site && site.toLowerCase().includes(q) && !sitesMap.has(site.toLowerCase())) {
         sitesMap.set(site.toLowerCase(), {
           label: site,
           type: 'Site',
           subtext: comp || 'Facility'
         });
       }
+      const appRef = a.hfa_id || a.application_number || a._id;
+      if (appRef && String(appRef).toLowerCase().includes(q) && !appsMap.has(String(appRef).toLowerCase())) {
+        appsMap.set(String(appRef).toLowerCase(), {
+          label: String(appRef),
+          type: 'Application',
+          subtext: comp || 'Application Ref'
+        });
+      }
     });
 
-    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
-    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+    const matchingCompanies = Array.from(companiesMap.values());
+    const matchingSites = Array.from(sitesMap.values());
+    const matchingApps = Array.from(appsMap.values());
 
-    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
-  }, [search, safeApps]);
+    return [
+      ...matchingCompanies.slice(0, 8),
+      ...matchingSites.slice(0, 5),
+      ...matchingApps.slice(0, 4)
+    ];
+  }, [search, directoryCompanies, safeApps]);
 
   const filtered = safeApps.filter(a => {
     if (!a) return false;

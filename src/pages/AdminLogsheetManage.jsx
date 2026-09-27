@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
-  FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  Building2, Calendar, Tag, Shield, Clock, CheckCircle2, Plus, Settings, User
+  Search, RefreshCw, Plus, Settings, Eye, Trash2
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
@@ -15,7 +14,7 @@ export default function AdminLogsheetManage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
   const navigate = useNavigate();
 
@@ -172,255 +171,77 @@ export default function AdminLogsheetManage() {
   };
 
   return (
-    <div className="manage-logsheets-page" style={{ padding: '0 8px' }}>
-      <style>{`
-        .manage-logsheets-page {
-          width: 100%;
-          max-width: 100%;
-          min-width: 0;
-          box-sizing: border-box;
-          overflow: hidden;
-        }
-        .logsheet-table-scroll {
-          width: 100%;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-        .premium-table tr {
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .premium-table tr:hover {
-          background-color: #f8fafc !important;
-          transform: translateY(-2px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
-        }
-        .premium-select, .premium-input {
-          transition: all 0.2s ease-in-out;
-          border: 1.5px solid #e2e8f0 !important;
-        }
-        .premium-select:focus, .premium-input:focus {
-          border-color: #6366f1 !important;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
-          background-color: #fff !important;
-        }
+    <div className="page-content">
 
-        /* Responsive Breakpoints */
-        @media (max-width: 899px) {
-          .desktop-only-table {
-            display: none !important;
-          }
-          .mobile-logsheet-cards {
-            display: flex !important;
-            flex-direction: column;
-            gap: 16px;
-            padding: 12px;
-          }
-          .logsheet-toolbar-header {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 14px !important;
-          }
-          .logsheet-toolbar-actions {
-            width: 100% !important;
-            display: flex !important;
-            flex-wrap: wrap !important;
-          }
-          .logsheet-toolbar-actions > * {
-            flex: 1 1 calc(50% - 6px);
-            justify-content: center;
-          }
-          .logsheet-filter-row {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-          }
-          .logsheet-search-group {
-            max-width: 100% !important;
-            flex-direction: column !important;
-          }
-          .logsheet-search-group > div {
-            width: 100% !important;
-          }
-        }
-
-        @media (min-width: 900px) {
-          .desktop-only-table {
-            display: block !important;
-          }
-          .mobile-logsheet-cards {
-            display: none !important;
-          }
-        }
-      `}</style>
-
-      {/* Responsive Header Toolbar */}
-      <div className="toolbar logsheet-toolbar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileText size={28} style={{ color: 'var(--primary)' }} />
-            Manage Logsheets
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-            Review, sign, and manage all processing and finalized application logsheets.
-          </p>
+      {/* Toolbar consistent with AdminApplications */}
+      <div className="toolbar">
+        <div className="search-box">
+          <Search size={15} className="search-icon" />
+          <input
+            placeholder={`Search by ${searchField.replace('_', ' ')}...`}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
-        <div className="logsheet-toolbar-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button className="btn btn-ghost" onClick={fetchLogsheets} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 16px', fontWeight: 700 }}>
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-            Reload
-          </button>
-          <Link to="/logsheet/direct" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '8px', padding: '8px 18px', fontWeight: 700, textDecoration: 'none' }}>
-            <Plus size={16} />
-            Create Direct Logsheet
-          </Link>
-        </div>
+        <select
+          className="form-control"
+          style={{ width: 'auto' }}
+          value={searchField}
+          onChange={e => setSearchField(e.target.value)}
+        >
+          <option value="company_name">Company Name</option>
+          <option value="site_name">Site Name</option>
+          <option value="created_by">Created By</option>
+          <option value="id">Logsheet ID</option>
+          <option value="status">Status</option>
+          <option value="audit_type">Logsheet Type</option>
+        </select>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+          {filteredLogsheets.length} logsheets
+        </span>
+        <Link
+          to="/logsheet/direct"
+          className="btn btn-primary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+        >
+          <Plus size={14} /> Create Direct Logsheet
+        </Link>
       </div>
 
-      {/* Main Table & Mobile Cards Container */}
-      <div className="card" style={{ border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}>
-        
-        {/* Responsive Filters Row */}
-        <div className="logsheet-filter-row" style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>Logsheet List</span>
-            <span className="badge badge-blue" style={{ borderRadius: '20px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, background: '#dbeafe', color: '#1e40af' }}>
-              {filteredLogsheets.length} Active Records
-            </span>
+      {/* Main Card */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Manage Logsheets</div>
+            <div className="card-subtitle">Review, sign, and manage all processing and finalized application logsheets</div>
           </div>
-
-          {/* Search Row */}
-          <div className="logsheet-search-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '520px' }}>
-            <div style={{ position: 'relative', width: '160px' }}>
-              <select 
-                className="form-control premium-select"
-                value={searchField}
-                onChange={e => setSearchField(e.target.value)}
-                style={{ paddingRight: '32px', height: '40px', fontSize: '13px', cursor: 'pointer', background: 'white', borderRadius: '10px', fontWeight: 600 }}
-              >
-                <option value="company_name">Company Name</option>
-                <option value="site_name">Site Name</option>
-                <option value="created_by">Created By</option>
-                <option value="id">Logsheet ID</option>
-                <option value="status">Status</option>
-                <option value="audit_type">Logsheet Type</option>
-              </select>
-              <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-            </div>
-
-            <div style={{ position: 'relative', flex: 1 }}>
-              <input
-                type="text"
-                placeholder={`Search by ${searchField.replace('_', ' ')}...`}
-                className="form-control premium-input"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ paddingLeft: '38px', height: '40px', fontSize: '13px', background: 'white', borderRadius: '10px' }}
-              />
-              <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            </div>
-          </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={fetchLogsheets}
+            disabled={loading}
+            title="Reload logsheets"
+          >
+            <RefreshCw size={13} className={loading ? 'spin' : ''} />
+          </button>
         </div>
 
-        {/* Content Wrapper */}
-        <div className="table-wrap" style={{ width: '100%', minHeight: '300px', padding: '12px', boxSizing: 'border-box' }}>
+        <div className="table-wrap">
           {loading ? (
             <div className="loading-overlay"><div className="spinner" /></div>
-          ) : filteredLogsheets.length === 0 ? (
-            <div className="empty-state" style={{ padding: '80px 24px' }}>
-              <div className="empty-state-icon" style={{ background: '#f0fdf4', color: 'var(--primary)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <FileText size={32} />
-              </div>
-              <div className="empty-state-title" style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No Logsheets Found</div>
-              <div className="empty-state-text" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                {searchQuery ? 'Try adjusting your search filters.' : 'There are currently no logsheets in the database.'}
-              </div>
-            </div>
           ) : (
-            <>
-              {/* DESKTOP TABLE VIEW (Screens >= 900px) */}
-              <div className="desktop-only-table logsheet-table-scroll">
-                <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid var(--border)' }}>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company Name</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Site Name</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logsheet Type</th>
-                      <th style={{ padding: '18px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedLogsheets.map(l => {
-                      const compName = l.company_name || 'Client Facility';
-                      const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
-                      const rawType = l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW');
-                      const typeLabel = rawType.toUpperCase();
-                      const categorySubtext = l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General');
-                      const creatorName = getCreatorName(l);
-
-                      return (
-                        <tr key={l._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                            <div>{compName}</div>
-                          </td>
-                          <td style={{ padding: '16px 24px', fontSize: '13px' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px' }}>
-                              <User size={13} style={{ color: 'var(--primary)' }} />
-                              <span>{creatorName}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '16px 24px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {new Date(l.created_at).toLocaleDateString('en-GB')}
-                          </td>
-                          <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                              <Building2 size={14} style={{ color: '#64748b', minWidth: '14px', flexShrink: 0 }} />
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={siteName}>
-                                {siteName}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '16px 24px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 800, color: '#00853b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
-                              {typeLabel}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, maxWidth: '165px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={categorySubtext}>
-                              {categorySubtext}
-                            </div>
-                          </td>
-                          <td style={{ padding: '16px 24px' }}>
-                            <span className={`badge ${getStatusBadgeClass(l.status)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                              {l.status === 'Waiting for Signature' ? <Clock size={11} /> : <CheckCircle2 size={11} />}
-                              {l.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 600 }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4f46e5' }}>
-                              <Tag size={12} />
-                              {l.audit_type || 'New'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '16px 24px', textAlign: 'center', position: 'relative', whiteSpace: 'nowrap' }}>
-                            <ActionTriggerButton
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActionModalLogsheet(l);
-                              }}
-                              title="Logsheet Actions"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* MOBILE & TABLET RESPONSIVE CARDS VIEW (Screens < 900px) */}
-              <div className="mobile-logsheet-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company Name</th>
+                  <th>Created By</th>
+                  <th>Site Name</th>
+                  <th>Type &amp; Category</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                 {paginatedLogsheets.map(l => {
                   const compName = l.company_name || 'Client Facility';
                   const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
@@ -430,35 +251,41 @@ export default function AdminLogsheetManage() {
                   const creatorName = getCreatorName(l);
 
                   return (
-                    <div 
-                      key={l._id}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border)',
-                        padding: '16px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px'
-                      }}
-                    >
-                      {/* Top Row: Company & Action Trigger */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                        <div>
-                          <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', marginBottom: '2px' }}>
-                            {compName}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#00853b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                              {typeLabel}
-                            </span>
-                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
-                              • {categorySubtext}
-                            </span>
-                          </div>
+                    <tr key={l._id}>
+                      <td style={{ fontWeight: 700, color: '#0f172a', fontSize: 13.5 }}>
+                        <div
+                          style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+                          onClick={() => navigate(getLogsheetLink(l))}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                          onMouseLeave={e => e.currentTarget.style.color = '#0f172a'}
+                        >
+                          {compName}
                         </div>
-
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{creatorName}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.created_by?.email || l.contact_email || 'HFA Staff'}</div>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {siteName}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 2 }}>
+                          {typeLabel}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {categorySubtext}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {l.created_at ? new Date(l.created_at).toLocaleDateString('en-GB') : '—'}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge ${getStatusBadgeClass(l.status)}`}>
+                          {l.status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center', position: 'relative' }}>
                         <ActionTriggerButton
                           onClick={(e) => {
                             e.stopPropagation();
@@ -466,83 +293,32 @@ export default function AdminLogsheetManage() {
                           }}
                           title="Logsheet Actions"
                         />
-                      </div>
-
-                      {/* Details Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Site Name</div>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Building2 size={12} style={{ color: '#64748b' }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={siteName}>{siteName}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Created By</div>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <User size={12} style={{ color: 'var(--primary)' }} />
-                            <span>{creatorName}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Date</div>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Calendar size={12} />
-                            <span>{new Date(l.created_at).toLocaleDateString('en-GB')}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Type</div>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Tag size={12} />
-                            <span>{l.audit_type || 'New'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card Bottom: Status Badge & Quick link */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                        <span className={`badge ${getStatusBadgeClass(l.status)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, fontSize: '12px', padding: '4px 10px' }}>
-                          {l.status === 'Waiting for Signature' ? <Clock size={12} /> : <CheckCircle2 size={12} />}
-                          {l.status}
-                        </span>
-
-                        <button 
-                          onClick={() => navigate(getLogsheetLink(l))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--primary)',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '4px 8px'
-                          }}
-                        >
-                          <Eye size={13} /> View Logsheet
-                        </button>
-                      </div>
-                    </div>
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
+              </tbody>
+            </table>
+          )}
 
-              <Pagination
-                total={filteredLogsheets.length}
-                page={page}
-                pageSize={pageSize}
-                onPageChange={setPage}
-                onPageSizeChange={setPageSize}
-              />
-            </>
+          {!loading && filteredLogsheets.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-title">No Logsheets Found</div>
+              <div className="empty-state-text">
+                {searchQuery ? 'No logsheets match your current search or filter.' : 'There are currently no logsheets in the database.'}
+              </div>
+            </div>
           )}
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalItems={filteredLogsheets.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="logsheets"
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

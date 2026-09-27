@@ -283,7 +283,7 @@ export default function AdminDashboard() {
                   <th style={{ width: '30%', padding: '10px 8px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     STATUS
                   </th>
-                  <th style={{ width: '22%', padding: '10px 12px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                  <th style={{ width: '22%', padding: '10px 12px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'left' }}>
                     DATE
                   </th>
                 </tr>
@@ -330,7 +330,7 @@ export default function AdminDashboard() {
                       <td style={{ padding: '10px 8px', overflow: 'hidden' }}>
                         <StatusBadge status={a.status} type={a.application_type} />
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                         <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>
                           {formatDate(a.created_at)}
                         </span>

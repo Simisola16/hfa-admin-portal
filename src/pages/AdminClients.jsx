@@ -15,6 +15,24 @@ export default function AdminClients() {
   const [searchParams, setSearchParams] = useSearchParams();
   const category = searchParams.get('category') || 'all';
   const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [page, setPage] = useState(parseInt(searchParams.get('page'), 10) || 1);
+  const [limit, setLimit] = useState(parseInt(searchParams.get('limit'), 10) || 25);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 1,
+    hasPrevPage: false,
+    hasNextPage: false
+  });
+  const [counts, setCounts] = useState({
+    all: 0,
+    company: 0,
+    processing: 0,
+    signups: 0,
+    bin: 0,
+    staff: 0
+  });
 
   useEffect(() => {
     const q = searchParams.get('search');
@@ -22,6 +40,20 @@ export default function AdminClients() {
       setSearch(q);
     }
   }, [searchParams]);
+
+  // Helper for generating pagination numbers with smart window ellipsis
+  const getPageNumbers = (curPage, totalPgs) => {
+    if (totalPgs <= 7) {
+      return Array.from({ length: totalPgs }, (_, i) => i + 1);
+    }
+    if (curPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPgs];
+    }
+    if (curPage >= totalPgs - 3) {
+      return [1, '...', totalPgs - 4, totalPgs - 3, totalPgs - 2, totalPgs - 1, totalPgs];
+    }
+    return [1, '...', curPage - 1, curPage, curPage + 1, '...', totalPgs];
+  };
 
   // Company Action Pop-up Modal State
   const [actionModalCompany, setActionModalCompany] = useState(null);
@@ -55,10 +87,32 @@ export default function AdminClients() {
   });
   const [companySubmitting, setCompanySubmitting] = useState(false);
 
-  const fetchUsers = () => {
+  const fetchUsers = (opts = {}) => {
     setLoading(true);
-    api.get('/api/users')
-      .then(d => setUsers(d.data || []))
+    const curPage = opts.page !== undefined ? opts.page : page;
+    const curLimit = opts.limit !== undefined ? opts.limit : limit;
+    const curCategory = opts.category !== undefined ? opts.category : category;
+    const curSearch = opts.search !== undefined ? opts.search : search;
+
+    const params = new URLSearchParams({
+      page: String(curPage),
+      limit: String(curLimit),
+      category: curCategory
+    });
+    if (curSearch && curSearch.trim()) {
+      params.set('search', curSearch.trim());
+    }
+
+    api.get(`/api/users?${params.toString()}`)
+      .then(res => {
+        setUsers(res.data || []);
+        if (res.pagination) {
+          setPagination(res.pagination);
+        }
+        if (res.counts) {
+          setCounts(res.counts);
+        }
+      })
       .catch(() => toast.error('Failed to load users'))
       .finally(() => setLoading(false));
   };
@@ -72,8 +126,11 @@ export default function AdminClients() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchUsers({ page, limit, category, search });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [category, page, limit, search]);
 
   useEffect(() => {
     if (category === 'impersonations') {
@@ -229,65 +286,8 @@ export default function AdminClients() {
     return { isCertified, isProcessing, isSignup };
   };
 
-  // Pre-calculate counts for all tabs
-  const clientUsers = users.filter(c => c.role === 'client');
-  const counts = {
-    all: clientUsers.length,
-    company: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isCertified).length,
-    processing: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isProcessing).length,
-    signups: clientUsers.filter(c => !c.suspension_reason && c.is_active !== false && getCompanyClassification(c).isSignup).length,
-    bin: clientUsers.filter(c => c.suspension_reason || c.is_active === false).length,
-  };
-
-  // Filter clients/staff based on category and search
-  const filtered = users.filter(c => {
-    // 1. Search Filter
-    if (search) {
-      const s = search.trim().toLowerCase();
-      const nameMatch = c.full_name?.toLowerCase().includes(s) || c.company_name?.toLowerCase().includes(s);
-      const emailMatch = c.email?.toLowerCase().includes(s);
-      const phoneMatch = c.phone?.toLowerCase().includes(s);
-      const notesMatch = c.notes?.toLowerCase().includes(s);
-      const addressMatch = c.address?.toLowerCase().includes(s) || c.postcode?.toLowerCase().includes(s);
-      const idMatch = c._id?.toString().toLowerCase().includes(s);
-      if (!nameMatch && !emailMatch && !phoneMatch && !notesMatch && !addressMatch && !idMatch) return false;
-    }
-
-    // 2. Staff filtering
-    if (category === 'staff') {
-      return c.role !== 'client';
-    }
-
-    // 3. Client filtering
-    if (c.role !== 'client') return false;
-
-    const isActive = c.is_active !== false;
-    const isSuspended = !!c.suspension_reason;
-
-    if (category === 'bin') {
-      return isSuspended || !isActive;
-    }
-
-    const { isCertified, isProcessing, isSignup } = getCompanyClassification(c);
-
-    // "All Companies" shows all registered client companies
-    if (category === 'all') {
-      return true;
-    }
-
-    // For other tabs (Certified, Processing, Sign-ups), exclude suspended / inactive
-    if (isSuspended || !isActive) return false;
-
-    if (category === 'company') {
-      return isCertified;
-    } else if (category === 'processing') {
-      return isProcessing;
-    } else if (category === 'signups') {
-      return isSignup;
-    }
-
-    return true;
-  });
+  // The backend already applies category, search, and pagination
+  const filtered = users;
 
   const isAdmin = loggedInUser?.role === 'admin' || loggedInUser?.role === 'superadmin';
 
@@ -296,7 +296,10 @@ export default function AdminClients() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12, flexWrap: 'wrap' }}>
         <button
           className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setSearchParams({ category: 'all' })}
+          onClick={() => {
+            setPage(1);
+            setSearchParams({ category: 'all' });
+          }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           All Companies
@@ -313,7 +316,10 @@ export default function AdminClients() {
         </button>
         <button
           className={`btn btn-sm ${category === 'company' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setSearchParams({ category: 'company' })}
+          onClick={() => {
+            setPage(1);
+            setSearchParams({ category: 'company' });
+          }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Certified Clients
@@ -330,7 +336,10 @@ export default function AdminClients() {
         </button>
         <button
           className={`btn btn-sm ${category === 'processing' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setSearchParams({ category: 'processing' })}
+          onClick={() => {
+            setPage(1);
+            setSearchParams({ category: 'processing' });
+          }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Processing
@@ -347,7 +356,10 @@ export default function AdminClients() {
         </button>
         <button
           className={`btn btn-sm ${category === 'signups' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setSearchParams({ category: 'signups' })}
+          onClick={() => {
+            setPage(1);
+            setSearchParams({ category: 'signups' });
+          }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Sign-ups
@@ -364,7 +376,10 @@ export default function AdminClients() {
         </button>
         <button
           className={`btn btn-sm ${category === 'bin' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setSearchParams({ category: 'bin' })}
+          onClick={() => {
+            setPage(1);
+            setSearchParams({ category: 'bin' });
+          }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Suspended
@@ -384,7 +399,10 @@ export default function AdminClients() {
         {isAdmin && (
           <button
             className={`btn btn-sm ${category === 'impersonations' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setSearchParams({ category: 'impersonations' })}
+            onClick={() => {
+              setPage(1);
+              setSearchParams({ category: 'impersonations' });
+            }}
           >
             Impersonation Logs
           </button>
@@ -397,12 +415,15 @@ export default function AdminClients() {
           <input
             placeholder="Search companies by name, email, contact, CID..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
           <span className="badge badge-gray" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>
-            {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${filtered.length} Companies`}
+            {category === 'impersonations' ? `${impersonationLogs.length} Sessions` : `${pagination.total || filtered.length} Companies`}
           </span>
         </div>
       </div>
@@ -588,6 +609,114 @@ export default function AdminClients() {
             )
           }
         </div>
+
+        {/* Server-Side Pagination Bar */}
+        {category !== 'impersonations' && (pagination.totalPages > 1 || pagination.total > 10) && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 24px',
+            borderTop: '1px solid #e2e8f0',
+            background: '#ffffff',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: '#64748b' }}>
+              <span>
+                Showing <strong>{pagination.total === 0 ? 0 : ((pagination.page - 1) * pagination.limit) + 1}</strong> to <strong>{Math.min(pagination.page * pagination.limit, pagination.total)}</strong> of <strong>{pagination.total.toLocaleString()}</strong> companies
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Per page:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    const newLimit = Number(e.target.value);
+                    setLimit(newLimit);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 13,
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(1)}
+                disabled={pagination.page <= 1 || loading}
+                style={{ padding: '6px 10px', fontSize: 12, opacity: pagination.page <= 1 ? 0.5 : 1 }}
+              >
+                First
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                disabled={pagination.page <= 1 || loading}
+                style={{ padding: '6px 10px', fontSize: 12, opacity: pagination.page <= 1 ? 0.5 : 1 }}
+              >
+                &larr; Prev
+              </button>
+
+              {getPageNumbers(pagination.page, pagination.totalPages).map((p, idx) => (
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>
+                ) : (
+                  <button
+                    key={`page-${p}`}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    disabled={loading}
+                    className={`btn btn-sm ${pagination.page === p ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{
+                      minWidth: 32,
+                      height: 32,
+                      padding: '0 8px',
+                      fontSize: 12,
+                      fontWeight: pagination.page === p ? 700 : 500
+                    }}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(prev => Math.min(pagination.totalPages, prev + 1))}
+                disabled={pagination.page >= pagination.totalPages || loading}
+                style={{ padding: '6px 10px', fontSize: 12, opacity: pagination.page >= pagination.totalPages ? 0.5 : 1 }}
+              >
+                Next &rarr;
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={pagination.page >= pagination.totalPages || loading}
+                style={{ padding: '6px 10px', fontSize: 12, opacity: pagination.page >= pagination.totalPages ? 0.5 : 1 }}
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Company Actions Pop-up Modal */}

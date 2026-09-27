@@ -13,6 +13,7 @@ export default function AdminProducts() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSite, setFilterSite] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
@@ -54,6 +55,15 @@ export default function AdminProducts() {
     }
   };
 
+  // Active company filter: explicit selection or exact typed match
+  const activeCompany = useMemo(() => {
+    if (selectedCompany) return selectedCompany;
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    const exact = directoryCompanies.find(c => c.name.trim().toLowerCase() === q);
+    return exact ? exact.name : null;
+  }, [selectedCompany, search, directoryCompanies]);
+
   // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -61,59 +71,115 @@ export default function AdminProducts() {
 
     const companySitesMap = new Map();
 
-    // 1. From all companies directory
-    directoryCompanies.forEach(c => {
-      if (c.name.toLowerCase().includes(q)) {
-        (c.sites || []).forEach(s => {
-          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
-            companySitesMap.set(s.name.toLowerCase(), {
-              _id: s.id,
-              name: s.name,
-              company: c.name
-            });
-          }
-        });
-      }
-    });
+    if (activeCompany) {
+      // EXACT COMPANY SELECTED: Only show sites for THIS specific company!
+      const targetLower = activeCompany.trim().toLowerCase();
 
-    // 2. From sites prop & matching products
-    const matchingProducts = products.filter(p => {
-      const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').toLowerCase();
-      return clientName.includes(q);
-    });
-
-    const matchingSiteIds = new Set(
-      matchingProducts
-        .map(p => p.site_id?._id || p.site_id?.id || p.site_id)
-        .filter(Boolean)
-        .map(String)
-    );
-
-    sites.forEach(s => {
-      const sId = String(s._id || s.id);
-      const sComp = (s.company_name || s.client_id?.company_name || s.client_id?.full_name || '').toLowerCase();
-      const sName = s.name || s.est_name || s.trading_name || s.address_1;
-      if ((matchingSiteIds.has(sId) || sComp.includes(q)) && sName) {
-        if (!companySitesMap.has(sName.toLowerCase())) {
-          companySitesMap.set(sName.toLowerCase(), { _id: s._id || s.id, name: sName, company: s.company_name });
-        }
-      }
-    });
-
-    matchingProducts.forEach(p => {
-      if (p.site_id && typeof p.site_id === 'object') {
-        const sName = p.site_id.name || p.site_id.est_name || p.site_id.trading_name;
-        if (sName && !companySitesMap.has(sName.toLowerCase())) {
-          companySitesMap.set(sName.toLowerCase(), {
-            _id: p.site_id._id || p.site_id.id,
-            name: sName
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.trim().toLowerCase() === targetLower) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), {
+                _id: s.id,
+                name: s.name,
+                company: c.name
+              });
+            }
           });
         }
-      }
-    });
+      });
+
+      // 2. From sites prop & matching products
+      const matchingProducts = products.filter(p => {
+        const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').trim().toLowerCase();
+        return clientName === targetLower;
+      });
+
+      const matchingSiteIds = new Set(
+        matchingProducts
+          .map(p => p.site_id?._id || p.site_id?.id || p.site_id)
+          .filter(Boolean)
+          .map(String)
+      );
+
+      sites.forEach(s => {
+        const sId = String(s._id || s.id);
+        const sComp = (s.company_name || s.client_id?.company_name || s.client_id?.full_name || '').trim().toLowerCase();
+        const sName = s.name || s.est_name || s.trading_name || s.address_1;
+        if ((matchingSiteIds.has(sId) || sComp === targetLower) && sName) {
+          if (!companySitesMap.has(sName.toLowerCase())) {
+            companySitesMap.set(sName.toLowerCase(), { _id: s._id || s.id, name: sName, company: s.company_name });
+          }
+        }
+      });
+
+      matchingProducts.forEach(p => {
+        if (p.site_id && typeof p.site_id === 'object') {
+          const sName = p.site_id.name || p.site_id.est_name || p.site_id.trading_name;
+          if (sName && !companySitesMap.has(sName.toLowerCase())) {
+            companySitesMap.set(sName.toLowerCase(), {
+              _id: p.site_id._id || p.site_id.id,
+              name: sName
+            });
+          }
+        }
+      });
+    } else {
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.toLowerCase().includes(q)) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), {
+                _id: s.id,
+                name: s.name,
+                company: c.name
+              });
+            }
+          });
+        }
+      });
+
+      // 2. From sites prop & matching products
+      const matchingProducts = products.filter(p => {
+        const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').toLowerCase();
+        return clientName.includes(q);
+      });
+
+      const matchingSiteIds = new Set(
+        matchingProducts
+          .map(p => p.site_id?._id || p.site_id?.id || p.site_id)
+          .filter(Boolean)
+          .map(String)
+      );
+
+      sites.forEach(s => {
+        const sId = String(s._id || s.id);
+        const sComp = (s.company_name || s.client_id?.company_name || s.client_id?.full_name || '').toLowerCase();
+        const sName = s.name || s.est_name || s.trading_name || s.address_1;
+        if ((matchingSiteIds.has(sId) || sComp.includes(q)) && sName) {
+          if (!companySitesMap.has(sName.toLowerCase())) {
+            companySitesMap.set(sName.toLowerCase(), { _id: s._id || s.id, name: sName, company: s.company_name });
+          }
+        }
+      });
+
+      matchingProducts.forEach(p => {
+        if (p.site_id && typeof p.site_id === 'object') {
+          const sName = p.site_id.name || p.site_id.est_name || p.site_id.trading_name;
+          if (sName && !companySitesMap.has(sName.toLowerCase())) {
+            companySitesMap.set(sName.toLowerCase(), {
+              _id: p.site_id._id || p.site_id.id,
+              name: sName
+            });
+          }
+        }
+      });
+    }
 
     return Array.from(companySitesMap.values());
-  }, [search, directoryCompanies, sites, products]);
+  }, [search, activeCompany, directoryCompanies, sites, products]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -195,22 +261,31 @@ export default function AdminProducts() {
 
   const filtered = products.filter(p => {
     if (p.status === 'pending') return false;
-    const clientName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '';
+    const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').trim();
     const barcodeStr = p.barcode || p.code || '';
     const siteName = p.site_id?.name || p.site_id?.est_name || p.site_id?.trading_name || '';
-    
-    const matchSearch = !search || 
-      p.name?.toLowerCase().includes(search.toLowerCase()) || 
-      clientName.toLowerCase().includes(search.toLowerCase()) ||
-      siteName.toLowerCase().includes(search.toLowerCase()) ||
-      barcodeStr.toLowerCase().includes(search.toLowerCase());
+
+    // If exact company is active, filter strictly by this company
+    if (activeCompany) {
+      if (clientName.toLowerCase() !== activeCompany.trim().toLowerCase()) {
+        return false;
+      }
+    } else if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchSearch = 
+        p.name?.toLowerCase().includes(q) || 
+        clientName.toLowerCase().includes(q) ||
+        siteName.toLowerCase().includes(q) ||
+        barcodeStr.toLowerCase().includes(q);
+      if (!matchSearch) return false;
+    }
       
     const matchStatus = !filterStatus || p.status === filterStatus;
     
     const prodSiteId = p.site_id?._id || p.site_id?.id || p.site_id;
     const matchSite = !filterSite || String(prodSiteId) === String(filterSite);
 
-    return matchSearch && matchStatus && matchSite;
+    return matchStatus && matchSite;
   });
 
   const totalPages = Math.ceil(filtered.length / limit) || 1;
@@ -223,6 +298,19 @@ export default function AdminProducts() {
           value={search}
           onChange={val => {
             setSearch(val);
+            if (selectedCompany && val.trim().toLowerCase() !== selectedCompany.trim().toLowerCase()) {
+              setSelectedCompany(null);
+            }
+            setPage(1);
+          }}
+          onSelect={item => {
+            if (item.type === 'Company') {
+              setSelectedCompany(item.label);
+              setSearch(item.label);
+            } else {
+              setSelectedCompany(null);
+              setSearch(item.label);
+            }
             setPage(1);
           }}
           suggestions={searchSuggestions}

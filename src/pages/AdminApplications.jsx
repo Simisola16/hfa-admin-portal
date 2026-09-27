@@ -55,6 +55,7 @@ export default function AdminApplications() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSite, setFilterSite] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedApp, setSelectedApp] = useState(null); 
@@ -146,6 +147,15 @@ export default function AdminApplications() {
 
   const safeApps = Array.isArray(apps) ? apps : [];
 
+  // Active company filter: explicit selection or exact typed match
+  const activeCompany = useMemo(() => {
+    if (selectedCompany) return selectedCompany;
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    const exact = directoryCompanies.find(c => c.name.trim().toLowerCase() === q);
+    return exact ? exact.name : null;
+  }, [selectedCompany, search, directoryCompanies]);
+
   // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -153,30 +163,57 @@ export default function AdminApplications() {
 
     const companySitesMap = new Map();
 
-    // 1. From all companies directory
-    directoryCompanies.forEach(c => {
-      if (c.name.toLowerCase().includes(q)) {
-        (c.sites || []).forEach(s => {
-          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
-            companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
-          }
-        });
-      }
-    });
+    if (activeCompany) {
+      // EXACT COMPANY SELECTED: Only show sites for THIS specific company!
+      const targetLower = activeCompany.trim().toLowerCase();
 
-    // 2. Filter sites to those matching the searched company from loaded applications
-    safeApps.forEach(a => {
-      const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').toLowerCase();
-      if (comp.includes(q)) {
-        const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
-        if (site && !companySitesMap.has(site.toLowerCase())) {
-          companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name });
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.trim().toLowerCase() === targetLower) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
         }
-      }
-    });
+      });
+
+      // 2. Filter sites to those matching the selected company from loaded applications
+      safeApps.forEach(a => {
+        const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').trim().toLowerCase();
+        if (comp === targetLower) {
+          const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name || a.profiles?.company_name });
+          }
+        }
+      });
+    } else {
+      // 1. From all companies directory
+      directoryCompanies.forEach(c => {
+        if (c.name.toLowerCase().includes(q)) {
+          (c.sites || []).forEach(s => {
+            if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+              companySitesMap.set(s.name.toLowerCase(), { name: s.name, company: c.name });
+            }
+          });
+        }
+      });
+
+      // 2. Filter sites to those matching the searched company from loaded applications
+      safeApps.forEach(a => {
+        const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').toLowerCase();
+        if (comp.includes(q)) {
+          const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+          if (site && !companySitesMap.has(site.toLowerCase())) {
+            companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name });
+          }
+        }
+      });
+    }
 
     return Array.from(companySitesMap.values());
-  }, [search, directoryCompanies, safeApps]);
+  }, [search, activeCompany, directoryCompanies, safeApps]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -268,11 +305,21 @@ export default function AdminApplications() {
       if (a.application_type !== 'surveillance') return false;
     }
 
-    // 2. Search Filter
-    const matchSearch = !search || 
-      a.application_number?.toLowerCase().includes(search.toLowerCase()) || 
-      a.profiles?.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-      a.establishment_name?.toLowerCase().includes(search.toLowerCase());
+    // 2. Search / Company Filter
+    if (activeCompany) {
+      const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').trim().toLowerCase();
+      if (comp !== activeCompany.trim().toLowerCase()) {
+        return false;
+      }
+    } else if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchSearch = 
+        a.application_number?.toLowerCase().includes(q) || 
+        a.profiles?.company_name?.toLowerCase().includes(q) ||
+        a.establishment_name?.toLowerCase().includes(q) ||
+        (a.site_name || a.site_id?.name || a.site?.name || '').toLowerCase().includes(q);
+      if (!matchSearch) return false;
+    }
 
     // 3. Dropdown Status Filter
     const matchStatus = !filterStatus || a.status === filterStatus;
@@ -281,7 +328,7 @@ export default function AdminApplications() {
     const appSite = (a.site_name || a.site_id?.name || a.site?.name || a.establishment_name || '').toLowerCase();
     const matchSite = !filterSite || appSite === filterSite.toLowerCase();
 
-    return matchSearch && matchStatus && matchSite;
+    return matchStatus && matchSite;
   });
 
   useEffect(() => {
@@ -361,6 +408,19 @@ export default function AdminApplications() {
           value={search}
           onChange={val => {
             setSearch(val);
+            if (selectedCompany && val.trim().toLowerCase() !== selectedCompany.trim().toLowerCase()) {
+              setSelectedCompany(null);
+            }
+            setPage(1);
+          }}
+          onSelect={item => {
+            if (item.type === 'Company') {
+              setSelectedCompany(item.label);
+              setSearch(item.label);
+            } else {
+              setSelectedCompany(null);
+              setSearch(item.label);
+            }
             setPage(1);
           }}
           suggestions={searchSuggestions}

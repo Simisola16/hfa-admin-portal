@@ -144,22 +144,10 @@ export default function AdminApplications() {
 
   const safeApps = Array.isArray(apps) ? apps : [];
 
-  // Dynamic available sites based on company search
+  // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const sitesMap = new Map();
-
-    safeApps.forEach(a => {
-      const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
-      const comp = a.profiles?.company_name || a.company_name || a.establishment_name || '';
-      if (site && !sitesMap.has(site.toLowerCase())) {
-        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
-      }
-    });
-
-    if (!q) {
-      return Array.from(sitesMap.values());
-    }
+    if (!q) return []; // Do not show any sites unless a company is searched/picked
 
     // Filter sites to those matching the searched company
     const matchingApps = safeApps.filter(a => {
@@ -175,12 +163,15 @@ export default function AdminApplications() {
       }
     });
 
-    if (companySitesMap.size > 0) {
-      return Array.from(companySitesMap.values());
-    }
-
-    return Array.from(sitesMap.values());
+    return Array.from(companySitesMap.values());
   }, [search, safeApps]);
+
+  // Automatically reset site filter if search is cleared
+  useEffect(() => {
+    if (!search.trim() && filterSite) {
+      setFilterSite('');
+    }
+  }, [search, filterSite]);
 
   // Autocomplete search suggestions (companies & sites)
   const searchSuggestions = useMemo(() => {
@@ -330,29 +321,42 @@ export default function AdminApplications() {
         />
 
         {/* Filter by Site (dynamically narrowed to searched company) */}
-        {availableSites.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <MapPin size={15} style={{ color: '#64748b' }} />
-            <select
-              className="form-control"
-              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
-              value={filterSite}
-              onChange={e => {
-                setFilterSite(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">
-                {search.trim() ? `All Sites for "${search.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
-              </option>
-              {availableSites.map(s => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <MapPin size={15} style={{ color: search.trim() ? 'var(--primary, #2563eb)' : '#94a3b8' }} />
+          <select
+            className="form-control"
+            style={{ 
+              width: 'auto', 
+              minWidth: 190, 
+              fontWeight: 600,
+              backgroundColor: search.trim() ? '#ffffff' : '#f8fafc',
+              cursor: search.trim() ? 'pointer' : 'not-allowed'
+            }}
+            value={filterSite}
+            disabled={!search.trim()}
+            onChange={e => {
+              setFilterSite(e.target.value);
+              setPage(1);
+            }}
+          >
+            {!search.trim() ? (
+              <option value="">Select a company first to filter sites</option>
+            ) : availableSites.length === 0 ? (
+              <option value="">No sites found for "{search.trim()}"</option>
+            ) : (
+              <>
+                <option value="">
+                  {`All Sites for "${search.trim()}" (${availableSites.length})`}
                 </option>
-              ))}
-            </select>
-          </div>
-        )}
+                {availableSites.map(s => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </div>
 
         <select
           className="form-control"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3, Eye, ChevronDown, Send, ArrowRight, MapPin } from 'lucide-react';
@@ -62,18 +62,21 @@ export default function AdminCertificates({ defaultTab }) {
   const [pageSize, setPageSize] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const statusParam = searchParams.get('status') || searchParams.get('filter');
-    if ((statusParam === 'under_review' || statusParam === 'review') && canReviewCertificate) {
+    const statusParam = (searchParams.get('status') || searchParams.get('filter') || '').toLowerCase().trim();
+    const isReviewRoute = location.pathname.endsWith('/review') || defaultTab === 'review';
+
+    if (statusParam === 'under_review' || statusParam === 'review') {
       setActiveTab('review');
       setFilterStatus('under_review');
-    } else if (statusParam && statusParam !== 'under_review' && statusParam !== 'review') {
+    } else if (statusParam) {
       setActiveTab('certs');
-      setFilterStatus(statusParam.toLowerCase());
+      setFilterStatus(statusParam);
     } else {
-      if (defaultTab === 'review' && canReviewCertificate) {
+      if (isReviewRoute && canReviewCertificate) {
         setActiveTab('review');
         setFilterStatus('under_review');
       } else {
@@ -81,7 +84,7 @@ export default function AdminCertificates({ defaultTab }) {
         setFilterStatus('');
       }
     }
-  }, [searchParams, canReviewCertificate, defaultTab]);
+  }, [location.pathname, searchParams, canReviewCertificate, defaultTab]);
   
   const [form, setForm] = useState({ 
     client_id: '', 
@@ -160,6 +163,24 @@ export default function AdminCertificates({ defaultTab }) {
     }
   };
 
+  const isExpiringSoon = (c) => {
+    if (!c || !c.expiry_date) return false;
+    const s = (c.status || '').toLowerCase().trim();
+    if (s !== 'active') return false;
+    const now = Date.now();
+    const exp = new Date(c.expiry_date).getTime();
+    const diff = exp - now;
+    return diff > 0 && diff <= 60 * 24 * 60 * 60 * 1000;
+  };
+
+  const isCertExpired = (c) => {
+    if (!c) return false;
+    const s = (c.status || '').toLowerCase().trim();
+    if (s === 'expired') return true;
+    if (c.expiry_date && new Date(c.expiry_date) < new Date()) return true;
+    return false;
+  };
+
   const underReviewCerts = useMemo(() => {
     return certs.filter(c => {
       const s = (c.status || '').toLowerCase().trim();
@@ -168,11 +189,18 @@ export default function AdminCertificates({ defaultTab }) {
   }, [certs]);
 
   const activeCertsCount = useMemo(() => {
-    return certs.filter(c => (c.status || '').toLowerCase().trim() === 'active').length;
+    return certs.filter(c => {
+      const s = (c.status || '').toLowerCase().trim();
+      return s === 'active' && !isCertExpired(c);
+    }).length;
+  }, [certs]);
+
+  const expiringCertsCount = useMemo(() => {
+    return certs.filter(c => isExpiringSoon(c)).length;
   }, [certs]);
 
   const expiredCertsCount = useMemo(() => {
-    return certs.filter(c => (c.status || '').toLowerCase().trim() === 'expired').length;
+    return certs.filter(c => isCertExpired(c)).length;
   }, [certs]);
 
   // Active company filter: explicit selection or exact typed match
@@ -317,6 +345,9 @@ export default function AdminCertificates({ defaultTab }) {
   const filteredCerts = useMemo(() => {
     return certs.filter(c => {
       const cStatus = (c.status || '').toLowerCase().trim();
+      const isPast = isCertExpired(c);
+      const isExpSoon = isExpiringSoon(c);
+
       if (activeTab === 'review') {
         if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
       } else if (activeTab === 'certs') {
@@ -325,7 +356,11 @@ export default function AdminCertificates({ defaultTab }) {
           if (fStatus === 'under_review' || fStatus === 'review') {
             if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
           } else if (fStatus === 'active') {
-            if (cStatus !== 'active') return false;
+            if (cStatus !== 'active' || isPast) return false;
+          } else if (fStatus === 'expiring') {
+            if (!isExpSoon) return false;
+          } else if (fStatus === 'expired') {
+            if (!isPast) return false;
           } else if (cStatus !== fStatus) {
             return false;
           }
@@ -454,6 +489,30 @@ export default function AdminCertificates({ defaultTab }) {
             padding: '12px 20px',
             border: 'none',
             background: 'none',
+            borderBottom: activeTab === 'certs' && filterStatus === 'expiring' ? '2.5px solid #d97706' : 'none',
+            color: activeTab === 'certs' && filterStatus === 'expiring' ? '#d97706' : '#64748b',
+            fontWeight: activeTab === 'certs' && filterStatus === 'expiring' ? 800 : 600,
+            cursor: 'pointer',
+            fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+          onClick={() => {
+            setActiveTab('certs');
+            setFilterStatus('expiring');
+            navigate('/certificates?status=expiring');
+          }}
+        >
+          ⏳ Expiring Soon ({expiringCertsCount})
+        </button>
+
+        <button
+          type="button"
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
             borderBottom: activeTab === 'certs' && filterStatus === 'expired' ? '2.5px solid #047857' : 'none',
             color: activeTab === 'certs' && filterStatus === 'expired' ? '#047857' : '#64748b',
             fontWeight: activeTab === 'certs' && filterStatus === 'expired' ? 800 : 600,
@@ -556,10 +615,11 @@ export default function AdminCertificates({ defaultTab }) {
             }}
           >
             <option value="">All Statuses</option>
-            <option value="under_review">Under Review</option>
+            <option value="under_review">Under Review / Pending Review</option>
             <option value="active">Active</option>
-            <option value="outdated">Outdated</option>
+            <option value="expiring">Expiring Soon (within 60d)</option>
             <option value="expired">Expired</option>
+            <option value="outdated">Outdated</option>
           </select>
         )}
       </div>
@@ -571,6 +631,8 @@ export default function AdminCertificates({ defaultTab }) {
                 ? `Certificates Awaiting Review & QA (${filteredCerts.length})`
                 : filterStatus === 'active'
                 ? `Active Certificates (${filteredCerts.length})`
+                : filterStatus === 'expiring'
+                ? `Certificates Expiring Soon (${filteredCerts.length})`
                 : filterStatus === 'expired'
                 ? `Expired Certificates (${filteredCerts.length})`
                 : filterStatus === 'under_review'

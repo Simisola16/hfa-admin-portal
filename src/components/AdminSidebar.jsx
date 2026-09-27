@@ -81,10 +81,11 @@ const NAV_SECTIONS = [
       {
         icon: Award, label: 'Certificates', path: '/certificates',
         children: [
-          { label: 'All Certificates',    path: '/certificates' },
-          { label: 'Review Certificates', path: '/certificates?status=under_review', reviewCertOnly: true },
-          { label: 'Active Certificates', path: '/certificates?status=active' },
-          { label: 'Expired Certificates', path: '/certificates?status=expired' },
+          { label: 'All Certificates',      path: '/certificates' },
+          { label: 'Review Certificates',   path: '/certificates?status=under_review', reviewCertOnly: true },
+          { label: 'Active Certificates',   path: '/certificates?status=active' },
+          { label: 'Expiring Certificates', path: '/certificates?status=expiring' },
+          { label: 'Expired Certificates',  path: '/certificates?status=expired' },
         ],
       },
       { icon: Ship, label: 'Export Certs', path: '/exports' },
@@ -157,6 +158,38 @@ const NAV_SECTIONS = [
 function isChildActive(childPath, location) {
   const [childPathname, childSearch = ''] = childPath.split('?');
   const childQuery = childSearch ? `?${childSearch}` : '';
+
+  // Match review route variants (/certificates/review, /certificates/:id/review, or /certificates?status=under_review)
+  if (childPath.includes('status=under_review') || childPath.includes('/certificates/review')) {
+    if (
+      location.pathname === '/certificates/review' ||
+      location.pathname.endsWith('/review') ||
+      (location.pathname === '/certificates' && (location.search.includes('status=under_review') || location.search.includes('status=review')))
+    ) {
+      return true;
+    }
+  }
+
+  // Match active certificates
+  if (childPath === '/certificates?status=active') {
+    return location.pathname === '/certificates' && location.search.includes('status=active');
+  }
+
+  // Match expiring certificates
+  if (childPath === '/certificates?status=expiring') {
+    return location.pathname === '/certificates' && location.search.includes('status=expiring');
+  }
+
+  // Match expired certificates
+  if (childPath === '/certificates?status=expired') {
+    return location.pathname === '/certificates' && location.search.includes('status=expired');
+  }
+
+  // Match all certificates route (no specific query or status=all)
+  if (childPath === '/certificates') {
+    return location.pathname === '/certificates' && (!location.search || location.search === '?status=all');
+  }
+
   if (childPathname === '/addon-applications' && childSearch === 'view=list' && location.pathname === '/addon-applications' && !location.search) {
     return true;
   }
@@ -255,6 +288,10 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
             isChildActive(c.path, location)
           );
           if (hasActive) next[item.label] = true;
+          // Keep Certificates expanded when on any certificates page or review route
+          if (item.label === 'Certificates' && location.pathname.startsWith('/certificates')) {
+            next[item.label] = true;
+          }
         }
       });
     });

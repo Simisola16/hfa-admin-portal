@@ -12,6 +12,15 @@ export default function AdminProducts() {
   const [filterSite, setFilterSite] = useState('');
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+
+  const getPageNumbers = (curPage, totalPgs) => {
+    if (totalPgs <= 7) return Array.from({ length: totalPgs }, (_, i) => i + 1);
+    if (curPage <= 4) return [1, 2, 3, 4, 5, '...', totalPgs];
+    if (curPage >= totalPgs - 3) return [1, '...', totalPgs - 4, totalPgs - 3, totalPgs - 2, totalPgs - 1, totalPgs];
+    return [1, '...', curPage - 1, curPage, curPage + 1, '...', totalPgs];
+  };
 
   const fetchInitialData = () => {
     setLoading(true);
@@ -62,6 +71,9 @@ export default function AdminProducts() {
     return matchSearch && matchStatus && matchSite;
   });
 
+  const totalPages = Math.ceil(filtered.length / limit) || 1;
+  const paginatedProducts = filtered.slice((page - 1) * limit, page * limit);
+
   return (
     <div>
       <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -70,7 +82,10 @@ export default function AdminProducts() {
           <input 
             placeholder="Search by product name, code, company, or site..." 
             value={search} 
-            onChange={e => setSearch(e.target.value)} 
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }} 
           />
         </div>
 
@@ -82,7 +97,10 @@ export default function AdminProducts() {
               className="form-control" 
               style={{ width: 'auto', minWidth: 180, fontWeight: 600 }} 
               value={filterSite} 
-              onChange={e => setFilterSite(e.target.value)}
+              onChange={e => {
+                setFilterSite(e.target.value);
+                setPage(1);
+              }}
             >
               <option value="">All Sites ({sites.length})</option>
               {sites.map(s => (
@@ -98,7 +116,10 @@ export default function AdminProducts() {
           className="form-control" 
           style={{ width: 'auto' }} 
           value={filterStatus} 
-          onChange={e => setFilterStatus(e.target.value)}
+          onChange={e => {
+            setFilterStatus(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="">All Statuses</option>
           <option value="active">Active / Certified</option>
@@ -138,7 +159,7 @@ export default function AdminProducts() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(product => {
+                {paginatedProducts.map(product => {
                   const prodId = product._id || product.id;
                   const clientName = product.client_id?.company_name || product.client_id?.full_name || product.profiles?.company_name || '—';
                   const barcodeVal = product.barcode || product.code || '—';
@@ -223,6 +244,112 @@ export default function AdminProducts() {
             </table>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {filtered.length > limit && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            borderTop: '1px solid #e2e8f0',
+            background: '#ffffff',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 13, color: '#64748b' }}>
+              <span>
+                Showing <strong>{filtered.length === 0 ? 0 : ((page - 1) * limit) + 1}</strong> to <strong>{Math.min(page * limit, filtered.length)}</strong> of <strong>{filtered.length.toLocaleString()}</strong> products
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Per page:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 13,
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(1)}
+                disabled={page <= 1}
+                style={{ padding: '5px 9px', fontSize: 12, opacity: page <= 1 ? 0.5 : 1 }}
+              >
+                First
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                disabled={page <= 1}
+                style={{ padding: '5px 9px', fontSize: 12, opacity: page <= 1 ? 0.5 : 1 }}
+              >
+                &larr; Prev
+              </button>
+
+              {getPageNumbers(page, totalPages).map((p, idx) => (
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>
+                ) : (
+                  <button
+                    key={`page-${p}`}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    className={`btn btn-sm ${page === p ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{
+                      minWidth: 30,
+                      height: 30,
+                      padding: '0 6px',
+                      fontSize: 12,
+                      fontWeight: page === p ? 700 : 500
+                    }}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages}
+                style={{ padding: '5px 9px', fontSize: 12, opacity: page >= totalPages ? 0.5 : 1 }}
+              >
+                Next &rarr;
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setPage(totalPages)}
+                disabled={page >= totalPages}
+                style={{ padding: '5px 9px', fontSize: 12, opacity: page >= totalPages ? 0.5 : 1 }}
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Product Detail Modal */}

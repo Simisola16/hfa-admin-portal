@@ -274,16 +274,16 @@ export default function AdminDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
-                  <th style={{ width: '38%', padding: '10px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '27%', padding: '10px 12px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     SITE / COMPANY
                   </th>
-                  <th style={{ width: '18%', padding: '10px 10px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '21%', padding: '10px 8px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     TYPE
                   </th>
-                  <th style={{ width: '26%', padding: '10px 10px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ width: '30%', padding: '10px 8px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     STATUS
                   </th>
-                  <th style={{ width: '18%', padding: '10px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                  <th style={{ width: '22%', padding: '10px 12px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                     DATE
                   </th>
                 </tr>
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
                       onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                       onMouseLeave={e => e.currentTarget.style.background = 'white'}
                     >
-                      <td style={{ padding: '10px 14px', overflow: 'hidden' }}>
+                      <td style={{ padding: '10px 12px', overflow: 'hidden' }}>
                         <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {siteName}
                         </div>
@@ -322,15 +322,15 @@ export default function AdminDashboard() {
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '10px 10px' }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                          {a.application_type || 'New'}
+                      <td style={{ padding: '10px 8px', overflow: 'hidden' }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 10, textTransform: 'capitalize', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                          {(a.application_type || 'New').replace(/ application$/i, '')}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 10px' }}>
+                      <td style={{ padding: '10px 8px', overflow: 'hidden' }}>
                         <StatusBadge status={a.status} type={a.application_type} />
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                         <span style={{ fontSize: 12.5, color: '#475569', fontWeight: 500 }}>
                           {formatDate(a.created_at)}
                         </span>

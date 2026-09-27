@@ -870,9 +870,21 @@ export default function AdminReviewCertificate() {
       {/* Top Header & Breadcrumb */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
             <Link to="/certificates" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#64748b', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-              <ArrowLeft size={16} /> Back to Certificates
+              <ArrowLeft size={16} /> All Certificates
+            </Link>
+            <span style={{ color: '#cbd5e1' }}>·</span>
+            <Link to="/certificates?status=active" style={{ color: '#047857', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+              Active Certificates
+            </Link>
+            <span style={{ color: '#cbd5e1' }}>·</span>
+            <Link to="/certificates?status=expiring" style={{ color: '#d97706', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+              Expiring
+            </Link>
+            <span style={{ color: '#cbd5e1' }}>·</span>
+            <Link to="/certificates?status=under_review" style={{ color: '#64748b', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+              Pending Review
             </Link>
             <span style={{ color: '#cbd5e1' }}>/</span>
             <span style={{ fontSize: 13, color: '#047857', fontWeight: 700 }}>Review &amp; QA</span>

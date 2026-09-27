@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -7,12 +7,16 @@ import { ClipboardList, Search, Eye, CheckCircle, XCircle, RefreshCw, FileText, 
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 
+import Pagination from '../components/Pagination';
+
 export default function AdminProposals() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeActionModal, setActiveActionModal] = useState(null);
@@ -46,6 +50,8 @@ export default function AdminProposals() {
     p.application_id?.application_number?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const paginatedList = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div>
       <div className="toolbar">
@@ -54,7 +60,10 @@ export default function AdminProposals() {
           <input 
             placeholder="Search proposals by title, company or application ref..." 
             value={search} 
-            onChange={e => setSearch(e.target.value)} 
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }} 
           />
         </div>
         <button className="btn btn-ghost btn-sm" onClick={fetchProposals}>
@@ -90,7 +99,7 @@ export default function AdminProposals() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => {
+                {paginatedList.map(p => {
                   const compName = p.application_id?.profiles?.company_name || p.application_id?.establishment_name || p.company_name || '—';
                   const appId = p.application_id?._id || p.application_id;
                   const isAccepted = p.status === 'accepted';
@@ -154,6 +163,15 @@ export default function AdminProposals() {
             </table>
           )}
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="proposals"
+        />
       </div>
 
       {selected && (

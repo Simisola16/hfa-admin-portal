@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import AgreementModal from '../components/AgreementModal';
 import FinalAgreementModal from '../components/FinalAgreementModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
-
+import Pagination from '../components/Pagination';
 
 export default function AdminAgreements() {
   const navigate = useNavigate();
@@ -19,6 +19,8 @@ export default function AdminAgreements() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | sent | client_signed | approved
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [actionModalAg, setActionModalAg] = useState(null);
 
   // Agreement Modals state
@@ -42,6 +44,10 @@ export default function AdminAgreements() {
     fetchAgreements();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
   const filtered = agreements.filter(ag => {
     const app = ag.application_id || {};
     const compName = (app.establishment_name || app.profiles?.company_name || ag.company_name || '').toLowerCase();
@@ -57,6 +63,8 @@ export default function AdminAgreements() {
     if (statusFilter === 'approved') return ag.status === 'approved' || ag.status === 'completed' || ag.status === 'countersigned';
     return true;
   });
+
+  const paginatedAgreements = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const getStatusBadge = (ag) => {
     if (ag.status === 'approved' || ag.status === 'completed') {
@@ -190,7 +198,7 @@ export default function AdminAgreements() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(ag => {
+                {paginatedAgreements.map(ag => {
                   const app = ag.application_id || {};
                   const appId = app._id || app.id || ag.application_id;
                   const compName = app.establishment_name || app.profiles?.company_name || ag.company_name || 'Client Facility';
@@ -251,6 +259,15 @@ export default function AdminAgreements() {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={page}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="agreements"
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

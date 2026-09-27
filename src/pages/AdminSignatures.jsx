@@ -4,11 +4,14 @@ import toast from 'react-hot-toast';
 import { Search, UploadCloud, Plus, Trash2, PenTool, Image as ImageIcon } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 export default function AdminSignatures() {
   const [signatures, setSignatures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   
   // Form State
   const [formData, setFormData] = useState({ name: '', username: '', file: null });
@@ -44,8 +47,11 @@ export default function AdminSignatures() {
   };
 
   useEffect(() => {
+    setPage(1);
     fetchSignatures();
   }, [search]);
+
+  const paginatedSignatures = signatures.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
     fetchStaffUsers();
@@ -274,7 +280,7 @@ export default function AdminSignatures() {
                   </tr>
                 </thead>
                 <tbody>
-                  {signatures.map(sig => (
+                  {paginatedSignatures.map(sig => (
                     <tr key={sig._id} className="hover-row">
                       <td style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>
                         #{sig._id.substring(sig._id.length - 6).toUpperCase()}
@@ -342,6 +348,14 @@ export default function AdminSignatures() {
                 </tbody>
               </table>
             )}
+
+            <Pagination
+              total={signatures.length}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         </div>
       </div>

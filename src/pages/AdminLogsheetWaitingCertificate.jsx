@@ -7,12 +7,15 @@ import {
   MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 export default function AdminLogsheetWaitingCertificate() {
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
   const navigate = useNavigate();
 
@@ -253,6 +256,12 @@ export default function AdminLogsheetWaitingCertificate() {
     return true;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, searchField]);
+
+  const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1280, margin: '0 auto' }}>
       <style>{`
@@ -423,7 +432,7 @@ export default function AdminLogsheetWaitingCertificate() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogsheets.map((l) => {
+                {paginatedLogsheets.map((l) => {
                   const appId = l.application_id?._id || l.application_id;
                   const { count, total } = getSignatoryProgress(l);
                   const certInfo = getCertificateTypeInfo(l);
@@ -494,6 +503,14 @@ export default function AdminLogsheetWaitingCertificate() {
             </table>
           </div>
         )}
+
+        <Pagination
+          total={filteredLogsheets.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

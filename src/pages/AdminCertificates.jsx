@@ -7,7 +7,7 @@ import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, F
 import ViewCertificateModal from '../components/ViewCertificateModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { useAuth } from '../context/AuthContext';
-
+import Pagination from '../components/Pagination';
 
 export default function AdminCertificates({ defaultTab }) {
   const { user, profile } = useAuth();
@@ -52,6 +52,8 @@ export default function AdminCertificates({ defaultTab }) {
   const [actionModalCert, setActionModalCert] = useState(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
   const [searchParams] = useSearchParams();
@@ -159,6 +161,11 @@ export default function AdminCertificates({ defaultTab }) {
     return certNo.includes(q) || comp.includes(q) || site.includes(q);
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus, activeTab]);
+
+  const paginatedCerts = filteredCerts.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
@@ -272,7 +279,7 @@ export default function AdminCertificates({ defaultTab }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCerts.map(c => {
+                    {paginatedCerts.map(c => {
                       const effectiveStatus =
                         c.status === 'active' && c.expiry_date && new Date(c.expiry_date) < new Date()
                           ? 'expired'
@@ -361,6 +368,15 @@ export default function AdminCertificates({ defaultTab }) {
               )
             }
           </div>
+
+          <Pagination
+            currentPage={page}
+            totalItems={filteredCerts.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            itemName="certificates"
+          />
         </div>
 
       {/* Issue Modal */}

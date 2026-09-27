@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 import { 
   Search, Trash2, RefreshCw, ChevronDown, 
   MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw
@@ -24,6 +25,8 @@ export default function AdminLogsheetWaitingSignature() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'awaiting_mine' | 'signed_by_me'
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalItem, setActionModalItem] = useState(null);
   const [selectedLogsheetForEmail, setSelectedLogsheetForEmail] = useState(null);
   const [showResendModal, setShowResendModal] = useState(false);
@@ -270,6 +273,12 @@ export default function AdminLogsheetWaitingSignature() {
     return true;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, searchField, filterTab]);
+
+  const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
+
   const pendingCount = filteredLogsheets.length;
 
   return (
@@ -515,7 +524,7 @@ export default function AdminLogsheetWaitingSignature() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLogsheets.map(l => {
+                  {paginatedLogsheets.map(l => {
                     const { count, total, signers } = getSignatoryProgress(l);
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
@@ -657,7 +666,7 @@ export default function AdminLogsheetWaitingSignature() {
 
             {/* MOBILE / TABLET CARDS VIEW */}
             <div className="mobile-only-cards" style={{ display: 'none', gridTemplateColumns: '1fr', gap: 12, padding: 12 }}>
-              {filteredLogsheets.map(l => {
+              {paginatedLogsheets.map(l => {
                 const { count, total } = getSignatoryProgress(l);
                 const age = getAgeCue(l.created_at);
                 const userSigned = hasUserSigned(l);
@@ -750,6 +759,14 @@ export default function AdminLogsheetWaitingSignature() {
                 );
               })}
             </div>
+
+            <Pagination
+              total={filteredLogsheets.length}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>

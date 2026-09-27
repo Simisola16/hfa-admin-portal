@@ -4,6 +4,7 @@ import { getSocket } from '../lib/socket';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 import { 
   Search, MessageSquare, Send, X, Clock, AlertCircle, CheckCircle2, 
   HelpCircle, RefreshCw, User, Building2, Phone, Mail, Filter, 
@@ -39,6 +40,8 @@ export default function AdminTickets() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [assignmentFilter, setAssignmentFilter] = useState('all'); // 'all' | 'assigned_to_me' | 'unassigned' | 'chat_widget'
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const responsesEndRef = useRef(null);
   const selectedTicketRef = useRef(selectedTicket);
@@ -302,6 +305,12 @@ export default function AdminTickets() {
     return tNum.includes(s) || subj.includes(s) || msg.includes(s) || dept.includes(s) || clientName.includes(s) || companyName.includes(s) || staffName.includes(s);
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, deptFilter, priorityFilter, assignmentFilter]);
+
+  const paginatedTickets = filteredTickets.slice((page - 1) * pageSize, page * pageSize);
+
   const statusBadge = (s) => {
     const map = { 
       open: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Open' }, 
@@ -526,7 +535,7 @@ export default function AdminTickets() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTickets.map(t => (
+                {paginatedTickets.map(t => (
                   <tr key={t._id || t.id} style={{ transition: 'background 0.15s' }}>
                     <td>
                       <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace', fontSize: 13 }}>
@@ -624,6 +633,14 @@ export default function AdminTickets() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filteredTickets.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

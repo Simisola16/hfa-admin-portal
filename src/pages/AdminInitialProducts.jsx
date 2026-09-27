@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Needs FT Assignment', bg: '#fef3c7', color: '#92400e', border: '#fde68a', step: 1 },
@@ -31,6 +32,8 @@ export default function AdminInitialProducts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Standardized Action Modal state
   const [activeActionModal, setActiveActionModal] = useState(null);
@@ -148,6 +151,12 @@ export default function AdminInitialProducts() {
 
     return matchSearch && matchTab && matchStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, currentView]);
+
+  const paginatedApps = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const countNeedsFt = apps.filter(a => a.status === 'submitted').length;
   const countInProgress = apps.filter(a => a.status !== 'initial_product_approved').length;
@@ -287,7 +296,7 @@ export default function AdminInitialProducts() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(item => {
+                {paginatedApps.map(item => {
                   const conf = STATUS_CONFIG[item.status] || { label: item.status, bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
                   const isApproved = item.status === 'initial_product_approved';
                   const needsFt = item.status === 'submitted';
@@ -406,6 +415,14 @@ export default function AdminInitialProducts() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

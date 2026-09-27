@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Package, Search, Plus, Edit3, Trash2, CheckCircle, XCircle, RefreshCw, X, Filter } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 export default function AdminManageProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   
   // Modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -115,6 +118,12 @@ export default function AdminManageProducts() {
     return matchSearch && matchStatus;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus]);
+
+  const paginatedProducts = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="page-content">
       <div className="toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
@@ -179,7 +188,7 @@ export default function AdminManageProducts() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => (
+                {paginatedProducts.map(p => (
                   <tr key={p._id || p.id}>
                     <td>
                       <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 }}>{p.name}</div>
@@ -248,6 +257,14 @@ export default function AdminManageProducts() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

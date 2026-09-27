@@ -10,6 +10,7 @@ import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
+import Pagination from '../components/Pagination';
 
 
 // STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
@@ -51,6 +52,8 @@ export default function AdminApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedApp, setSelectedApp] = useState(null); 
   const [manageModal, setManageModal] = useState(null); 
   const [actionForm, setActionForm] = useState({ status:'', notes:'', inspector_id:'', audit_date:'' });
@@ -166,6 +169,12 @@ export default function AdminApplications() {
     return matchSearch && matchStatus;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus, typeParam]);
+
+  const paginatedApps = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   const getPageTitleAndSub = () => {
     if (typeParam === 'new') {
       return {
@@ -267,7 +276,7 @@ export default function AdminApplications() {
                 <th>Actions</th>
               </tr></thead>
               <tbody>
-                {filtered.map(app => (
+                {paginatedApps.map(app => (
                   <tr key={app._id}>
                     <td style={{fontWeight: 700, color: '#0f172a', fontSize: 13.5}}>
                       <div>{app.profiles?.company_name || app.company_name || app.establishment_name || 'Company Facility'}</div>
@@ -319,6 +328,15 @@ export default function AdminApplications() {
             </div>
           )}
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="applications"
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

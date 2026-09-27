@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Ship, Search, Eye, CheckCircle, XCircle, RefreshCw, Download, Filter } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 export default function AdminExports() {
   const [exports, setExports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,6 +51,12 @@ export default function AdminExports() {
     const matchStatus = !filterStatus || e.status === filterStatus;
     return matchSearch && matchStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus]);
+
+  const paginatedExports = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div>
@@ -105,7 +114,7 @@ export default function AdminExports() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(e => {
+                {paginatedExports.map(e => {
                   const itemId = e.id || e._id;
                   return (
                   <tr key={itemId}>
@@ -168,6 +177,14 @@ export default function AdminExports() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

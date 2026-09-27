@@ -10,6 +10,7 @@ import {
   Sparkles, Layers, Settings, Eye
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Form Received', bg: '#fef3c7', color: '#92400e', border: '#fde68a', dot: '#f59e0b' },
@@ -28,6 +29,8 @@ export default function AdminExtensionApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalApp, setActionModalApp] = useState(null);
 
 
@@ -80,6 +83,12 @@ export default function AdminExtensionApplications() {
 
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  const paginatedApps = filteredApps.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div style={{ paddingBottom: 40, fontFamily: 'Inter, "Segoe UI", sans-serif' }}>
@@ -220,7 +229,7 @@ export default function AdminExtensionApplications() {
                 </tr>
               </thead>
               <tbody>
-                {filteredApps.map((a) => {
+                {paginatedApps.map((a) => {
                   const companyName = a.company_name || a.client_id?.company_name || a.client_id?.business_name || 'Client Company';
                   const cfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.submitted;
                   return (
@@ -279,6 +288,14 @@ export default function AdminExtensionApplications() {
             </table>
           </div>
         )}
+
+        <Pagination
+          total={filteredApps.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

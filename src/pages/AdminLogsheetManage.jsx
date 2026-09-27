@@ -7,12 +7,15 @@ import {
   Building2, Calendar, Tag, Shield, Clock, CheckCircle2, Plus, Settings, User
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 export default function AdminLogsheetManage() {
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
   const navigate = useNavigate();
 
@@ -127,6 +130,12 @@ export default function AdminLogsheetManage() {
     }
     return true;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, searchField]);
+
+  const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -344,7 +353,7 @@ export default function AdminLogsheetManage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLogsheets.map(l => {
+                    {paginatedLogsheets.map(l => {
                       const compName = l.company_name || 'Client Facility';
                       const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
                       const rawType = l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW');
@@ -412,7 +421,7 @@ export default function AdminLogsheetManage() {
 
               {/* MOBILE & TABLET RESPONSIVE CARDS VIEW (Screens < 900px) */}
               <div className="mobile-logsheet-cards">
-                {filteredLogsheets.map(l => {
+                {paginatedLogsheets.map(l => {
                   const compName = l.company_name || 'Client Facility';
                   const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
                   const rawType = l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW');
@@ -523,6 +532,14 @@ export default function AdminLogsheetManage() {
                   );
                 })}
               </div>
+
+              <Pagination
+                total={filteredLogsheets.length}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
             </>
           )}
         </div>

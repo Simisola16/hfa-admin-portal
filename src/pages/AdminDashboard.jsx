@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import {
-  ClipboardList, Clock, CheckCircle, CheckCircle2, Award, Calendar, Briefcase,
-  RefreshCw, ArrowRight, AlertTriangle, TrendingUp, ChevronRight,
-  Layers, Users, FileText, XCircle, Bell,
+  ClipboardList, Clock, CheckCircle2,
+  RefreshCw, ArrowRight, TrendingUp, ChevronRight,
+  FileText,
 } from 'lucide-react';
 
 /* ─── Status display helpers ─────────────────────────────────── */
@@ -60,9 +60,6 @@ function StatusBadge({ status, type }) {
   );
 }
 
-function daysAgo(date) {
-  return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -121,7 +118,7 @@ export default function AdminDashboard() {
     totalApps: totalAppsCount = 0,
     submittedApps = 0,
     underReviewApps = 0,
-    pendingApps = 0,
+    pendingApps: pendingAppsCount = 0,
     renewalApps = 0,
     acceptedApps: acceptedAppsCount = 0,
     rejectedApps: rejectedAppsCount = 0,
@@ -132,6 +129,7 @@ export default function AdminDashboard() {
     totalProducts: productsCount = 0
   } = stats || {};
 
+  const pendingApps = pendingAppsCount;
   const submitted = submittedApps;
   const underReview = underReviewApps;
   const pipelineTotal = totalAppsCount;
@@ -480,7 +478,7 @@ export default function AdminDashboard() {
           {[
             { 
               label: 'Total Applications', 
-              value: allApps.length, 
+              value: totalAppsCount, 
               sub: `${submitted + underReview} pending`, 
               path: '/applications' 
             },

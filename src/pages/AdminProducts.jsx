@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Package, Search, CheckCircle, XCircle, Eye, RefreshCw, Filter, MapPin } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Eye, RefreshCw, MapPin } from 'lucide-react';
+import SearchWithSuggestions from '../components/SearchWithSuggestions';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -51,6 +52,86 @@ export default function AdminProducts() {
     }
   };
 
+  // Dynamic available sites based on company search
+  const availableSites = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sites;
+
+    // Matching products for this company query
+    const matchingProducts = products.filter(p => {
+      const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').toLowerCase();
+      return clientName.includes(q);
+    });
+
+    const matchingSiteIds = new Set(
+      matchingProducts
+        .map(p => p.site_id?._id || p.site_id?.id || p.site_id)
+        .filter(Boolean)
+        .map(String)
+    );
+
+    const fromSites = sites.filter(s => {
+      const sId = String(s._id || s.id);
+      const sComp = (s.company_name || s.client_id?.company_name || s.client_id?.full_name || '').toLowerCase();
+      return matchingSiteIds.has(sId) || sComp.includes(q);
+    });
+
+    if (fromSites.length > 0) return fromSites;
+
+    // Fallback to embedded site objects from matching products
+    const embeddedSites = [];
+    const seenEmbedded = new Set();
+    matchingProducts.forEach(p => {
+      if (p.site_id && typeof p.site_id === 'object') {
+        const sId = String(p.site_id._id || p.site_id.id || p.site_id.name);
+        if (!seenEmbedded.has(sId)) {
+          seenEmbedded.add(sId);
+          embeddedSites.push({
+            _id: p.site_id._id || p.site_id.id || sId,
+            name: p.site_id.name || p.site_id.est_name || p.site_id.trading_name || 'Facility'
+          });
+        }
+      }
+    });
+
+    return embeddedSites.length > 0 ? embeddedSites : sites;
+  }, [search, sites, products]);
+
+  // Autocomplete search suggestions (companies & sites)
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+
+    const companiesMap = new Map();
+    products.forEach(p => {
+      const name = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name;
+      if (name && !companiesMap.has(name.toLowerCase())) {
+        companiesMap.set(name.toLowerCase(), {
+          label: name,
+          type: 'Company',
+          subtext: 'Client Company'
+        });
+      }
+    });
+
+    const sitesMap = new Map();
+    sites.forEach(s => {
+      const name = s.name || s.est_name || s.trading_name || s.address_1;
+      if (name && !sitesMap.has(name.toLowerCase())) {
+        sitesMap.set(name.toLowerCase(), {
+          label: name,
+          type: 'Site',
+          subtext: s.company_name || s.client_id?.company_name || 'Facility'
+        });
+      }
+    });
+
+    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
+    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+
+    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
+  }, [search, products, sites]);
+
   const filtered = products.filter(p => {
     if (p.status === 'pending') return false;
     const clientName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '';
@@ -77,20 +158,18 @@ export default function AdminProducts() {
   return (
     <div>
       <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="search-box">
-          <Search size={15} className="search-icon" />
-          <input 
-            placeholder="Search by product name, code, company, or site..." 
-            value={search} 
-            onChange={e => {
-              setSearch(e.target.value);
-              setPage(1);
-            }} 
-          />
-        </div>
+        <SearchWithSuggestions
+          value={search}
+          onChange={val => {
+            setSearch(val);
+            setPage(1);
+          }}
+          suggestions={searchSuggestions}
+          placeholder="Search by product name, code, company, or site..."
+        />
 
-        {/* Filter by Site */}
-        {sites.length > 0 && (
+        {/* Filter by Site (dynamically narrowed to searched company) */}
+        {availableSites.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <MapPin size={15} style={{ color: '#64748b' }} />
             <select 
@@ -102,8 +181,10 @@ export default function AdminProducts() {
                 setPage(1);
               }}
             >
-              <option value="">All Sites ({sites.length})</option>
-              {sites.map(s => (
+              <option value="">
+                {search.trim() ? `All Sites for "${search.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
+              </option>
+              {availableSites.map(s => (
                 <option key={s._id || s.id} value={s._id || s.id}>
                   {s.name || s.est_name || s.trading_name || s.address_1}
                 </option>

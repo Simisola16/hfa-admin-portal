@@ -1,8 +1,7 @@
-import { getPdfUrl } from '../lib/pdfUtils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
@@ -11,6 +10,7 @@ import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import Pagination from '../components/Pagination';
+import SearchWithSuggestions from '../components/SearchWithSuggestions';
 
 
 // STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
@@ -52,6 +52,7 @@ export default function AdminApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterSite, setFilterSite] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedApp, setSelectedApp] = useState(null); 
@@ -142,6 +143,78 @@ export default function AdminApplications() {
   };
 
   const safeApps = Array.isArray(apps) ? apps : [];
+
+  // Dynamic available sites based on company search
+  const availableSites = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const sitesMap = new Map();
+
+    safeApps.forEach(a => {
+      const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+      const comp = a.profiles?.company_name || a.company_name || a.establishment_name || '';
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
+      }
+    });
+
+    if (!q) {
+      return Array.from(sitesMap.values());
+    }
+
+    // Filter sites to those matching the searched company
+    const matchingApps = safeApps.filter(a => {
+      const comp = (a.profiles?.company_name || a.company_name || a.establishment_name || '').toLowerCase();
+      return comp.includes(q);
+    });
+
+    const companySitesMap = new Map();
+    matchingApps.forEach(a => {
+      const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+      if (site && !companySitesMap.has(site.toLowerCase())) {
+        companySitesMap.set(site.toLowerCase(), { name: site, company: a.company_name });
+      }
+    });
+
+    if (companySitesMap.size > 0) {
+      return Array.from(companySitesMap.values());
+    }
+
+    return Array.from(sitesMap.values());
+  }, [search, safeApps]);
+
+  // Autocomplete search suggestions (companies & sites)
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+
+    const companiesMap = new Map();
+    const sitesMap = new Map();
+
+    safeApps.forEach(a => {
+      const comp = a.profiles?.company_name || a.company_name || a.establishment_name;
+      if (comp && !companiesMap.has(comp.toLowerCase())) {
+        companiesMap.set(comp.toLowerCase(), {
+          label: comp,
+          type: 'Company',
+          subtext: 'Applicant Company'
+        });
+      }
+      const site = a.site_name || a.site_id?.name || a.site?.name || a.establishment_name;
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), {
+          label: site,
+          type: 'Site',
+          subtext: comp || 'Facility'
+        });
+      }
+    });
+
+    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
+    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+
+    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
+  }, [search, safeApps]);
+
   const filtered = safeApps.filter(a => {
     if (!a) return false;
     // 1. View Type Filter
@@ -166,12 +239,16 @@ export default function AdminApplications() {
     // 3. Dropdown Status Filter
     const matchStatus = !filterStatus || a.status === filterStatus;
 
-    return matchSearch && matchStatus;
+    // 4. Site Filter
+    const appSite = (a.site_name || a.site_id?.name || a.site?.name || a.establishment_name || '').toLowerCase();
+    const matchSite = !filterSite || appSite === filterSite.toLowerCase();
+
+    return matchSearch && matchStatus && matchSite;
   });
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, typeParam]);
+  }, [search, filterStatus, filterSite, typeParam]);
 
   const paginatedApps = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -241,16 +318,55 @@ export default function AdminApplications() {
   return (
     <div className="page-content">
 
-      <div className="toolbar">
-        <div className="search-box">
-          <Search size={15} className="search-icon"/>
-          <input placeholder="Search by app no. or client..." value={search} onChange={e => setSearch(e.target.value)}/>
-        </div>
-        <select className="form-control" style={{width:'auto'}} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+      <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <SearchWithSuggestions
+          value={search}
+          onChange={val => {
+            setSearch(val);
+            setPage(1);
+          }}
+          suggestions={searchSuggestions}
+          placeholder="Search by app no. or client..."
+        />
+
+        {/* Filter by Site (dynamically narrowed to searched company) */}
+        {availableSites.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MapPin size={15} style={{ color: '#64748b' }} />
+            <select
+              className="form-control"
+              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
+              value={filterSite}
+              onChange={e => {
+                setFilterSite(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">
+                {search.trim() ? `All Sites for "${search.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
+              </option>
+              {availableSites.map(s => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <select
+          className="form-control"
+          style={{ width: 'auto' }}
+          value={filterStatus}
+          onChange={e => {
+            setFilterStatus(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Statuses</option>
           {Object.entries(STATUS_LABELS).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
         </select>
-        <span style={{fontSize:12,color:'var(--text-muted)',marginLeft:'auto'}}>{filtered.length} applications</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>{filtered.length} applications</span>
       </div>
 
       <div className="card">

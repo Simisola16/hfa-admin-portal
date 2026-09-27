@@ -1,16 +1,20 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, ExternalLink, RefreshCw } from 'lucide-react';
+import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
-
+import Pagination from '../components/Pagination';
 
 export default function AdminInvoices() {
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
@@ -66,21 +70,64 @@ export default function AdminInvoices() {
     }
   };
 
+  const filtered = invoices.filter(inv => {
+    const s = search.toLowerCase();
+    const invNum = (inv.invoice_number || '').toLowerCase();
+    const compName = (inv.profiles?.company_name || '').toLowerCase();
+    const desc = (inv.description || inv.title || '').toLowerCase();
+    const matchesSearch = !s || invNum.includes(s) || compName.includes(s) || desc.includes(s);
+    if (!matchesSearch) return false;
+
+    if (filterStatus === 'paid') return inv.status === 'paid';
+    if (filterStatus === 'client_paid') return inv.status === 'client_paid';
+    if (filterStatus === 'unpaid') return inv.status === 'unpaid' || inv.status === 'pending';
+    if (filterStatus === 'overdue') return inv.status === 'overdue';
+    return true;
+  });
+
+  const paginatedList = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div>
-      <div className="toolbar">
+      <div className="toolbar" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="search-box">
+          <Search size={15} className="search-icon" />
+          <input
+            placeholder="Search invoice number, client, description..."
+            value={search}
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <select
+          className="form-control"
+          style={{ width: 'auto' }}
+          value={filterStatus}
+          onChange={e => {
+            setFilterStatus(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="all">All Statuses</option>
+          <option value="paid">Paid</option>
+          <option value="client_paid">Pending Verification</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="overdue">Overdue</option>
+        </select>
         <button className="btn btn-ghost btn-sm" onClick={fetch}><RefreshCw size={14} /></button>
         <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{marginLeft:'auto'}}><Plus size={15}/> Create Invoice</button>
       </div>
       <div className="card">
-        <div className="card-header"><div className="card-title">Invoices ({invoices.length})</div></div>
+        <div className="card-header"><div className="card-title">Invoices ({filtered.length})</div></div>
         <div className="table-wrap">
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
-            invoices.length===0?<div className="empty-state"><div className="empty-state-icon"><FileBarChart/></div><div className="empty-state-title">No Invoices</div></div>:(
+            filtered.length===0?<div className="empty-state"><div className="empty-state-icon"><FileBarChart/></div><div className="empty-state-title">No Invoices Found</div></div>:(
               <table>
                 <thead><tr><th>Invoice No.</th><th>Client</th><th>Description</th><th>Amount</th><th>Status</th><th style={{ width: '70px', textAlign: 'center' }}>Actions</th></tr></thead>
                 <tbody>
-                  {invoices.map(inv=>{
+                  {paginatedList.map(inv=>{
                     const isPaid = inv.status === 'paid';
                     const invId = inv._id || inv.id;
                     const statusBadgeClass = isPaid
@@ -152,6 +199,15 @@ export default function AdminInvoices() {
             )
           }
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="invoices"
+        />
       </div>
 
       {showModal&&(

@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import AuditManageModal from '../components/AuditManageModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
-
+import Pagination from '../components/Pagination';
 
 export default function AdminAudits() {
   const navigate = useNavigate();
@@ -22,6 +22,8 @@ export default function AdminAudits() {
   const [audits, setAudits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [stageFilter, setStageFilter] = useState('all'); // all | 1 | 2
   const [selectedAuditForModal, setSelectedAuditForModal] = useState(null);
   const [actionModalAudit, setActionModalAudit] = useState(null);
@@ -258,6 +260,14 @@ export default function AdminAudits() {
       return true;
     });
   }, [audits, activeTab, stageFilter, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, stageFilter, search]);
+
+  const paginatedAudits = useMemo(() => {
+    return filteredAudits.slice((page - 1) * pageSize, page * pageSize);
+  }, [filteredAudits, page, pageSize]);
 
   return (
     <div className="page-content" style={{ maxWidth: 1400, margin: '0 auto' }}>
@@ -498,7 +508,7 @@ export default function AdminAudits() {
                 </tr>
               </thead>
               <tbody>
-                {filteredAudits.map(a => {
+                {paginatedAudits.map(a => {
                   const auditId = a._id || a.id;
                   const appId = a.application_id?._id || a.application_id || a.applications?._id || a.applications?.id;
                   const compName = a.company_name || a.profiles?.company_name || a.applications?.establishment_name || 'Client Facility';
@@ -641,6 +651,15 @@ export default function AdminAudits() {
             </table>
           )}
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalItems={filteredAudits.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="audits"
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

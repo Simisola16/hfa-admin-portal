@@ -8,6 +8,7 @@ import {
   ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Pagination from '../components/Pagination';
 
 // Canonical Role Definitions & Metadata
 export const STAFF_ROLE_CONFIG = {
@@ -130,6 +131,8 @@ export default function AdminStaff() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'audit' | 'food_tech' | 'special_grants'
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Staff Creation Modal State
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -219,6 +222,12 @@ export default function AdminStaff() {
     });
     return matchesName || matchesEmail || matchesUsername || matchesRole;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, roleFilter]);
+
+  const paginatedStaff = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   // Calculate Stat Summary
   const stats = {
@@ -745,7 +754,7 @@ export default function AdminStaff() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(member => {
+                {paginatedStaff.map(member => {
                   const isActive = member.is_active !== false;
                   const memberRoles = getUserRoles(member);
                   const isUserSuperAdmin = memberRoles.includes('superadmin') || member.role === 'superadmin';
@@ -898,6 +907,14 @@ export default function AdminStaff() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

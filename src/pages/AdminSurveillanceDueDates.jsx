@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 export default function AdminSurveillanceDueDates() {
   const { user } = useAuth();
@@ -18,6 +19,8 @@ export default function AdminSurveillanceDueDates() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalItem, setActionModalItem] = useState(null);
 
   // Edit date modal state
@@ -168,6 +171,12 @@ export default function AdminSurveillanceDueDates() {
       return st === statusFilter;
     });
   }, [schedules, search, statusFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  const paginatedSchedules = filteredSchedules.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'inherit' }}>
@@ -436,7 +445,7 @@ export default function AdminSurveillanceDueDates() {
                 </tr>
               </thead>
               <tbody style={{ divideY: '1px solid #f1f5f9' }}>
-                {filteredSchedules.map((item) => {
+                {paginatedSchedules.map((item) => {
                   const dateInfo = getDateStatus(item.next_surveillance_due_date);
                   const formattedDue = item.next_surveillance_due_date
                     ? new Date(item.next_surveillance_due_date).toLocaleDateString('en-GB', {
@@ -598,6 +607,14 @@ export default function AdminSurveillanceDueDates() {
             </table>
           </div>
         )}
+
+        <Pagination
+          total={filteredSchedules.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

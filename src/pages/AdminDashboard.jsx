@@ -74,35 +74,36 @@ function formatDate(dateStr) {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [stats, setStats] = useState(null);
-  const [allApps, setAllApps] = useState([]);
-  const [allCerts, setAllCerts] = useState([]);
-  const [proposals, setProposals] = useState([]);
-  const [productsCount, setProductsCount] = useState(0);
+  const [data, setData] = useState({
+    stats: {
+      totalApps: 0,
+      submittedApps: 0,
+      underReviewApps: 0,
+      pendingApps: 0,
+      renewalApps: 0,
+      acceptedApps: 0,
+      rejectedApps: 0,
+      totalCerts: 0,
+      activeCerts: 0,
+      expiredCerts: 0,
+      pendingCerts: 0,
+      totalProducts: 0
+    },
+    pipeline: []
+  });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [dashRes, appsRes, certsRes, propRes, productsRes] = await Promise.all([
-        api.get('/api/reports/dashboard').catch(() => ({ data: null })),
-        api.get('/api/applications').catch(() => ({ data: [] })),
-        api.get('/api/certificates').catch(() => ({ data: [] })),
-        api.get('/api/proposals').catch(() => ({ data: [] })),
-        api.get('/api/products').catch(() => ({ data: [] })),
-      ]);
-      const dashData = dashRes.data || dashRes;
-      const appsData = Array.isArray(appsRes.data) ? appsRes.data : (Array.isArray(appsRes) ? appsRes : []);
-      const certsData = Array.isArray(certsRes.data) ? certsRes.data : (Array.isArray(certsRes) ? certsRes : []);
-      const propData = Array.isArray(propRes.data) ? propRes.data : (Array.isArray(propRes) ? propRes : []);
-      const prodList = Array.isArray(productsRes.data) ? productsRes.data : (Array.isArray(productsRes) ? productsRes : []);
-
-      setStats(dashData);
-      setAllApps(appsData);
-      setAllCerts(certsData);
-      setProposals(propData);
-      setProductsCount(dashData?.products?.total ?? prodList.length);
+      const res = await api.get('/api/reports/dashboard-overview');
+      if (res?.stats) {
+        setData({
+          stats: res.stats,
+          pipeline: res.pipeline || []
+        });
+      }
       setLastUpdated(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -113,55 +114,42 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  /* ─── Derived counts ─── */
-  const count = (arr, key, val) => arr.filter(a => a[key] === val).length;
+  /* ─── Derived counts from server stats ─── */
+  const { stats, pipeline: pipelineList } = data;
+  const {
+    totalApps: totalAppsCount = 0,
+    submittedApps = 0,
+    underReviewApps = 0,
+    pendingApps = 0,
+    renewalApps = 0,
+    acceptedApps: acceptedAppsCount = 0,
+    rejectedApps: rejectedAppsCount = 0,
+    totalCerts: certTotal = 0,
+    activeCerts = 0,
+    expiredCerts = 0,
+    pendingCerts: pendingCertsCount = 0,
+    totalProducts: productsCount = 0
+  } = stats || {};
 
-  const submitted = count(allApps, 'status', 'submitted');
-  const underReview = count(allApps, 'status', 'under_review');
-  const proposalSent = count(allApps, 'status', 'proposal_sent');
-  const now = new Date();
-
-  // Active Certs queried directly from Certificate model data: status === 'active' AND not expired
-  const activeCerts = allCerts.filter(c =>
-    c.status === 'active' && (!c.expiry_date || new Date(c.expiry_date) >= now)
-  ).length;
-
-  const certTotal = allCerts.length;
-  const expiredCerts = allCerts.filter(c =>
-    c.status === 'expired' || (c.expiry_date && new Date(c.expiry_date) < now)
-  ).length;
+  const submitted = submittedApps;
+  const underReview = underReviewApps;
+  const pipelineTotal = totalAppsCount;
 
   /* ─── 4 KPI cards ─── */
   const KPI = [
-    { id: 'total_apps', label: 'Total Applications', value: allApps.length, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
-    { id: 'new_apps', label: 'New Applications', value: submitted + underReview, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'total_apps', label: 'Total Applications', value: totalAppsCount, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
+    { id: 'new_apps', label: 'New Applications', value: pendingApps, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
-    { id: 'renewal_apps', label: 'Renewal Applications', value: count(allApps, 'application_type', 'renewal'), iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
+    { id: 'renewal_apps', label: 'Renewal Applications', value: renewalApps, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];
 
   /* ─── Application statistics derived metrics ─── */
-  const acceptedAppsCount = allApps.filter(a =>
-    ['approved', 'accepted', 'certificate_issued', 'application_successful', 'ready_for_certificate', 'certified'].includes(a.status)
-  ).length;
-  const pendingAppsCount = count(allApps, 'status', 'submitted') + count(allApps, 'status', 'under_review');
-  const rejectedAppsCount = count(allApps, 'status', 'rejected');
-  const totalAppsCount = allApps.length;
-
   const appApprovedPercent = totalAppsCount ? Math.round((acceptedAppsCount / totalAppsCount) * 100) : 0;
   const appPendingPercent = totalAppsCount ? Math.round((pendingAppsCount / totalAppsCount) * 100) : 0;
   const appRejectedPercent = totalAppsCount ? Math.round((rejectedAppsCount / totalAppsCount) * 100) : 0;
 
-  const pendingCertsCount = allCerts.filter(c => c.status === 'pending' || c.status === 'under_review').length;
-
-  /* ─── Pipeline list (True total count vs Capped at 5) ─── */
-  const allPipeline = [...allApps]
-    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
-
-  const pipelineTotal = allPipeline.length;
-  const pipelineList = allPipeline.slice(0, 5);
-
   /* ─── Loading skeleton ─── */
-  if (loading && allApps.length === 0) {
+  if (loading && !data.stats?.totalApps && pipelineList.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, fontFamily: 'Inter, "Segoe UI", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>

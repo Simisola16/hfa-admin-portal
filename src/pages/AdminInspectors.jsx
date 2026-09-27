@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, X, UserCheck } from 'lucide-react';
+import { Plus, Edit, Trash2, X, UserCheck, Search } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 export default function AdminInspectors() {
   const [inspectors, setInspectors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,20 +37,45 @@ export default function AdminInspectors() {
     catch(err){toast.error(err.message);}
   };
 
+  const filteredInspectors = inspectors.filter(i => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (i.full_name || '').toLowerCase().includes(q) ||
+      (i.email || '').toLowerCase().includes(q) ||
+      (i.specialization || '').toLowerCase().includes(q) ||
+      (i.regions || []).some(r => (r || '').toLowerCase().includes(q))
+    );
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const paginatedInspectors = filteredInspectors.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div>
-      <div className="toolbar">
-        <button className="btn btn-primary" onClick={openNew} style={{marginLeft:'auto'}}><Plus size={15}/> Add Auditor</button>
+      <div className="toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ maxWidth: 360, minWidth: 260 }}>
+          <Search size={15} className="search-icon" />
+          <input
+            placeholder="Search auditor by name, email, specialization..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-primary" onClick={openNew}><Plus size={15}/> Add Auditor</button>
       </div>
       <div className="card">
-        <div className="card-header"><div className="card-title">Auditors ({inspectors.length})</div></div>
+        <div className="card-header"><div className="card-title">Auditors ({filteredInspectors.length})</div></div>
         <div className="table-wrap">
           {loading?<div className="loading-overlay"><div className="spinner"/></div>:
-            inspectors.length===0?<div className="empty-state"><div className="empty-state-icon"><UserCheck/></div><div className="empty-state-title">No Auditors</div></div>:(
+            filteredInspectors.length===0?<div className="empty-state"><div className="empty-state-icon"><UserCheck/></div><div className="empty-state-title">No Auditors Found</div></div>:(
               <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Specialization</th><th>Regions</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {inspectors.map(i=>(
+                  {paginatedInspectors.map(i=>(
                     <tr key={i.id}>
                       <td style={{fontWeight:600}}>{i.full_name}</td>
                       <td>{i.email}</td>
@@ -64,6 +93,13 @@ export default function AdminInspectors() {
               </table>
             )
           }
+          <Pagination
+            total={filteredInspectors.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

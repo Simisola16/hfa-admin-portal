@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { MapPin, Search, ExternalLink, RefreshCw, X, Building2, Phone, Mail, Globe, User, ShieldCheck } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 export default function AdminSites() {
   const [sites, setSites] = useState([]);
@@ -9,6 +10,8 @@ export default function AdminSites() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [selectedSite, setSelectedSite] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const fetchSites = () => {
     setLoading(true);
@@ -63,6 +66,12 @@ export default function AdminSites() {
     const matchType = !filterType || s.site_type === filterType;
     return matchSearch && matchType;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterType]);
+
+  const paginatedSites = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const siteTypes = [...new Set(sites.map(s => s.site_type).filter(Boolean))];
 
@@ -123,7 +132,7 @@ export default function AdminSites() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(site => {
+                {paginatedSites.map(site => {
                   const sId = (site._id || site.id || '').toString();
                   const compName = getSiteCompany(site);
                   const clientEmail = getSiteClientEmail(site);
@@ -176,6 +185,14 @@ export default function AdminSites() {
               </tbody>
             </table>
           )}
+
+          <Pagination
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
 

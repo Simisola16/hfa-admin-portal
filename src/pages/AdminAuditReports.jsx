@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import {
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import Pagination from '../components/Pagination';
 
 
 export default function AdminAuditReports() {
@@ -17,6 +18,8 @@ export default function AdminAuditReports() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // all | audit_report | nc_report
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [actionModalReport, setActionModalReport] = useState(null);
 
 
@@ -211,6 +214,12 @@ export default function AdminAuditReports() {
     return true;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter]);
+
+  const paginatedReports = filteredReports.slice((page - 1) * pageSize, page * pageSize);
+
   const auditCount = reports.filter(r => (r.report_type || '').includes('Audit')).length;
   const ncCount = reports.filter(r => (r.report_type || '').includes('NC')).length;
 
@@ -380,7 +389,7 @@ export default function AdminAuditReports() {
                 </tr>
               </thead>
               <tbody>
-                {filteredReports.map(item => (
+                {paginatedReports.map(item => (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.15s ease' }}>
                     {/* Company & File */}
                     <td style={{ padding: '16px 20px' }}>
@@ -427,6 +436,14 @@ export default function AdminAuditReports() {
             </table>
           </div>
         )}
+
+        <Pagination
+          total={filteredReports.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Action Menu Pop-up Modal */}

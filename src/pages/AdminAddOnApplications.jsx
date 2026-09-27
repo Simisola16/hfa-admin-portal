@@ -11,6 +11,7 @@ import {
   Tag, ArrowUpRight, Award
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Pagination from '../components/Pagination';
 
 const STATUS_LABELS = {
   submitted: 'Submitted',
@@ -57,6 +58,8 @@ export default function AdminAddOnApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [expandedId, setExpandedId] = useState(null);
 
   const [activeApp, setActiveApp] = useState(null);
@@ -233,6 +236,14 @@ export default function AdminAddOnApplications() {
       );
     });
   }, [baseList, statusFilter, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, view]);
+
+  const paginatedApps = useMemo(() => {
+    return filtered.slice((page - 1) * pageSize, page * pageSize);
+  }, [filtered, page, pageSize]);
 
   const getViewMeta = () => {
     if (view === 'request') return { title: 'Add-on Request Review Queue', subtitle: 'Review new product addition requests submitted by clients (Accept, Put on Hold, or Reject)' };
@@ -440,7 +451,7 @@ export default function AdminAddOnApplications() {
             <div style={{ fontSize: 13, color: '#94a3b8' }}>No requests match the current search or status filter.</div>
           </div>
         ) : (
-          filtered.map(app => {
+          paginatedApps.map(app => {
             const clientName = app.client_id?.company_name || app.client_id?.full_name || 'Unnamed Client';
             const certNo = app.certificate_id?.certificate_number || null;
             const linkedAppNo = app.application_id?.application_number || null;
@@ -674,6 +685,14 @@ export default function AdminAddOnApplications() {
           })
         )}
       </div>
+
+      <Pagination
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 

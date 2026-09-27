@@ -165,7 +165,7 @@ export default function AdminStaff() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/users');
+      const res = await api.get('/api/users?category=staff&all=true');
       const loaded = Array.isArray(res.data)
         ? res.data
         : (Array.isArray(res.data?.data) ? res.data.data : []);

@@ -143,23 +143,10 @@ export default function AdminCertificates({ defaultTab }) {
 
   const underReviewCerts = certs.filter(c => c.status === 'under_review' || c.status === 'draft');
 
-  // Dynamic available sites based on company search
+  // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = search.trim().toLowerCase();
-    
-    // Collect all unique sites from all certificates
-    const sitesMap = new Map();
-    certs.forEach(c => {
-      const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
-      const comp = c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '';
-      if (site && !sitesMap.has(site.toLowerCase())) {
-        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
-      }
-    });
-
-    if (!q) {
-      return Array.from(sitesMap.values());
-    }
+    if (!q) return []; // Do not show any sites unless a company is searched/picked
 
     // Filter sites to those matching the searched company
     const matchingCerts = certs.filter(c => {
@@ -175,12 +162,15 @@ export default function AdminCertificates({ defaultTab }) {
       }
     });
 
-    if (companySitesMap.size > 0) {
-      return Array.from(companySitesMap.values());
-    }
-
-    return Array.from(sitesMap.values());
+    return Array.from(companySitesMap.values());
   }, [search, certs]);
+
+  // Automatically reset site filter if search is cleared
+  useEffect(() => {
+    if (!search.trim() && filterSite) {
+      setFilterSite('');
+    }
+  }, [search, filterSite]);
 
   // Autocomplete search suggestions (companies & sites)
   const searchSuggestions = useMemo(() => {
@@ -313,29 +303,42 @@ export default function AdminCertificates({ defaultTab }) {
         />
 
         {/* Filter by Site (dynamically narrowed to searched company) */}
-        {availableSites.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <MapPin size={15} style={{ color: '#64748b' }} />
-            <select
-              className="form-control"
-              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
-              value={filterSite}
-              onChange={e => {
-                setFilterSite(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">
-                {search.trim() ? `All Sites for "${search.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
-              </option>
-              {availableSites.map(s => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <MapPin size={15} style={{ color: search.trim() ? 'var(--primary, #2563eb)' : '#94a3b8' }} />
+          <select
+            className="form-control"
+            style={{ 
+              width: 'auto', 
+              minWidth: 190, 
+              fontWeight: 600,
+              backgroundColor: search.trim() ? '#ffffff' : '#f8fafc',
+              cursor: search.trim() ? 'pointer' : 'not-allowed'
+            }}
+            value={filterSite}
+            disabled={!search.trim()}
+            onChange={e => {
+              setFilterSite(e.target.value);
+              setPage(1);
+            }}
+          >
+            {!search.trim() ? (
+              <option value="">Select a company first to filter sites</option>
+            ) : availableSites.length === 0 ? (
+              <option value="">No sites found for "{search.trim()}"</option>
+            ) : (
+              <>
+                <option value="">
+                  {`All Sites for "${search.trim()}" (${availableSites.length})`}
                 </option>
-              ))}
-            </select>
-          </div>
-        )}
+                {availableSites.map(s => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </div>
 
         {activeTab === 'certs' && (
           <select

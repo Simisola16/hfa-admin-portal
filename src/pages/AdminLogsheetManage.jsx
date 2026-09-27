@@ -105,22 +105,10 @@ export default function AdminLogsheetManage() {
     return 'HFA Admin';
   };
 
-  // Dynamic available sites based on company search
+  // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const sitesMap = new Map();
-
-    logsheets.forEach(l => {
-      const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
-      const comp = l.company_name || '';
-      if (site && !sitesMap.has(site.toLowerCase())) {
-        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
-      }
-    });
-
-    if (!q) {
-      return Array.from(sitesMap.values());
-    }
+    if (!q) return []; // Do not show any sites unless a company is searched/picked
 
     // Filter sites to those matching the searched company
     const matchingLogs = logsheets.filter(l => {
@@ -136,12 +124,15 @@ export default function AdminLogsheetManage() {
       }
     });
 
-    if (companySitesMap.size > 0) {
-      return Array.from(companySitesMap.values());
-    }
-
-    return Array.from(sitesMap.values());
+    return Array.from(companySitesMap.values());
   }, [searchQuery, logsheets]);
+
+  // Automatically reset site filter if search is cleared
+  useEffect(() => {
+    if (!searchQuery.trim() && filterSite) {
+      setFilterSite('');
+    }
+  }, [searchQuery, filterSite]);
 
   // Autocomplete search suggestions (companies & sites)
   const searchSuggestions = useMemo(() => {
@@ -306,29 +297,42 @@ export default function AdminLogsheetManage() {
         </select>
 
         {/* Filter by Site (dynamically narrowed to searched company) */}
-        {availableSites.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <MapPin size={15} style={{ color: '#64748b' }} />
-            <select
-              className="form-control"
-              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
-              value={filterSite}
-              onChange={e => {
-                setFilterSite(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">
-                {searchQuery.trim() ? `All Sites for "${searchQuery.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
-              </option>
-              {availableSites.map(s => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <MapPin size={15} style={{ color: searchQuery.trim() ? 'var(--primary, #2563eb)' : '#94a3b8' }} />
+          <select
+            className="form-control"
+            style={{ 
+              width: 'auto', 
+              minWidth: 190, 
+              fontWeight: 600,
+              backgroundColor: searchQuery.trim() ? '#ffffff' : '#f8fafc',
+              cursor: searchQuery.trim() ? 'pointer' : 'not-allowed'
+            }}
+            value={filterSite}
+            disabled={!searchQuery.trim()}
+            onChange={e => {
+              setFilterSite(e.target.value);
+              setPage(1);
+            }}
+          >
+            {!searchQuery.trim() ? (
+              <option value="">Select a company first to filter sites</option>
+            ) : availableSites.length === 0 ? (
+              <option value="">No sites found for "{searchQuery.trim()}"</option>
+            ) : (
+              <>
+                <option value="">
+                  {`All Sites for "${searchQuery.trim()}" (${availableSites.length})`}
                 </option>
-              ))}
-            </select>
-          </div>
-        )}
+                {availableSites.map(s => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </div>
 
         <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
           {filteredLogsheets.length} logsheets

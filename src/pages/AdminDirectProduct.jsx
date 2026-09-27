@@ -454,7 +454,7 @@ export default function AdminDirectProduct() {
   // Dynamic Sites Dropdown: If company is searched, show only sites for that company
   const filteredSitesForDropdown = useMemo(() => {
     const q = historySearch.toLowerCase().trim();
-    if (!q) return sites;
+    if (!q) return []; // Do not show any sites unless a company is searched/picked
 
     // Collect matched client IDs
     const matchedClientIds = new Set();
@@ -499,18 +499,15 @@ export default function AdminDirectProduct() {
       return siteNameMatches;
     }
 
-    return sites;
+    return [];
   }, [sites, clients, historyProducts, historySearch]);
 
-  // Reset selected site filter if it doesn't belong to the newly filtered company sites
+  // Reset selected site filter if search is cleared
   useEffect(() => {
-    if (historySiteFilter && filteredSitesForDropdown.length > 0) {
-      const exists = filteredSitesForDropdown.some(s => String(s._id || s.id) === String(historySiteFilter));
-      if (!exists) {
-        setHistorySiteFilter('');
-      }
+    if (!historySearch.trim() && historySiteFilter) {
+      setHistorySiteFilter('');
     }
-  }, [filteredSitesForDropdown, historySiteFilter]);
+  }, [historySearch, historySiteFilter]);
 
   // Unique Company Names for autocomplete
   const uniqueCompanyNames = useMemo(() => {
@@ -1212,6 +1209,7 @@ export default function AdminDirectProduct() {
               <div style={{ position: 'relative', width: 280 }}>
                 <select
                   value={historySiteFilter}
+                  disabled={!historySearch.trim()}
                   onChange={e => setHistorySiteFilter(e.target.value)}
                   style={{
                     width: '100%',
@@ -1219,28 +1217,34 @@ export default function AdminDirectProduct() {
                     borderRadius: 8,
                     border: '1px solid #cbd5e1',
                     fontSize: 13,
-                    background: historySiteFilter ? '#f0fdf4' : '#ffffff',
+                    background: historySiteFilter ? '#f0fdf4' : (!historySearch.trim() ? '#f8fafc' : '#ffffff'),
                     borderColor: historySiteFilter ? '#86efac' : '#cbd5e1',
                     color: '#0f172a',
                     fontWeight: historySiteFilter ? 600 : 400,
                     boxSizing: 'border-box',
-                    cursor: 'pointer'
+                    cursor: !historySearch.trim() ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <option value="">
-                    {filteredSitesForDropdown.length < sites.length
-                      ? `Filter by Site (${filteredSitesForDropdown.length} for searched company)`
-                      : `Filter by Site (All Sites)`}
-                  </option>
-                  {filteredSitesForDropdown.map(s => {
-                    const sName = s.name || s.est_name || s.trading_name || 'Site';
-                    const cName = s.company_name || s.profiles?.company_name || (typeof s.client_id === 'object' ? s.client_id?.company_name : '');
-                    return (
-                      <option key={s._id || s.id} value={s._id || s.id}>
-                        {sName} {cName ? `(${cName})` : ''}
+                  {!historySearch.trim() ? (
+                    <option value="">Select a company first to filter sites</option>
+                  ) : filteredSitesForDropdown.length === 0 ? (
+                    <option value="">No sites found for "{historySearch.trim()}"</option>
+                  ) : (
+                    <>
+                      <option value="">
+                        {`Filter by Site (${filteredSitesForDropdown.length} for searched company)`}
                       </option>
-                    );
-                  })}
+                      {filteredSitesForDropdown.map(s => {
+                        const sName = s.name || s.est_name || s.trading_name || 'Site';
+                        const cName = s.company_name || s.profiles?.company_name || (typeof s.client_id === 'object' ? s.client_id?.company_name : '');
+                        return (
+                          <option key={s._id || s.id} value={s._id || s.id}>
+                            {sName} {cName ? `(${cName})` : ''}
+                          </option>
+                        );
+                      })}
+                    </>
+                  )}
                 </select>
               </div>
 

@@ -83,8 +83,8 @@ const NAV_SECTIONS = [
         children: [
           { label: 'All Certificates',    path: '/certificates' },
           { label: 'Review Certificates', path: '/certificates?status=under_review', reviewCertOnly: true },
-          { label: 'Active',              path: '/certificates?status=active' },
-          { label: 'Expired',             path: '/certificates?status=expired' },
+          { label: 'Active Certificates', path: '/certificates?status=active' },
+          { label: 'Expired Certificates', path: '/certificates?status=expired' },
         ],
       },
       { icon: Ship, label: 'Export Certs', path: '/exports' },

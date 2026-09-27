@@ -70,9 +70,18 @@ export default function AdminCertificates({ defaultTab }) {
       setActiveTab('review');
       setFilterStatus('under_review');
     } else if (statusParam && statusParam !== 'under_review' && statusParam !== 'review') {
-      setFilterStatus(statusParam);
+      setActiveTab('certs');
+      setFilterStatus(statusParam.toLowerCase());
+    } else {
+      if (defaultTab === 'review' && canReviewCertificate) {
+        setActiveTab('review');
+        setFilterStatus('under_review');
+      } else {
+        setActiveTab('certs');
+        setFilterStatus('');
+      }
     }
-  }, [searchParams, canReviewCertificate]);
+  }, [searchParams, canReviewCertificate, defaultTab]);
   
   const [form, setForm] = useState({ 
     client_id: '', 
@@ -152,7 +161,18 @@ export default function AdminCertificates({ defaultTab }) {
   };
 
   const underReviewCerts = useMemo(() => {
-    return certs.filter(c => c.status === 'under_review' || c.status === 'draft');
+    return certs.filter(c => {
+      const s = (c.status || '').toLowerCase().trim();
+      return s === 'under_review' || s === 'draft';
+    });
+  }, [certs]);
+
+  const activeCertsCount = useMemo(() => {
+    return certs.filter(c => (c.status || '').toLowerCase().trim() === 'active').length;
+  }, [certs]);
+
+  const expiredCertsCount = useMemo(() => {
+    return certs.filter(c => (c.status || '').toLowerCase().trim() === 'expired').length;
   }, [certs]);
 
   // Active company filter: explicit selection or exact typed match
@@ -296,13 +316,17 @@ export default function AdminCertificates({ defaultTab }) {
 
   const filteredCerts = useMemo(() => {
     return certs.filter(c => {
+      const cStatus = (c.status || '').toLowerCase().trim();
       if (activeTab === 'review') {
-        if (c.status !== 'under_review' && c.status !== 'draft') return false;
+        if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
       } else if (activeTab === 'certs') {
         if (filterStatus) {
-          if (filterStatus === 'under_review') {
-            if (c.status !== 'under_review' && c.status !== 'draft') return false;
-          } else if (c.status !== filterStatus) {
+          const fStatus = filterStatus.toLowerCase().trim();
+          if (fStatus === 'under_review' || fStatus === 'review') {
+            if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
+          } else if (fStatus === 'active') {
+            if (cStatus !== 'active') return false;
+          } else if (cStatus !== fStatus) {
             return false;
           }
         }
@@ -356,7 +380,11 @@ export default function AdminCertificates({ defaultTab }) {
               alignItems: 'center',
               gap: 8
             }}
-            onClick={() => setActiveTab('review')}
+            onClick={() => {
+              setActiveTab('review');
+              setFilterStatus('under_review');
+              navigate('/certificates?status=under_review');
+            }}
           >
             <ShieldCheck size={16} /> 
             Pending Review 
@@ -381,15 +409,67 @@ export default function AdminCertificates({ defaultTab }) {
             padding: '12px 20px',
             border: 'none',
             background: 'none',
-            borderBottom: activeTab === 'certs' ? '2.5px solid #047857' : 'none',
-            color: activeTab === 'certs' ? '#047857' : '#64748b',
-            fontWeight: 700,
+            borderBottom: activeTab === 'certs' && !filterStatus ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'certs' && !filterStatus ? '#047857' : '#64748b',
+            fontWeight: activeTab === 'certs' && !filterStatus ? 800 : 600,
             cursor: 'pointer',
             fontSize: 14
           }}
-          onClick={() => setActiveTab('certs')}
+          onClick={() => {
+            setActiveTab('certs');
+            setFilterStatus('');
+            navigate('/certificates');
+          }}
         >
           🏅 All Certificates ({certs.length})
+        </button>
+
+        <button
+          type="button"
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'certs' && filterStatus === 'active' ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'certs' && filterStatus === 'active' ? '#047857' : '#64748b',
+            fontWeight: activeTab === 'certs' && filterStatus === 'active' ? 800 : 600,
+            cursor: 'pointer',
+            fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+          onClick={() => {
+            setActiveTab('certs');
+            setFilterStatus('active');
+            navigate('/certificates?status=active');
+          }}
+        >
+          ✅ Active Certificates ({activeCertsCount})
+        </button>
+
+        <button
+          type="button"
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'certs' && filterStatus === 'expired' ? '2.5px solid #047857' : 'none',
+            color: activeTab === 'certs' && filterStatus === 'expired' ? '#047857' : '#64748b',
+            fontWeight: activeTab === 'certs' && filterStatus === 'expired' ? 800 : 600,
+            cursor: 'pointer',
+            fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+          onClick={() => {
+            setActiveTab('certs');
+            setFilterStatus('expired');
+            navigate('/certificates?status=expired');
+          }}
+        >
+          ⏰ Expired Certificates ({expiredCertsCount})
         </button>
       </div>
 
@@ -465,8 +545,14 @@ export default function AdminCertificates({ defaultTab }) {
             style={{ width: 'auto' }}
             value={filterStatus}
             onChange={e => {
-              setFilterStatus(e.target.value);
+              const val = e.target.value;
+              setFilterStatus(val);
               setPage(1);
+              if (val) {
+                navigate(`/certificates?status=${val}`);
+              } else {
+                navigate('/certificates');
+              }
             }}
           >
             <option value="">All Statuses</option>
@@ -481,7 +567,15 @@ export default function AdminCertificates({ defaultTab }) {
       <div className="card">
           <div className="card-header">
             <div className="card-title">
-              {activeTab === 'review' ? `Certificates Awaiting Review & QA (${filteredCerts.length})` : `All Certificates (${filteredCerts.length})`}
+              {activeTab === 'review'
+                ? `Certificates Awaiting Review & QA (${filteredCerts.length})`
+                : filterStatus === 'active'
+                ? `Active Certificates (${filteredCerts.length})`
+                : filterStatus === 'expired'
+                ? `Expired Certificates (${filteredCerts.length})`
+                : filterStatus === 'under_review'
+                ? `Under Review Certificates (${filteredCerts.length})`
+                : `All Certificates (${filteredCerts.length})`}
             </div>
           </div>
           <div className="table-wrap">

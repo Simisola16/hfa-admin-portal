@@ -326,11 +326,15 @@ export default function AdminApplications() {
           <select
             className="form-control"
             style={{ 
-              width: 'auto', 
-              minWidth: 190, 
+              width: 240, 
+              minWidth: 240,
+              maxWidth: 240,
               fontWeight: 600,
               backgroundColor: search.trim() ? '#ffffff' : '#f8fafc',
-              cursor: search.trim() ? 'pointer' : 'not-allowed'
+              cursor: search.trim() ? 'pointer' : 'not-allowed',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
             }}
             value={filterSite}
             disabled={!search.trim()}

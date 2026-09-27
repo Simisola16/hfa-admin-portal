@@ -1222,7 +1222,10 @@ export default function AdminDirectProduct() {
                     color: '#0f172a',
                     fontWeight: historySiteFilter ? 600 : 400,
                     boxSizing: 'border-box',
-                    cursor: !historySearch.trim() ? 'not-allowed' : 'pointer'
+                    cursor: !historySearch.trim() ? 'not-allowed' : 'pointer',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {!historySearch.trim() ? (

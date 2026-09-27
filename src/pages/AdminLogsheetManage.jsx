@@ -302,11 +302,15 @@ export default function AdminLogsheetManage() {
           <select
             className="form-control"
             style={{ 
-              width: 'auto', 
-              minWidth: 190, 
+              width: 240, 
+              minWidth: 240,
+              maxWidth: 240,
               fontWeight: 600,
               backgroundColor: searchQuery.trim() ? '#ffffff' : '#f8fafc',
-              cursor: searchQuery.trim() ? 'pointer' : 'not-allowed'
+              cursor: searchQuery.trim() ? 'pointer' : 'not-allowed',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
             }}
             value={filterSite}
             disabled={!searchQuery.trim()}

@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import useCompanyDirectory from '../lib/useCompanyDirectory';
+import { getPdfUrl } from '../lib/pdfUtils';
+
 
 export default function AdminCertificates({ defaultTab }) {
   const { companies: directoryCompanies } = useCompanyDirectory();

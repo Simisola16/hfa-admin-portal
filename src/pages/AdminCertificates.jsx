@@ -1,13 +1,13 @@
-import { getPdfUrl } from '../lib/pdfUtils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3, Eye, ChevronDown, Send, ArrowRight } from 'lucide-react';
+import { Award, Search, Plus, X, Download, Calendar, CheckCircle, AlertCircle, FileText, ShieldCheck, Edit3, Eye, ChevronDown, Send, ArrowRight, MapPin } from 'lucide-react';
 import ViewCertificateModal from '../components/ViewCertificateModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
+import SearchWithSuggestions from '../components/SearchWithSuggestions';
 
 export default function AdminCertificates({ defaultTab }) {
   const { user, profile } = useAuth();
@@ -52,6 +52,7 @@ export default function AdminCertificates({ defaultTab }) {
   const [actionModalCert, setActionModalCert] = useState(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterSite, setFilterSite] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [submitting, setSubmitting] = useState(false);
@@ -142,6 +143,78 @@ export default function AdminCertificates({ defaultTab }) {
 
   const underReviewCerts = certs.filter(c => c.status === 'under_review' || c.status === 'draft');
 
+  // Dynamic available sites based on company search
+  const availableSites = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    
+    // Collect all unique sites from all certificates
+    const sitesMap = new Map();
+    certs.forEach(c => {
+      const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+      const comp = c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '';
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
+      }
+    });
+
+    if (!q) {
+      return Array.from(sitesMap.values());
+    }
+
+    // Filter sites to those matching the searched company
+    const matchingCerts = certs.filter(c => {
+      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
+      return comp.includes(q);
+    });
+
+    const companySitesMap = new Map();
+    matchingCerts.forEach(c => {
+      const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+      if (site && !companySitesMap.has(site.toLowerCase())) {
+        companySitesMap.set(site.toLowerCase(), { name: site, company: c.company_name });
+      }
+    });
+
+    if (companySitesMap.size > 0) {
+      return Array.from(companySitesMap.values());
+    }
+
+    return Array.from(sitesMap.values());
+  }, [search, certs]);
+
+  // Autocomplete search suggestions (companies & sites)
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+
+    const companiesMap = new Map();
+    const sitesMap = new Map();
+
+    certs.forEach(c => {
+      const comp = c.company_name || c.profiles?.company_name || c.application_id?.establishment_name;
+      if (comp && !companiesMap.has(comp.toLowerCase())) {
+        companiesMap.set(comp.toLowerCase(), {
+          label: comp,
+          type: 'Company',
+          subtext: 'Certified Company'
+        });
+      }
+      const site = c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name;
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), {
+          label: site,
+          type: 'Site',
+          subtext: comp || 'Certified Facility'
+        });
+      }
+    });
+
+    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
+    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+
+    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
+  }, [search, certs]);
+
   const filteredCerts = certs.filter(c => {
     if (activeTab === 'review') {
       if (c.status !== 'under_review' && c.status !== 'draft') return false;
@@ -154,16 +227,19 @@ export default function AdminCertificates({ defaultTab }) {
         }
       }
     }
+    const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
+    if (filterSite && site !== filterSite.toLowerCase()) {
+      return false;
+    }
     const q = search.toLowerCase();
     const certNo = (c.certificate_number || '').toLowerCase();
     const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
-    const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
     return certNo.includes(q) || comp.includes(q) || site.includes(q);
   });
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, activeTab]);
+  }, [search, filterStatus, filterSite, activeTab]);
 
   const paginatedCerts = filteredCerts.slice((page - 1) * pageSize, page * pageSize);
 
@@ -225,21 +301,51 @@ export default function AdminCertificates({ defaultTab }) {
         </button>
       </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <Search size={15} className="search-icon" />
-          <input 
-            placeholder="Search by cert no, company, site..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-          />
-        </div>
+      <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <SearchWithSuggestions
+          value={search}
+          onChange={val => {
+            setSearch(val);
+            setPage(1);
+          }}
+          suggestions={searchSuggestions}
+          placeholder="Search by cert no, company, site..."
+        />
+
+        {/* Filter by Site (dynamically narrowed to searched company) */}
+        {availableSites.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MapPin size={15} style={{ color: '#64748b' }} />
+            <select
+              className="form-control"
+              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
+              value={filterSite}
+              onChange={e => {
+                setFilterSite(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">
+                {search.trim() ? `All Sites for "${search.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
+              </option>
+              {availableSites.map(s => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {activeTab === 'certs' && (
           <select
             className="form-control"
-            style={{ width: 'auto', marginLeft: 8 }}
+            style={{ width: 'auto' }}
             value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
+            onChange={e => {
+              setFilterStatus(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">All Statuses</option>
             <option value="under_review">Under Review</option>

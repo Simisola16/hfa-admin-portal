@@ -1,18 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { 
-  Search, RefreshCw, Plus, Settings, Eye, Trash2
+  RefreshCw, Plus, Settings, Eye, Trash2, MapPin
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
+import SearchWithSuggestions from '../components/SearchWithSuggestions';
 
 export default function AdminLogsheetManage() {
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
+  const [filterSite, setFilterSite] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
@@ -103,7 +105,83 @@ export default function AdminLogsheetManage() {
     return 'HFA Admin';
   };
 
+  // Dynamic available sites based on company search
+  const availableSites = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const sitesMap = new Map();
+
+    logsheets.forEach(l => {
+      const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
+      const comp = l.company_name || '';
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), { name: site, company: comp });
+      }
+    });
+
+    if (!q) {
+      return Array.from(sitesMap.values());
+    }
+
+    // Filter sites to those matching the searched company
+    const matchingLogs = logsheets.filter(l => {
+      const comp = (l.company_name || '').toLowerCase();
+      return comp.includes(q);
+    });
+
+    const companySitesMap = new Map();
+    matchingLogs.forEach(l => {
+      const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
+      if (site && !companySitesMap.has(site.toLowerCase())) {
+        companySitesMap.set(site.toLowerCase(), { name: site, company: l.company_name });
+      }
+    });
+
+    if (companySitesMap.size > 0) {
+      return Array.from(companySitesMap.values());
+    }
+
+    return Array.from(sitesMap.values());
+  }, [searchQuery, logsheets]);
+
+  // Autocomplete search suggestions (companies & sites)
+  const searchSuggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+
+    const companiesMap = new Map();
+    const sitesMap = new Map();
+
+    logsheets.forEach(l => {
+      const comp = l.company_name;
+      if (comp && !companiesMap.has(comp.toLowerCase())) {
+        companiesMap.set(comp.toLowerCase(), {
+          label: comp,
+          type: 'Company',
+          subtext: 'Client Company'
+        });
+      }
+      const site = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name;
+      if (site && !sitesMap.has(site.toLowerCase())) {
+        sitesMap.set(site.toLowerCase(), {
+          label: site,
+          type: 'Site',
+          subtext: comp || 'Facility'
+        });
+      }
+    });
+
+    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
+    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+
+    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
+  }, [searchQuery, logsheets]);
+
   const filteredLogsheets = logsheets.filter(l => {
+    if (filterSite) {
+      const site = (l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || '').toLowerCase();
+      if (site !== filterSite.toLowerCase()) return false;
+    }
+
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     
@@ -132,7 +210,7 @@ export default function AdminLogsheetManage() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, searchField]);
+  }, [searchQuery, searchField, filterSite]);
 
   const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
 
@@ -174,20 +252,24 @@ export default function AdminLogsheetManage() {
     <div className="page-content">
 
       {/* Toolbar consistent with AdminApplications */}
-      <div className="toolbar">
-        <div className="search-box">
-          <Search size={15} className="search-icon" />
-          <input
-            placeholder={`Search by ${searchField.replace('_', ' ')}...`}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <SearchWithSuggestions
+          value={searchQuery}
+          onChange={val => {
+            setSearchQuery(val);
+            setPage(1);
+          }}
+          suggestions={searchSuggestions}
+          placeholder={`Search by ${searchField.replace('_', ' ')}...`}
+        />
         <select
           className="form-control"
           style={{ width: 'auto' }}
           value={searchField}
-          onChange={e => setSearchField(e.target.value)}
+          onChange={e => {
+            setSearchField(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="company_name">Company Name</option>
           <option value="site_name">Site Name</option>
@@ -196,6 +278,32 @@ export default function AdminLogsheetManage() {
           <option value="status">Status</option>
           <option value="audit_type">Logsheet Type</option>
         </select>
+
+        {/* Filter by Site (dynamically narrowed to searched company) */}
+        {availableSites.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MapPin size={15} style={{ color: '#64748b' }} />
+            <select
+              className="form-control"
+              style={{ width: 'auto', minWidth: 180, fontWeight: 600 }}
+              value={filterSite}
+              onChange={e => {
+                setFilterSite(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">
+                {searchQuery.trim() ? `All Sites for "${searchQuery.trim()}" (${availableSites.length})` : `All Sites (${availableSites.length})`}
+              </option>
+              {availableSites.map(s => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
           {filteredLogsheets.length} logsheets
         </span>

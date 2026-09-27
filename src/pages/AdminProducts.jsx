@@ -3,8 +3,10 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Package, CheckCircle, XCircle, Eye, RefreshCw, MapPin } from 'lucide-react';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import useCompanyDirectory from '../lib/useCompanyDirectory';
 
 export default function AdminProducts() {
+  const { companies: directoryCompanies } = useCompanyDirectory();
   const [products, setProducts] = useState([]);
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,24 @@ export default function AdminProducts() {
     const q = search.trim().toLowerCase();
     if (!q) return []; // Do not show any sites unless a company is searched/picked
 
-    // Matching products for this company query
+    const companySitesMap = new Map();
+
+    // 1. From all companies directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q)) {
+        (c.sites || []).forEach(s => {
+          if (s.name && !companySitesMap.has(s.name.toLowerCase())) {
+            companySitesMap.set(s.name.toLowerCase(), {
+              _id: s.id,
+              name: s.name,
+              company: c.name
+            });
+          }
+        });
+      }
+    });
+
+    // 2. From sites prop & matching products
     const matchingProducts = products.filter(p => {
       const clientName = (p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name || '').toLowerCase();
       return clientName.includes(q);
@@ -70,32 +89,31 @@ export default function AdminProducts() {
         .map(String)
     );
 
-    const fromSites = sites.filter(s => {
+    sites.forEach(s => {
       const sId = String(s._id || s.id);
       const sComp = (s.company_name || s.client_id?.company_name || s.client_id?.full_name || '').toLowerCase();
-      return matchingSiteIds.has(sId) || sComp.includes(q);
+      const sName = s.name || s.est_name || s.trading_name || s.address_1;
+      if ((matchingSiteIds.has(sId) || sComp.includes(q)) && sName) {
+        if (!companySitesMap.has(sName.toLowerCase())) {
+          companySitesMap.set(sName.toLowerCase(), { _id: s._id || s.id, name: sName, company: s.company_name });
+        }
+      }
     });
 
-    if (fromSites.length > 0) return fromSites;
-
-    // Fallback to embedded site objects from matching products
-    const embeddedSites = [];
-    const seenEmbedded = new Set();
     matchingProducts.forEach(p => {
       if (p.site_id && typeof p.site_id === 'object') {
-        const sId = String(p.site_id._id || p.site_id.id || p.site_id.name);
-        if (!seenEmbedded.has(sId)) {
-          seenEmbedded.add(sId);
-          embeddedSites.push({
-            _id: p.site_id._id || p.site_id.id || sId,
-            name: p.site_id.name || p.site_id.est_name || p.site_id.trading_name || 'Facility'
+        const sName = p.site_id.name || p.site_id.est_name || p.site_id.trading_name;
+        if (sName && !companySitesMap.has(sName.toLowerCase())) {
+          companySitesMap.set(sName.toLowerCase(), {
+            _id: p.site_id._id || p.site_id.id,
+            name: sName
           });
         }
       }
     });
 
-    return embeddedSites;
-  }, [search, sites, products]);
+    return Array.from(companySitesMap.values());
+  }, [search, directoryCompanies, sites, products]);
 
   // Automatically reset site filter if search is cleared
   useEffect(() => {
@@ -104,27 +122,58 @@ export default function AdminProducts() {
     }
   }, [search, filterSite]);
 
-  // Autocomplete search suggestions (companies & sites)
+  // Autocomplete search suggestions (ALL registered companies, sites, and products)
   const searchSuggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
 
     const companiesMap = new Map();
+    const sitesMap = new Map();
+    const productsMap = new Map();
+
+    // 1. ALL registered companies and their sites from directory
+    directoryCompanies.forEach(c => {
+      if (c.name.toLowerCase().includes(q) && !companiesMap.has(c.name.toLowerCase())) {
+        companiesMap.set(c.name.toLowerCase(), {
+          label: c.name,
+          type: 'Company',
+          subtext: `${c.sites?.length || 0} registered site${(c.sites?.length || 0) === 1 ? '' : 's'}`
+        });
+      }
+      (c.sites || []).forEach(s => {
+        if (s.name && s.name.toLowerCase().includes(q) && !sitesMap.has(s.name.toLowerCase())) {
+          sitesMap.set(s.name.toLowerCase(), {
+            label: s.name,
+            type: 'Site',
+            subtext: c.name
+          });
+        }
+      });
+    });
+
+    // 2. Fallback to loaded products & sites
     products.forEach(p => {
       const name = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || p.company_name;
-      if (name && !companiesMap.has(name.toLowerCase())) {
+      if (name && name.toLowerCase().includes(q) && !companiesMap.has(name.toLowerCase())) {
         companiesMap.set(name.toLowerCase(), {
           label: name,
           type: 'Company',
           subtext: 'Client Company'
         });
       }
+      const prodName = p.name || p.product_name;
+      if (prodName && prodName.toLowerCase().includes(q) && !productsMap.has(prodName.toLowerCase())) {
+        productsMap.set(prodName.toLowerCase(), {
+          label: prodName,
+          type: 'Product',
+          subtext: name || 'Product'
+        });
+      }
     });
 
-    const sitesMap = new Map();
     sites.forEach(s => {
       const name = s.name || s.est_name || s.trading_name || s.address_1;
-      if (name && !sitesMap.has(name.toLowerCase())) {
+      if (name && name.toLowerCase().includes(q) && !sitesMap.has(name.toLowerCase())) {
         sitesMap.set(name.toLowerCase(), {
           label: name,
           type: 'Site',
@@ -133,11 +182,16 @@ export default function AdminProducts() {
       }
     });
 
-    const matchingCompanies = Array.from(companiesMap.values()).filter(c => c.label.toLowerCase().includes(q));
-    const matchingSites = Array.from(sitesMap.values()).filter(s => s.label.toLowerCase().includes(q));
+    const matchingCompanies = Array.from(companiesMap.values());
+    const matchingSites = Array.from(sitesMap.values());
+    const matchingProducts = Array.from(productsMap.values());
 
-    return [...matchingCompanies.slice(0, 8), ...matchingSites.slice(0, 5)];
-  }, [search, products, sites]);
+    return [
+      ...matchingCompanies.slice(0, 8),
+      ...matchingSites.slice(0, 5),
+      ...matchingProducts.slice(0, 4)
+    ];
+  }, [search, directoryCompanies, products, sites]);
 
   const filtered = products.filter(p => {
     if (p.status === 'pending') return false;

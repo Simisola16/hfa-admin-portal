@@ -83,19 +83,24 @@ export default function AdminCertificates({ defaultTab }) {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [certsRes, appsRes] = await Promise.all([
-        api.get('/api/certificates').catch(() => ({ data: [] })),
-        api.get('/api/applications').catch(() => ({ data: [] }))
-      ]);
+      const certsRes = await api.get('/api/certificates');
       const rawCerts = Array.isArray(certsRes) ? certsRes : (Array.isArray(certsRes?.data) ? certsRes.data : []);
-      const rawApps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : []);
-
       setCerts(rawCerts);
-      setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'ready_for_certificate' || a.status === 'certificate_issued')));
     } catch (err) {
       toast.error('Failed to load certificates.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAppsForModal = async () => {
+    if (apps.length > 0) return;
+    try {
+      const appsRes = await api.get('/api/applications');
+      const rawApps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : []);
+      setApps(rawApps.filter(a => a && (a.status === 'approved' || a.status === 'ready_for_certificate' || a.status === 'certificate_issued')));
+    } catch (err) {
+      console.error('Failed to load applications for modal:', err);
     }
   };
 
@@ -143,7 +148,9 @@ export default function AdminCertificates({ defaultTab }) {
     }
   };
 
-  const underReviewCerts = certs.filter(c => c.status === 'under_review' || c.status === 'draft');
+  const underReviewCerts = useMemo(() => {
+    return certs.filter(c => c.status === 'under_review' || c.status === 'draft');
+  }, [certs]);
 
   // Dynamic available sites based on company search (only populated when company is searched)
   const availableSites = useMemo(() => {
@@ -252,33 +259,37 @@ export default function AdminCertificates({ defaultTab }) {
     ];
   }, [search, directoryCompanies, certs]);
 
-  const filteredCerts = certs.filter(c => {
-    if (activeTab === 'review') {
-      if (c.status !== 'under_review' && c.status !== 'draft') return false;
-    } else if (activeTab === 'certs') {
-      if (filterStatus) {
-        if (filterStatus === 'under_review') {
-          if (c.status !== 'under_review' && c.status !== 'draft') return false;
-        } else if (c.status !== filterStatus) {
-          return false;
+  const filteredCerts = useMemo(() => {
+    return certs.filter(c => {
+      if (activeTab === 'review') {
+        if (c.status !== 'under_review' && c.status !== 'draft') return false;
+      } else if (activeTab === 'certs') {
+        if (filterStatus) {
+          if (filterStatus === 'under_review') {
+            if (c.status !== 'under_review' && c.status !== 'draft') return false;
+          } else if (c.status !== filterStatus) {
+            return false;
+          }
         }
       }
-    }
-    const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
-    if (filterSite && site !== filterSite.toLowerCase()) {
-      return false;
-    }
-    const q = search.toLowerCase();
-    const certNo = (c.certificate_number || '').toLowerCase();
-    const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
-    return certNo.includes(q) || comp.includes(q) || site.includes(q);
-  });
+      const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
+      if (filterSite && site !== filterSite.toLowerCase()) {
+        return false;
+      }
+      const q = search.toLowerCase();
+      const certNo = (c.certificate_number || '').toLowerCase();
+      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').toLowerCase();
+      return certNo.includes(q) || comp.includes(q) || site.includes(q);
+    });
+  }, [certs, activeTab, filterStatus, filterSite, search]);
 
   useEffect(() => {
     setPage(1);
   }, [search, filterStatus, filterSite, activeTab]);
 
-  const paginatedCerts = filteredCerts.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedCerts = useMemo(() => {
+    return filteredCerts.slice((page - 1) * pageSize, page * pageSize);
+  }, [filteredCerts, page, pageSize]);
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>

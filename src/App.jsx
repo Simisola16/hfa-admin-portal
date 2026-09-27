@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
@@ -11,7 +10,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminApplications from './pages/AdminApplications';
 import AdminCertificates from './pages/AdminCertificates';
 import AdminClients from './pages/AdminClients';
-import AdminInspectors from './pages/AdminInspectors';
 import AdminAudits from './pages/AdminAudits';
 import AdminAuditReports from './pages/AdminAuditReports';
 import AdminInvoices from './pages/AdminInvoices';
@@ -129,8 +127,8 @@ export default function App() {
             <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />
             <Route path="/logsheet/waiting-signature" element={<AdminLogsheetWaitingSignature />} />
             <Route path="/logsheet/waiting-certificate" element={<AdminLogsheetWaitingCertificate />} />
-            <Route path="/logsheet/create" element={<Navigate to="/logsheet/direct" replace />} />
-            <Route path="/logsheets/:id" element={<Navigate to="/logsheet/manage" replace />} />
+            <Route path="/logsheets/:id/view" element={<AdminCreateLogsheet />} />
+            <Route path="/logsheets/:id" element={<AdminCreateLogsheet />} />
             <Route path="/tickets" element={<AdminTickets />} />
             <Route path="/signatures" element={<AdminSignatures />} />
             <Route path="/users" element={<AdminClients />} />

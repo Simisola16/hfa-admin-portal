@@ -228,13 +228,36 @@ export default function AdminLogsheetManage() {
     }
   };
 
+  const isSeedLogsheet = (l) => {
+    if (!l) return false;
+    if (l.is_seed) return true;
+    if (l.source_type === 'extension_application' || l.extension_application_id) return false;
+    if (l.source_type === 'addon_application' || l.addon_application_id) return false;
+    if (l.source_type === 'initial_product_application' || l.initial_product_application_id) return false;
+
+    // Check if application is imported legacy application
+    if (l.application_id?.notes && (
+      l.application_id.notes.toLowerCase().includes('imported') ||
+      l.application_id.notes.toLowerCase().includes('legacy')
+    )) {
+      return true;
+    }
+
+    // Historical seed records without created_by
+    if (!l.created_by && !l.created_by_name && l.confirmed) {
+      return true;
+    }
+
+    return false;
+  };
+
   const getLogsheetLink = (l) => {
     if (l.source_type === 'extension_application' || l.extension_application_id) {
       const id = l.extension_application_id?._id || l.extension_application_id;
       return `/extension-applications/${id}/logsheet`;
     }
     if (l.source_type === 'direct') {
-      return `/logsheet/direct/${l._id}`;
+      return `/logsheets/${l._id}/view`;
     }
     if (l.source_type === 'initial_product_application' || l.initial_product_application_id) {
       const id = l.initial_product_application_id?._id || l.initial_product_application_id;
@@ -244,8 +267,11 @@ export default function AdminLogsheetManage() {
       const id = l.addon_application_id?._id || l.addon_application_id;
       return `/addon-applications/${id}/logsheet`;
     }
+    if (isSeedLogsheet(l)) {
+      return `/logsheets/${l._id}/view`;
+    }
     const id = l.application_id?._id || l.application_id;
-    return id ? `/applications/${id}/logsheet` : `/logsheet/direct/${l._id}`;
+    return id ? `/applications/${id}/logsheet?logsheet_id=${l._id}` : `/logsheets/${l._id}/view`;
   };
 
   return (
@@ -432,7 +458,9 @@ export default function AdminLogsheetManage() {
       {/* Action Menu Pop-up Modal */}
       {actionModalLogsheet && (() => {
         const l = actionModalLogsheet;
+        const isSeed = isSeedLogsheet(l);
         const targetAppId = l.application_id?._id || l.application_id || l.extension_application_id?._id || l.extension_application_id || l.addon_application_id?._id || l.addon_application_id;
+        const canOpenAppProcessing = !isSeed && Boolean(targetAppId);
 
         return (
           <ActionModal
@@ -443,7 +471,7 @@ export default function AdminLogsheetManage() {
             badge={`Status: ${l.status || 'Active'}`}
             badgeVariant={getStatusBadgeClass(l.status)}
             actions={[
-              targetAppId && {
+              canOpenAppProcessing && {
                 label: 'Application Processing',
                 description: 'Open linked application workflow & timeline',
                 icon: Settings,

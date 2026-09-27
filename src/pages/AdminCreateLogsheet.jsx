@@ -23,6 +23,10 @@ export default function AdminCreateLogsheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const isDirectLogsheetRoute = window.location.pathname.startsWith('/logsheets/');
+  const queryLogsheetId = new URLSearchParams(location.search).get('logsheet_id');
+  const directLogsheetId = isDirectLogsheetRoute ? id : queryLogsheetId;
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isRedoing, setIsRedoing] = useState(() => {
@@ -57,6 +61,39 @@ export default function AdminCreateLogsheet() {
   const [initialProductName, setInitialProductName] = useState('');
   const [initialProductCode, setInitialProductCode] = useState('');
   const [savingProductDetails, setSavingProductDetails] = useState(false);
+
+  // Form State declared before any derived variables that reference form
+  const [form, setForm] = useState({
+    site_name: '', company_name: '', company_address: '', manufacturing_address: '',
+    contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
+    nature_of_business: '', product_category: '', current_cycle_start: '',
+    original_cycle_start: '', next_surveillance_due_date: '', document_url: '', document_urls: [], audit_reports: [],
+
+    audit_type: 'New', audit_date: '', auditors: '', ncs_close: '',
+    docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
+    reviewer_name: '', review_date: '',
+
+    certificate_type: 'HFA SCHEME NON MEAT', certificate_standard: 'HFA SCHEME NON MEAT',
+    suggested_certificate_type: 'HFA SCHEME NON MEAT',
+    annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
+    new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
+
+    comment: '', confirmed: false
+  });
+
+  const [uploadingReport, setUploadingReport] = useState(false);
+
+  // Signatory calculations (hoisted so all handlers have access)
+  const signatories = [
+    { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
+    { roleKey: 'Ceo', label: 'CEO / Executive Signatory', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
+    { roleKey: 'Manager', label: 'Manager / Technical Signatory', signature: currentLogsheet?.manager_signature, name: currentLogsheet?.manager_sign_name, date: currentLogsheet?.manager_sign_date },
+    { roleKey: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', signature: currentLogsheet?.mufti2_signature, name: currentLogsheet?.mufti2_sign_name, date: currentLogsheet?.mufti2_sign_date },
+  ];
+
+  const totalSignedCount = signatories.filter(s => !!s.signature).length;
+  const isFullySigned = totalSignedCount === 4 || currentLogsheet?.status === 'Signed' || currentLogsheet?.status === 'Completed';
+  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
 
   const userSignature = signatures.find(s =>
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
@@ -93,26 +130,6 @@ export default function AdminCreateLogsheet() {
     isSurveillance
   );
 
-  const [form, setForm] = useState({
-    site_name: '', company_name: '', company_address: '', manufacturing_address: '',
-    contact_person: '', contact_email: '', issue_date: '', expiry_date: '',
-    nature_of_business: '', product_category: '', current_cycle_start: '',
-    original_cycle_start: '', next_surveillance_due_date: '', document_url: '', document_urls: [], audit_reports: [],
-
-    audit_type: 'New', audit_date: '', auditors: '', ncs_close: '',
-    docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
-    reviewer_name: '', review_date: '',
-
-    certificate_type: 'HFA SCHEME NON MEAT', certificate_standard: 'HFA SCHEME NON MEAT',
-    suggested_certificate_type: 'HFA SCHEME NON MEAT',
-    annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
-    new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
-
-    comment: '', confirmed: false
-  });
-
-  const [uploadingReport, setUploadingReport] = useState(false);
-
   useEffect(() => {
     if (isSurveillance && form.certificate_type !== 'Surveillance Letter') {
       setForm(prev => ({
@@ -129,6 +146,40 @@ export default function AdminCreateLogsheet() {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      if (directLogsheetId) {
+        try {
+          const logRes = await api.get(`/api/application-logsheets/${directLogsheetId}`);
+          const logDoc = logRes.data?.data || logRes.data;
+          if (logDoc && logDoc._id) {
+            setCurrentLogsheet(logDoc);
+            if (logDoc.application_id && typeof logDoc.application_id === 'object') {
+              setApplication(logDoc.application_id);
+            }
+            setForm(f => ({
+              ...f,
+              ...logDoc,
+              certificate_type: logDoc.certificate_type || logDoc.suggested_certificate_type || logDoc.certificate_standard || 'HFA SCHEME NON MEAT',
+              certificate_standard: logDoc.certificate_standard || logDoc.certificate_type || 'HFA SCHEME NON MEAT',
+              suggested_certificate_type: logDoc.suggested_certificate_type || logDoc.certificate_type || '',
+              next_surveillance_due_date: logDoc.next_surveillance_due_date ? new Date(logDoc.next_surveillance_due_date).toISOString().split('T')[0] : '',
+              confirmed: false
+            }));
+
+            // Fetch signatures for signing panel
+            try {
+              const sigsRes = await api.get('/api/signatures');
+              setSignatures(Array.isArray(sigsRes) ? sigsRes : (sigsRes?.data?.data || sigsRes?.data || []));
+            } catch (e) {
+              console.log('Failed to fetch signatures', e);
+            }
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to fetch logsheet by ID:', err);
+        }
+      }
 
       if (!entityId || entityId === 'undefined') {
         toast.error('Invalid application reference.');
@@ -572,23 +623,36 @@ export default function AdminCreateLogsheet() {
 
         // 3. See if main facility logsheet exists
         let logsheetObj = null;
-        try {
-          const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
-          const raw = logRes.data?.data || logRes.data;
-          if (
-            raw &&
-            !raw.error &&
-            raw._id &&
-            raw.source_type !== 'initial_product_application' &&
-            raw.source_type !== 'addon_application' &&
-            !raw.initial_product_application_id &&
-            !raw.addon_application_id &&
-            raw.audit_type !== 'Initial Product Evaluation'
-          ) {
-            logsheetObj = raw;
+        if (queryLogsheetId) {
+          try {
+            const specificLogRes = await api.get(`/api/application-logsheets/${queryLogsheetId}`);
+            const specificRaw = specificLogRes.data?.data || specificLogRes.data;
+            if (specificRaw && specificRaw._id) {
+              logsheetObj = specificRaw;
+            }
+          } catch {
+            // fallback
           }
-        } catch {
-          // Logsheet not found yet
+        }
+        if (!logsheetObj) {
+          try {
+            const logRes = await api.get(`/api/application-logsheets/application/${appId}`);
+            const raw = logRes.data?.data || logRes.data;
+            if (
+              raw &&
+              !raw.error &&
+              raw._id &&
+              raw.source_type !== 'initial_product_application' &&
+              raw.source_type !== 'addon_application' &&
+              !raw.initial_product_application_id &&
+              !raw.addon_application_id &&
+              raw.audit_type !== 'Initial Product Evaluation'
+            ) {
+              logsheetObj = raw;
+            }
+          } catch {
+            // Logsheet not found yet
+          }
         }
 
         if (logsheetObj && logsheetObj._id) {
@@ -1360,19 +1424,6 @@ export default function AdminCreateLogsheet() {
       setSubmitting(false);
     }
   };
-
-  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
-
-  // Signatory calculations
-  const signatories = [
-    { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
-    { roleKey: 'Ceo', label: 'CEO / Executive Signatory', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
-    { roleKey: 'Manager', label: 'Manager / Technical Signatory', signature: currentLogsheet?.manager_signature, name: currentLogsheet?.manager_sign_name, date: currentLogsheet?.manager_sign_date },
-    { roleKey: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', signature: currentLogsheet?.mufti2_signature, name: currentLogsheet?.mufti2_sign_name, date: currentLogsheet?.mufti2_sign_date },
-  ];
-
-  const totalSignedCount = signatories.filter(s => !!s.signature).length;
-  const isFullySigned = totalSignedCount === 4 || currentLogsheet?.status === 'Signed' || currentLogsheet?.status === 'Completed';
 
   if (loading) return <div className="loading-overlay"><div className="spinner" /></div>;
 

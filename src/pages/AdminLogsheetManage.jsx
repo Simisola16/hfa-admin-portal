@@ -17,6 +17,7 @@ export default function AdminLogsheetManage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [filterSite, setFilterSite] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -254,6 +255,11 @@ export default function AdminLogsheetManage() {
   const filteredLogsheets = logsheets.filter(l => {
     if (l.status === 'Bin' || l.status?.toLowerCase() === 'bin') return false;
 
+    if (filterStatus) {
+      const s = (l.status || '').toLowerCase();
+      if (s !== filterStatus.toLowerCase()) return false;
+    }
+
     if (filterSite) {
       const site = (l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || '').toLowerCase();
       if (site !== filterSite.toLowerCase()) return false;
@@ -269,6 +275,8 @@ export default function AdminLogsheetManage() {
     
     if (searchField === 'id') {
       return l._id?.toLowerCase().includes(query) || 
+        l.legacy_id?.toLowerCase().includes(query) ||
+        l.direct_ref?.toLowerCase().includes(query) ||
         l.application_number?.toLowerCase().includes(query) ||
         l.application_id?.application_number?.toLowerCase().includes(query);
     }
@@ -292,7 +300,7 @@ export default function AdminLogsheetManage() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, searchField, filterSite]);
+  }, [searchQuery, searchField, filterSite, filterStatus]);
 
   const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
 
@@ -401,6 +409,23 @@ export default function AdminLogsheetManage() {
           <option value="id">Logsheet ID</option>
           <option value="status">Status</option>
           <option value="audit_type">Logsheet Type</option>
+        </select>
+
+        {/* Filter by Status */}
+        <select
+          className="form-control"
+          style={{ width: 'auto', fontWeight: 600 }}
+          value={filterStatus}
+          onChange={e => {
+            setFilterStatus(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All Statuses</option>
+          <option value="Waiting for Signature">Waiting for Signature</option>
+          <option value="Signed">Signed</option>
+          <option value="Waiting For Certificate">Waiting For Certificate</option>
+          <option value="Completed">Completed</option>
         </select>
 
         {/* Filter by Site (dynamically narrowed to searched company) */}

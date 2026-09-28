@@ -36,8 +36,8 @@ const NAV_SECTIONS = [
         children: [
           { label: 'All Applications',        path: '/applications' },
           { label: 'New Applications',        path: '/applications?type=new' },
+          { label: 'In-Progress',             path: '/applications?type=inprogress' },
           { label: 'Certified Applications',  path: '/applications?type=certified' },
-          { label: 'Renewals',                path: '/applications?type=renewal' },
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
           { label: 'Surveillance Due Dates',  path: '/surveillance-due-dates' },
           { label: 'Extension Applications',  path: '/extension-applications' },
@@ -188,6 +188,23 @@ function isChildActive(childPath, location) {
   // Match all certificates route (no specific query or status=all)
   if (childPath === '/certificates') {
     return location.pathname === '/certificates' && (!location.search || location.search === '?status=all');
+  }
+
+  // Match applications routes
+  if (childPath === '/applications?type=new') {
+    return location.pathname === '/applications' && location.search.includes('type=new');
+  }
+  if (childPath === '/applications?type=inprogress') {
+    return location.pathname === '/applications' && (location.search.includes('type=inprogress') || location.search.includes('type=in_progress') || location.search.includes('type=renewal'));
+  }
+  if (childPath === '/applications?type=certified') {
+    return location.pathname === '/applications' && location.search.includes('type=certified');
+  }
+  if (childPath === '/applications?type=surveillance') {
+    return location.pathname === '/applications' && location.search.includes('type=surveillance');
+  }
+  if (childPath === '/applications') {
+    return location.pathname === '/applications' && (!location.search || location.search === '?type=all');
   }
 
   if (childPathname === '/addon-applications' && childSearch === 'view=list' && location.pathname === '/addon-applications' && !location.search) {

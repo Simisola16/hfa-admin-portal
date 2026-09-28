@@ -132,6 +132,44 @@ export default function AdminApplications() {
   }, [searchParams, navigate]);
 
   const typeParam = searchParams.get('type') || (location.pathname.includes('/certified') ? 'certified' : null);
+  const isProgressView = typeParam === 'inprogress' || typeParam === 'in_progress' || typeParam === 'renewal';
+  const subType = searchParams.get('subType') || null;
+
+  const isTypeRenewal = (t) => {
+    if (!t) return false;
+    const s = t.toLowerCase().trim();
+    return s === 'renewal' || s === 'renewal application' || s.includes('renewal');
+  };
+
+  const isTypeSurveillance = (t) => {
+    if (!t) return false;
+    const s = t.toLowerCase().trim();
+    return s === 'surveillance' || s === 'surveillance application' || s.includes('surveillance');
+  };
+
+  const isTypeNew = (t) => {
+    if (!t) return true;
+    const s = t.toLowerCase().trim();
+    if (isTypeRenewal(s) || isTypeSurveillance(s)) return false;
+    return s === 'new' || s === 'new application' || s === 'standard' || s === 'initial' || s.includes('new');
+  };
+
+  // Applications that have status "Application Submitted" only
+  const isSubmittedOnly = (statusStr) => {
+    if (!statusStr) return false;
+    const s = statusStr.toLowerCase().replace(/ /g, '_');
+    return s === 'submitted' || s === 'application_submitted';
+  };
+
+  // Applications that HAVE been accepted and certificate has NOT been issued
+  const isInProgress = (statusStr) => {
+    if (!statusStr) return false;
+    const s = statusStr.toLowerCase().replace(/ /g, '_');
+    if (s === 'submitted' || s === 'under_review' || s === 'application_received' || s === 'received') return false;
+    if (s === 'rejected' || s === 'application_rejected' || s === 'proposal_rejected' || s === 'dates_rejected') return false;
+    if (s === 'certificate_issued' || s === 'send_certificate') return false;
+    return true;
+  };
 
   const isTerminalStatus = (statusStr) => {
     if (!statusStr) return false;
@@ -294,15 +332,24 @@ export default function AdminApplications() {
     if (!a) return false;
     // 1. View Type Filter
     if (typeParam === 'new') {
-      // New Applications view: exclude terminal states (certificate_issued and rejected)
-      if (isTerminalStatus(a.status)) return false;
+      // New Applications view: show all applications that the application status is in application submitted only
+      if (!isSubmittedOnly(a.status)) return false;
+      // Sub-type filter (New, Renewal, Surveillance)
+      if (subType === 'new' && !isTypeNew(a.application_type)) return false;
+      if (subType === 'renewal' && !isTypeRenewal(a.application_type)) return false;
+      if (subType === 'surveillance' && !isTypeSurveillance(a.application_type)) return false;
+    } else if (isProgressView) {
+      // In-Progress Applications view: applications that have been accepted and not certified yet
+      if (!isInProgress(a.status)) return false;
+      // Sub-type filter (New, Renewal, Surveillance)
+      if (subType === 'new' && !isTypeNew(a.application_type)) return false;
+      if (subType === 'renewal' && !isTypeRenewal(a.application_type)) return false;
+      if (subType === 'surveillance' && !isTypeSurveillance(a.application_type)) return false;
     } else if (typeParam === 'certified') {
       // Certified Applications view: show only certified applications
       if (!isCertifiedStatus(a.status)) return false;
-    } else if (typeParam === 'renewal') {
-      if (a.application_type !== 'renewal') return false;
     } else if (typeParam === 'surveillance') {
-      if (a.application_type !== 'surveillance') return false;
+      if (!isTypeSurveillance(a.application_type)) return false;
     }
 
     // 2. Search / Company Filter
@@ -333,27 +380,65 @@ export default function AdminApplications() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, filterSite, typeParam]);
+  }, [search, filterStatus, filterSite, typeParam, subType]);
 
   const paginatedApps = filtered.slice((page - 1) * pageSize, page * pageSize);
 
+  // Dynamic counts for the 3 sub-type buttons (New, Renewal, Surveillance)
+  const { newCount, renewalCount, surveillanceCount, totalViewCount } = useMemo(() => {
+    let baseApps = [];
+    if (typeParam === 'new') {
+      baseApps = safeApps.filter(a => isSubmittedOnly(a?.status));
+    } else if (isProgressView) {
+      baseApps = safeApps.filter(a => isInProgress(a?.status));
+    }
+
+    return {
+      newCount: baseApps.filter(a => isTypeNew(a?.application_type)).length,
+      renewalCount: baseApps.filter(a => isTypeRenewal(a?.application_type)).length,
+      surveillanceCount: baseApps.filter(a => isTypeSurveillance(a?.application_type)).length,
+      totalViewCount: baseApps.length
+    };
+  }, [safeApps, typeParam, isProgressView]);
+
+  const handleSubTypeClick = (clickedType) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (subType === clickedType) {
+        next.delete('subType');
+      } else {
+        next.set('subType', clickedType);
+      }
+      return next;
+    });
+    setPage(1);
+  };
+
   const getPageTitleAndSub = () => {
     if (typeParam === 'new') {
+      let subText = 'Applications with status Application Submitted';
+      if (subType === 'new') subText = 'New certification applications with status Application Submitted';
+      if (subType === 'renewal') subText = 'Renewal applications with status Application Submitted';
+      if (subType === 'surveillance') subText = 'Surveillance applications with status Application Submitted';
       return {
-        title: 'New Applications (In-Progress)',
-        sub: 'Active and in-progress applications awaiting or undergoing certification review'
+        title: 'New Applications',
+        sub: subText
+      };
+    }
+    if (isProgressView) {
+      let subText = 'Accepted applications currently undergoing certification and compliance review';
+      if (subType === 'new') subText = 'Accepted new certification applications undergoing certification and compliance review';
+      if (subType === 'renewal') subText = 'Accepted renewal applications undergoing certification and compliance review';
+      if (subType === 'surveillance') subText = 'Accepted surveillance applications undergoing certification and compliance review';
+      return {
+        title: 'In-Progress Applications',
+        sub: subText
       };
     }
     if (typeParam === 'certified') {
       return {
         title: 'Certified Applications',
         sub: 'Applications that have successfully completed certification and been issued certificates'
-      };
-    }
-    if (typeParam === 'renewal') {
-      return {
-        title: 'Renewal Applications',
-        sub: 'Certification renewal requests submitted by existing clients'
       };
     }
     if (typeParam === 'surveillance') {
@@ -485,12 +570,125 @@ export default function AdminApplications() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div className="card-title">{pageMeta.title}</div>
             <div className="card-subtitle">{pageMeta.sub}</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={fetchData}><RefreshCw size={13}/></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* The 3 Filter Buttons (New, Renewal, Surveillance) for 'new' and 'inprogress' views */}
+            {(typeParam === 'new' || isProgressView) && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: '#f8fafc',
+                padding: '3px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                gap: '4px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleSubTypeClick('new')}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: subType === 'new' ? '#047857' : '#ffffff',
+                    color: subType === 'new' ? '#ffffff' : '#334155',
+                    boxShadow: subType === 'new' ? '0 1px 3px rgba(4,120,87,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: subType === 'new' ? '1px solid #047857' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Filter by New Applications (click to toggle)"
+                >
+                  <span>New</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: subType === 'new' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: subType === 'new' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {newCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSubTypeClick('renewal')}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: subType === 'renewal' ? '#047857' : '#ffffff',
+                    color: subType === 'renewal' ? '#ffffff' : '#334155',
+                    boxShadow: subType === 'renewal' ? '0 1px 3px rgba(4,120,87,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: subType === 'renewal' ? '1px solid #047857' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Filter by Renewal Applications (click to toggle)"
+                >
+                  <span>Renewal</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: subType === 'renewal' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: subType === 'renewal' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {renewalCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSubTypeClick('surveillance')}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: subType === 'surveillance' ? '#047857' : '#ffffff',
+                    color: subType === 'surveillance' ? '#ffffff' : '#334155',
+                    boxShadow: subType === 'surveillance' ? '0 1px 3px rgba(4,120,87,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: subType === 'surveillance' ? '1px solid #047857' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Filter by Surveillance Applications (click to toggle)"
+                >
+                  <span>Surveillance</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: subType === 'surveillance' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: subType === 'surveillance' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {surveillanceCount}
+                  </span>
+                </button>
+              </div>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={fetchData} title="Refresh"><RefreshCw size={13}/></button>
+          </div>
         </div>
         <div className="table-wrap">
           {loading ? (

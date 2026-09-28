@@ -47,9 +47,7 @@ export default function AdminLoginPage() {
               <span style={{ fontSize: 13, color: '#F9B000', fontWeight: 600 }}>Authorised Personnel Only</span>
             </div>
 
-            <div className="auth-sidebar-footer">
-              Developed by TheYoungPioneers
-            </div>
+            
           </div>
         </div>
 

@@ -137,7 +137,7 @@ export default function AdminDashboard() {
   /* ─── 4 KPI cards ─── */
   const KPI = [
     { id: 'total_apps', label: 'Total Applications', value: totalAppsCount, iconBg: '#2563eb', icon: <ClipboardList size={22} color="white" />, path: '/applications', trend: '+3%' },
-    { id: 'new_apps', label: 'New Applications', value: pendingApps, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
+    { id: 'new_apps', label: 'New Applications', value: submittedApps, iconBg: '#f59e0b', icon: <FileText size={22} color="white" />, path: '/applications?type=new', trend: '0%' },
     { id: 'active_certs', label: 'Active Certificates', value: activeCerts, iconBg: '#00c853', icon: <CheckCircle2 size={22} color="white" />, path: '/certificates', trend: '+5%' },
     { id: 'renewal_apps', label: 'Renewal Applications', value: renewalApps, iconBg: '#008744', icon: <RefreshCw size={22} color="white" />, path: '/applications?type=renewal', trend: '+7%' },
   ];

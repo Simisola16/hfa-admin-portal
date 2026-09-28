@@ -185,6 +185,11 @@ export default function AdminLogsheetWaitingCertificate() {
       ''
     ).trim();
 
+    // If numeric (e.g. "175" from legacy SQL export), replace with N/A
+    if (/^\d+$/.test(raw)) {
+      raw = 'N/A';
+    }
+
     if (!raw && l.audit_type) {
       const at = l.audit_type.toUpperCase();
       if (at.includes('GSO') && at.includes('MEAT') && !at.includes('NON')) raw = 'GSO MEAT';
@@ -197,7 +202,11 @@ export default function AdminLogsheetWaitingCertificate() {
     }
 
     if (!raw) {
-      raw = 'HFA SCHEME NON MEAT';
+      raw = 'N/A';
+    }
+
+    if (raw === 'N/A') {
+      return { certType: 'N/A', bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' };
     }
 
     const u = raw.toUpperCase();

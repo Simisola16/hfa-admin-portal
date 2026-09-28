@@ -290,6 +290,7 @@ export default function AdminClients() {
   const filtered = users;
 
   const isAdmin = loggedInUser?.role === 'admin' || loggedInUser?.role === 'superadmin';
+  const isSuperAdmin = loggedInUser?.role === 'superadmin' || loggedInUser?.roles?.includes('superadmin');
 
   return (
     <div className="animate-in">
@@ -756,8 +757,8 @@ export default function AdminClients() {
 
             {/* Modal Body */}
             <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Impersonate / Login as Client */}
-              {isAdmin && (
+              {/* Impersonate / Login as Client — available to all staff */}
+              {(
                 <button
                   type="button"
                   style={{
@@ -833,8 +834,8 @@ export default function AdminClients() {
                 </button>
               )}
 
-              {/* Suspended -> Reactivate button */}
-              {actionModalCompany.suspension_reason && (
+              {/* Suspended -> Reactivate button — superadmin only */}
+              {isSuperAdmin && actionModalCompany.suspension_reason && (
                 <button
                   type="button"
                   style={{
@@ -869,8 +870,8 @@ export default function AdminClients() {
                 </button>
               )}
 
-              {/* Active -> Suspend Company */}
-              {!actionModalCompany.suspension_reason && (
+              {/* Active -> Suspend Company — superadmin only */}
+              {isSuperAdmin && !actionModalCompany.suspension_reason && (
                 <button
                   type="button"
                   style={{

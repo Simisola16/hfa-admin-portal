@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { X, Award, ShieldCheck, Download, ExternalLink, Package, ArrowRight, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -24,8 +24,10 @@ export default function ViewCertificateModal({ isOpen, onClose, cert }) {
   const storedPdfUrl = getPdfUrl(cert?.certificate_url);
   const activePdfUrl = storedPdfUrl || generatedBlobUrl;
 
+  const adminToken = localStorage.getItem('hfa_token') || localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+
   const downloadUrl = !isReview && certId
-    ? `${API_URL}/api/certificates/${certId}/download`
+    ? `${API_URL}/api/certificates/${certId}/download?token=${encodeURIComponent(adminToken)}`
     : null;
 
   // Auto-generate PDF on modal open for legacy certs with no certificate_url
@@ -38,9 +40,9 @@ export default function ViewCertificateModal({ isOpen, onClose, cert }) {
     setGenerateError(null);
     setIsGenerating(true);
 
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    const token = adminToken;
 
-    fetch(`${API_URL}/api/certificates/${certId}/download`, {
+    fetch(`${API_URL}/api/certificates/${certId}/download?token=${encodeURIComponent(token)}`, {
       headers: { Authorization: `Bearer ${token}` },
       redirect: 'follow',
     })

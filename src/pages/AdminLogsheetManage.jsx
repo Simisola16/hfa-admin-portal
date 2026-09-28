@@ -473,13 +473,7 @@ export default function AdminLogsheetManage() {
         <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
           {filteredLogsheets.length} logsheets
         </span>
-        <Link
-          to="/logsheet/direct"
-          className="btn btn-primary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
-        >
-          <Plus size={14} /> Create Direct Logsheet
-        </Link>
+
       </div>
 
       {/* Main Card */}

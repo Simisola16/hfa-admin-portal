@@ -50,6 +50,7 @@ export default function AdminCertificates({ defaultTab }) {
   };
   const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [serverTotal, setServerTotal] = useState(0);
   const [activeTab, setActiveTab] = useState((defaultTab === 'review' && canReviewCertificate) ? 'review' : 'certs'); // 'review' | 'certs'
   const [showModal, setShowModal] = useState(false);
   const [viewingCert, setViewingCert] = useState(null);
@@ -59,7 +60,7 @@ export default function AdminCertificates({ defaultTab }) {
   const [filterSite, setFilterSite] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const [submitting, setSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
   const location = useLocation();
@@ -95,12 +96,28 @@ export default function AdminCertificates({ defaultTab }) {
     products_covered: '' 
   });
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (opts = {}) => {
     setLoading(true);
     try {
-      const certsRes = await api.get('/api/certificates');
-      const rawCerts = Array.isArray(certsRes) ? certsRes : (Array.isArray(certsRes?.data) ? certsRes.data : []);
+      const currentPage = opts.page ?? page;
+      const currentLimit = opts.limit ?? pageSize;
+      const currentStatus = opts.status !== undefined ? opts.status : filterStatus;
+      const currentSearch = opts.search !== undefined ? opts.search : search;
+
+      const params = new URLSearchParams();
+      params.set('page', currentPage);
+      params.set('limit', currentLimit);
+      if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
+      if (currentSearch && currentSearch.trim()) params.set('search', currentSearch.trim());
+
+      const certsRes = await api.get(`/api/certificates?${params.toString()}`);
+      const rawCerts = Array.isArray(certsRes) ? certsRes
+        : Array.isArray(certsRes?.data) ? certsRes.data
+        : Array.isArray(certsRes?.data?.data) ? certsRes.data.data
+        : [];
+      const total = certsRes?.data?.total ?? certsRes?.total ?? rawCerts.length;
       setCerts(rawCerts);
+      setServerTotal(total);
     } catch (err) {
       toast.error('Failed to load certificates.');
     } finally {
@@ -120,8 +137,14 @@ export default function AdminCertificates({ defaultTab }) {
   };
 
   useEffect(() => {
-    fetchAllData();
+    fetchAllData({ page: 1 });
+    setPage(1);
   }, []);
+
+  // Re-fetch from server when page or pageSize changes
+  useEffect(() => {
+    fetchAllData({ page, limit: pageSize });
+  }, [page, pageSize]);
 
   const handleSubmit = async (e) => {
     e.preventDefault(); 
@@ -386,13 +409,17 @@ export default function AdminCertificates({ defaultTab }) {
     });
   }, [certs, activeTab, filterStatus, filterSite, search, activeCompany]);
 
+  // Reset to page 1 on filter/tab change and re-fetch
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, filterSite, activeTab]);
+    fetchAllData({ page: 1, status: filterStatus, search });
+  }, [search, filterStatus, activeTab]);
 
+  // Since the backend now pages, paginatedCerts = all loaded certs (already the right page)
   const paginatedCerts = useMemo(() => {
-    return filteredCerts.slice((page - 1) * pageSize, page * pageSize);
-  }, [filteredCerts, page, pageSize]);
+    // Apply remaining client-side-only filters (site, exact company) on the server-paged slice
+    return filteredCerts;
+  }, [filteredCerts]);
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
@@ -755,7 +782,7 @@ export default function AdminCertificates({ defaultTab }) {
 
           <Pagination
             currentPage={page}
-            totalItems={filteredCerts.length}
+            totalItems={serverTotal || filteredCerts.length}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

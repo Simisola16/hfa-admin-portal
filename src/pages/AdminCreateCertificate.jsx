@@ -166,9 +166,8 @@ export default function AdminCreateCertificate() {
 
         // Check if certificate already exists for this application
         try {
-          const certsRes = await api.get('/api/certificates');
-          const allCerts = Array.isArray(certsRes.data?.data) ? certsRes.data.data : (Array.isArray(certsRes.data) ? certsRes.data : []);
-          const existing = allCerts.find(c => String(c.application_id?._id || c.application_id) === String(appId));
+          const certRes = await api.get(`/api/certificates/application/${appId}`).catch(() => null);
+          const existing = certRes?.data || certRes?.data?.data || null;
           if (existing) {
             setExistingCert(existing);
           }

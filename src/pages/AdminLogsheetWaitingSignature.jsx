@@ -36,7 +36,7 @@ export default function AdminLogsheetWaitingSignature() {
     setLoading(true);
     try {
       const [res, extRes] = await Promise.all([
-        api.get('/api/application-logsheets'),
+        api.get('/api/application-logsheets?status=Waiting for Signature'),
         api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
       ]);
 

@@ -154,12 +154,11 @@ export default function AdminApplications() {
     return s === 'new' || s === 'new application' || s === 'standard' || s === 'initial' || s.includes('new');
   };
 
-  // Applications that have NOT been accepted yet (just submitted / under review)
-  const isSubmittedNotAccepted = (statusStr) => {
-    if (!statusStr) return true;
+  // Applications that have status "Application Submitted" only
+  const isSubmittedOnly = (statusStr) => {
+    if (!statusStr) return false;
     const s = statusStr.toLowerCase().replace(/ /g, '_');
-    if (s === 'rejected' || s === 'application_rejected') return false;
-    return s === 'submitted' || s === 'under_review' || s === 'application_received' || s === 'received';
+    return s === 'submitted' || s === 'application_submitted';
   };
 
   // Applications that HAVE been accepted and certificate has NOT been issued
@@ -333,8 +332,8 @@ export default function AdminApplications() {
     if (!a) return false;
     // 1. View Type Filter
     if (typeParam === 'new') {
-      // New Applications view: only submitted applications that have not been accepted yet
-      if (!isSubmittedNotAccepted(a.status)) return false;
+      // New Applications view: show all applications that the application status is in application submitted only
+      if (!isSubmittedOnly(a.status)) return false;
       // Sub-type filter (New, Renewal, Surveillance)
       if (subType === 'new' && !isTypeNew(a.application_type)) return false;
       if (subType === 'renewal' && !isTypeRenewal(a.application_type)) return false;
@@ -389,7 +388,7 @@ export default function AdminApplications() {
   const { newCount, renewalCount, surveillanceCount, totalViewCount } = useMemo(() => {
     let baseApps = [];
     if (typeParam === 'new') {
-      baseApps = safeApps.filter(a => isSubmittedNotAccepted(a?.status));
+      baseApps = safeApps.filter(a => isSubmittedOnly(a?.status));
     } else if (isProgressView) {
       baseApps = safeApps.filter(a => isInProgress(a?.status));
     }
@@ -417,10 +416,10 @@ export default function AdminApplications() {
 
   const getPageTitleAndSub = () => {
     if (typeParam === 'new') {
-      let subText = 'Submitted applications awaiting review and acceptance';
-      if (subType === 'new') subText = 'Submitted new certification applications awaiting review and acceptance';
-      if (subType === 'renewal') subText = 'Submitted renewal applications awaiting review and acceptance';
-      if (subType === 'surveillance') subText = 'Submitted surveillance applications awaiting review and acceptance';
+      let subText = 'Applications with status Application Submitted';
+      if (subType === 'new') subText = 'New certification applications with status Application Submitted';
+      if (subType === 'renewal') subText = 'Renewal applications with status Application Submitted';
+      if (subType === 'surveillance') subText = 'Surveillance applications with status Application Submitted';
       return {
         title: 'New Applications',
         sub: subText

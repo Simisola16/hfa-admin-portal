@@ -6,6 +6,7 @@ import AdminLayout from './components/AdminLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 
 import LoginPage from './pages/AdminLoginPage';
+import AdminResetPasswordPage from './pages/AdminResetPasswordPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminApplications from './pages/AdminApplications';
 import AdminCertificates from './pages/AdminCertificates';
@@ -54,6 +55,7 @@ export default function App() {
         <ErrorBoundary isLayout={true}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<AdminResetPasswordPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />

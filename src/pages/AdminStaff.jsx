@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle,
   RefreshCw, KeyRound, Lock, Sparkles, Check, CheckSquare, Square,
-  Crown, ClipboardCheck, Eye, FileCheck, Beaker, Edit3, ShieldAlert,
+  Crown, ClipboardCheck, Eye, EyeOff, FileCheck, Beaker, Edit3, ShieldAlert,
   ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -157,6 +157,12 @@ export default function AdminStaff() {
   const [editSignaturePrivilege, setEditSignaturePrivilege] = useState(false);
   const [editReviewCertPrivilege, setEditReviewCertPrivilege] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
+
+  // Edit User (Login Details) Modal State
+  const [editUserModal, setEditUserModal] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({ full_name: '', email: '', username: '', password: '', phone: '' });
+  const [editUserShowPwd, setEditUserShowPwd] = useState(false);
+  const [editUserSaving, setEditUserSaving] = useState(false);
 
   // Suspension Modal State
   const [suspensionModal, setSuspensionModal] = useState(null);
@@ -459,6 +465,53 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update staff status');
+    }
+  };
+
+  // Open Edit User Modal
+  const openEditUser = (user) => {
+    setEditUserModal(user);
+    setEditUserForm({
+      full_name: user.full_name || '',
+      email: user.email || '',
+      username: user.username || '',
+      password: '',
+      phone: user.phone || ''
+    });
+    setEditUserShowPwd(false);
+  };
+
+  // Save Edit User (Login Details)
+  const handleSaveEditUser = async () => {
+    if (!editUserModal) return;
+    if (!editUserForm.full_name.trim()) return toast.error('Full name is required.');
+    if (!editUserForm.email.trim()) return toast.error('Email address is required.');
+    if (editUserForm.password && editUserForm.password.length < 6) return toast.error('New password must be at least 6 characters.');
+    setEditUserSaving(true);
+    const targetId = editUserModal._id || editUserModal.id;
+    try {
+      const payload = {
+        full_name: editUserForm.full_name.trim(),
+        email: editUserForm.email.trim(),
+        username: editUserForm.username.trim() || undefined,
+        phone: editUserForm.phone.trim() || undefined,
+      };
+      if (editUserForm.password.trim()) payload.password = editUserForm.password.trim();
+      await api.put(`/api/users/${targetId}`, payload);
+      toast.success(`Login details updated for ${editUserForm.full_name.trim()}`);
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => {
+        const uId = u._id || u.id;
+        if (uId === targetId) {
+          return { ...u, full_name: payload.full_name, email: payload.email, username: payload.username || u.username, phone: payload.phone || u.phone };
+        }
+        return u;
+      }));
+      setEditUserModal(null);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update staff details');
+    } finally {
+      setEditUserSaving(false);
     }
   };
 
@@ -858,7 +911,16 @@ export default function AdminStaff() {
                       {/* 5. Actions */}
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                         {isSuperAdmin ? (
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: 12, padding: '5px 10px', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, background: '#eff6ff' }}
+                              onClick={() => openEditUser(member)}
+                              title="Edit Login Details"
+                            >
+                              <KeyRound size={13} style={{ marginRight: 4 }} /> Edit User
+                            </button>
+
                             <button
                               className="btn btn-ghost btn-sm"
                               style={{ fontSize: 12, padding: '5px 10px', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8 }}
@@ -1406,6 +1468,179 @@ export default function AdminStaff() {
                 disabled={rolesSaving}
               >
                 {rolesSaving ? 'Saving...' : 'Save Role Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* EDIT USER (LOGIN DETAILS) MODAL                                   */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {editUserModal && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setEditUserModal(null)}>
+          <div className="modal" style={{ maxWidth: 560, width: '92%', borderRadius: 16, overflow: 'hidden', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #e2e8f0',
+              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexShrink: 0
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)'
+                }}>
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1e3a8a' }}>Edit Staff Login Details</div>
+                  <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 1 }}>{editUserModal.full_name || editUserModal.email}</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setEditUserModal(null)}><X size={18} /></button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* Name & Username */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                    Full Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    className="form-control"
+                    value={editUserForm.full_name}
+                    onChange={e => setEditUserForm(f => ({ ...f, full_name: e.target.value }))}
+                    placeholder="e.g. Dr. Alex Johnson"
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                    Username <span style={{ color: '#64748b', fontSize: 11, fontWeight: 500 }}>(Optional)</span>
+                  </label>
+                  <input
+                    className="form-control"
+                    value={editUserForm.username}
+                    onChange={e => setEditUserForm(f => ({ ...f, username: e.target.value }))}
+                    placeholder="e.g. alex_johnson"
+                  />
+                </div>
+              </div>
+
+              {/* Email & Phone */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                    Email Address <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={editUserForm.email}
+                    onChange={e => setEditUserForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="e.g. alex@halalfoodauthority.com"
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                    Phone <span style={{ color: '#64748b', fontSize: 11, fontWeight: 500 }}>(Optional)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    value={editUserForm.phone}
+                    onChange={e => setEditUserForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="e.g. +44 7700 900000"
+                  />
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, color: '#334155', marginBottom: 6 }}>
+                  New Password <span style={{ color: '#64748b', fontSize: 11, fontWeight: 500 }}>(Leave blank to keep current)</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={editUserShowPwd ? 'text' : 'password'}
+                    className="form-control"
+                    value={editUserForm.password}
+                    onChange={e => setEditUserForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="Enter new password (min. 6 characters)"
+                    style={{ paddingRight: 44 }}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditUserShowPwd(v => !v)}
+                    style={{
+                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 0, display: 'flex'
+                    }}
+                    tabIndex={-1}
+                  >
+                    {editUserShowPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {editUserForm.password && editUserForm.password.length > 0 && editUserForm.password.length < 6 && (
+                  <p style={{ fontSize: 11.5, color: '#ef4444', marginTop: 4, margin: '4px 0 0 0' }}>Password must be at least 6 characters</p>
+                )}
+              </div>
+
+              {/* Info notice */}
+              <div style={{
+                background: '#fefce8',
+                border: '1px solid #fde68a',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontSize: 12,
+                color: '#92400e',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  Changes take effect immediately. If the password is updated, the staff member must use the new credentials on their next login.
+                </span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 12,
+              flexShrink: 0
+            }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditUserModal(null)} disabled={editUserSaving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', borderColor: '#1d4ed8', padding: '10px 24px', fontWeight: 700 }}
+                onClick={handleSaveEditUser}
+                disabled={editUserSaving}
+              >
+                {editUserSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

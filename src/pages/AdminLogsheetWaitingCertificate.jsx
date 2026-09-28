@@ -69,10 +69,11 @@ export default function AdminLogsheetWaitingCertificate() {
           return false;
         }
 
-        // ONLY show if the linked application has officially reached 'ready_for_certificate' (or 'waiting_for_certificate')
+        // Support both logsheets in Waiting For Certificate status AND live applications that reached ready_for_certificate
+        const isLogsheetWaitingCert = l.status === 'Waiting For Certificate' || l.status === 'Waiting for Certificate';
         const appStatus = l.application_id?.status;
         const isAppReadyForCert = appStatus === 'ready_for_certificate' || appStatus === 'waiting_for_certificate';
-        return isAppReadyForCert;
+        return isLogsheetWaitingCert || isAppReadyForCert;
       });
 
       // Filter signed Extension logsheets that are awaiting certificate issuance

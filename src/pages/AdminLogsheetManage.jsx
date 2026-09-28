@@ -252,6 +252,8 @@ export default function AdminLogsheetManage() {
   }, [searchQuery, directoryCompanies, logsheets]);
 
   const filteredLogsheets = logsheets.filter(l => {
+    if (l.status === 'Bin' || l.status?.toLowerCase() === 'bin') return false;
+
     if (filterSite) {
       const site = (l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || '').toLowerCase();
       if (site !== filterSite.toLowerCase()) return false;
@@ -303,6 +305,9 @@ export default function AdminLogsheetManage() {
       case 'Completed':
       case 'Approved':
         return 'badge-blue';
+      case 'Waiting For Certificate':
+      case 'Waiting for Certificate':
+        return 'badge-purple';
       default:
         return 'badge-gray';
     }

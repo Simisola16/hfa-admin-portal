@@ -25,7 +25,7 @@ export default function AdminLogsheetWaitingCertificate() {
     try {
       const [logsRes, certsRes, extRes] = await Promise.all([
         api.get('/api/application-logsheets'),
-        api.get('/api/certificates').catch(() => ({ data: [] })),
+        api.get('/api/certificates?all=true&minimal=true').catch(() => ({ data: [] })),
         api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
       ]);
       const allLogs = logsRes.data?.data || logsRes.data || [];

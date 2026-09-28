@@ -6,7 +6,7 @@ import {
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
-  Sparkles, ShieldCheck, AlertTriangle
+  Sparkles, ShieldCheck, AlertTriangle, ExternalLink
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -149,6 +149,12 @@ const NAV_SECTIONS = [
         label: 'Manage Product',
         path: '/superadmin/direct-product',
         badge: '⚡ DIRECT'
+      },
+      {
+        icon: ExternalLink,
+        label: 'Staff Portal',
+        href: 'https://ifrs.hfaportal.company/',
+        badge: '↗ IFRS'
       },
     ],
   },
@@ -473,6 +479,40 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
                       </div>
                     )}
                   </div>
+                );
+              }
+
+              // External link (href) — renders as <a> with target="_blank"
+              if (item.href) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="nav-item"
+                    title={item.label}
+                  >
+                    <Icon size={17} style={{ flexShrink: 0 }} />
+                    <span className="nav-item-label">{item.label}</span>
+                    {item.badge && !collapsed && (
+                      <span
+                        style={{
+                          marginLeft: 'auto',
+                          background: 'linear-gradient(135deg, #1d4ed8, #1e40af)',
+                          color: '#ffffff',
+                          fontSize: 9.5,
+                          fontWeight: 800,
+                          padding: '2px 6px',
+                          borderRadius: 6,
+                          letterSpacing: '0.3px',
+                          boxShadow: '0 2px 6px rgba(29, 78, 216, 0.25)'
+                        }}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </a>
                 );
               }
 

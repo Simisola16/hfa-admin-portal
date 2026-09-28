@@ -275,6 +275,8 @@ export default function AdminLogsheetManage() {
     
     if (searchField === 'id') {
       return l._id?.toLowerCase().includes(query) || 
+        l.legacy_id?.toLowerCase().includes(query) ||
+        l.direct_ref?.toLowerCase().includes(query) ||
         l.application_number?.toLowerCase().includes(query) ||
         l.application_id?.application_number?.toLowerCase().includes(query);
     }

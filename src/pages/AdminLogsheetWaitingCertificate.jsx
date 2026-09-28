@@ -51,29 +51,33 @@ export default function AdminLogsheetWaitingCertificate() {
           return false;
         }
 
-        // Direct logsheets: show if marked Waiting For Certificate
+        // 1. Any logsheet explicitly in Waiting For Certificate status should always be displayed
+        if (l.status === 'Waiting For Certificate' || l.status === 'Waiting for Certificate') {
+          return true;
+        }
+
+        // 2. Direct logsheets: show if marked Waiting For Certificate
         if (l.source_type === 'direct') {
           return l.status === 'Waiting For Certificate';
         }
 
-        // Add-on application logsheets: show if add-on application is ready for certificate
+        // 3. Add-on application logsheets: show if add-on application is ready for certificate
         const isAddon = l.source_type === 'addon_application' || Boolean(l.addon_application_id);
         if (isAddon) {
           if (l.addon_application_id?.status === 'completed') return false;
-          return l.addon_application_id?.status === 'ready_for_certificate' || l.addon_application_id?.status === 'product_form_approved' || l.status === 'Waiting For Certificate';
+          return l.addon_application_id?.status === 'ready_for_certificate' || l.addon_application_id?.status === 'product_form_approved';
         }
 
-        // Main application logsheets (HFA New, Renewal, Surveillance, GSO, etc.)
+        // 4. Main application logsheets (HFA New, Renewal, Surveillance, GSO, etc.)
         const appId = String(l.application_id?._id || l.application_id || '');
         if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
           return false;
         }
 
-        // Support both logsheets in Waiting For Certificate status AND live applications that reached ready_for_certificate
-        const isLogsheetWaitingCert = l.status === 'Waiting For Certificate' || l.status === 'Waiting for Certificate';
+        // Show if live workflow application has officially reached 'ready_for_certificate' (or 'waiting_for_certificate')
         const appStatus = l.application_id?.status;
         const isAppReadyForCert = appStatus === 'ready_for_certificate' || appStatus === 'waiting_for_certificate';
-        return isLogsheetWaitingCert || isAppReadyForCert;
+        return isAppReadyForCert;
       });
 
       // Filter signed Extension logsheets that are awaiting certificate issuance
@@ -239,7 +243,11 @@ export default function AdminLogsheetWaitingCertificate() {
     const query = searchQuery.toLowerCase();
     
     if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || l.application_id?.application_number?.toLowerCase().includes(query);
+      return l._id?.toLowerCase().includes(query) || 
+        l.legacy_id?.toLowerCase().includes(query) ||
+        l.direct_ref?.toLowerCase().includes(query) ||
+        l.application_number?.toLowerCase().includes(query) ||
+        l.application_id?.application_number?.toLowerCase().includes(query);
     }
     if (searchField === 'company_name') {
       return l.company_name?.toLowerCase().includes(query);

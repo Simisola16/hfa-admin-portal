@@ -72,7 +72,6 @@ const NAV_SECTIONS = [
       {
         icon: ClipboardList, label: 'Logsheets', path: '/logsheet/manage',
         children: [
-          { label: 'Direct Logsheet',       path: '/logsheet/direct' },
           { label: 'Manage Logsheet',       path: '/logsheet/manage' },
           { label: 'Waiting for Signature', path: '/logsheet/waiting-signature' },
           { label: 'Waiting for Certificate', path: '/logsheet/waiting-certificate' },

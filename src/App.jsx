@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
@@ -5,47 +6,60 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 
-import LoginPage from './pages/AdminLoginPage';
-import AdminResetPasswordPage from './pages/AdminResetPasswordPage';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminApplications from './pages/AdminApplications';
-import AdminCertificates from './pages/AdminCertificates';
-import AdminClients from './pages/AdminClients';
-import AdminAudits from './pages/AdminAudits';
-import AdminAuditReports from './pages/AdminAuditReports';
-import AdminInvoices from './pages/AdminInvoices';
-import AdminMessages from './pages/AdminMessages';
-import AdminSites from './pages/AdminSites';
-import AdminProducts from './pages/AdminProducts';
-import AdminReports from './pages/AdminReports';
-import AdminProposals from './pages/AdminProposals';
-import AdminAgreements from './pages/AdminAgreements';
-import AdminExports from './pages/AdminExports';
-import AdminLogsheets from './pages/AdminLogsheets';
-import AdminCreateLogsheet from './pages/AdminCreateLogsheet';
-import AdminLogsheetManage from './pages/AdminLogsheetManage';
-import AdminLogsheetWaitingSignature from './pages/AdminLogsheetWaitingSignature';
-import AdminLogsheetWaitingCertificate from './pages/AdminLogsheetWaitingCertificate';
-import AdminTickets from './pages/AdminTickets';
-import AdminSignatures from './pages/AdminSignatures';
-import ApplicationProcessing from './pages/ApplicationProcessing';
+const LoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const AdminResetPasswordPage = lazy(() => import('./pages/AdminResetPasswordPage'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminApplications = lazy(() => import('./pages/AdminApplications'));
+const AdminCertificates = lazy(() => import('./pages/AdminCertificates'));
+const AdminClients = lazy(() => import('./pages/AdminClients'));
+const AdminAudits = lazy(() => import('./pages/AdminAudits'));
+const AdminAuditReports = lazy(() => import('./pages/AdminAuditReports'));
+const AdminInvoices = lazy(() => import('./pages/AdminInvoices'));
+const AdminMessages = lazy(() => import('./pages/AdminMessages'));
+const AdminSites = lazy(() => import('./pages/AdminSites'));
+const AdminProducts = lazy(() => import('./pages/AdminProducts'));
+const AdminReports = lazy(() => import('./pages/AdminReports'));
+const AdminProposals = lazy(() => import('./pages/AdminProposals'));
+const AdminAgreements = lazy(() => import('./pages/AdminAgreements'));
+const AdminExports = lazy(() => import('./pages/AdminExports'));
+const AdminLogsheets = lazy(() => import('./pages/AdminLogsheets'));
+const AdminCreateLogsheet = lazy(() => import('./pages/AdminCreateLogsheet'));
+const AdminLogsheetManage = lazy(() => import('./pages/AdminLogsheetManage'));
+const AdminLogsheetWaitingSignature = lazy(() => import('./pages/AdminLogsheetWaitingSignature'));
+const AdminLogsheetWaitingCertificate = lazy(() => import('./pages/AdminLogsheetWaitingCertificate'));
+const AdminTickets = lazy(() => import('./pages/AdminTickets'));
+const AdminSignatures = lazy(() => import('./pages/AdminSignatures'));
+const ApplicationProcessing = lazy(() => import('./pages/ApplicationProcessing'));
 
-import AdminAddOnApplications from './pages/AdminAddOnApplications';
-import AdminAddOnProcessing from './pages/AdminAddOnProcessing';
-import AdminAddOnApprovalForm from './pages/AdminAddOnApprovalForm';
-import AdminInitialProducts from './pages/AdminInitialProducts';
-import AdminInitialProductProcessing from './pages/AdminInitialProductProcessing';
-import AdminManageProducts from './pages/AdminManageProducts';
-import AdminStaff from './pages/AdminStaff';
-import SuperAdminDirectCertificate from './pages/SuperAdminDirectCertificate';
-import AdminReviewCertificate from './pages/AdminReviewCertificate';
-import AdminCreateCertificate from './pages/AdminCreateCertificate';
-import AdminExtensionApplications from './pages/AdminExtensionApplications';
-import AdminExtensionProcessing from './pages/AdminExtensionProcessing';
-import AdminExtensionLogsheet from './pages/AdminExtensionLogsheet';
-import AdminDirectLogsheet from './pages/AdminDirectLogsheet';
-import AdminDirectProduct from './pages/AdminDirectProduct';
-import AdminSurveillanceDueDates from './pages/AdminSurveillanceDueDates';
+const AdminAddOnApplications = lazy(() => import('./pages/AdminAddOnApplications'));
+const AdminAddOnProcessing = lazy(() => import('./pages/AdminAddOnProcessing'));
+const AdminAddOnApprovalForm = lazy(() => import('./pages/AdminAddOnApprovalForm'));
+const AdminInitialProducts = lazy(() => import('./pages/AdminInitialProducts'));
+const AdminInitialProductProcessing = lazy(() => import('./pages/AdminInitialProductProcessing'));
+const AdminManageProducts = lazy(() => import('./pages/AdminManageProducts'));
+const AdminStaff = lazy(() => import('./pages/AdminStaff'));
+const SuperAdminDirectCertificate = lazy(() => import('./pages/SuperAdminDirectCertificate'));
+const AdminReviewCertificate = lazy(() => import('./pages/AdminReviewCertificate'));
+const AdminCreateCertificate = lazy(() => import('./pages/AdminCreateCertificate'));
+const AdminExtensionApplications = lazy(() => import('./pages/AdminExtensionApplications'));
+const AdminExtensionProcessing = lazy(() => import('./pages/AdminExtensionProcessing'));
+const AdminExtensionLogsheet = lazy(() => import('./pages/AdminExtensionLogsheet'));
+const AdminDirectLogsheet = lazy(() => import('./pages/AdminDirectLogsheet'));
+const AdminDirectProduct = lazy(() => import('./pages/AdminDirectProduct'));
+const AdminSurveillanceDueDates = lazy(() => import('./pages/AdminSurveillanceDueDates'));
+
+const PageFallback = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+    <div style={{
+      width: 34,
+      height: 34,
+      border: '3px solid #e2e8f0',
+      borderTopColor: '#008744',
+      borderRadius: '50%',
+      animation: 'spin 0.6s linear infinite'
+    }} />
+  </div>
+);
 
 export default function App() {
   return (
@@ -53,7 +67,8 @@ export default function App() {
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ duration: 5000, style: { borderRadius: 10, fontFamily: 'Inter, sans-serif', fontSize: 13 } }} />
         <ErrorBoundary isLayout={true}>
-          <Routes>
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<AdminResetPasswordPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -137,6 +152,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+          </Suspense>
         </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>

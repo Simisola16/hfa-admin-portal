@@ -505,7 +505,7 @@ export default function AdminLogsheetWaitingCertificate() {
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Certificate Type</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Application Type</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Completed Date</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -574,7 +574,7 @@ export default function AdminLogsheetWaitingCertificate() {
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 12, color: '#475569' }}>
-                        {l.updated_at ? new Date(l.updated_at).toLocaleDateString('en-GB') : 'Recently'}
+                        {(l.created_at || l.createdAt) ? new Date(l.created_at || l.createdAt).toLocaleDateString('en-GB') : '—'}
                       </td>
 
                       <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>

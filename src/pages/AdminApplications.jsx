@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
@@ -12,6 +13,7 @@ import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import useCompanyDirectory from '../lib/useCompanyDirectory';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 
 // STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
@@ -87,6 +89,11 @@ export default function AdminApplications() {
   const [certificateSubmitting, setCertificateSubmitting] = useState(false);
   const [existingCertificate, setExistingCertificate] = useState(null);
 
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
+  const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -102,6 +109,18 @@ export default function AdminApplications() {
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkApplicationDone = async (appId, companyName) => {
+    if (!window.confirm(`Mark the application for "${companyName}" as Done?`)) return;
+    try {
+      await api.put(`/api/applications/${appId}/mark-done`);
+      toast.success('Application marked as Done');
+      setOpenDropdown(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
     }
   };
 
@@ -735,15 +754,10 @@ export default function AdminApplications() {
                       })()}
                     </td>
                     <td style={{textAlign:'center', position:'relative'}}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenDropdown(app._id);
-                        }}
-                      >
-                        <MoreVertical size={18} />
-                      </button>
+                      <ActionTriggerButton
+                        onClick={() => setOpenDropdown(app._id)}
+                        title="Application Actions"
+                      />
                     </td>
                   </tr>
                 ))}
@@ -769,39 +783,45 @@ export default function AdminApplications() {
       </div>
 
       {/* Action Menu Pop-up Modal */}
-      {openDropdown && apps.find(a => a._id === openDropdown) && (
-        <div className="modal-overlay" onClick={() => setOpenDropdown(null)} style={{ zIndex: 1200 }}>
-          <div className="modal" style={{ maxWidth: 340, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Select Action</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{apps.find(a => a._id === openDropdown)?.profiles?.company_name || apps.find(a => a._id === openDropdown)?.establishment_name || 'Company'}</div>
-              </div>
-              <button className="modal-close" onClick={() => setOpenDropdown(null)}><X size={20}/></button>
-            </div>
-            <div style={{ padding: '16px' }}>
-              {(() => {
-                const app = apps.find(a => a._id === openDropdown);
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {/* Single Action: Processing — navigates to dedicated processing page */}
-                    <button 
-                      className="dropdown-item"
-                      style={{ padding: '12px 16px', fontSize: 14.5 }}
-                      onClick={() => {
-                        setOpenDropdown(null);
-                        navigate(`/applications/${app._id}/processing`);
-                      }}
-                    >
-                      <Settings size={18} className="text-muted" /> Processing
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
+      {openDropdown && (() => {
+        const app = apps.find(a => a._id === openDropdown);
+        if (!app) return null;
+        const effStatus = getEffectiveApplicationStatus(app);
+        const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
+        const isDone = app.status === 'done';
+        return (
+          <ActionModal
+            isOpen={Boolean(openDropdown)}
+            onClose={() => setOpenDropdown(null)}
+            title="Application Actions"
+            subtitle={companyName}
+            badge={`Status: ${STATUS_LABELS[effStatus] || effStatus?.replace(/_/g, ' ')}`}
+            badgeVariant={STATUS_BADGE[effStatus] || 'badge-blue'}
+            actions={[
+              {
+                label: 'Application Processing',
+                description: 'Open full application processing workflow & timeline',
+                icon: Settings,
+                variant: 'primary',
+                onClick: () => {
+                  setOpenDropdown(null);
+                  navigate(`/applications/${app._id}/processing`);
+                }
+              },
+              hasDonePrivilege && !isDone && {
+                label: 'Mark as Done',
+                description: 'Mark this application as completed / Done',
+                icon: CheckCircle,
+                variant: 'success',
+                onClick: () => {
+                  setOpenDropdown(null);
+                  handleMarkApplicationDone(app._id, companyName);
+                }
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
 
 
       {/* View Details Modal */}

@@ -212,9 +212,9 @@ export default function ActionModal({
               hoverBg = '#f0fdf4';
               iconColor = '#00853b';
             } else if (isSuccess) {
-              defaultColor = '#0284c7';
-              hoverBg = '#f0f9ff';
-              iconColor = '#0284c7';
+              defaultColor = '#15803d';
+              hoverBg = '#f0fdf4';
+              iconColor = '#16a34a';
             }
 
             if (act.href) {

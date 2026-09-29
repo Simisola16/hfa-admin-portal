@@ -3,7 +3,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import {
   Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle,
-  RefreshCw, KeyRound, Lock, Sparkles, Check, CheckSquare, Square,
+  RefreshCw, KeyRound, Lock, Sparkles, Check, CheckSquare, Square, CheckCircle,
   Crown, ClipboardCheck, Eye, EyeOff, FileCheck, Beaker, Edit3, ShieldAlert,
   ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign
 } from 'lucide-react';
@@ -145,7 +145,8 @@ export default function AdminStaff() {
     can_issue_direct_certificate: false,
     is_support_manager: false,
     can_sign_logsheet: false,
-    can_review_certificate: false
+    can_review_certificate: false,
+    can_mark_done: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -156,6 +157,7 @@ export default function AdminStaff() {
   const [editSupportManagerGrant, setEditSupportManagerGrant] = useState(false);
   const [editSignaturePrivilege, setEditSignaturePrivilege] = useState(false);
   const [editReviewCertPrivilege, setEditReviewCertPrivilege] = useState(false);
+  const [editDonePrivilege, setEditDonePrivilege] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Edit User (Login Details) Modal State
@@ -213,7 +215,7 @@ export default function AdminStaff() {
     if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
-    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
@@ -244,7 +246,7 @@ export default function AdminStaff() {
     certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
     accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
-    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
+    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
   };
 
@@ -303,7 +305,8 @@ export default function AdminStaff() {
         can_issue_direct_certificate: staffForm.can_issue_direct_certificate,
         is_support_manager: staffForm.is_support_manager,
         can_sign_logsheet: staffForm.can_sign_logsheet,
-        can_review_certificate: staffForm.can_review_certificate
+        can_review_certificate: staffForm.can_review_certificate,
+        can_mark_done: staffForm.can_mark_done
       });
       toast.success(`HFA Staff account created for ${staffForm.full_name.trim()}!`);
       setShowStaffModal(false);
@@ -316,7 +319,8 @@ export default function AdminStaff() {
         can_issue_direct_certificate: false,
         is_support_manager: false,
         can_sign_logsheet: false,
-        can_review_certificate: false
+        can_review_certificate: false,
+        can_mark_done: false
       });
       fetchUsers();
     } catch (err) {
@@ -335,6 +339,7 @@ export default function AdminStaff() {
     setEditSupportManagerGrant(Boolean(user.is_support_manager || user.role === 'superadmin' || user.role === 'support_manager' || isSA));
     setEditSignaturePrivilege(Boolean(user.can_sign_logsheet || isSA));
     setEditReviewCertPrivilege(Boolean(user.can_review_certificate || isSA));
+    setEditDonePrivilege(Boolean(user.can_mark_done || isSA));
   };
 
   // Save Edit Roles
@@ -349,6 +354,7 @@ export default function AdminStaff() {
     const smVal = editRolesList.includes('superadmin') ? true : editSupportManagerGrant;
     const signVal = editRolesList.includes('superadmin') ? true : editSignaturePrivilege;
     const reviewCertVal = editRolesList.includes('superadmin') ? true : editReviewCertPrivilege;
+    const doneVal = editRolesList.includes('superadmin') ? true : editDonePrivilege;
     try {
       await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
@@ -356,7 +362,8 @@ export default function AdminStaff() {
         can_issue_direct_certificate: grantVal,
         is_support_manager: smVal,
         can_sign_logsheet: signVal,
-        can_review_certificate: reviewCertVal
+        can_review_certificate: reviewCertVal,
+        can_mark_done: doneVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       
@@ -371,7 +378,8 @@ export default function AdminStaff() {
             can_issue_direct_certificate: grantVal,
             is_support_manager: smVal,
             can_sign_logsheet: signVal,
-            can_review_certificate: reviewCertVal
+            can_review_certificate: reviewCertVal,
+            can_mark_done: doneVal
           };
         }
         return u;
@@ -442,6 +450,21 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Review Certificate Privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Done Privilege
+  const handleToggleDonePrivilege = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Done Privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_mark_done: nextVal } : u));
+      await api.put(`/api/users/${userId}/mark-done-permission`, { can_mark_done: nextVal });
+      toast.success(`Done Privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Done Privilege');
       fetchUsers();
     }
   };
@@ -885,6 +908,122 @@ export default function AdminStaff() {
                             </button>
                           )}
                         </div>
+
+                        {/* Special Grants Badges */}
+                        {(() => {
+                          const hasDirect = isUserSuperAdmin || member.can_issue_direct_certificate;
+                          const hasSig = isUserSuperAdmin || member.can_sign_logsheet;
+                          const hasReviewCert = isUserSuperAdmin || member.can_review_certificate;
+                          const hasDone = isUserSuperAdmin || member.can_mark_done;
+                          const hasSupport = isUserSuperAdmin || member.is_support_manager;
+
+                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasSupport) return null;
+
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+                              {hasDone && (
+                                <span
+                                  title="Possesses Done Privilege — can mark applications and logsheets as Done"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#ecfdf5',
+                                    color: '#047857',
+                                    border: '1px solid #a7f3d0',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  <CheckCircle size={11} strokeWidth={2.5} /> Done Privilege
+                                </span>
+                              )}
+                              {hasSig && (
+                                <span
+                                  title="Authorised Logsheet Signatory"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  ✍️ Signature
+                                </span>
+                              )}
+                              {hasReviewCert && (
+                                <span
+                                  title="Authorised to review and approve certificate drafts"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#faf5ff',
+                                    color: '#7e22ce',
+                                    border: '1px solid #e9d5ff',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  📋 Review Cert
+                                </span>
+                              )}
+                              {hasDirect && (
+                                <span
+                                  title="Direct Certificate Studio Privilege"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#f0fdf4',
+                                    color: '#15803d',
+                                    border: '1px solid #bbf7d0',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  ⭐ Direct Cert Studio
+                                </span>
+                              )}
+                              {hasSupport && (
+                                <span
+                                  title="Support Manager Privilege"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#f0fdfa',
+                                    color: '#0f766e',
+                                    border: '1px solid #99f6e4',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  🎧 Support Manager
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
 
@@ -1212,7 +1351,7 @@ export default function AdminStaff() {
                     </div>
                   </label>
 
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                     <input
                       type="checkbox"
                       checked={staffForm.can_review_certificate}
@@ -1225,6 +1364,23 @@ export default function AdminStaff() {
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                         Allows this staff member to access the Review Certificates page and approve or reject submitted certificate drafts.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_mark_done}
+                      onChange={e => setStaffForm(f => ({ ...f, can_mark_done: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#0891b2' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Done Privilege ✅
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to mark applications, logsheets, and add-on applications as Done directly from action menus.
                       </span>
                     </div>
                   </label>
@@ -1426,7 +1582,7 @@ export default function AdminStaff() {
                       </div>
                     </label>
 
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                       <input
                         type="checkbox"
                         checked={editReviewCertPrivilege}
@@ -1439,6 +1595,23 @@ export default function AdminStaff() {
                         </span>
                         <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                           Allows this staff member to access the Review Certificates page and approve or reject submitted certificate drafts.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editDonePrivilege}
+                        onChange={e => setEditDonePrivilege(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#0891b2' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Done Privilege ✅
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to mark applications, logsheets, and add-on applications as Done directly from action menus.
                         </span>
                       </div>
                     </label>

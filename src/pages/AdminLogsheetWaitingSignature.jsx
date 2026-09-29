@@ -8,7 +8,7 @@ import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 import { 
   Search, Trash2, RefreshCw, ChevronDown, 
-  MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw
+  MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw, CheckCircle
 } from 'lucide-react';
 
 export default function AdminLogsheetWaitingSignature() {
@@ -19,6 +19,7 @@ export default function AdminLogsheetWaitingSignature() {
     : (currentUser?.role ? [currentUser.role] : []);
   const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
   const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
+  const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
 
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +138,19 @@ export default function AdminLogsheetWaitingSignature() {
     if (e?.stopPropagation) e.stopPropagation();
     setSelectedLogsheetForEmail(logsheetItem);
     setShowResendModal(true);
+  };
+
+  const handleMarkDone = async (logsheet) => {
+    if (!logsheet) return;
+    if (!window.confirm(`Mark this logsheet for "${logsheet.company_name}" as Done?`)) return;
+    try {
+      await api.put(`/api/application-logsheets/${logsheet._id}/mark-done`);
+      toast.success('Logsheet marked as Done');
+      setActionModalItem(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
   };
 
   const hasUserSigned = (l) => {
@@ -842,8 +856,19 @@ export default function AdminLogsheetWaitingSignature() {
               setActionModalItem(null);
               if (item) handleDelete(item._id, null, item);
             }
+          },
+          hasDonePrivilege && {
+            label: 'Mark as Done',
+            description: 'Mark this logsheet as completed / Done',
+            icon: CheckCircle,
+            variant: 'success',
+            onClick: () => {
+              const item = actionModalItem;
+              setActionModalItem(null);
+              if (item) handleMarkDone(item);
+            }
           }
-        ]}
+        ].filter(Boolean)}
       />
     </div>
   );

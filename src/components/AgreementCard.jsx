@@ -4,8 +4,8 @@ import { FileCheck, Download, Lock, UploadCloud, CheckCircle, RefreshCw, Send } 
 
 
 export default function AgreementCard({ app, agreement, status, onReupload, onSendFinal, onMarkDone, markingDone = false }) {
-  const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
-  const finalInvoiceSentStatuses = ['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'];
+  const normalizedStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
+  const finalInvoiceSentStatuses = ['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'];
   const canReupload = !finalInvoiceSentStatuses.includes(normalizedStatus);
   const isAvailable = [
     'application_successful',
@@ -15,14 +15,49 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
     'final_invoice_sent',
     'final_invoice_paid',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ].includes(normalizedStatus) || Boolean(agreement);
+
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_agreement_card || 
+    app?.skip_agreement_card || 
+    app?.notes?.includes('Imported') || 
+    app?.notes?.includes('legacy')
+  );
+
+  const isPastAgreement = [
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'certificate_issued',
+    'done'
+  ].includes(normalizedStatus);
+
+  // If seeded application has reached or passed agreement stage without an agreement, do not render (hide card)
+  if (!agreement && isSeeded && isPastAgreement) {
+    return null;
+  }
+
+  // If status has passed agreement stage but no agreement record exists -> Locked (Stage Completed)
+  if (!agreement && isPastAgreement) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Certification Agreement (Stage Completed)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed in the application workflow</div>
+      </div>
+    );
+  }
 
   const hasClientSigned = Boolean(agreement?.client_signed || agreement?.signed_agreement_url);
   const hasAdminSentSignedCopy = Boolean(
     agreement?.final_agreement_url ||
     agreement?.status === 'finalized' ||
-    ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus)
+    ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(normalizedStatus)
   );
 
   const isFinalized = Boolean(
@@ -31,7 +66,8 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
     normalizedStatus === 'final_invoice_sent' ||
     normalizedStatus === 'final_invoice_paid' ||
     normalizedStatus === 'ready_for_certificate' ||
-    normalizedStatus === 'certificate_issued'
+    normalizedStatus === 'certificate_issued' ||
+    normalizedStatus === 'done'
   );
 
   if (!isAvailable) {

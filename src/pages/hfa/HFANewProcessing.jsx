@@ -159,17 +159,6 @@ export default function HFANewProcessing(props) {
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
       const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
 
-      // Sanitize status if application was falsely jumped to application_successful or ready_for_certificate without logsheet
-      const hasPostLogsheetHistory = Array.isArray(fetchedApp?.statusHistory) && fetchedApp.statusHistory.some(h => ['agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'certificate_issued'].includes(h.status));
-      if (fetchedApp && !fetchedLogsheet && !hasPostLogsheetHistory && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
-        if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
-          const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
-          fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
-          if (Array.isArray(fetchedApp.statusHistory)) {
-            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'ready_for_certificate'].includes(h.status));
-          }
-        }
-      }
 
       if (fetchedApp) {
         if (fetchedLogsheet) {
@@ -587,6 +576,23 @@ export default function HFANewProcessing(props) {
   const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
 
   const renderPrimaryAction = () => {
+    // 0. Final states (Done / Certificate Issued)
+    if (status === 'done') {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Application Completed
+        </span>
+      );
+    }
+
+    if (status === 'certificate_issued' || certificate?.status === 'active' || app?.certificate_url) {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Certificate Issued
+        </span>
+      );
+    }
+
     // 1. Initial Application Review (Accept / Put On Hold / Reject)
     if (status === 'submitted' || status === 'under_review') {
       return (
@@ -751,7 +757,7 @@ export default function HFANewProcessing(props) {
     // 6. LogSheet Stage (Create / Sign LogSheet)
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && !isLogsheetSigned && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed)) {
+    if (!hasActiveNc && !isLogsheetSigned && ['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -851,7 +857,7 @@ export default function HFANewProcessing(props) {
     }
 
     // 11. Issue Certificate Stage
-    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
       const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
       const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
 
@@ -1056,6 +1062,7 @@ export default function HFANewProcessing(props) {
 
           {/* 6. Facility Logsheet Card */}
           <LogsheetCard 
+            app={app}
             logsheet={logsheet} 
             status={status} 
             appId={appId} 
@@ -1078,7 +1085,7 @@ export default function HFANewProcessing(props) {
           />
 
           {/* 8. Final Invoice Card — only visible after admin sends the final countersigned agreement copy */}
-          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

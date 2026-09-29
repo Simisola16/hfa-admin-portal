@@ -1,6 +1,6 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
-import { AlertTriangle, CheckCircle, AlertCircle, Clock, FileText, Download } from 'lucide-react';
+import { AlertTriangle, CheckCircle, AlertCircle, Clock, FileText, Download, Lock } from 'lucide-react';
 
 
 export default function NcCard({ app, audits = [], status = '', onFlagNc, onCloseNc, actionSubmitting = false }) {
@@ -67,9 +67,52 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
   const isNcFlagged = normStatus === 'nc_flagged';
   const hasActiveNc = isNcFlagged || allNcReports.some(r => ['flagged', 'client_responded', 'admin_replied'].includes(r.status));
 
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_nc_card || 
+    app?.skip_nc_card || 
+    app?.notes?.includes('Imported') || 
+    app?.notes?.includes('legacy')
+  );
+
+  const isPastNc = [
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'application_successful',
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'waiting_for_certificate',
+    'certificate_issued',
+    'done'
+  ].includes(normStatus) || (
+    isFastTrack && ['invoice_sent', 'payment_received'].includes(normStatus)
+  );
+
+  // If seeded application has reached or passed NC stage without any findings, do not render (hide card)
+  if (!hasNc && !hasActiveNc && isSeeded && isPastNc) {
+    return null;
+  }
+
+  // If status has passed NC stage and no NC findings exist -> Locked (Stage Completed)
+  if (!hasNc && !hasActiveNc && isPastNc) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Non-Conformity (NC) &amp; Findings (Stage Completed)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed with no outstanding findings</div>
+      </div>
+    );
+  }
+
   const isPostAuditNcStage = isFastTrack
-    ? ['logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
-    : ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus);
+    ? ['logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued', 'done'].includes(normStatus)
+    : ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(normStatus);
 
   const isAuditUnderway = ['audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(normStatus);
 

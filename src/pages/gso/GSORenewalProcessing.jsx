@@ -229,7 +229,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     'payment_received',
     'application_successful',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ];
 
   const hasLogsheetRecord = Boolean(
@@ -548,8 +549,17 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
       );
     }
 
+    // 0. Final states (Done / Certificate Issued)
+    if (status === 'done') {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Application Completed
+        </span>
+      );
+    }
+
     // 6. Complete
-    if (status === 'certificate_issued' || certificate?.status === 'active') {
+    if (status === 'certificate_issued' || certificate?.status === 'active' || app?.certificate_url) {
       return (
         <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
           <CheckCircle size={15} /> ✓ Certificate Issued
@@ -558,7 +568,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     // 5B. Ready for Certificate Stage (ONLY after marked ready for certificate)
-    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
       const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
       const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
 
@@ -611,7 +621,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
-    if ((status === 'payment_received' || isRenewalInvoicePaid) && status !== 'ready_for_certificate' && status !== 'certificate_issued') {
+    if ((status === 'payment_received' || isRenewalInvoicePaid) && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done') {
       return (
         <button
           className="btn btn-primary"
@@ -652,7 +662,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
     if (isStage2Complete && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
-      if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'invoice_sent' && status !== 'payment_received') {
+      if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done' && status !== 'invoice_sent' && status !== 'payment_received') {
         const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
         return (
           <button
@@ -879,6 +889,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
           {/* Facility Logsheet Card - Only shown after NC has been closed */}
           {isAfterNcClosed && (
             <LogsheetCard
+              app={app}
               logsheet={logsheet}
               status={status}
               appId={appId}

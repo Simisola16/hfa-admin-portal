@@ -5,7 +5,7 @@ import { FileText, Download, Lock } from 'lucide-react';
 
 export default function ProposalCard({ app, proposal, status, onSendProposal }) {
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
-  const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || proposal;
+  const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued', 'done'].includes(normStatus) || proposal;
 
   const isSeeded = Boolean(app?.is_seed || app?.is_seeded || app?.hide_proposal_card || app?.skip_proposal_card || app?.notes?.includes('Imported') || app?.notes?.includes('legacy'));
   const isPastProposal = [
@@ -14,11 +14,22 @@ export default function ProposalCard({ app, proposal, status, onSendProposal }) 
     'audit_assigned', 'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed', 
     'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 
     'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 
-    'ready_for_certificate', 'certificate_issued'
+    'ready_for_certificate', 'certificate_issued', 'done'
   ].includes(normStatus);
 
   if (!proposal && isSeeded && isPastProposal) {
     return null;
+  }
+
+  // If status has passed proposal stage and no proposal was generated -> Locked (Stage Completed)
+  if (!proposal && isPastProposal) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Certification Proposal (Stage Completed)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed in the application workflow</div>
+      </div>
+    );
   }
 
   if (!isAvailable) {

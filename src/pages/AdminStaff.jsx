@@ -146,7 +146,8 @@ export default function AdminStaff() {
     is_support_manager: false,
     can_sign_logsheet: false,
     can_review_certificate: false,
-    can_mark_done: false
+    can_mark_done: false,
+    can_change_application_status: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -158,6 +159,7 @@ export default function AdminStaff() {
   const [editSignaturePrivilege, setEditSignaturePrivilege] = useState(false);
   const [editReviewCertPrivilege, setEditReviewCertPrivilege] = useState(false);
   const [editDonePrivilege, setEditDonePrivilege] = useState(false);
+  const [editChangeStatusPrivilege, setEditChangeStatusPrivilege] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Edit User (Login Details) Modal State
@@ -215,7 +217,7 @@ export default function AdminStaff() {
     if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
-    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.can_change_application_status && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
@@ -246,7 +248,7 @@ export default function AdminStaff() {
     certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
     accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
-    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
+    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.can_change_application_status || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
   };
 
@@ -306,7 +308,8 @@ export default function AdminStaff() {
         is_support_manager: staffForm.is_support_manager,
         can_sign_logsheet: staffForm.can_sign_logsheet,
         can_review_certificate: staffForm.can_review_certificate,
-        can_mark_done: staffForm.can_mark_done
+        can_mark_done: staffForm.can_mark_done,
+        can_change_application_status: staffForm.can_change_application_status
       });
       toast.success(`HFA Staff account created for ${staffForm.full_name.trim()}!`);
       setShowStaffModal(false);
@@ -320,7 +323,8 @@ export default function AdminStaff() {
         is_support_manager: false,
         can_sign_logsheet: false,
         can_review_certificate: false,
-        can_mark_done: false
+        can_mark_done: false,
+        can_change_application_status: false
       });
       fetchUsers();
     } catch (err) {
@@ -340,6 +344,7 @@ export default function AdminStaff() {
     setEditSignaturePrivilege(Boolean(user.can_sign_logsheet || isSA));
     setEditReviewCertPrivilege(Boolean(user.can_review_certificate || isSA));
     setEditDonePrivilege(Boolean(user.can_mark_done || isSA));
+    setEditChangeStatusPrivilege(Boolean(user.can_change_application_status || isSA));
   };
 
   // Save Edit Roles
@@ -355,6 +360,7 @@ export default function AdminStaff() {
     const signVal = editRolesList.includes('superadmin') ? true : editSignaturePrivilege;
     const reviewCertVal = editRolesList.includes('superadmin') ? true : editReviewCertPrivilege;
     const doneVal = editRolesList.includes('superadmin') ? true : editDonePrivilege;
+    const changeStatusVal = editRolesList.includes('superadmin') ? true : editChangeStatusPrivilege;
     try {
       await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
@@ -363,7 +369,8 @@ export default function AdminStaff() {
         is_support_manager: smVal,
         can_sign_logsheet: signVal,
         can_review_certificate: reviewCertVal,
-        can_mark_done: doneVal
+        can_mark_done: doneVal,
+        can_change_application_status: changeStatusVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       
@@ -379,7 +386,8 @@ export default function AdminStaff() {
             is_support_manager: smVal,
             can_sign_logsheet: signVal,
             can_review_certificate: reviewCertVal,
-            can_mark_done: doneVal
+            can_mark_done: doneVal,
+            can_change_application_status: changeStatusVal
           };
         }
         return u;
@@ -465,6 +473,21 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Done Privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Change Status Privilege
+  const handleToggleChangeStatusPrivilege = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Change Status Privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_change_application_status: nextVal } : u));
+      await api.put(`/api/users/${userId}/change-status-permission`, { can_change_application_status: nextVal });
+      toast.success(`Change Status Privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Change Status Privilege');
       fetchUsers();
     }
   };
@@ -915,12 +938,33 @@ export default function AdminStaff() {
                           const hasSig = isUserSuperAdmin || member.can_sign_logsheet;
                           const hasReviewCert = isUserSuperAdmin || member.can_review_certificate;
                           const hasDone = isUserSuperAdmin || member.can_mark_done;
+                          const hasChangeStatus = isUserSuperAdmin || member.can_change_application_status;
                           const hasSupport = isUserSuperAdmin || member.is_support_manager;
 
-                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasSupport) return null;
+                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasChangeStatus && !hasSupport) return null;
 
                           return (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+                              {hasChangeStatus && (
+                                <span
+                                  title="Super Grant: Change Status Privilege — can manually override application statuses"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#fffbeb',
+                                    color: '#b45309',
+                                    border: '1px solid #fde68a',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  <RefreshCw size={11} strokeWidth={2.5} /> Change Status
+                                </span>
+                              )}
                               {hasDone && (
                                 <span
                                   title="Possesses Done Privilege — can mark applications and logsheets as Done"
@@ -1368,7 +1412,7 @@ export default function AdminStaff() {
                     </div>
                   </label>
 
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                     <input
                       type="checkbox"
                       checked={staffForm.can_mark_done}
@@ -1381,6 +1425,23 @@ export default function AdminStaff() {
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                         Allows this staff member to mark applications, logsheets, and add-on applications as Done directly from action menus.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_change_application_status}
+                      onChange={e => setStaffForm(f => ({ ...f, can_change_application_status: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#d97706' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Change Status Privilege 🔄
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Super Grant: Allows this staff member to manually change and override application statuses directly from action menus.
                       </span>
                     </div>
                   </label>
@@ -1599,7 +1660,7 @@ export default function AdminStaff() {
                       </div>
                     </label>
 
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                       <input
                         type="checkbox"
                         checked={editDonePrivilege}
@@ -1612,6 +1673,23 @@ export default function AdminStaff() {
                         </span>
                         <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                           Allows this staff member to mark applications, logsheets, and add-on applications as Done directly from action menus.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editChangeStatusPrivilege}
+                        onChange={e => setEditChangeStatusPrivilege(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#d97706' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Change Status Privilege 🔄
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Super Grant: Allows this staff member to manually change and override application statuses directly from action menus.
                         </span>
                       </div>
                     </label>

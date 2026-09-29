@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
+import { STATUS_ORDER, STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
@@ -93,6 +93,15 @@ export default function AdminApplications() {
   const currentUser = profile || user;
   const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
   const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
+  const hasChangeStatusPrivilege = isSuperAdmin || Boolean(currentUser?.can_change_application_status);
+
+  // Change Application Status Modal State (Super Grant)
+  const [statusChangeModalApp, setStatusChangeModalApp] = useState(null);
+  const [selectedTargetStatus, setSelectedTargetStatus] = useState('');
+  const [statusChangeNote, setStatusChangeNote] = useState('');
+  const [statusChangeConfirming, setStatusChangeConfirming] = useState(false);
+  const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
+  const [statusSearchQuery, setStatusSearchQuery] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -121,6 +130,46 @@ export default function AdminApplications() {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
+  const openChangeStatusModal = (app) => {
+    setStatusChangeModalApp(app);
+    setSelectedTargetStatus(app.status || 'submitted');
+    setStatusChangeNote('');
+    setStatusChangeConfirming(false);
+    setStatusSearchQuery('');
+  };
+
+  const closeChangeStatusModal = () => {
+    setStatusChangeModalApp(null);
+    setSelectedTargetStatus('');
+    setStatusChangeNote('');
+    setStatusChangeConfirming(false);
+    setStatusSearchQuery('');
+  };
+
+  const handleConfirmChangeStatus = async () => {
+    if (!statusChangeModalApp || !selectedTargetStatus) return;
+    setStatusChangeSubmitting(true);
+    try {
+      const res = await api.put(`/api/applications/${statusChangeModalApp._id}/change-status`, {
+        status: selectedTargetStatus,
+        note: statusChangeNote,
+      });
+
+      const updatedApp = res?.data?.data || res?.data;
+      toast.success(res?.data?.message || `Application status changed to ${STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}`);
+
+      // Immediate local state update for instant UI feedback
+      setApps(prev => prev.map(a => (a._id === statusChangeModalApp._id ? { ...a, status: selectedTargetStatus, ...updatedApp } : a)));
+
+      closeChangeStatusModal();
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to change application status');
+    } finally {
+      setStatusChangeSubmitting(false);
     }
   };
 
@@ -808,6 +857,16 @@ export default function AdminApplications() {
                   navigate(`/applications/${app._id}/processing`);
                 }
               },
+              hasChangeStatusPrivilege && {
+                label: 'Change Status',
+                description: 'Super Grant: Manually change application status',
+                icon: RefreshCw,
+                variant: 'warning',
+                onClick: () => {
+                  setOpenDropdown(null);
+                  openChangeStatusModal(app);
+                }
+              },
               hasDonePrivilege && !isDone && {
                 label: 'Mark as Done',
                 description: 'Mark this application as completed / Done',
@@ -820,6 +879,452 @@ export default function AdminApplications() {
               }
             ].filter(Boolean)}
           />
+        );
+      })()}
+
+      {/* Super Grant: Change Application Status Modal */}
+      {statusChangeModalApp && (() => {
+        const app = statusChangeModalApp;
+        const currentEffStatus = app.status || 'submitted';
+        const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
+        const allStatusOptions = Array.from(new Set([...STATUS_ORDER, 'done']));
+        const filteredStatuses = allStatusOptions.filter(s => {
+          if (!statusSearchQuery.trim()) return true;
+          const q = statusSearchQuery.toLowerCase();
+          const label = (STATUS_LABELS[s] || '').toLowerCase();
+          return s.toLowerCase().includes(q) || label.includes(q);
+        });
+
+        const isUnchanged = selectedTargetStatus === currentEffStatus;
+
+        return (
+          <div
+            className="modal-overlay"
+            style={{
+              zIndex: 1400,
+              background: 'rgba(15, 23, 42, 0.55)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16
+            }}
+            onClick={closeChangeStatusModal}
+          >
+            <div
+              className="modal"
+              style={{
+                maxWidth: 620,
+                width: '100%',
+                borderRadius: 18,
+                overflow: 'hidden',
+                padding: 0,
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: '20px 24px',
+                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                  borderBottom: '1px solid #fde68a',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 16
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span
+                      style={{
+                        background: '#d97706',
+                        color: '#ffffff',
+                        fontSize: 10.5,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Super Grant
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
+                      App #{app.application_number}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#78350f', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <RefreshCw size={19} style={{ color: '#d97706' }} />
+                    Change Application Status
+                  </h3>
+                  <div style={{ fontSize: 13, color: '#92400e', marginTop: 3, fontWeight: 500 }}>
+                    {companyName} {app.establishment_name && app.establishment_name !== companyName ? `· ${app.establishment_name}` : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeChangeStatusModal}
+                  style={{
+                    border: 'none',
+                    background: '#fde68a',
+                    color: '#78350f',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Current Status Pill */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>
+                      Current Application Status
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                      {STATUS_LABELS[currentEffStatus] || currentEffStatus}
+                    </div>
+                  </div>
+                  <span className={`badge ${STATUS_BADGE[currentEffStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    {currentEffStatus}
+                  </span>
+                </div>
+
+                {!statusChangeConfirming ? (
+                  /* Step 1: Select Status */
+                  <>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+                        Select Desired Status <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      
+                      {/* Search Filter for Statuses */}
+                      <div style={{ position: 'relative', marginBottom: 10 }}>
+                        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Filter statuses (e.g. approved, audit, invoice, certificate)..."
+                          value={statusSearchQuery}
+                          onChange={e => setStatusSearchQuery(e.target.value)}
+                          style={{ paddingLeft: 34, fontSize: 13, height: 38 }}
+                        />
+                        {statusSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setStatusSearchQuery('')}
+                            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer' }}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Status List */}
+                      <div
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 12,
+                          maxHeight: 250,
+                          overflowY: 'auto',
+                          background: '#ffffff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 1
+                        }}
+                      >
+                        {filteredStatuses.length === 0 ? (
+                          <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                            No matching statuses found for "{statusSearchQuery}"
+                          </div>
+                        ) : (
+                          filteredStatuses.map(s => {
+                            const isSelected = selectedTargetStatus === s;
+                            const isCurrent = currentEffStatus === s;
+                            const label = STATUS_LABELS[s] || s.replace(/_/g, ' ');
+                            const badgeClass = STATUS_BADGE[s] || 'badge-gray';
+
+                            return (
+                              <div
+                                key={s}
+                                onClick={() => setSelectedTargetStatus(s)}
+                                style={{
+                                  padding: '10px 14px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 12,
+                                  cursor: 'pointer',
+                                  background: isSelected ? '#fffbeb' : '#ffffff',
+                                  borderLeft: isSelected ? '4px solid #d97706' : '4px solid transparent',
+                                  borderBottom: '1px solid #f1f5f9',
+                                  transition: 'background 0.15s ease'
+                                }}
+                                onMouseEnter={e => {
+                                  if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                                }}
+                                onMouseLeave={e => {
+                                  if (!isSelected) e.currentTarget.style.background = '#ffffff';
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: '50%',
+                                      border: isSelected ? '5px solid #d97706' : '2px solid #cbd5e1',
+                                      background: '#ffffff',
+                                      flexShrink: 0,
+                                      boxSizing: 'border-box',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  />
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: isSelected ? 800 : 600, color: isSelected ? '#78350f' : '#1e293b' }}>
+                                      {label}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                                      Key: <code style={{ fontSize: 10.5, background: '#f1f5f9', padding: '1px 4px', borderRadius: 4 }}>{s}</code>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                  {isCurrent && (
+                                    <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: 4 }}>
+                                      Current
+                                    </span>
+                                  )}
+                                  <span className={`badge ${badgeClass}`} style={{ fontSize: 10.5, padding: '2px 8px' }}>
+                                    {label}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Showing {filteredStatuses.length} of {allStatusOptions.length} available statuses</span>
+                        {selectedTargetStatus && (
+                          <span style={{ fontWeight: 600, color: '#d97706' }}>
+                            Selected: {STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Optional Reason / Audit Note */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+                        Reason / Audit Note <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional — recorded in status history)</span>
+                      </label>
+                      <textarea
+                        className="form-control"
+                        rows={2}
+                        placeholder="e.g. Manually overridden per scheme manager request; advancing workflow after manual verification..."
+                        value={statusChangeNote}
+                        onChange={e => setStatusChangeNote(e.target.value)}
+                        style={{ fontSize: 12.5 }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* Step 2: Confirmation Screen */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div
+                      style={{
+                        padding: '14px 16px',
+                        background: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        borderRadius: 12,
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12
+                      }}
+                    >
+                      <AlertCircle size={20} style={{ color: '#d97706', flexShrink: 0, marginTop: 2 }} />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e' }}>
+                          Confirmation Required
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 3, lineHeight: 1.5 }}>
+                          You are about to exercise your <strong>Super Grant Privilege</strong> to manually change the application status. This change will immediately update client timeline tracking and application state.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Transition Comparison Box */}
+                    <div
+                      style={{
+                        padding: 18,
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 14,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-around',
+                        gap: 12
+                      }}
+                    >
+                      <div style={{ textAlign: 'center', flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                          From
+                        </div>
+                        <span className={`badge ${STATUS_BADGE[currentEffStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '5px 12px' }}>
+                          {STATUS_LABELS[currentEffStatus] || currentEffStatus}
+                        </span>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                          <code>{currentEffStatus}</code>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 24, fontWeight: 900, color: '#d97706' }}>
+                        ➔
+                      </div>
+
+                      <div style={{ textAlign: 'center', flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                          To
+                        </div>
+                        <span className={`badge ${STATUS_BADGE[selectedTargetStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '5px 12px' }}>
+                          {STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
+                        </span>
+                        <div style={{ fontSize: 11, color: '#d97706', marginTop: 4, fontWeight: 700 }}>
+                          <code>{selectedTargetStatus}</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Note Preview if entered */}
+                    {statusChangeNote.trim() && (
+                      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                          Audit Trail Note:
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#1e293b', marginTop: 3, fontStyle: 'italic' }}>
+                          "{statusChangeNote.trim()}"
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: '16px 24px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12
+                }}
+              >
+                {!statusChangeConfirming ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={closeChangeStatusModal}
+                      style={{ fontSize: 13 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={!selectedTargetStatus || isUnchanged}
+                      onClick={() => setStatusChangeConfirming(true)}
+                      style={{
+                        background: isUnchanged
+                          ? '#cbd5e1'
+                          : 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                        borderColor: '#b45309',
+                        color: '#ffffff',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        padding: '9px 20px',
+                        cursor: isUnchanged ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isUnchanged ? 'Select a New Status' : 'Proceed to Confirmation →'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setStatusChangeConfirming(false)}
+                      disabled={statusChangeSubmitting}
+                      style={{ fontSize: 13 }}
+                    >
+                      ← Back to Status List
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleConfirmChangeStatus}
+                      disabled={statusChangeSubmitting}
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                        borderColor: '#047857',
+                        color: '#ffffff',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        padding: '9px 22px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      {statusChangeSubmitting ? (
+                        <>
+                          <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                          Updating Status...
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} /> Confirm &amp; Apply Status Change
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         );
       })()}
 

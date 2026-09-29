@@ -794,7 +794,25 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
 
     // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
-    if (!isStage2Complete) {
+    // Note: This intercept strictly applies during the audit phase. Once an application is in downstream stages
+    // (logsheet, agreement, invoices, ready_for_certificate, etc.), the audit phase has concluded and downstream actions take precedence.
+    const isPostAuditPhase = [
+      'logsheet_created',
+      'logsheet_sign_requested',
+      'logsheet_signed',
+      'application_successful',
+      'agreement_sent',
+      'agreement_signed',
+      'agreement_finalised',
+      'final_invoice_sent',
+      'final_invoice_paid',
+      'ready_for_certificate',
+      'waiting_for_certificate',
+      'certificate_issued',
+      'done'
+    ].includes(status);
+
+    if (!isPostAuditPhase && !isStage2Complete) {
       if (canCompleteAudit) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -829,7 +847,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
       );
     }
 
-    if (!isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold' || isStage2Complete)) {
+    if (!isPostAuditPhase && !isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold' || isStage2Complete)) {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button

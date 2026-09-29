@@ -132,17 +132,6 @@ export default function HFARenewalProcessing(props) {
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
       const hasCompletedAudit = loadedAudits.some(a => ['audit_completed', 'audit_successful', 'completed'].includes(a.status));
 
-      // Sanitize status if application was falsely jumped to application_successful or ready_for_certificate without logsheet
-      const hasPostLogsheetHistory = Array.isArray(fetchedApp?.statusHistory) && fetchedApp.statusHistory.some(h => ['invoice_sent', 'payment_received', 'certificate_issued'].includes(h.status));
-      if (fetchedApp && !fetchedLogsheet && !hasPostLogsheetHistory && ['application_successful', 'ready_for_certificate'].includes(fetchedApp.status)) {
-        if (hasCompletedAudit || ['audit_successful', 'audit_completed'].includes(fetchedApp.status)) {
-          const hasNcClosed = (fetchedApp.statusHistory || []).some(h => h.status === 'nc_closed');
-          fetchedApp.status = hasNcClosed ? 'nc_closed' : 'audit_completed';
-          if (Array.isArray(fetchedApp.statusHistory)) {
-            fetchedApp.statusHistory = fetchedApp.statusHistory.filter(h => !['application_successful', 'ready_for_certificate'].includes(h.status));
-          }
-        }
-      }
 
       if (fetchedApp) {
         if (fetchedLogsheet) {

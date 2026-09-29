@@ -208,13 +208,15 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const hasOpenNc = allNcs.some(nc => ['flagged', 'client_responded', 'admin_replied'].includes(nc.status) || (nc.status && nc.status !== 'closed'));
   const hasLegacyActiveNc = auditsArr.some(a => Boolean(a.nc_text && !a.nc_closed));
   const hasActiveNc = status === 'nc_flagged' || hasOpenNc || hasLegacyActiveNc;
-  const isAuditUnderwayOrCompleted = ['audit_completed', 'audit_successful', 'audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(status);
+  const isAuditUnderway = ['audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(status);
 
-  const isNcClosed = !hasActiveNc && !isAuditUnderwayOrCompleted && Boolean(
+  const isNcClosed = !hasActiveNc && !isAuditUnderway && Boolean(
     status === 'nc_closed' ||
+    status === 'audit_report_submitted' ||
     Boolean(app.nc_closed) ||
     (allNcs.length > 0 && allNcs.every(nc => nc.status === 'closed')) ||
-    auditsArr.some(a => Boolean(a.nc_closed))
+    auditsArr.some(a => Boolean(a.nc_closed)) ||
+    ['logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'invoice_sent', 'payment_received', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(status)
   );
 
   const POST_NC_STAGES = [

@@ -1,4 +1,4 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { AlertTriangle, CheckCircle, AlertCircle, Clock, FileText, Download } from 'lucide-react';
 
@@ -71,10 +71,11 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
     ? ['logsheet_created', 'logsheet_signed', 'ready_for_certificate', 'application_successful', 'certificate_issued'].includes(normStatus)
     : ['logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus);
 
-  const isAuditUnderwayOrCompleted = ['audit_completed', 'audit_successful', 'audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(normStatus);
+  const isAuditUnderway = ['audit_assigned', 'auditors_assigned', 'date_finalized', 'dates_accepted', 'dates_proposed', 'dates_rejected'].includes(normStatus);
 
-  const isNcClosed = !hasActiveNc && !isAuditUnderwayOrCompleted && Boolean(
+  const isNcClosed = !hasActiveNc && !isAuditUnderway && Boolean(
     normStatus === 'nc_closed' ||
+    normStatus === 'audit_report_submitted' ||
     appStatus === 'nc_closed' ||
     Boolean(app?.nc_closed) ||
     Boolean(singleAudit?.nc_closed) ||

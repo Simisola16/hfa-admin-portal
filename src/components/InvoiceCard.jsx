@@ -4,16 +4,31 @@ import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle }
 
 
 export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment, onSendInvoice }) {
-  const normStatus = (status || '').toLowerCase().replace(/ /g, '_');
-  const isSurv = isSurveillance || app?.application_type === 'surveillance';
-  const isRen = !isSurv && (isRenewal || app?.application_type === 'renewal');
+  const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isSurv = Boolean(
+    isSurveillance ||
+    String(app?.application_type || '').toLowerCase().includes('surveillance') ||
+    String(app?.type || '').toLowerCase().includes('surveillance') ||
+    Boolean(app?.is_surveillance) ||
+    String(app?.application_number || '').includes('-SU-') ||
+    String(app?.category || '').toLowerCase().includes('surveillance')
+  );
+  const isRen = !isSurv && Boolean(
+    isRenewal ||
+    String(app?.application_type || '').toLowerCase().includes('renewal') ||
+    String(app?.type || '').toLowerCase().includes('renewal') ||
+    Boolean(app?.is_renewal) ||
+    Boolean(app?.renewed_certificate_id) ||
+    String(app?.application_number || '').includes('-RE-') ||
+    String(app?.category || '').toLowerCase().includes('renewal')
+  );
   const isFastTrack = isSurv || isRen;
 
   const isAvailable = isFastTrack
-    ? ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'invoice_sent', 'payment_received', 'certificate_issued'].includes(normStatus) || invoice
+    ? ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'waiting_for_certificate', 'invoice_sent', 'payment_received', 'certificate_issued', 'done'].includes(normStatus) || invoice
     : isFinal 
-      ? ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice
-      : ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus) || invoice;
+      ? ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'waiting_for_certificate', 'certificate_issued', 'done'].includes(normStatus) || invoice
+      : ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'nc_flagged', 'nc_closed', 'audit_report_submitted', 'on_hold', 'audit_successful', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'waiting_for_certificate', 'certificate_issued', 'done'].includes(normStatus) || invoice;
 
   const cardTitle = isSurv
     ? 'Surveillance Certification Invoice'
@@ -31,20 +46,69 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
     ? 'Final Halal Certification Fee'
     : 'Stage 1 Application & Audit Fee';
 
-  const isSeeded = Boolean(app?.is_seed || app?.is_seeded || app?.hide_initial_invoice_card || app?.hide_invoice_card || app?.skip_invoice_card || app?.notes?.includes('Imported') || app?.notes?.includes('legacy'));
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_initial_invoice_card || 
+    app?.hide_invoice_card || 
+    app?.skip_invoice_card || 
+    String(app?.notes || '').toLowerCase().includes('imported') || 
+    String(app?.notes || '').toLowerCase().includes('legacy') ||
+    String(app?.admin_notes || '').toLowerCase().includes('imported') || 
+    String(app?.admin_notes || '').toLowerCase().includes('legacy')
+  );
+
   const isPastInitialInvoice = [
-    'payment_received', 'initial_product', 'initial_product_submitted', 'initial_product_approved', 
-    'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 
-    'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed', 
-    'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 
-    'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 
-    'ready_for_certificate', 'certificate_issued', 'done'
+    'invoice_sent',
+    'payment_received',
+    'initial_product',
+    'initial_product_submitted',
+    'initial_product_approved', 
+    'dates_proposed',
+    'dates_rejected',
+    'dates_accepted',
+    'date_finalized',
+    'audit_assigned', 
+    'audit_completed',
+    'audited',
+    'audit_report_submitted',
+    'nc_flagged',
+    'nc_closed', 
+    'logsheet_created',
+    'logsheet_sign_requested',
+    'logsheet_signed',
+    'application_successful', 
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid', 
+    'ready_for_certificate',
+    'waiting_for_certificate',
+    'certificate_issued',
+    'done'
   ].includes(normStatus);
 
   const isPastInvoice = Boolean(
     (isInitial && isPastInitialInvoice) ||
-    (isFinal && ['ready_for_certificate', 'certificate_issued', 'done'].includes(normStatus)) ||
-    (isFastTrack && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'done'].includes(normStatus))
+    (isFinal && [
+      'final_invoice_sent',
+      'final_invoice_paid',
+      'ready_for_certificate',
+      'waiting_for_certificate',
+      'certificate_issued',
+      'done'
+    ].includes(normStatus)) ||
+    (isFastTrack && [
+      'logsheet_signed',
+      'application_successful',
+      'invoice_sent',
+      'payment_received',
+      'ready_for_certificate',
+      'waiting_for_certificate',
+      'certificate_issued',
+      'done'
+    ].includes(normStatus))
   );
 
   if (!invoice && isSeeded && isPastInvoice) {

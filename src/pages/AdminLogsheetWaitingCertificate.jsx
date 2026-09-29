@@ -2,14 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings, CheckCircle
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 
 export default function AdminLogsheetWaitingCertificate() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
+  const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
+
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,8 +49,8 @@ export default function AdminLogsheetWaitingCertificate() {
       // Filter logsheets in "Waiting For Certificate" status:
       // Exclude completed logsheets, initial product logsheets, and applications that already have an issued certificate
       const waitingLogs = allLogs.filter(l => {
-        // Exclude completed logsheets
-        if (l.status === 'Completed') return false;
+        // Exclude completed or done logsheets
+        if (l.status === 'Completed' || l.status === 'Done' || l.status === 'done') return false;
 
         // Exclude Initial Product logsheets (Initial Product approvals do not issue standalone facility certificates)
         if (l.source_type === 'initial_product_application' || l.initial_product_application_id || l.audit_type === 'Initial Product Evaluation') {
@@ -64,13 +70,13 @@ export default function AdminLogsheetWaitingCertificate() {
         // 3. Add-on application logsheets: show if add-on application is ready for certificate
         const isAddon = l.source_type === 'addon_application' || Boolean(l.addon_application_id);
         if (isAddon) {
-          if (l.addon_application_id?.status === 'completed') return false;
+          if (l.addon_application_id?.status === 'completed' || l.addon_application_id?.status === 'done') return false;
           return l.addon_application_id?.status === 'ready_for_certificate' || l.addon_application_id?.status === 'product_form_approved';
         }
 
         // 4. Main application logsheets (HFA New, Renewal, Surveillance, GSO, etc.)
         const appId = String(l.application_id?._id || l.application_id || '');
-        if (l.application_id?.status === 'certificate_issued' || (appId && certifiedAppIds.has(appId))) {
+        if (l.application_id?.status === 'certificate_issued' || l.application_id?.status === 'done' || (appId && certifiedAppIds.has(appId))) {
           return false;
         }
 
@@ -150,6 +156,19 @@ export default function AdminLogsheetWaitingCertificate() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.message || 'Failed to delete logsheet');
+    }
+  };
+
+  const handleMarkDone = async (logsheet) => {
+    if (!logsheet) return;
+    if (!window.confirm(`Mark this logsheet for "${logsheet.company_name}" as Done?`)) return;
+    try {
+      await api.put(`/api/application-logsheets/${logsheet._id}/mark-done`);
+      toast.success('Logsheet marked as Done');
+      setActionModalLogsheet(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
     }
   };
 
@@ -659,6 +678,17 @@ export default function AdminLogsheetWaitingCertificate() {
                 icon: Trash2,
                 variant: 'danger',
                 onClick: (e) => handleDelete(l._id, e, l)
+              },
+              hasDonePrivilege && {
+                label: 'Mark as Done',
+                description: 'Mark this logsheet as completed / Done',
+                icon: CheckCircle,
+                variant: 'success',
+                onClick: () => {
+                  const item = actionModalLogsheet;
+                  setActionModalLogsheet(null);
+                  if (item) handleMarkDone(item);
+                }
               }
             ].filter(Boolean)}
           />

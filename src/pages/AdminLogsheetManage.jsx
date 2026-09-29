@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { 
-  RefreshCw, Plus, Settings, Eye, Trash2, MapPin
+  RefreshCw, Plus, Settings, Eye, Trash2, MapPin, CheckCircle
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
@@ -12,6 +13,11 @@ import useCompanyDirectory from '../lib/useCompanyDirectory';
 
 export default function AdminLogsheetManage() {
   const { companies: directoryCompanies } = useCompanyDirectory();
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
+  const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
+
   const [logsheets, setLogsheets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,6 +93,19 @@ export default function AdminLogsheetManage() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.message || 'Failed to delete logsheet');
+    }
+  };
+
+  const handleMarkDone = async (logsheet) => {
+    if (!logsheet) return;
+    if (!window.confirm(`Mark this logsheet for "${logsheet.company_name}" as Done?`)) return;
+    try {
+      await api.put(`/api/application-logsheets/${logsheet._id}/mark-done`);
+      toast.success('Logsheet marked as Done');
+      setActionModalLogsheet(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
     }
   };
 
@@ -313,6 +332,9 @@ export default function AdminLogsheetManage() {
       case 'Completed':
       case 'Approved':
         return 'badge-blue';
+      case 'Done':
+      case 'done':
+        return 'badge-green';
       case 'Waiting For Certificate':
       case 'Waiting for Certificate':
         return 'badge-purple';
@@ -633,6 +655,17 @@ export default function AdminLogsheetManage() {
                 icon: Trash2,
                 variant: 'danger',
                 onClick: (e) => handleDelete(l._id, e, l)
+              },
+              hasDonePrivilege && {
+                label: 'Mark as Done',
+                description: 'Mark this logsheet as completed / Done',
+                icon: CheckCircle,
+                variant: 'success',
+                onClick: () => {
+                  const item = actionModalLogsheet;
+                  setActionModalLogsheet(null);
+                  if (item) handleMarkDone(item);
+                }
               }
             ].filter(Boolean)}
           />

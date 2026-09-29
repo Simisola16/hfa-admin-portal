@@ -23,16 +23,17 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
     String(app?.category || '').toLowerCase().includes('surveillance')
   );
 
-  const hasSurvLetter = isSurv && Boolean(
+  const hasSurvLetter = isSurv && normStatus === 'certificate_issued' && Boolean(
     app?.documents?.surveillance_letter ||
     app?.certificate_url ||
-    (app?.surveillance_letter_data && (app?.surveillance_letter_data?.letter_number || app?.surveillance_letter_data?.pdf_url)) ||
-    normStatus === 'certificate_issued'
+    (app?.surveillance_letter_data && (app?.surveillance_letter_data?.letter_number || app?.surveillance_letter_data?.pdf_url))
   );
 
-  const hasCertificate = hasSurvLetter || Boolean(certificate && (certificate._id || certificate.id || certificate.certificate_number));
+  // If application has NOT reached 'certificate_issued', any active certificate is a former/previous cycle certificate and must not show here
+  const isCurrentAppCert = normStatus === 'certificate_issued' || certificate?.status === 'under_review' || certificate?.status === 'draft';
+  const hasCertificate = hasSurvLetter || Boolean(isCurrentAppCert && certificate && (certificate._id || certificate.id || certificate.certificate_number));
   const isUnderReview = !hasSurvLetter && hasCertificate && (certificate?.status === 'under_review' || certificate?.status === 'draft');
-  const isActive = hasSurvLetter ? (normStatus === 'certificate_issued') : (hasCertificate && certificate?.status === 'active');
+  const isActive = hasCertificate && (hasSurvLetter ? (normStatus === 'certificate_issued') : (certificate?.status === 'active' && normStatus === 'certificate_issued'));
   const pdfUrl = hasSurvLetter 
     ? getPdfUrl(app?.documents?.surveillance_letter || app?.certificate_url || app?.surveillance_letter_data?.pdf_url)
     : (hasCertificate ? getPdfUrl(certificate?.certificate_url) : '');

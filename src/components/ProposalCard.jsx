@@ -1,10 +1,25 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { FileText, Download, Lock } from 'lucide-react';
 
 
-export default function ProposalCard({ proposal, status, onSendProposal }) {
-  const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(status) || proposal;
+export default function ProposalCard({ app, proposal, status, onSendProposal }) {
+  const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued'].includes(normStatus) || proposal;
+
+  const isSeeded = Boolean(app?.is_seed || app?.is_seeded || app?.hide_proposal_card || app?.skip_proposal_card || app?.notes?.includes('Imported') || app?.notes?.includes('legacy'));
+  const isPastProposal = [
+    'proposal_approved', 'invoice_sent', 'payment_received', 'initial_product', 'initial_product_submitted', 
+    'initial_product_approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 
+    'audit_assigned', 'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed', 
+    'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 
+    'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 
+    'ready_for_certificate', 'certificate_issued'
+  ].includes(normStatus);
+
+  if (!proposal && isSeeded && isPastProposal) {
+    return null;
+  }
 
   if (!isAvailable) {
     return (
@@ -32,9 +47,9 @@ export default function ProposalCard({ proposal, status, onSendProposal }) {
   }
 
   const isAccepted = ['accepted', 'approved', 'proposal_approved'].includes(proposal?.status) || 
-    ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status);
+    ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus);
 
-  const canResend = onSendProposal && !isAccepted && (proposal?.status === 'rejected' || proposal?.status === 'pending' || proposal?.status === 'sent' || status === 'proposal_rejected' || status === 'proposal_sent');
+  const canResend = onSendProposal && !isAccepted && (proposal?.status === 'rejected' || proposal?.status === 'pending' || proposal?.status === 'sent' || normStatus === 'proposal_rejected' || normStatus === 'proposal_sent');
 
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>

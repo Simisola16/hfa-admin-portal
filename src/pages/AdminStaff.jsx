@@ -5,10 +5,12 @@ import {
   Search, Shield, Users, UserCheck, PlusCircle, Trash2, X, AlertCircle,
   RefreshCw, KeyRound, Lock, Sparkles, Check, CheckSquare, Square, CheckCircle,
   Crown, ClipboardCheck, Eye, EyeOff, FileCheck, Beaker, Edit3, ShieldAlert,
-  ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign
+  ChevronRight, Filter, ClipboardList, Award, FileBarChart, Receipt, DollarSign,
+  UserCog, Ban, UserCheck2, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
+import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 
 // Canonical Role Definitions & Metadata
 export const STAFF_ROLE_CONFIG = {
@@ -169,6 +171,9 @@ export default function AdminStaff() {
   // Suspension Modal State
   const [suspensionModal, setSuspensionModal] = useState(null);
   const [suspensionReason, setSuspensionReason] = useState('');
+
+  // Staff Action Modal (3-dot popup)
+  const [staffActionModal, setStaffActionModal] = useState(null); // holds the selected member
 
   // Superadmin permission check
   const isSuperAdmin = loggedInUser?.role === 'superadmin' || (Array.isArray(loggedInUser?.roles) && loggedInUser.roles.includes('superadmin'));
@@ -1050,54 +1055,13 @@ export default function AdminStaff() {
                       {/* 5. Actions */}
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                         {isSuperAdmin ? (
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{ fontSize: 12, padding: '5px 10px', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, background: '#eff6ff' }}
-                              onClick={() => openEditUser(member)}
-                              title="Edit Login Details"
-                            >
-                              <KeyRound size={13} style={{ marginRight: 4 }} /> Edit User
-                            </button>
-
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{ fontSize: 12, padding: '5px 10px', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                              onClick={() => openEditRoles(member)}
-                              title="Edit Roles"
-                            >
-                              <Edit3 size={13} style={{ marginRight: 4 }} /> Roles
-                            </button>
-
-                            {isActive ? (
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                style={{ color: '#ef4444', fontSize: 12, padding: '5px 10px', border: '1px solid #fee2e2', borderRadius: 8 }}
-                                onClick={() => { setSuspensionModal(member); setSuspensionReason(''); }}
-                                title="Suspend Account"
-                              >
-                                Suspend
-                              </button>
-                            ) : (
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                style={{ color: '#16a34a', fontSize: 12, padding: '5px 10px', border: '1px solid #bbf7d0', borderRadius: 8 }}
-                                onClick={() => handleStatusChange(member._id, true)}
-                                title="Activate Account"
-                              >
-                                Activate
-                              </button>
-                            )}
-
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{ color: '#ef4444', padding: '5px 8px', border: '1px solid #fee2e2', borderRadius: 8 }}
-                              onClick={() => handleDeleteStaff(member._id, member.full_name || member.email)}
-                              title="Delete Staff Account"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                          <ActionTriggerButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStaffActionModal(member);
+                            }}
+                            title="Staff Actions"
+                          />
                         ) : (
                           <span style={{ fontSize: 11.5, color: '#94a3b8', fontStyle: 'italic' }}>View Only</span>
                         )}
@@ -1118,6 +1082,89 @@ export default function AdminStaff() {
           />
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* STAFF ACTION MODAL (3-dot popup)                                   */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {staffActionModal && (() => {
+        const m = staffActionModal;
+        const roles = getUserRoles(m);
+        const primaryRole = roles[0] || m.role || 'staff';
+        const roleConfig = STAFF_ROLE_CONFIG[primaryRole];
+        const isActive = m.is_active !== false && m.status !== 'suspended';
+        const displayName = m.full_name || m.username || m.email;
+
+        return (
+          <ActionModal
+            isOpen={Boolean(staffActionModal)}
+            onClose={() => setStaffActionModal(null)}
+            title="Staff Member Actions"
+            subtitle={displayName}
+            badge={
+              roleConfig
+                ? { text: roleConfig.label, variant: roleConfig.badgeClass || 'badge-gray' }
+                : { text: primaryRole, variant: 'badge-gray' }
+            }
+            actions={[
+              {
+                label: 'Edit Login Details',
+                description: 'Update name, email, username, or password',
+                icon: KeyRound,
+                variant: 'primary',
+                onClick: () => {
+                  const member = staffActionModal;
+                  setStaffActionModal(null);
+                  openEditUser(member);
+                }
+              },
+              {
+                label: 'Edit Roles & Privileges',
+                description: 'Assign roles and special access grants',
+                icon: Edit3,
+                variant: 'default',
+                onClick: () => {
+                  const member = staffActionModal;
+                  setStaffActionModal(null);
+                  openEditRoles(member);
+                }
+              },
+              isActive ? {
+                label: 'Suspend Account',
+                description: 'Immediately block portal access for this staff member',
+                icon: Ban,
+                variant: 'warning',
+                onClick: () => {
+                  const member = staffActionModal;
+                  setStaffActionModal(null);
+                  setSuspensionModal(member);
+                  setSuspensionReason('');
+                }
+              } : {
+                label: 'Activate Account',
+                description: 'Restore portal access for this staff member',
+                icon: UserCheck2,
+                variant: 'success',
+                onClick: () => {
+                  const member = staffActionModal;
+                  setStaffActionModal(null);
+                  handleStatusChange(member._id, true);
+                }
+              },
+              {
+                label: 'Delete Staff Account',
+                description: 'Permanently remove this staff account — cannot be undone',
+                icon: Trash2,
+                variant: 'danger',
+                onClick: () => {
+                  const member = staffActionModal;
+                  setStaffActionModal(null);
+                  handleDeleteStaff(member._id, member.full_name || member.email);
+                }
+              }
+            ].filter(Boolean)}
+          />
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* ADD STAFF ACCOUNT MODAL (Username Removed, Multi-Role Ticking)     */}

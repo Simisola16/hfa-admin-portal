@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import ResendLogsheetEmailModal from '../components/ResendLogsheetEmailModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
+import RestoreModal from '../components/RestoreModal';
 import { 
   Search, Trash2, RefreshCw, ChevronDown, 
   MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw, CheckCircle
@@ -29,6 +30,7 @@ export default function AdminLogsheetWaitingSignature() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [actionModalItem, setActionModalItem] = useState(null);
+  const [restoreModalItem, setRestoreModalItem] = useState(null);
   const [selectedLogsheetForEmail, setSelectedLogsheetForEmail] = useState(null);
   const [showResendModal, setShowResendModal] = useState(false);
   const navigate = useNavigate();
@@ -37,23 +39,29 @@ export default function AdminLogsheetWaitingSignature() {
     setLoading(true);
     try {
       const [res, extRes] = await Promise.all([
-        api.get('/api/application-logsheets?status=Waiting for Signature'),
+        api.get('/api/application-logsheets?status=Waiting for Signature,Done,done'),
         api.get('/api/extension-applications').catch(() => ({ data: { data: [] } }))
       ]);
 
       const allLogs = res.data?.data || res.data || [];
       const extApps = extRes.data?.data || (Array.isArray(extRes.data) ? extRes.data : []);
 
-      // Filter only "Waiting for Signature" on retrieval for normal logsheets
-      const waitingLogs = allLogs.filter(l => l.status === 'Waiting for Signature');
+      // Filter waiting logsheets and done logsheets that originated from waiting for signature
+      const waitingLogs = allLogs.filter(l => {
+        if (l.status === 'Waiting for Signature') return true;
+        if (l.status === 'Done' || l.status === 'done') {
+          const sigCount = (l.mufti_signature ? 1 : 0) + (l.ceo_signature ? 1 : 0) + (l.manager_signature ? 1 : 0) + (l.mufti2_signature ? 1 : 0);
+          return l.previous_status === 'Waiting for Signature' || (!l.previous_status && sigCount < 3);
+        }
+        return false;
+      });
 
-      // Transform Extension Logsheets that are waiting for signature
+      // Transform Extension Logsheets that are waiting for signature or marked done from here
       const waitingExtLogs = extApps
         .filter(extApp => {
           const log = extApp.logsheet_id;
           if (!log) return false;
-          // Show if logsheet or app is in waiting signature status
-          const isWaiting = log.status === 'Waiting for Signature' || extApp.status === 'waiting_signature';
+          const isWaiting = log.status === 'Waiting for Signature' || extApp.status === 'waiting_signature' || log.status === 'Done' || log.status === 'done';
           if (!isWaiting) return false;
           if (extApp.status === 'extension_approved' || extApp.status === 'rejected' || log.status === 'Approved') {
             return false;
@@ -63,6 +71,10 @@ export default function AdminLogsheetWaitingSignature() {
           const isSigned = is30Days
             ? Boolean(log.single_signature)
             : Boolean(log.mufti_signature && log.ceo_signature && log.manager_signature && log.mufti2_signature);
+
+          if (log.status === 'Done' || log.status === 'done') {
+            return log.previous_status === 'Waiting for Signature' || !isSigned;
+          }
 
           return !isSigned;
         })
@@ -81,7 +93,7 @@ export default function AdminLogsheetWaitingSignature() {
             contact_email: extApp.contact_email || extApp.client_id?.email || '',
             created_at: log.created_at || extApp.created_at || extApp.createdAt,
             audit_type: `Extension (${log.extension_days || 30} Days)`,
-            status: 'Waiting for Signature',
+            status: log.status || 'Waiting for Signature',
             signatures_required: is30Days ? 1 : 4,
             extension_duration_type: log.extension_duration_type,
             extension_days: log.extension_days,
@@ -150,6 +162,24 @@ export default function AdminLogsheetWaitingSignature() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
+  const handleRestore = (logsheet) => {
+    if (!logsheet) return;
+    setRestoreModalItem(logsheet);
+  };
+
+  const handleConfirmRestore = async (targetStatus) => {
+    if (!restoreModalItem) return;
+    try {
+      const res = await api.put(`/api/application-logsheets/${restoreModalItem._id}/restore`, { targetStatus });
+      toast.success(res.data?.message || `Logsheet restored to "${targetStatus}" successfully`);
+      setRestoreModalItem(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to restore logsheet');
+      throw err;
     }
   };
 
@@ -240,7 +270,7 @@ export default function AdminLogsheetWaitingSignature() {
       return `/addon-applications/${id}/logsheet`;
     }
     const id = l.application_id?._id || l.application_id;
-    return id ? `/applications/${id}/logsheet` : '/logsheet/manage';
+    return id ? `/applications/${id}/logsheet` : `/logsheets/${l._id}/view`;
   };
 
   const getApplicationLink = (l) => {
@@ -260,12 +290,22 @@ export default function AdminLogsheetWaitingSignature() {
     return id ? `/applications/${id}/processing` : '/applications';
   };
 
-  const awaitingMineCount = logsheets.filter(l => !hasUserSigned(l)).length;
-  const signedByMeCount = logsheets.filter(l => hasUserSigned(l)).length;
+  const pendingOnlyLogs = logsheets.filter(l => l.status !== 'Done' && l.status !== 'done');
+  const doneLogs = logsheets.filter(l => l.status === 'Done' || l.status === 'done');
+
+  const awaitingMineCount = pendingOnlyLogs.filter(l => !hasUserSigned(l)).length;
+  const signedByMeCount = pendingOnlyLogs.filter(l => hasUserSigned(l)).length;
+  const doneCount = doneLogs.length;
 
   const filteredLogsheets = logsheets.filter(l => {
-    if (filterTab === 'awaiting_mine' && hasUserSigned(l)) return false;
-    if (filterTab === 'signed_by_me' && !hasUserSigned(l)) return false;
+    const isDone = l.status === 'Done' || l.status === 'done';
+    if (filterTab === 'done') {
+      if (!isDone) return false;
+    } else {
+      if (isDone) return false;
+      if (filterTab === 'awaiting_mine' && hasUserSigned(l)) return false;
+      if (filterTab === 'signed_by_me' && !hasUserSigned(l)) return false;
+    }
 
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -346,6 +386,11 @@ export default function AdminLogsheetWaitingSignature() {
           background: #16a34a;
           color: #fff;
           box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+        }
+        .filter-tab-btn.active-done {
+          background: #059669;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
         }
         .filter-tab-btn.inactive {
           background: #f1f5f9;
@@ -465,7 +510,26 @@ export default function AdminLogsheetWaitingSignature() {
             fontSize: 11.5,
             fontWeight: 800
           }}>
-            {logsheets.length}
+            {pendingOnlyLogs.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterTab('done')}
+          className={`filter-tab-btn ${filterTab === 'done' ? 'active-done' : 'inactive'}`}
+        >
+          <CheckCircle size={15} />
+          Done Logsheets
+          <span style={{
+            background: filterTab === 'done' ? 'rgba(255,255,255,0.25)' : '#dcfce7',
+            color: filterTab === 'done' ? '#fff' : '#15803d',
+            padding: '2px 8px',
+            borderRadius: 12,
+            fontSize: 11.5,
+            fontWeight: 800
+          }}>
+            {doneCount}
           </span>
         </button>
       </div>
@@ -632,7 +696,23 @@ export default function AdminLogsheetWaitingSignature() {
 
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                            {userSigned ? (
+                            {l.status === 'Done' || l.status === 'done' ? (
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                color: '#15803d',
+                                background: '#f0fdf4',
+                                border: '1px solid #86efac'
+                              }}>
+                                <CheckCircle size={12} />
+                                Done
+                              </span>
+                            ) : userSigned ? (
                               <span style={{
                                 padding: '4px 10px',
                                 borderRadius: 8,
@@ -798,8 +878,8 @@ export default function AdminLogsheetWaitingSignature() {
         onClose={() => setActionModalItem(null)}
         title={actionModalItem?.company_name || 'Logsheet Actions'}
         subtitle={`App #${actionModalItem?.application_number || actionModalItem?.application_id?.application_number || actionModalItem?._id?.slice(-6).toUpperCase()} · ${actionModalItem?.audit_type || 'Logsheet'}`}
-        badge={actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature'}
-        badgeVariant={actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow'}
+        badge={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'Done' : (actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature')}
+        badgeVariant={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'badge-green' : (actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow')}
         actions={[
           {
             label: actionModalItem && hasUserSigned(actionModalItem)
@@ -857,7 +937,7 @@ export default function AdminLogsheetWaitingSignature() {
               if (item) handleDelete(item._id, null, item);
             }
           },
-          hasDonePrivilege && {
+          hasDonePrivilege && (actionModalItem?.status !== 'Done' && actionModalItem?.status !== 'done') && {
             label: 'Mark as Done',
             description: 'Mark this logsheet as completed / Done',
             icon: CheckCircle,
@@ -867,8 +947,28 @@ export default function AdminLogsheetWaitingSignature() {
               setActionModalItem(null);
               if (item) handleMarkDone(item);
             }
+          },
+          hasDonePrivilege && (actionModalItem?.status === 'Done' || actionModalItem?.status === 'done') && {
+            label: 'Restore Logsheet',
+            description: 'Restore this logsheet back to active status',
+            icon: RotateCcw,
+            variant: 'warning',
+            onClick: () => {
+              const item = actionModalItem;
+              setActionModalItem(null);
+              if (item) handleRestore(item);
+            }
           }
         ].filter(Boolean)}
+      />
+
+      <RestoreModal
+        isOpen={Boolean(restoreModalItem)}
+        onClose={() => setRestoreModalItem(null)}
+        itemName={restoreModalItem?.company_name || 'Logsheet'}
+        itemType="logsheet"
+        defaultStatus={restoreModalItem?.previous_status}
+        onConfirm={handleConfirmRestore}
       />
     </div>
   );

@@ -8,10 +8,11 @@ import {
   Clock, Package, RefreshCw, ChevronDown, ChevronUp, User,
   CheckCircle, Users, ArrowRight, Building2, Calendar,
   Layers, ShieldCheck, CheckCheck, ExternalLink, Sparkles,
-  Tag, ArrowUpRight, Award
+  Tag, ArrowUpRight, Award, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
+import RestoreModal from '../components/RestoreModal';
 
 const STATUS_LABELS = {
   submitted: 'Submitted',
@@ -67,6 +68,7 @@ export default function AdminAddOnApplications() {
   const [activeApp, setActiveApp] = useState(null);
   const [actionType, setActionType] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [restoreModalApp, setRestoreModalApp] = useState(null);
 
   const [decision, setDecision] = useState('accepted');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -210,6 +212,24 @@ export default function AdminAddOnApplications() {
       fetchApps();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
+  const handleRestoreAddOn = (app) => {
+    if (!app) return;
+    setRestoreModalApp(app);
+  };
+
+  const handleConfirmRestoreAddOn = async (targetStatus) => {
+    if (!restoreModalApp) return;
+    try {
+      const res = await api.put(`/api/add-on-applications/${restoreModalApp._id}/restore`, { targetStatus });
+      toast.success(res.data?.message || `Add-on application restored to "${targetStatus}" successfully`);
+      setRestoreModalApp(null);
+      fetchApps();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to restore add-on application');
+      throw err;
     }
   };
 
@@ -617,6 +637,22 @@ export default function AdminAddOnApplications() {
                           </button>
                         )}
 
+                        {/* Restore Button — only shown to privileged users when already done */}
+                        {hasDonePrivilege && (app.status === 'done' || app.status === 'Done') && (
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreAddOn(app)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12,
+                              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+                              padding: '7px 12px', color: '#b45309', cursor: 'pointer', whiteSpace: 'nowrap'
+                            }}
+                            title="Restore add-on application back to active status"
+                          >
+                            <RotateCcw size={13} /> Restore
+                          </button>
+                        )}
+
                         {/* Expand Toggle */}
                         <button
                           type="button"
@@ -1002,6 +1038,15 @@ export default function AdminAddOnApplications() {
           </div>
         </div>
       )}
+
+      <RestoreModal
+        isOpen={Boolean(restoreModalApp)}
+        onClose={() => setRestoreModalApp(null)}
+        itemName={restoreModalApp?.client_id?.company_name || restoreModalApp?.client_id?.full_name || 'Add-on Application'}
+        itemType="addon"
+        defaultStatus={restoreModalApp?.previous_status}
+        onConfirm={handleConfirmRestoreAddOn}
+      />
     </div>
   );
 }

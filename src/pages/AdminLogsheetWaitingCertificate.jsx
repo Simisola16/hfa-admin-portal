@@ -5,10 +5,11 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { 
   FileText, Search, Trash2, Eye, RefreshCw, ChevronDown, 
-  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings, CheckCircle
+  MapPin, User, Calendar, Tag, Shield, Clock, CheckCircle2, Mail, PenTool, ArrowRight, Award, Settings, CheckCircle, RotateCcw
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
+import RestoreModal from '../components/RestoreModal';
 
 export default function AdminLogsheetWaitingCertificate() {
   const { user, profile } = useAuth();
@@ -17,12 +18,15 @@ export default function AdminLogsheetWaitingCertificate() {
   const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
 
   const [logsheets, setLogsheets] = useState([]);
+  const [doneLogsheets, setDoneLogsheets] = useState([]);
+  const [filterTab, setFilterTab] = useState('active'); // 'active' | 'done'
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState('company_name');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
+  const [restoreModalItem, setRestoreModalItem] = useState(null);
   const navigate = useNavigate();
 
 
@@ -86,12 +90,24 @@ export default function AdminLogsheetWaitingCertificate() {
         return isAppReadyForCert;
       });
 
+      // Filter logsheets in Done status that originated from waiting for certificate
+      const doneLogs = allLogs.filter(l => {
+        if (l.status !== 'Done' && l.status !== 'done') return false;
+        if (l.source_type === 'initial_product_application' || l.initial_product_application_id || l.audit_type === 'Initial Product Evaluation') {
+          return false;
+        }
+        const isFromCert = l.previous_status === 'Waiting For Certificate' || l.previous_status === 'Waiting for Certificate' || l.previous_status === 'Signed';
+        if (isFromCert) return true;
+        const sigCount = (l.mufti_signature ? 1 : 0) + (l.ceo_signature ? 1 : 0) + (l.manager_signature ? 1 : 0) + (l.mufti2_signature ? 1 : 0);
+        return sigCount >= 3 && l.previous_status !== 'Waiting for Signature';
+      });
+
       // Filter signed Extension logsheets that are awaiting certificate issuance
       const waitingExtLogs = extApps
         .filter(extApp => {
           const log = extApp.logsheet_id;
           if (!log) return false;
-          if (extApp.status === 'extension_approved' || extApp.status === 'rejected' || log.status === 'Approved') {
+          if (extApp.status === 'extension_approved' || extApp.status === 'rejected' || log.status === 'Approved' || log.status === 'Done' || log.status === 'done') {
             return false;
           }
 
@@ -130,7 +146,44 @@ export default function AdminLogsheetWaitingCertificate() {
           };
         });
 
+      // Filter signed Extension logsheets that were marked Done
+      const doneExtLogs = extApps
+        .filter(extApp => {
+          const log = extApp.logsheet_id;
+          if (!log) return false;
+          if (log.status !== 'Done' && log.status !== 'done') return false;
+          return log.previous_status === 'Signed' || log.previous_status === 'Approved' || log.previous_status === 'Waiting For Certificate';
+        })
+        .map(extApp => {
+          const log = extApp.logsheet_id;
+          const is30Days = log.extension_duration_type === '30_days' || Number(log.extension_days) <= 30;
+          return {
+            _id: log._id || extApp._id,
+            extension_application_id: extApp._id,
+            application_number: extApp.application_number,
+            source_type: 'extension_application',
+            company_name: log.company_name || extApp.company_name || extApp.client_id?.company_name || 'Client',
+            site_name: extApp.site_name || extApp.site_id?.name || log.facility_address || 'Main Facility',
+            suggested_certificate_type: log.suggested_certificate_type || log.certificate_type || extApp.suggested_certificate_type || 'Extension Certificate',
+            certificate_type: log.certificate_type || log.suggested_certificate_type || 'Extension Certificate',
+            contact_person: log.contact_person || extApp.contact_person || '—',
+            contact_email: extApp.contact_email || extApp.client_id?.email || '',
+            created_at: log.created_at || extApp.created_at || extApp.createdAt,
+            updated_at: log.updated_at || extApp.updated_at,
+            audit_type: `Extension (${log.extension_days || 30} Days)`,
+            status: 'Done',
+            signatures_required: is30Days ? 1 : 4,
+            extension_duration_type: log.extension_duration_type,
+            single_signature: log.single_signature,
+            mufti_signature: log.mufti_signature,
+            ceo_signature: log.ceo_signature,
+            manager_signature: log.manager_signature,
+            mufti2_signature: log.mufti2_signature
+          };
+        });
+
       setLogsheets([...waitingLogs, ...waitingExtLogs]);
+      setDoneLogsheets([...doneLogs, ...doneExtLogs]);
     } catch (err) {
       toast.error('Failed to load completed logsheets');
       console.error(err);
@@ -169,6 +222,24 @@ export default function AdminLogsheetWaitingCertificate() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
+  const handleRestore = (logsheet) => {
+    if (!logsheet) return;
+    setRestoreModalItem(logsheet);
+  };
+
+  const handleConfirmRestore = async (targetStatus) => {
+    if (!restoreModalItem) return;
+    try {
+      const res = await api.put(`/api/application-logsheets/${restoreModalItem._id}/restore`, { targetStatus });
+      toast.success(res.data?.message || `Logsheet restored to "${targetStatus}" successfully`);
+      setRestoreModalItem(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to restore logsheet');
+      throw err;
     }
   };
 
@@ -321,7 +392,9 @@ export default function AdminLogsheetWaitingCertificate() {
     return { type: 'New', bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', icon: FileText };
   };
 
-  const filteredLogsheets = logsheets.filter(l => {
+  const currentList = filterTab === 'done' ? doneLogsheets : logsheets;
+
+  const filteredLogsheets = currentList.filter(l => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     
@@ -354,7 +427,7 @@ export default function AdminLogsheetWaitingCertificate() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, searchField]);
+  }, [searchQuery, searchField, filterTab]);
 
   const paginatedLogsheets = filteredLogsheets.slice((page - 1) * pageSize, page * pageSize);
 
@@ -427,23 +500,49 @@ export default function AdminLogsheetWaitingCertificate() {
           flexWrap: 'wrap',
           gap: 16
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#14532d' }}>Logsheets Done</span>
-            <span style={{
-              borderRadius: 20,
-              padding: '3px 10px',
-              fontSize: 12,
-              fontWeight: 600,
-              background: '#dcfce7',
-              color: '#15803d',
-              border: '1px solid #bbf7d0',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5
-            }}>
-              <CheckCircle2 size={12} />
-              {filteredLogsheets.length} {filteredLogsheets.length === 1 ? 'Logsheet Completed' : 'Logsheets Completed'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => { setFilterTab('active'); setPage(1); }}
+              style={{
+                background: filterTab === 'active' ? '#16a34a' : '#fff',
+                color: filterTab === 'active' ? '#fff' : '#15803d',
+                border: '1px solid #86efac',
+                padding: '6px 14px',
+                borderRadius: 20,
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: filterTab === 'active' ? '0 2px 8px rgba(22, 163, 74, 0.25)' : 'none'
+              }}
+            >
+              <Award size={14} />
+              Waiting for Certificate ({logsheets.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFilterTab('done'); setPage(1); }}
+              style={{
+                background: filterTab === 'done' ? '#059669' : '#fff',
+                color: filterTab === 'done' ? '#fff' : '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '6px 14px',
+                borderRadius: 20,
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: filterTab === 'done' ? '0 2px 8px rgba(5, 150, 105, 0.25)' : 'none'
+              }}
+            >
+              <CheckCircle size={14} />
+              Done Logsheets ({doneLogsheets.length})
+            </button>
           </div>
 
           {/* Search & Filter Controls */}
@@ -587,9 +686,15 @@ export default function AdminLogsheetWaitingCertificate() {
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <CheckCircle2 size={12} /> Waiting For Certificate
-                        </span>
+                        {l.status === 'Done' || l.status === 'done' ? (
+                          <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <CheckCircle size={12} /> Done
+                          </span>
+                        ) : (
+                          <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <CheckCircle2 size={12} /> Waiting For Certificate
+                          </span>
+                        )}
                       </td>
 
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 12, color: '#475569' }}>
@@ -653,8 +758,8 @@ export default function AdminLogsheetWaitingCertificate() {
             title={l.company_name}
             subtitle={`App #${l.application_number || l.application_id?.application_number || '—'} · ${getCertificateTypeInfo(l).certType}`}
             badge={
-              <span style={{ fontSize: 11.5, color: '#64748b' }}>
-                Status: Waiting for Certificate • {getCertificateTypeInfo(l).certType}
+              <span style={{ fontSize: 11.5, color: l.status === 'Done' || l.status === 'done' ? '#15803d' : '#64748b' }}>
+                Status: {l.status === 'Done' || l.status === 'done' ? 'Done' : 'Waiting for Certificate'} • {getCertificateTypeInfo(l).certType}
               </span>
             }
             actions={[
@@ -679,7 +784,7 @@ export default function AdminLogsheetWaitingCertificate() {
                 variant: 'danger',
                 onClick: (e) => handleDelete(l._id, e, l)
               },
-              hasDonePrivilege && {
+              hasDonePrivilege && l.status !== 'Done' && l.status !== 'done' && {
                 label: 'Mark as Done',
                 description: 'Mark this logsheet as completed / Done',
                 icon: CheckCircle,
@@ -689,11 +794,31 @@ export default function AdminLogsheetWaitingCertificate() {
                   setActionModalLogsheet(null);
                   if (item) handleMarkDone(item);
                 }
+              },
+              hasDonePrivilege && (l.status === 'Done' || l.status === 'done') && {
+                label: 'Restore Logsheet',
+                description: 'Restore this logsheet back to active status',
+                icon: RotateCcw,
+                variant: 'warning',
+                onClick: () => {
+                  const item = actionModalLogsheet;
+                  setActionModalLogsheet(null);
+                  if (item) handleRestore(item);
+                }
               }
             ].filter(Boolean)}
           />
         );
       })()}
+
+      <RestoreModal
+        isOpen={Boolean(restoreModalItem)}
+        onClose={() => setRestoreModalItem(null)}
+        itemName={restoreModalItem?.company_name || 'Logsheet'}
+        itemType="logsheet"
+        defaultStatus={restoreModalItem?.previous_status}
+        onConfirm={handleConfirmRestore}
+      />
     </div>
   );
 }

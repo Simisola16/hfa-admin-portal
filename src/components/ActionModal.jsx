@@ -198,6 +198,7 @@ export default function ActionModal({
             const isDanger = act.variant === 'danger';
             const isPrimary = act.variant === 'primary';
             const isSuccess = act.variant === 'success';
+            const isWarning = act.variant === 'warning';
 
             let defaultColor = '#334155';
             let hoverBg = '#f1f5f9';
@@ -215,6 +216,10 @@ export default function ActionModal({
               defaultColor = '#15803d';
               hoverBg = '#f0fdf4';
               iconColor = '#16a34a';
+            } else if (isWarning) {
+              defaultColor = '#b45309';
+              hoverBg = '#fffbeb';
+              iconColor = '#d97706';
             }
 
             if (act.href) {

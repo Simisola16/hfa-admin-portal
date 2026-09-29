@@ -31,6 +31,24 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
     ? 'Final Halal Certification Fee'
     : 'Stage 1 Application & Audit Fee';
 
+  const isSeeded = Boolean(app?.is_seed || app?.is_seeded || app?.hide_initial_invoice_card || app?.hide_invoice_card || app?.skip_invoice_card || app?.notes?.includes('Imported') || app?.notes?.includes('legacy'));
+  const isPastInitialInvoice = [
+    'payment_received', 'initial_product', 'initial_product_submitted', 'initial_product_approved', 
+    'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 
+    'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed', 
+    'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 
+    'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 
+    'ready_for_certificate', 'certificate_issued'
+  ].includes(normStatus);
+
+  if (!invoice && isSeeded && (
+    (isInitial && isPastInitialInvoice) ||
+    (isFinal && ['ready_for_certificate', 'certificate_issued'].includes(normStatus)) ||
+    (isFastTrack && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
+  )) {
+    return null;
+  }
+
   if (!isAvailable) {
     return (
       <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>

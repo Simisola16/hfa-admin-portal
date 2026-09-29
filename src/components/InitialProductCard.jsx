@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Package, CheckCircle, Clock, ChevronRight, AlertCircle, User, ArrowRight } from 'lucide-react';
+import { Package, CheckCircle, Clock, ChevronRight, AlertCircle, User, ArrowRight, Lock } from 'lucide-react';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Submitted by Client', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
@@ -40,6 +40,17 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
 
   if (!hasItem && isSeeded && isPastInitialProduct) {
     return null;
+  }
+
+  // If status has passed initial product stage but no product assessment record exists -> Locked (Stage Completed)
+  if (!hasItem && isPastInitialProduct) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>Initial Product Evaluation (Stage Completed)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed in the application workflow</div>
+      </div>
+    );
   }
   const ipId = initialProduct?._id || initialProduct?.id;
   const statusKey = initialProduct?.status || 'submitted';

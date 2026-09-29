@@ -38,15 +38,28 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
     'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed', 
     'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful', 
     'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 
-    'ready_for_certificate', 'certificate_issued'
+    'ready_for_certificate', 'certificate_issued', 'done'
   ].includes(normStatus);
 
-  if (!invoice && isSeeded && (
+  const isPastInvoice = Boolean(
     (isInitial && isPastInitialInvoice) ||
-    (isFinal && ['ready_for_certificate', 'certificate_issued'].includes(normStatus)) ||
-    (isFastTrack && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued'].includes(normStatus))
-  )) {
+    (isFinal && ['ready_for_certificate', 'certificate_issued', 'done'].includes(normStatus)) ||
+    (isFastTrack && ['logsheet_signed', 'application_successful', 'ready_for_certificate', 'certificate_issued', 'done'].includes(normStatus))
+  );
+
+  if (!invoice && isSeeded && isPastInvoice) {
     return null;
+  }
+
+  // If status has passed invoice stage and no invoice was recorded -> Locked (Stage Completed)
+  if (!invoice && isPastInvoice) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#64748b' }}>{cardTitle} (Stage Completed)</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed in the application workflow</div>
+      </div>
+    );
   }
 
   if (!isAvailable) {

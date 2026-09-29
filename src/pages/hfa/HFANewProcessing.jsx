@@ -1096,7 +1096,7 @@ export default function HFANewProcessing(props) {
           />
 
           {/* 8. Final Invoice Card — only visible after admin sends the final countersigned agreement copy */}
-          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

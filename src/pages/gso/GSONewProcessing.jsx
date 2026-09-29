@@ -1154,7 +1154,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             onMarkDone={handleMarkAgreementDone}
             markingDone={markingAgreementDone}
           />
-          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(status)) && (
+          {(finalInvoice || ['agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

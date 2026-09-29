@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin, RotateCcw } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { STATUS_ORDER, STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus, getApplicationWorkflowInfo } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
@@ -14,6 +14,7 @@ import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import useCompanyDirectory from '../lib/useCompanyDirectory';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
+import RestoreModal from '../components/RestoreModal';
 
 
 // STATUS_BADGE and STATUS_LABELS are now imported from applicationStatuses.js
@@ -88,6 +89,7 @@ export default function AdminApplications() {
   const [certificateForm, setCertificateForm] = useState({ certificate_type: 'Halal Certification', issue_date: '', expiry_date: '', products_covered: '', certificate_number: '', file: null });
   const [certificateSubmitting, setCertificateSubmitting] = useState(false);
   const [existingCertificate, setExistingCertificate] = useState(null);
+  const [restoreModalApp, setRestoreModalApp] = useState(null);
 
   const { user, profile } = useAuth();
   const currentUser = profile || user;
@@ -170,6 +172,29 @@ export default function AdminApplications() {
       toast.error(err.response?.data?.error || err.message || 'Failed to change application status');
     } finally {
       setStatusChangeSubmitting(false);
+    }
+  };
+
+  const handleRestoreApplication = (app, companyName) => {
+    if (!app) return;
+    setRestoreModalApp({
+      id: app._id,
+      companyName: companyName || app.profiles?.company_name || app.establishment_name || app.company_name || 'Application',
+      previous_status: app.previous_status
+    });
+  };
+
+  const handleConfirmRestoreApplication = async (targetStatus) => {
+    if (!restoreModalApp) return;
+    try {
+      const res = await api.put(`/api/applications/${restoreModalApp.id}/restore`, { targetStatus });
+      toast.success(res.data?.message || `Application restored to "${targetStatus}" successfully`);
+      setRestoreModalApp(null);
+      setOpenDropdown(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to restore application');
+      throw err;
     }
   };
 
@@ -875,6 +900,16 @@ export default function AdminApplications() {
                 onClick: () => {
                   setOpenDropdown(null);
                   handleMarkApplicationDone(app._id, companyName);
+                }
+              },
+              hasDonePrivilege && isDone && {
+                label: 'Restore Application',
+                description: 'Restore this application back to active status',
+                icon: RotateCcw,
+                variant: 'warning',
+                onClick: () => {
+                  setOpenDropdown(null);
+                  handleRestoreApplication(app, companyName);
                 }
               }
             ].filter(Boolean)}
@@ -2079,7 +2114,7 @@ export default function AdminApplications() {
                         {existingAudit.auditors?.length > 0 && (
                           <div style={{ marginBottom: 24 }}>
                             <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#475569', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              👨‍💼 Assigned Auditor(s)
+                              👨💼 Assigned Auditor(s)
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
                               {existingAudit.auditors.map((a, i) => (
@@ -2421,6 +2456,15 @@ export default function AdminApplications() {
             setManageModal(null);
           }
         }}
+      />
+
+      <RestoreModal
+        isOpen={Boolean(restoreModalApp)}
+        onClose={() => setRestoreModalApp(null)}
+        itemName={restoreModalApp?.companyName || 'Application'}
+        itemType="application"
+        defaultStatus={restoreModalApp?.previous_status}
+        onConfirm={handleConfirmRestoreApplication}
       />
 
       <style>{`

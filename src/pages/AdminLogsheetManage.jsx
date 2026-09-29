@@ -4,12 +4,13 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { 
-  RefreshCw, Plus, Settings, Eye, Trash2, MapPin, CheckCircle
+  RefreshCw, Plus, Settings, Eye, Trash2, MapPin, CheckCircle, RotateCcw
 } from 'lucide-react';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import useCompanyDirectory from '../lib/useCompanyDirectory';
+import RestoreModal from '../components/RestoreModal';
 
 export default function AdminLogsheetManage() {
   const { companies: directoryCompanies } = useCompanyDirectory();
@@ -28,6 +29,7 @@ export default function AdminLogsheetManage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [actionModalLogsheet, setActionModalLogsheet] = useState(null);
+  const [restoreModalItem, setRestoreModalItem] = useState(null);
   const navigate = useNavigate();
 
   const fetchLogsheets = async () => {
@@ -106,6 +108,24 @@ export default function AdminLogsheetManage() {
       fetchLogsheets();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
+  const handleRestore = (logsheet) => {
+    if (!logsheet) return;
+    setRestoreModalItem(logsheet);
+  };
+
+  const handleConfirmRestore = async (targetStatus) => {
+    if (!restoreModalItem) return;
+    try {
+      const res = await api.put(`/api/application-logsheets/${restoreModalItem._id}/restore`, { targetStatus });
+      toast.success(res.data?.message || `Logsheet restored to "${targetStatus}" successfully`);
+      setRestoreModalItem(null);
+      fetchLogsheets();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to restore logsheet');
+      throw err;
     }
   };
 
@@ -448,6 +468,7 @@ export default function AdminLogsheetManage() {
           <option value="Signed">Signed</option>
           <option value="Waiting For Certificate">Waiting For Certificate</option>
           <option value="Completed">Completed</option>
+          <option value="Done">Done</option>
         </select>
 
         {/* Filter by Site (dynamically narrowed to searched company) */}
@@ -656,7 +677,7 @@ export default function AdminLogsheetManage() {
                 variant: 'danger',
                 onClick: (e) => handleDelete(l._id, e, l)
               },
-              hasDonePrivilege && {
+              hasDonePrivilege && l.status !== 'Done' && l.status !== 'done' && {
                 label: 'Mark as Done',
                 description: 'Mark this logsheet as completed / Done',
                 icon: CheckCircle,
@@ -666,11 +687,31 @@ export default function AdminLogsheetManage() {
                   setActionModalLogsheet(null);
                   if (item) handleMarkDone(item);
                 }
+              },
+              hasDonePrivilege && (l.status === 'Done' || l.status === 'done') && {
+                label: 'Restore Logsheet',
+                description: 'Restore this logsheet back to its active status',
+                icon: RotateCcw,
+                variant: 'warning',
+                onClick: () => {
+                  const item = actionModalLogsheet;
+                  setActionModalLogsheet(null);
+                  if (item) handleRestore(item);
+                }
               }
             ].filter(Boolean)}
           />
         );
       })()}
+
+      <RestoreModal
+        isOpen={Boolean(restoreModalItem)}
+        onClose={() => setRestoreModalItem(null)}
+        itemName={restoreModalItem?.company_name || 'Logsheet'}
+        itemType="logsheet"
+        defaultStatus={restoreModalItem?.previous_status}
+        onConfirm={handleConfirmRestore}
+      />
     </div>
   );
 }

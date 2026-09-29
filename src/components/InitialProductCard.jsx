@@ -21,6 +21,26 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
   if (appType === 'renewal' || appType === 'surveillance') return null;
 
   const hasItem = Boolean(initialProduct && (initialProduct._id || initialProduct.id));
+  const normStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_initial_product_card || 
+    app?.skip_initial_product_card || 
+    app?.notes?.includes('Imported') || 
+    app?.notes?.includes('legacy')
+  );
+  const isPastInitialProduct = [
+    'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned',
+    'audit_completed', 'audited', 'audit_report_submitted', 'nc_flagged', 'nc_closed',
+    'logsheet_created', 'logsheet_sign_requested', 'logsheet_signed', 'application_successful',
+    'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid',
+    'ready_for_certificate', 'certificate_issued', 'done'
+  ].includes(normStatus);
+
+  if (!hasItem && isSeeded && isPastInitialProduct) {
+    return null;
+  }
   const ipId = initialProduct?._id || initialProduct?.id;
   const statusKey = initialProduct?.status || 'submitted';
   const cfg = STATUS_CONFIG[statusKey] || {

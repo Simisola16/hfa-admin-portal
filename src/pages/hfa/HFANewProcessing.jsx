@@ -587,6 +587,23 @@ export default function HFANewProcessing(props) {
   const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
 
   const renderPrimaryAction = () => {
+    // 0. Final states (Done / Certificate Issued)
+    if (status === 'done') {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Application Completed
+        </span>
+      );
+    }
+
+    if (status === 'certificate_issued' || certificate?.status === 'active' || app?.certificate_url) {
+      return (
+        <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+          <CheckCircle size={15} /> ✓ Certificate Issued
+        </span>
+      );
+    }
+
     // 1. Initial Application Review (Accept / Put On Hold / Reject)
     if (status === 'submitted' || status === 'under_review') {
       return (
@@ -751,7 +768,7 @@ export default function HFANewProcessing(props) {
     // 6. LogSheet Stage (Create / Sign LogSheet)
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (!hasActiveNc && !isLogsheetSigned && (['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isNcClosed)) {
+    if (!hasActiveNc && !isLogsheetSigned && ['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -851,7 +868,7 @@ export default function HFANewProcessing(props) {
     }
 
     // 11. Issue Certificate Stage
-    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate' || (certificate && status !== 'certificate_issued')) {
+    if (status === 'ready_for_certificate' || status === 'waiting_for_certificate') {
       const certId = certificate?._id || certificate?.id || (typeof app?.certificate_id === 'object' ? app?.certificate_id?._id : app?.certificate_id);
       const isUnderReview = certificate && (certificate.status === 'under_review' || certificate.status === 'draft');
 

@@ -51,11 +51,19 @@ export default function AdminCertificates({ defaultTab }) {
   const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [serverTotal, setServerTotal] = useState(0);
+  const [counts, setCounts] = useState({
+    total: 0,
+    under_review: 0,
+    active: 0,
+    expiring: 0,
+    expired: 0
+  });
   const [activeTab, setActiveTab] = useState((defaultTab === 'review' && canReviewCertificate) ? 'review' : 'certs'); // 'review' | 'certs'
   const [showModal, setShowModal] = useState(false);
   const [viewingCert, setViewingCert] = useState(null);
   const [actionModalCert, setActionModalCert] = useState(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSite, setFilterSite] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -65,6 +73,14 @@ export default function AdminCertificates({ defaultTab }) {
   const [apps, setApps] = useState([]);
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // Debounce search typing to prevent excessive API requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     const statusParam = (searchParams.get('status') || searchParams.get('filter') || '').toLowerCase().trim();
@@ -101,14 +117,16 @@ export default function AdminCertificates({ defaultTab }) {
     try {
       const currentPage = opts.page ?? page;
       const currentLimit = opts.limit ?? pageSize;
-      const currentStatus = opts.status !== undefined ? opts.status : filterStatus;
-      const currentSearch = opts.search !== undefined ? opts.search : search;
+      const currentStatus = opts.status !== undefined ? opts.status : (activeTab === 'review' ? 'under_review' : filterStatus);
+      const currentSearch = opts.search !== undefined ? opts.search : debouncedSearch;
+      const currentSite = opts.site !== undefined ? opts.site : filterSite;
 
       const params = new URLSearchParams();
       params.set('page', currentPage);
       params.set('limit', currentLimit);
       if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
       if (currentSearch && currentSearch.trim()) params.set('search', currentSearch.trim());
+      if (currentSite && currentSite.trim()) params.set('site', currentSite.trim());
 
       const certsRes = await api.get(`/api/certificates?${params.toString()}`);
       const rawCerts = Array.isArray(certsRes) ? certsRes
@@ -116,8 +134,13 @@ export default function AdminCertificates({ defaultTab }) {
         : Array.isArray(certsRes?.data?.data) ? certsRes.data.data
         : [];
       const total = certsRes?.data?.total ?? certsRes?.total ?? rawCerts.length;
+      const serverCounts = certsRes?.data?.counts || certsRes?.counts;
+
       setCerts(rawCerts);
       setServerTotal(total);
+      if (serverCounts) {
+        setCounts(serverCounts);
+      }
     } catch (err) {
       toast.error('Failed to load certificates.');
     } finally {
@@ -136,15 +159,21 @@ export default function AdminCertificates({ defaultTab }) {
     }
   };
 
+  // Reset page to 1 when filters or tabs change
   useEffect(() => {
-    fetchAllData({ page: 1 });
     setPage(1);
-  }, []);
+  }, [debouncedSearch, filterStatus, filterSite, activeTab]);
 
-  // Re-fetch from server when page or pageSize changes
+  // Re-fetch from server when page, pageSize, or any filters change
   useEffect(() => {
-    fetchAllData({ page, limit: pageSize });
-  }, [page, pageSize]);
+    fetchAllData({
+      page,
+      limit: pageSize,
+      status: activeTab === 'review' ? 'under_review' : filterStatus,
+      search: debouncedSearch,
+      site: filterSite
+    });
+  }, [page, pageSize, filterStatus, activeTab, debouncedSearch, filterSite]);
 
   const handleSubmit = async (e) => {
     e.preventDefault(); 
@@ -204,27 +233,10 @@ export default function AdminCertificates({ defaultTab }) {
     return false;
   };
 
-  const underReviewCerts = useMemo(() => {
-    return certs.filter(c => {
-      const s = (c.status || '').toLowerCase().trim();
-      return s === 'under_review' || s === 'draft';
-    });
-  }, [certs]);
-
-  const activeCertsCount = useMemo(() => {
-    return certs.filter(c => {
-      const s = (c.status || '').toLowerCase().trim();
-      return s === 'active' && !isCertExpired(c);
-    }).length;
-  }, [certs]);
-
-  const expiringCertsCount = useMemo(() => {
-    return certs.filter(c => isExpiringSoon(c)).length;
-  }, [certs]);
-
-  const expiredCertsCount = useMemo(() => {
-    return certs.filter(c => isCertExpired(c)).length;
-  }, [certs]);
+  const underReviewCount = counts.under_review || 0;
+  const activeCertsCount = counts.active || 0;
+  const expiringCertsCount = counts.expiring || 0;
+  const expiredCertsCount = counts.expired || 0;
 
   // Active company filter: explicit selection or exact typed match
   const activeCompany = useMemo(() => {
@@ -365,67 +377,14 @@ export default function AdminCertificates({ defaultTab }) {
     ];
   }, [search, directoryCompanies, certs]);
 
-  const filteredCerts = useMemo(() => {
-    return certs.filter(c => {
-      const cStatus = (c.status || '').toLowerCase().trim();
-      const isPast = isCertExpired(c);
-      const isExpSoon = isExpiringSoon(c);
-
-      if (activeTab === 'review') {
-        if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
-      } else if (activeTab === 'certs') {
-        if (filterStatus) {
-          const fStatus = filterStatus.toLowerCase().trim();
-          if (fStatus === 'under_review' || fStatus === 'review') {
-            if (cStatus !== 'under_review' && cStatus !== 'draft') return false;
-          } else if (fStatus === 'active') {
-            if (cStatus !== 'active' || isPast) return false;
-          } else if (fStatus === 'expiring') {
-            if (!isExpSoon) return false;
-          } else if (fStatus === 'expired') {
-            if (!isPast) return false;
-          } else if (cStatus !== fStatus) {
-            return false;
-          }
-        }
-      }
-      const site = (c.site_name || c.site_id?.name || c.site_id?.est_name || c.application_id?.site_name || '').toLowerCase();
-      if (filterSite && site !== filterSite.toLowerCase()) {
-        return false;
-      }
-
-      const comp = (c.company_name || c.profiles?.company_name || c.application_id?.establishment_name || '').trim().toLowerCase();
-
-      // If a specific company is chosen/exact-matched, only show data for THAT company!
-      if (activeCompany) {
-        return comp === activeCompany.trim().toLowerCase();
-      }
-
-      if (!search.trim()) return true;
-
-      const q = search.toLowerCase();
-      const certNo = (c.certificate_number || '').toLowerCase();
-      return certNo.includes(q) || comp.includes(q) || site.includes(q);
-    });
-  }, [certs, activeTab, filterStatus, filterSite, search, activeCompany]);
-
-  // Reset to page 1 on filter/tab change and re-fetch
-  useEffect(() => {
-    setPage(1);
-    fetchAllData({ page: 1, status: filterStatus, search });
-  }, [search, filterStatus, activeTab]);
-
-  // Since the backend now pages, paginatedCerts = all loaded certs (already the right page)
-  const paginatedCerts = useMemo(() => {
-    // Apply remaining client-side-only filters (site, exact company) on the server-paged slice
-    return filteredCerts;
-  }, [filteredCerts]);
+  const filteredCerts = certs;
+  const paginatedCerts = certs;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
       
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', borderBottom: '1.5px solid #e2e8f0', marginBottom: 20, gap: 8 }}>
+      <div style={{ display: 'flex', borderBottom: '1.5px solid #e2e8f0', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
         {canReviewCertificate && (
           <button
             type="button"
@@ -445,12 +404,13 @@ export default function AdminCertificates({ defaultTab }) {
             onClick={() => {
               setActiveTab('review');
               setFilterStatus('under_review');
+              setPage(1);
               navigate('/certificates?status=under_review');
             }}
           >
             <ShieldCheck size={16} /> 
             Pending Review 
-            {underReviewCerts.length > 0 && (
+            {underReviewCount > 0 && (
               <span style={{
                 background: '#f97316',
                 color: '#ffffff',
@@ -459,7 +419,7 @@ export default function AdminCertificates({ defaultTab }) {
                 padding: '2px 8px',
                 borderRadius: 12
               }}>
-                {underReviewCerts.length}
+                {underReviewCount.toLocaleString()}
               </span>
             )}
           </button>
@@ -480,10 +440,11 @@ export default function AdminCertificates({ defaultTab }) {
           onClick={() => {
             setActiveTab('certs');
             setFilterStatus('');
+            setPage(1);
             navigate('/certificates');
           }}
         >
-          🏅 All Certificates ({certs.length})
+          🏅 All Certificates ({counts.total.toLocaleString()})
         </button>
 
         <button
@@ -504,10 +465,11 @@ export default function AdminCertificates({ defaultTab }) {
           onClick={() => {
             setActiveTab('certs');
             setFilterStatus('active');
+            setPage(1);
             navigate('/certificates?status=active');
           }}
         >
-          ✅ Active Certificates ({activeCertsCount})
+          ✅ Active Certificates ({activeCertsCount.toLocaleString()})
         </button>
 
         <button
@@ -528,10 +490,11 @@ export default function AdminCertificates({ defaultTab }) {
           onClick={() => {
             setActiveTab('certs');
             setFilterStatus('expiring');
+            setPage(1);
             navigate('/certificates?status=expiring');
           }}
         >
-          ⏳ Expiring Soon ({expiringCertsCount})
+          ⏳ Expiring Soon ({expiringCertsCount.toLocaleString()})
         </button>
 
         <button
@@ -552,10 +515,11 @@ export default function AdminCertificates({ defaultTab }) {
           onClick={() => {
             setActiveTab('certs');
             setFilterStatus('expired');
+            setPage(1);
             navigate('/certificates?status=expired');
           }}
         >
-          ⏰ Expired Certificates ({expiredCertsCount})
+          ⏰ Expired Certificates ({expiredCertsCount.toLocaleString()})
         </button>
       </div>
 
@@ -655,16 +619,16 @@ export default function AdminCertificates({ defaultTab }) {
           <div className="card-header">
             <div className="card-title">
               {activeTab === 'review'
-                ? `Certificates Awaiting Review & QA (${filteredCerts.length})`
+                ? `Certificates Awaiting Review & QA (${serverTotal.toLocaleString()})`
                 : filterStatus === 'active'
-                ? `Active Certificates (${filteredCerts.length})`
+                ? `Active Certificates (${serverTotal.toLocaleString()})`
                 : filterStatus === 'expiring'
-                ? `Certificates Expiring Soon (${filteredCerts.length})`
+                ? `Certificates Expiring Soon (${serverTotal.toLocaleString()})`
                 : filterStatus === 'expired'
-                ? `Expired Certificates (${filteredCerts.length})`
+                ? `Expired Certificates (${serverTotal.toLocaleString()})`
                 : filterStatus === 'under_review'
-                ? `Under Review Certificates (${filteredCerts.length})`
-                : `All Certificates (${filteredCerts.length})`}
+                ? `Under Review Certificates (${serverTotal.toLocaleString()})`
+                : `All Certificates (${serverTotal.toLocaleString()})`}
             </div>
           </div>
           <div className="table-wrap">
@@ -782,7 +746,7 @@ export default function AdminCertificates({ defaultTab }) {
 
           <Pagination
             currentPage={page}
-            totalItems={serverTotal || filteredCerts.length}
+            totalItems={serverTotal}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

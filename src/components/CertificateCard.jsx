@@ -23,29 +23,47 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
     String(app?.category || '').toLowerCase().includes('surveillance')
   );
 
-  const hasSurvLetter = isSurv && normStatus === 'certificate_issued' && Boolean(
+  const isPastCertificate = ['certificate_issued', 'done'].includes(normStatus);
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_certificate_card || 
+    app?.skip_certificate_card || 
+    app?.notes?.includes('Imported') || 
+    app?.notes?.includes('legacy')
+  );
+
+  const hasSurvLetter = isSurv && isPastCertificate && Boolean(
     app?.documents?.surveillance_letter ||
     app?.certificate_url ||
     (app?.surveillance_letter_data && (app?.surveillance_letter_data?.letter_number || app?.surveillance_letter_data?.pdf_url))
   );
 
-  // If application has NOT reached 'certificate_issued', any active certificate is a former/previous cycle certificate and must not show here
-  const isCurrentAppCert = normStatus === 'certificate_issued' || certificate?.status === 'under_review' || certificate?.status === 'draft';
-  const hasCertificate = hasSurvLetter || Boolean(isCurrentAppCert && certificate && (certificate._id || certificate.id || certificate.certificate_number));
+  // If application has reached certificate_issued or done, or certificate is under_review / draft
+  const isCurrentAppCert = isPastCertificate || certificate?.status === 'under_review' || certificate?.status === 'draft';
+  const hasCertificate = hasSurvLetter || Boolean(
+    (isCurrentAppCert && certificate && (certificate._id || certificate.id || certificate.certificate_number || certificate.certificate_url)) ||
+    (isPastCertificate && app?.certificate_url)
+  );
   const isUnderReview = !hasSurvLetter && hasCertificate && (certificate?.status === 'under_review' || certificate?.status === 'draft');
-  const isActive = hasCertificate && (hasSurvLetter ? (normStatus === 'certificate_issued') : (certificate?.status === 'active' && normStatus === 'certificate_issued'));
+  const isActive = hasCertificate && !isUnderReview && isPastCertificate;
   const pdfUrl = hasSurvLetter 
     ? getPdfUrl(app?.documents?.surveillance_letter || app?.certificate_url || app?.surveillance_letter_data?.pdf_url)
-    : (hasCertificate ? getPdfUrl(certificate?.certificate_url) : '');
+    : (hasCertificate ? getPdfUrl(certificate?.certificate_url || app?.certificate_url) : '');
   const refNumber = hasSurvLetter 
-    ? (app?.surveillance_letter_data?.letter_number || app?.application_number || 'Issued')
-    : (certificate?.certificate_number || 'N/A');
+    ? (app?.surveillance_letter_data?.letter_number || app?.certificate_number || app?.application_number || 'Issued')
+    : (certificate?.certificate_number || app?.certificate_number || (pdfUrl ? 'Issued' : 'N/A'));
 
   const isFastTrack = isRen || isSurv;
-  const isReadyForCertificate = ['ready_for_certificate', 'certificate_issued', 'waiting_for_certificate'].includes(normStatus);
+  const isReadyForCertificate = ['ready_for_certificate', 'waiting_for_certificate'].includes(normStatus);
 
   // If application was rejected or cancelled and has no certificate, do not render
   if (!hasCertificate && ['rejected', 'cancelled'].includes(normStatus)) {
+    return null;
+  }
+
+  // If seeded application has reached or passed certificate stage and has no certificate, do not render (hide card)
+  if (!hasCertificate && isSeeded && isPastCertificate) {
     return null;
   }
 
@@ -115,7 +133,9 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 ? `Ref: ${refNumber}` 
                 : isReadyForCertificate 
                   ? (isSurv ? 'Surveillance Letter Issuance Stage' : 'Certificate Issuance Stage') 
-                  : (isSurv ? 'Surveillance Letter Issuance Stage (Locked)' : 'Certificate Issuance Stage (Locked)')}
+                  : isPastCertificate
+                    ? (isSurv ? 'Surveillance Letter Issuance (Stage Completed)' : 'Certificate Issuance (Stage Completed)')
+                    : (isSurv ? 'Surveillance Letter Issuance Stage (Locked)' : 'Certificate Issuance Stage (Locked)')}
             </div>
           </div>
         </div>
@@ -182,7 +202,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
               alignItems: 'center',
               gap: 6
             }}>
-              <Lock size={12} /> Stage Locked
+              <Lock size={12} /> {isPastCertificate ? 'Stage Passed' : 'Stage Locked'}
             </span>
           )}
         </div>
@@ -258,7 +278,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                     <Download size={14} /> {isSurv ? 'Download Surveillance Letter' : 'Download PDF'}
                   </a>
                 )}
-                {!isSurv && certificate && (
+                {!isSurv && certificate && (certificate._id || certificate.id) && (
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
@@ -324,12 +344,16 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
               <Lock size={24} style={{ color: '#94a3b8' }} />
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>
-              {isSurv ? 'Surveillance Letter Issuance Locked' : 'Certificate Issuance Locked'}
+              {isPastCertificate
+                ? (isSurv ? 'Surveillance Letter Issuance (Stage Completed)' : 'Certificate Issuance (Stage Completed)')
+                : (isSurv ? 'Surveillance Letter Issuance Locked' : 'Certificate Issuance Locked')}
             </div>
             <div style={{ fontSize: 12.5, color: '#64748b', maxWidth: 460, margin: '6px auto 16px', lineHeight: 1.5 }}>
-              {isSurv
-                ? 'Surveillance letter issuance unlocks once audit evaluations and payments are confirmed and marked Ready for Certificate.'
-                : 'Certificate issuance unlocks once audit evaluations, agreements, and payments are confirmed and marked Ready for Certificate.'}
+              {isPastCertificate
+                ? 'This stage has already been completed in the application workflow.'
+                : isSurv
+                  ? 'Surveillance letter issuance unlocks once audit evaluations and payments are confirmed and marked Ready for Certificate.'
+                  : 'Certificate issuance unlocks once audit evaluations, agreements, and payments are confirmed and marked Ready for Certificate.'}
             </div>
             <button
               type="button"
@@ -346,9 +370,11 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 color: '#94a3b8',
                 fontWeight: 600
               }}
-              title={isSurv ? 'Surveillance letter issuance unlocks once marked Ready for Certificate.' : 'Certificate issuance unlocks once marked Ready for Certificate.'}
+              title={isPastCertificate
+                ? 'This stage has already been completed in the application workflow.'
+                : isSurv ? 'Surveillance letter issuance unlocks once marked Ready for Certificate.' : 'Certificate issuance unlocks once marked Ready for Certificate.'}
             >
-              <Lock size={14} /> {isSurv ? 'Surveillance Letter' : 'Issue Certificate'}
+              <Lock size={14} /> {isPastCertificate ? 'Stage Passed (Locked)' : (isSurv ? 'Surveillance Letter' : 'Issue Certificate')}
             </button>
           </div>
         )}
@@ -379,7 +405,9 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                     ? new Date(app.surveillance_letter_data.issue_date).toLocaleDateString('en-GB')
                     : (app?.updated_at ? new Date(app.updated_at).toLocaleDateString('en-GB') : 'Active')
                 ) : (
-                  `${certificate?.issue_date ? new Date(certificate.issue_date).toLocaleDateString() : '—'} ➔ ${certificate?.expiry_date ? new Date(certificate.expiry_date).toLocaleDateString() : '—'}`
+                  (certificate?.issue_date || certificate?.expiry_date)
+                    ? `${certificate?.issue_date ? new Date(certificate.issue_date).toLocaleDateString() : '—'} ➔ ${certificate?.expiry_date ? new Date(certificate.expiry_date).toLocaleDateString() : '—'}`
+                    : (app?.updated_at ? `Issued on ${new Date(app.updated_at).toLocaleDateString()}` : 'Active')
                 )}
               </div>
             </div>

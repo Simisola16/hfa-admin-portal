@@ -227,7 +227,8 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     'payment_received',
     'application_successful',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ];
 
   const hasLogsheetRecord = Boolean(
@@ -864,6 +865,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
           {/* Facility Logsheet Card - Only shown after NC has been closed */}
           {isAfterNcClosed && (
             <LogsheetCard
+              app={app}
               logsheet={logsheet}
               status={status}
               appId={appId}

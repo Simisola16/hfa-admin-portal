@@ -229,7 +229,8 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     'payment_received',
     'application_successful',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ];
 
   const hasLogsheetRecord = Boolean(
@@ -879,6 +880,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
           {/* Facility Logsheet Card - Only shown after NC has been closed */}
           {isAfterNcClosed && (
             <LogsheetCard
+              app={app}
               logsheet={logsheet}
               status={status}
               appId={appId}

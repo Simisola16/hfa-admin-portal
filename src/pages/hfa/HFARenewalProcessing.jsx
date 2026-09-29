@@ -836,6 +836,7 @@ export default function HFARenewalProcessing(props) {
 
           {/* 3. Renewal Logsheet Card */}
           <LogsheetCard 
+            app={app}
             logsheet={logsheet} 
             status={status} 
             appId={appId} 

@@ -264,7 +264,8 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     'final_invoice_sent',
     'final_invoice_paid',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ];
 
   const hasLogsheetRecord = Boolean(
@@ -1115,6 +1116,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
           {/* 6. Facility Logsheet Card - Only shown after NC has been closed */}
           {isAfterNcClosed && (
             <LogsheetCard
+              app={app}
               logsheet={logsheet}
               status={status}
               appId={appId}

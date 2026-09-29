@@ -14,18 +14,88 @@ const POST_NC_STATUSES = [
   'final_invoice_sent',
   'final_invoice_paid',
   'ready_for_certificate',
-  'certificate_issued'
+  'certificate_issued',
+  'done'
 ];
 
-export default function LogsheetCard({ logsheet, status, appId, hasActiveNc = false, isNcClosed = false, onMarkDone, markingDone = false }) {
+export default function LogsheetCard({ 
+  app, 
+  logsheet, 
+  status, 
+  appId, 
+  isRenewal = false, 
+  isSurveillance = false, 
+  hasActiveNc = false, 
+  isNcClosed = false, 
+  onMarkDone, 
+  markingDone = false 
+}) {
   const navigate = useNavigate();
-  const normalizedStatus = (status || '').toLowerCase().replace(/ /g, '_');
+  const normalizedStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
+
+  const isRen = Boolean(
+    isRenewal ||
+    String(app?.application_type || '').toLowerCase().includes('renewal') ||
+    String(app?.type || '').toLowerCase().includes('renewal') ||
+    Boolean(app?.is_renewal) ||
+    Boolean(app?.renewed_certificate_id) ||
+    String(app?.application_number || '').includes('-RE-') ||
+    String(app?.category || '').toLowerCase().includes('renewal')
+  );
+  const isSurv = Boolean(
+    isSurveillance ||
+    String(app?.application_type || '').toLowerCase().includes('surveillance') ||
+    String(app?.type || '').toLowerCase().includes('surveillance') ||
+    Boolean(app?.is_surveillance) ||
+    String(app?.application_number || '').includes('-SU-') ||
+    String(app?.category || '').toLowerCase().includes('surveillance')
+  );
+  const isFastTrack = isRen || isSurv;
 
   const hasLogsheet = Boolean(
     logsheet &&
     !logsheet.error &&
     (logsheet._id || logsheet.id || logsheet.status || logsheet.confirmed !== undefined || logsheet.mufti_signature || logsheet.company_name)
   );
+
+  const isSeeded = Boolean(
+    app?.is_seed || 
+    app?.is_seeded || 
+    app?.hide_logsheet_card || 
+    app?.skip_logsheet_card || 
+    app?.notes?.includes('Imported') || 
+    app?.notes?.includes('legacy')
+  );
+
+  const isPastLogsheet = [
+    'application_successful',
+    'agreement_sent',
+    'agreement_signed',
+    'agreement_finalised',
+    'final_invoice_sent',
+    'final_invoice_paid',
+    'ready_for_certificate',
+    'certificate_issued',
+    'done'
+  ].includes(normalizedStatus) || (
+    isFastTrack && ['invoice_sent', 'payment_received'].includes(normalizedStatus)
+  );
+
+  // If seeded application has reached or passed logsheet stage without one, do not render (hide card)
+  if (!hasLogsheet && isSeeded && isPastLogsheet) {
+    return null;
+  }
+
+  // Case 1: Status has passed logsheet but no logsheet created -> Locked (Stage Passed)
+  if (!hasLogsheet && isPastLogsheet) {
+    return (
+      <div style={{ background: '#f8fafc', opacity: 0.65, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
+        <Lock size={20} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#64748b' }}>Halal LogSheet (Stage Completed)</div>
+        <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>This stage has already been completed in the application workflow</div>
+      </div>
+    );
+  }
 
   const isAvailable = !hasActiveNc && (
     hasLogsheet ||
@@ -43,10 +113,11 @@ export default function LogsheetCard({ logsheet, status, appId, hasActiveNc = fa
     'final_invoice_sent',
     'final_invoice_paid',
     'ready_for_certificate',
-    'certificate_issued'
+    'certificate_issued',
+    'done'
   ].includes(normalizedStatus);
 
-  // Case 1: Before NC is closed and no logsheet created yet -> Locked
+  // Case 2: Before NC is closed and no logsheet created yet -> Locked
   if (!isAvailable && !hasLogsheet) {
     return (
       <div style={{ background: '#f8fafc', opacity: 0.75, border: '1px dashed #cbd5e1', borderRadius: 20, padding: '24px 20px', textAlign: 'center' }}>
@@ -57,7 +128,7 @@ export default function LogsheetCard({ logsheet, status, appId, hasActiveNc = fa
     );
   }
 
-  // Case 2: NC closed / audit findings verified, but logsheet not created yet -> Provide Create LogSheet CTA
+  // Case 3: NC closed / audit findings verified, but logsheet not created yet -> Provide Create LogSheet CTA
   if (!hasLogsheet) {
     return (
       <div style={{ background: '#ffffff', borderRadius: 20, border: '1.5px dashed #99f6e4', padding: '24px 24px', textAlign: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>

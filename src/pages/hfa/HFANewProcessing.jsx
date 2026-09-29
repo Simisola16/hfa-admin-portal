@@ -1056,6 +1056,7 @@ export default function HFANewProcessing(props) {
 
           {/* 6. Facility Logsheet Card */}
           <LogsheetCard 
+            app={app}
             logsheet={logsheet} 
             status={status} 
             appId={appId} 

@@ -38,7 +38,9 @@ const STATUS_CONFIG = {
   waiting_sharia_signature: { label: "Committee Signature", bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
   product_form_approved: { label: 'Product Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
   ready_for_certificate: { label: 'Ready for Cert', bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', dot: '#6366f1' },
-  completed: { label: 'Completed', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' }
+  completed: { label: 'Completed', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' },
+  done: { label: 'Done', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' },
+  Done: { label: 'Done', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' }
 };
 
 const FLOW_STEPS = [
@@ -76,6 +78,8 @@ export default function AdminAddOnApplications() {
   const [customFtNotes, setCustomFtNotes] = useState('');
 
   const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
+  const isSuperAdmin = user?.role === 'superadmin' || (Array.isArray(user?.roles) && user.roles.includes('superadmin'));
+  const hasDonePrivilege = isSuperAdmin || Boolean(user?.can_mark_done);
 
   const fetchApps = async () => {
     setLoading(true);
@@ -196,19 +200,32 @@ export default function AdminAddOnApplications() {
     } finally { setSubmitting(false); }
   };
 
+  const handleMarkAddOnDone = async (app) => {
+    if (!app) return;
+    const name = app.client_id?.company_name || app.client_id?.full_name || 'this application';
+    if (!window.confirm(`Mark the add-on application for "${name}" as Done?`)) return;
+    try {
+      await api.put(`/api/add-on-applications/${app._id}/mark-done`);
+      toast.success('Add-on application marked as Done');
+      fetchApps();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to mark as done');
+    }
+  };
+
   const safeApps = Array.isArray(apps) ? apps : [];
 
   const baseList = useMemo(() => {
     if (view === 'request') return safeApps.filter(a => a && (a.status === 'submitted' || a.status === 'on_hold'));
-    if (view === 'inprogress') return safeApps.filter(a => a && a.status !== 'submitted' && a.status !== 'on_hold' && a.status !== 'completed' && a.status !== 'rejected');
+    if (view === 'inprogress') return safeApps.filter(a => a && a.status !== 'submitted' && a.status !== 'on_hold' && a.status !== 'completed' && a.status !== 'done' && a.status !== 'Done' && a.status !== 'rejected');
     return safeApps;
   }, [safeApps, view]);
 
   const stats = useMemo(() => {
     const total = safeApps.length;
     const pending = safeApps.filter(a => a && (a.status === 'submitted' || a.status === 'on_hold')).length;
-    const inProgress = safeApps.filter(a => a && !['submitted', 'on_hold', 'completed', 'rejected'].includes(a.status)).length;
-    const completed = safeApps.filter(a => a && a.status === 'completed').length;
+    const inProgress = safeApps.filter(a => a && !['submitted', 'on_hold', 'completed', 'done', 'Done', 'rejected'].includes(a.status)).length;
+    const completed = safeApps.filter(a => a && (a.status === 'completed' || a.status === 'done' || a.status === 'Done')).length;
     return { total, pending, inProgress, completed };
   }, [safeApps]);
 
@@ -584,6 +601,21 @@ export default function AdminAddOnApplications() {
                         >
                           Track <ArrowUpRight size={13} />
                         </button>
+
+                        {/* Done Button — only shown to privileged users when not already done */}
+                        {hasDonePrivilege && app.status !== 'done' && app.status !== 'Done' && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkAddOnDone(app)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12,
+                              background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8,
+                              padding: '7px 12px', color: '#15803d', cursor: 'pointer', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <CheckCircle size={13} /> Done
+                          </button>
+                        )}
 
                         {/* Expand Toggle */}
                         <button

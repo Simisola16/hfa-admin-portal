@@ -73,6 +73,7 @@ export const STATUS_LABELS = {
   final_invoice_paid: 'Final Certification Fee Paid',
   ready_for_certificate: 'Ready for Certificate',
   certificate_issued: 'Certificate Issued',
+  done: 'Done',
 };
 
 export const STATUS_BADGE = {
@@ -108,13 +109,14 @@ export const STATUS_BADGE = {
   final_invoice_paid: 'badge-green',
   ready_for_certificate: 'badge-purple',
   certificate_issued: 'badge-green',
+  done: 'badge-green',
 };
 
 /**
  * Stages that are considered "terminal" — the application is done.
  * After any of these, the client can submit a new application.
  */
-export const TERMINAL_STATUSES = ['rejected', 'certificate_issued'];
+export const TERMINAL_STATUSES = ['rejected', 'certificate_issued', 'done'];
 
 /**
  * Helper to determine the effective display status of an application.

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { STATUS_ORDER, STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus } from '../lib/applicationStatuses';
+import { STATUS_ORDER, STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus, getApplicationWorkflowInfo } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
@@ -887,11 +887,13 @@ export default function AdminApplications() {
         const app = statusChangeModalApp;
         const currentEffStatus = app.status || 'submitted';
         const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
-        const allStatusOptions = Array.from(new Set([...STATUS_ORDER, 'done']));
+        const workflowInfo = getApplicationWorkflowInfo(app);
+        const statusLabels = workflowInfo.labels || STATUS_LABELS;
+        const allStatusOptions = Array.from(new Set([...workflowInfo.statuses, currentEffStatus, 'done']));
         const filteredStatuses = allStatusOptions.filter(s => {
           if (!statusSearchQuery.trim()) return true;
           const q = statusSearchQuery.toLowerCase();
-          const label = (STATUS_LABELS[s] || '').toLowerCase();
+          const label = (statusLabels[s] || STATUS_LABELS[s] || '').toLowerCase();
           return s.toLowerCase().includes(q) || label.includes(q);
         });
 
@@ -914,7 +916,7 @@ export default function AdminApplications() {
             <div
               className="modal"
               style={{
-                maxWidth: 620,
+                maxWidth: 640,
                 width: '100%',
                 borderRadius: 18,
                 overflow: 'hidden',
@@ -941,7 +943,7 @@ export default function AdminApplications() {
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                     <span
                       style={{
                         background: '#d97706',
@@ -955,6 +957,19 @@ export default function AdminApplications() {
                       }}
                     >
                       Super Grant
+                    </span>
+                    <span
+                      style={{
+                        background: workflowInfo.badgeBg,
+                        color: workflowInfo.badgeColor,
+                        border: `1px solid ${workflowInfo.badgeBorder}`,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '2px 9px',
+                        borderRadius: 6
+                      }}
+                    >
+                      {workflowInfo.workflowName}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
                       App #{app.application_number}
@@ -1009,7 +1024,7 @@ export default function AdminApplications() {
                       Current Application Status
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                      {STATUS_LABELS[currentEffStatus] || currentEffStatus}
+                      {statusLabels[currentEffStatus] || STATUS_LABELS[currentEffStatus] || currentEffStatus}
                     </div>
                   </div>
                   <span className={`badge ${STATUS_BADGE[currentEffStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '4px 10px' }}>
@@ -1022,7 +1037,7 @@ export default function AdminApplications() {
                   <>
                     <div>
                       <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
-                        Select Desired Status <span style={{ color: '#dc2626' }}>*</span>
+                        Select Desired Status for {workflowInfo.workflowName} <span style={{ color: '#dc2626' }}>*</span>
                       </label>
                       
                       {/* Search Filter for Statuses */}
@@ -1031,7 +1046,7 @@ export default function AdminApplications() {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Filter statuses (e.g. approved, audit, invoice, certificate)..."
+                          placeholder={`Filter ${workflowInfo.workflowName} statuses...`}
                           value={statusSearchQuery}
                           onChange={e => setStatusSearchQuery(e.target.value)}
                           style={{ paddingLeft: 34, fontSize: 13, height: 38 }}
@@ -1068,7 +1083,7 @@ export default function AdminApplications() {
                           filteredStatuses.map(s => {
                             const isSelected = selectedTargetStatus === s;
                             const isCurrent = currentEffStatus === s;
-                            const label = STATUS_LABELS[s] || s.replace(/_/g, ' ');
+                            const label = statusLabels[s] || STATUS_LABELS[s] || s.replace(/_/g, ' ');
                             const badgeClass = STATUS_BADGE[s] || 'badge-gray';
 
                             return (
@@ -1133,10 +1148,10 @@ export default function AdminApplications() {
                         )}
                       </div>
                       <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Showing {filteredStatuses.length} of {allStatusOptions.length} available statuses</span>
+                        <span>Showing {filteredStatuses.length} of {allStatusOptions.length} statuses in this workflow</span>
                         {selectedTargetStatus && (
                           <span style={{ fontWeight: 600, color: '#d97706' }}>
-                            Selected: {STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
+                            Selected: {statusLabels[selectedTargetStatus] || STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
                           </span>
                         )}
                       </div>
@@ -1177,7 +1192,7 @@ export default function AdminApplications() {
                           Confirmation Required
                         </div>
                         <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 3, lineHeight: 1.5 }}>
-                          You are about to exercise your <strong>Super Grant Privilege</strong> to manually change the application status. This change will immediately update client timeline tracking and application state.
+                          You are about to exercise your <strong>Super Grant Privilege</strong> to manually change the application status for <strong>{workflowInfo.workflowName}</strong>. This change will immediately update client timeline tracking and application state.
                         </div>
                       </div>
                     </div>
@@ -1200,7 +1215,7 @@ export default function AdminApplications() {
                           From
                         </div>
                         <span className={`badge ${STATUS_BADGE[currentEffStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '5px 12px' }}>
-                          {STATUS_LABELS[currentEffStatus] || currentEffStatus}
+                          {statusLabels[currentEffStatus] || STATUS_LABELS[currentEffStatus] || currentEffStatus}
                         </span>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
                           <code>{currentEffStatus}</code>
@@ -1216,7 +1231,7 @@ export default function AdminApplications() {
                           To
                         </div>
                         <span className={`badge ${STATUS_BADGE[selectedTargetStatus] || 'badge-gray'}`} style={{ fontSize: 12, padding: '5px 12px' }}>
-                          {STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
+                          {statusLabels[selectedTargetStatus] || STATUS_LABELS[selectedTargetStatus] || selectedTargetStatus}
                         </span>
                         <div style={{ fontSize: 11, color: '#d97706', marginTop: 4, fontWeight: 700 }}>
                           <code>{selectedTargetStatus}</code>

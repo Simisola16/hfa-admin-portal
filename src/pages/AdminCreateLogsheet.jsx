@@ -634,10 +634,10 @@ export default function AdminCreateLogsheet() {
             certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
             suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || '',
             next_surveillance_due_date: logsheetObj.next_surveillance_due_date ? new Date(logsheetObj.next_surveillance_due_date).toISOString().split('T')[0] : (appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : ''),
-            site_name: (logsheetObj.site_name && logsheetObj.site_name.trim()) ? logsheetObj.site_name : autoSiteName,
+            site_name: (logsheetObj.site_name != null) ? logsheetObj.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
-            company_address: (logsheetObj.company_address && logsheetObj.company_address.trim()) ? logsheetObj.company_address : autoCompanyAddress,
-            manufacturing_address: (logsheetObj.manufacturing_address && logsheetObj.manufacturing_address.trim()) ? logsheetObj.manufacturing_address : autoManufacturingAddress,
+            company_address: (logsheetObj.company_address != null) ? logsheetObj.company_address : autoCompanyAddress,
+            manufacturing_address: (logsheetObj.manufacturing_address != null) ? logsheetObj.manufacturing_address : autoManufacturingAddress,
             confirmed: false
           }));
         } else {
@@ -1296,7 +1296,8 @@ export default function AdminCreateLogsheet() {
 
     setSubmitting(true);
     try {
-      const isRedoingSave = isRedoing || Boolean(currentLogsheet?._id);
+      // Bug fix: only clear signatures when actually in redo mode, not just because a logsheet exists
+      const isRedoingSave = isRedoing;
       const redoPayload = isRedoingSave ? {
         clear_signatures: true,
         is_redo: true,
@@ -1326,9 +1327,11 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('Logsheet updated! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('Logsheet created for Initial Product!');
           navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
@@ -1343,9 +1346,11 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('Logsheet updated! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('Logsheet created for add-on application!');
           navigate('/addon-applications');
@@ -1380,9 +1385,11 @@ export default function AdminCreateLogsheet() {
         }
 
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('LogSheet updated successfully! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('LogSheet saved and status updated successfully!');
           navigate(`/applications/${targetAppId}/processing`);

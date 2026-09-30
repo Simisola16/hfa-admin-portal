@@ -593,6 +593,7 @@ export default function AdminLogsheetWaitingSignature() {
               <table className="logsheet-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '14px 12px', width: 50, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>S/N</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signatory Progress</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Waiting Age</th>
@@ -602,13 +603,16 @@ export default function AdminLogsheetWaitingSignature() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedLogsheets.map(l => {
+                  {paginatedLogsheets.map((l, index) => {
                     const { count, total, signers } = getSignatoryProgress(l);
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
 
                     return (
                       <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center', width: 50, fontWeight: 600, color: '#94a3b8', fontSize: 13 }}>
+                          {(page - 1) * pageSize + index + 1}
+                        </td>
                         <td style={{ padding: '16px 20px', fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
                           <Link 
                             to={getLogsheetLink(l)}
@@ -760,7 +764,7 @@ export default function AdminLogsheetWaitingSignature() {
 
             {/* MOBILE / TABLET CARDS VIEW */}
             <div className="mobile-only-cards" style={{ display: 'none', gridTemplateColumns: '1fr', gap: 12, padding: 12 }}>
-              {paginatedLogsheets.map(l => {
+              {paginatedLogsheets.map((l, index) => {
                 const { count, total } = getSignatoryProgress(l);
                 const age = getAgeCue(l.created_at);
                 const userSigned = hasUserSigned(l);
@@ -780,12 +784,17 @@ export default function AdminLogsheetWaitingSignature() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Link 
-                        to={getLogsheetLink(l)}
-                        style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}
-                      >
-                        #{l.application_number || l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
-                      </Link>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 7px', borderRadius: 6 }}>
+                          S/N {(page - 1) * pageSize + index + 1}
+                        </span>
+                        <Link 
+                          to={getLogsheetLink(l)}
+                          style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}
+                        >
+                          #{l.application_number || l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
+                        </Link>
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,

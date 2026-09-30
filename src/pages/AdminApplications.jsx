@@ -789,6 +789,7 @@ export default function AdminApplications() {
           ) : (
             <table>
               <thead><tr>
+                <th style={{ width: 50, textAlign: 'center' }}>S/N</th>
                 <th>Company Name</th>
                 <th>Primary Contact</th>
                 <th>Site Name</th>
@@ -798,8 +799,11 @@ export default function AdminApplications() {
                 <th>Actions</th>
               </tr></thead>
               <tbody>
-                {paginatedApps.map(app => (
+                {paginatedApps.map((app, index) => (
                   <tr key={app._id}>
+                    <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: 13 }}>
+                      {(page - 1) * pageSize + index + 1}
+                    </td>
                     <td style={{fontWeight: 700, color: '#0f172a', fontSize: 13.5}}>
                       <div>{app.profiles?.company_name || app.company_name || app.establishment_name || 'Company Facility'}</div>
                     </td>
@@ -1426,18 +1430,24 @@ export default function AdminApplications() {
                     <div className="table-wrap" style={{ border: '1px solid #f1f5f9', borderRadius: 12 }}>
                       <table className="table-sm">
                         <thead style={{ background: '#f8fafc' }}>
-                          <tr><th>Product Name</th><th>Brand / Label</th><th className="text-right">Category</th></tr>
+                          <tr>
+                            <th style={{ width: 44, textAlign: 'center' }}>S/N</th>
+                            <th>Product Name</th>
+                            <th>Brand / Label</th>
+                            <th className="text-right">Category</th>
+                          </tr>
                         </thead>
                         <tbody>
                           {(selectedApp.products || []).map((p, idx) => (
                             <tr key={idx}>
+                              <td style={{ textAlign: 'center', fontWeight: 600, color: '#94a3b8' }}>{idx + 1}</td>
                               <td className="font-bold">{p.name}</td>
                               <td>{p.brand}</td>
                               <td className="text-right text-muted">{p.category || 'General'}</td>
                             </tr>
                           ))}
                           {(!selectedApp.products || selectedApp.products.length === 0) && (
-                            <tr><td colSpan="3" className="text-center py-8 opacity-40 italic">No products submitted with this application</td></tr>
+                            <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">No products submitted with this application</td></tr>
                           )}
                         </tbody>
                       </table>

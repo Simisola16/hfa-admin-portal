@@ -620,6 +620,7 @@ export default function AdminLogsheetWaitingCertificate() {
             <table className="table logsheet-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: 50 }}>S/N</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Site</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Certificate Type</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Application Type</th>
@@ -629,7 +630,7 @@ export default function AdminLogsheetWaitingCertificate() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogsheets.map((l) => {
+                {paginatedLogsheets.map((l, index) => {
                   const appId = l.application_id?._id || l.application_id;
                   const certInfo = getCertificateTypeInfo(l);
                   const appTypeInfo = getApplicationTypeInfo(l);
@@ -637,6 +638,9 @@ export default function AdminLogsheetWaitingCertificate() {
 
                   return (
                     <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        {(page - 1) * pageSize + index + 1}
+                      </td>
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>{l.company_name || 'Company Facility'}</div>
                         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>

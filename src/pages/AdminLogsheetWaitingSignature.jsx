@@ -92,6 +92,11 @@ export default function AdminLogsheetWaitingSignature() {
             contact_person: log.contact_person || extApp.contact_person || '—',
             contact_email: extApp.contact_email || extApp.client_id?.email || '',
             created_at: log.created_at || extApp.created_at || extApp.createdAt,
+            created_by: log.created_by,
+            created_by_name: log.created_by_name,
+            reviewer_name: log.reviewer_name,
+            reviewed_by: log.reviewed_by,
+            auditors: log.auditors,
             audit_type: `Extension (${log.extension_days || 30} Days)`,
             status: log.status || 'Waiting for Signature',
             signatures_required: is30Days ? 1 : 4,
@@ -240,6 +245,25 @@ export default function AdminLogsheetWaitingSignature() {
     return { count, total: 4, signers };
   };
 
+  const getCreatorName = (l) => {
+    if (l.created_by?.full_name) return l.created_by.full_name;
+    if (l.created_by?.username) return l.created_by.username;
+    if (l.created_by_name) return l.created_by_name;
+    if (l.created_by_username) return l.created_by_username;
+    if (l.created_by?.email) return l.created_by.email.split('@')[0];
+    if (l.auditors && !l.auditors.includes('(Food Technologist)')) {
+      return l.auditors;
+    }
+    if (l.reviewer_name && !l.reviewer_name.includes('HFA Admin')) {
+      return l.reviewer_name;
+    }
+    if (l.reviewed_by && !l.reviewed_by.includes('HFA Admin')) {
+      return l.reviewed_by;
+    }
+    if (l.reviewer_name) return l.reviewer_name;
+    return 'HFA Admin';
+  };
+
   const getAgeCue = (createdAt) => {
     if (!createdAt) return { text: 'Recent', isUrgent: false, days: 0 };
     const created = new Date(createdAt);
@@ -317,6 +341,9 @@ export default function AdminLogsheetWaitingSignature() {
     }
     if (searchField === 'company_name') {
       return l.company_name?.toLowerCase().includes(query);
+    }
+    if (searchField === 'created_by') {
+      return getCreatorName(l).toLowerCase().includes(query) || (l.created_by?.email || '').toLowerCase().includes(query);
     }
     if (searchField === 'contact_person') {
       return l.contact_person?.toLowerCase().includes(query);
@@ -551,6 +578,7 @@ export default function AdminLogsheetWaitingSignature() {
                 style={{ height: 38, fontSize: 12, paddingRight: 24, borderRadius: 8, background: 'white', border: '1px solid #fed7aa' }}
               >
                 <option value="company_name">Company Name</option>
+                <option value="created_by">Created By</option>
                 <option value="contact_person">Contact Person</option>
                 <option value="audit_type">Logsheet Type</option>
               </select>
@@ -595,6 +623,7 @@ export default function AdminLogsheetWaitingSignature() {
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ padding: '14px 12px', width: 50, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>S/N</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name</th>
+                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created By</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signatory Progress</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Waiting Age</th>
                     <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contact Person</th>
@@ -607,6 +636,7 @@ export default function AdminLogsheetWaitingSignature() {
                     const { count, total, signers } = getSignatoryProgress(l);
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
+                    const creatorName = getCreatorName(l);
 
                     return (
                       <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -624,6 +654,11 @@ export default function AdminLogsheetWaitingSignature() {
                             <MapPin size={11} />
                             {l.site_name || l.site_id?.name || l.application_id?.site_name || l.manufacturing_address || 'Main Site'}
                           </div>
+                        </td>
+
+                        <td style={{ padding: '16px 20px' }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>{creatorName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.created_by?.email || l.contact_email || 'HFA Staff'}</div>
                         </td>
 
                         <td style={{ padding: '16px 20px' }}>
@@ -819,6 +854,10 @@ export default function AdminLogsheetWaitingSignature() {
                       </h3>
                       <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                         {l.site_name || l.manufacturing_address || 'Main Site'}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#475569', marginTop: 4 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Created By: </span>
+                        <strong>{getCreatorName(l)}</strong>
                       </div>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f3ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, marginTop: 4 }}>
                         <Tag size={10} />

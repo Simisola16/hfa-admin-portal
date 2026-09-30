@@ -160,23 +160,37 @@ export default function AdminDirectProduct() {
     }
   }, [historyPage, historyPageSize, debouncedHistorySearch, historySiteFilter]);
 
-  // Load clients and sites
+  // Client search — debounced server-side lookup (avoids loading all users upfront)
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
+
+  useEffect(() => {
+    if (!clientSearchQuery.trim() || clientSearchQuery.length < 2) {
+      setClients([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setClientSearchLoading(true);
+      try {
+        const res = await api.get('/api/users/search-clients', {
+          params: { search: clientSearchQuery.trim(), limit: 20 }
+        });
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        setClients(list);
+      } catch (_) { setClients([]); }
+      finally { setClientSearchLoading(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [clientSearchQuery]);
+
+  // Load sites for selected client only
   const fetchInitialData = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, sitesRes] = await Promise.all([
-        api.get('/api/users').catch(() => ({ data: [] })),
-        api.get('/api/sites').catch(() => ({ data: [] }))
-      ]);
-
-      const userList = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
+      const sitesRes = await api.get('/api/sites').catch(() => ({ data: [] }));
       const siteList = Array.isArray(sitesRes) ? sitesRes : (Array.isArray(sitesRes?.data) ? sitesRes.data : []);
-
-      const clientAccounts = userList.filter(u => u.role === 'client');
-      setClients(clientAccounts);
       setSites(siteList);
     } catch (err) {
-      toast.error('Failed to load companies and sites');
+      toast.error('Failed to load sites');
     } finally {
       setLoadingData(false);
     }
@@ -190,15 +204,10 @@ export default function AdminDirectProduct() {
     fetchProductsHistory();
   }, [fetchProductsHistory]);
 
-  // Filtered Client Suggestions
+  // Filtered Client Suggestions — already returned from server search
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery.trim()) return [];
-    const q = clientSearchQuery.toLowerCase();
-    return clients.filter(c =>
-      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
-      (c.full_name && c.full_name.toLowerCase().includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q))
-    ).slice(0, 20);
+    if (!clientSearchQuery.trim() || clientSearchQuery.length < 2) return [];
+    return clients.slice(0, 20);
   }, [clients, clientSearchQuery]);
 
   // Sites belonging to selected client
@@ -680,10 +689,12 @@ export default function AdminDirectProduct() {
                           setSelectedSiteId('');
                         }
                       }}
-                      style={{ paddingLeft: 40, height: 44, fontSize: 13.5, fontWeight: 500 }}
+                      style={{ paddingLeft: 40, paddingRight: 40, height: 44, fontSize: 13.5, fontWeight: 500 }}
                       autoComplete="off"
                     />
-                    {clientSearchQuery && (
+                    {clientSearchLoading ? (
+                      <span className="spinner" style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15 }} />
+                    ) : clientSearchQuery && (
                       <button
                         type="button"
                         onClick={() => { setClientSearchQuery(''); setSelectedClient(null); setSelectedSiteId(''); }}
@@ -695,9 +706,14 @@ export default function AdminDirectProduct() {
                   </div>
 
                   {/* Search Results List (only when query is active and no client selected) */}
-                  {clientSearchQuery.trim() && !selectedClient && (
+                  {clientSearchQuery.trim() && clientSearchQuery.length >= 2 && !selectedClient && (
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
-                      {filteredClients.length === 0 ? (
+                      {clientSearchLoading ? (
+                        <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                          <span className="spinner" style={{ display: 'block', margin: '0 auto 8px', width: 20, height: 20 }} />
+                          Searching companies...
+                        </div>
+                      ) : filteredClients.length === 0 ? (
                         <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                           <Search size={20} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
                           No companies found matching "{clientSearchQuery}"
@@ -995,9 +1011,12 @@ export default function AdminDirectProduct() {
 
                         {/* Category */}
                         <td style={{ padding: '8px 12px' }}>
-                          <select
+                          <input
+                            type="text"
+                            list="category-suggestions"
                             value={item.category}
                             onChange={e => updateProductRow(item.id, 'category', e.target.value)}
+                            placeholder="e.g. General Food Products"
                             style={{
                               width: '100%',
                               padding: '7px 10px',
@@ -1007,11 +1026,10 @@ export default function AdminDirectProduct() {
                               boxSizing: 'border-box',
                               background: '#fff'
                             }}
-                          >
-                            {PRODUCT_CATEGORIES.map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
+                          />
+                          <datalist id="category-suggestions">
+                            {PRODUCT_CATEGORIES.map(c => <option key={c} value={c} />)}
+                          </datalist>
                         </td>
 
                         {/* Product Type */}
@@ -1753,15 +1771,17 @@ export default function AdminDirectProduct() {
                     <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
                       Category
                     </label>
-                    <select
+                    <input
+                      type="text"
+                      list="edit-category-suggestions"
                       className="form-control"
                       value={editForm.category}
                       onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-                    >
-                      {PRODUCT_CATEGORIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                      placeholder="e.g. General Food Products"
+                    />
+                    <datalist id="edit-category-suggestions">
+                      {PRODUCT_CATEGORIES.map(c => <option key={c} value={c} />)}
+                    </datalist>
                   </div>
 
                   <div>

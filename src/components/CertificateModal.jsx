@@ -673,7 +673,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           let loadedCert = certRes.data?.data || certRes.data || null;
           const loadedInitProd = initProdRes.data?.data !== undefined ? initProdRes.data.data : (initProdRes.data || null);
           const procDetails = procRes.data?.data || procRes.data || null;
-          const allDbProducts = prodsRes.data?.data || prodsRes.data || [];
+          const allDbProducts = Array.isArray(prodsRes) ? prodsRes : (prodsRes?.data?.data || prodsRes?.data || []);
 
           let loadedLogsheet = logsheetRes?.data?.data || logsheetRes?.data || null;
           if (Array.isArray(loadedLogsheet)) {

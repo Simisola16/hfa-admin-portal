@@ -386,7 +386,7 @@ export default function AdminCreateCertificate() {
         let prodList = [];
         try {
           const prodRes = await api.get('/api/products');
-          const allProds = prodRes.data?.data || prodRes.data || [];
+          const allProds = Array.isArray(prodRes) ? prodRes : (prodRes?.data?.data || prodRes?.data || []);
           if (Array.isArray(allProds)) {
             const curSiteId = String(resolvedSite?._id || resolvedSite?.id || siteId?._id || siteId || '');
             const curClientId = String(clientId || '');

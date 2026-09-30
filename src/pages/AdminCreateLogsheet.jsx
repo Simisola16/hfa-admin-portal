@@ -504,7 +504,7 @@ export default function AdminCreateLogsheet() {
           const cId = appData?.client_id?._id || appData?.client_id;
           if (cId) {
             const pRes = await api.get(`/api/products?client_id=${cId}`).catch(() => ({ data: [] }));
-            const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : []);
+            const pList = Array.isArray(pRes) ? pRes : (Array.isArray(pRes?.data?.data) ? pRes.data.data : (Array.isArray(pRes?.data) ? pRes.data : []));
             setClientProducts(pList);
           }
         } catch { /* products fetch failed */ }

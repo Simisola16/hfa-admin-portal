@@ -254,7 +254,7 @@ export default function AdminReviewCertificate() {
         // Fallback A: Query /api/products?all=true (standard admin catalog endpoint)
         try {
           const prodsRes = await api.get('/api/products?all=true').catch(() => null);
-          const allProds = prodsRes?.data?.data || prodsRes?.data || [];
+          const allProds = Array.isArray(prodsRes) ? prodsRes : (prodsRes?.data?.data || prodsRes?.data || []);
           if (Array.isArray(allProds) && allProds.length > 0) {
             const targetSiteStr = targetSiteId ? (targetSiteId._id ? targetSiteId._id.toString() : targetSiteId.toString()) : '';
 

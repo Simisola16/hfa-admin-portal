@@ -286,8 +286,8 @@ export default function AdminClients() {
     return { isCertified, isProcessing, isSignup };
   };
 
-  // The backend already applies category, search, and pagination
-  const filtered = users;
+  // The backend already applies category, search, and pagination. Ensure subusers / team members are excluded.
+  const filtered = users.filter(u => category === 'staff' || (!u.parent_client_id && u.client_role !== 'member'));
 
   const isAdmin = loggedInUser?.role === 'admin' || loggedInUser?.role === 'superadmin';
   const isSuperAdmin = loggedInUser?.role === 'superadmin' || loggedInUser?.roles?.includes('superadmin');

@@ -35,7 +35,23 @@ async function request(method, path, body, isFormData = false) {
 }
 
 export const api = {
-  get: (path) => request('GET', path),
+  get: (path, options) => {
+    let url = path;
+    const params = options?.params;
+    if (params && typeof params === 'object') {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, val);
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
+    return request('GET', url);
+  },
   post: (path, body, isFormData) => request('POST', path, body, isFormData),
   put: (path, body, isFormData) => request('PUT', path, body, isFormData),
   patch: (path, body, isFormData) => request('PATCH', path, body, isFormData),

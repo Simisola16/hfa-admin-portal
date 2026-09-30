@@ -146,12 +146,12 @@ export default function AdminDirectProduct() {
       }
 
       const res = await api.get('/api/products', { params });
-      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setHistoryProducts(list);
-      if (res.data?.pagination) {
-        setHistoryTotal(res.data.pagination.total);
+      const rawList = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      setHistoryProducts(rawList);
+      if (res?.pagination) {
+        setHistoryTotal(res.pagination.total);
       } else {
-        setHistoryTotal(list.length);
+        setHistoryTotal(rawList.length);
       }
     } catch (err) {
       toast.error('Failed to load product history');

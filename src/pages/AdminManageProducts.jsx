@@ -53,12 +53,12 @@ export default function AdminManageProducts() {
       }
 
       const res = await api.get('/api/products', { params });
-      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setProducts(list);
-      if (res.data?.pagination) {
-        setTotal(res.data.pagination.total);
+      const rawList = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      setProducts(rawList);
+      if (res?.pagination) {
+        setTotal(res.pagination.total);
       } else {
-        setTotal(list.length);
+        setTotal(rawList.length);
       }
     } catch (err) {
       toast.error('Failed to load product catalog');

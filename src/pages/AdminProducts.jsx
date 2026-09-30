@@ -29,8 +29,18 @@ export default function AdminProducts() {
   const fetchInitialData = () => {
     setLoading(true);
     Promise.all([
-      api.get('/api/products').then(d => setProducts(Array.isArray(d.data) ? d.data : (d.data?.data || []))).catch(() => toast.error('Failed to load products')),
-      api.get('/api/sites').then(d => setSites(d.data || [])).catch(() => {})
+      api.get('/api/products?all=true')
+        .then(d => {
+          const list = Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+          setProducts(list);
+        })
+        .catch(() => toast.error('Failed to load products')),
+      api.get('/api/sites')
+        .then(d => {
+          const siteList = Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+          setSites(siteList);
+        })
+        .catch(() => {})
     ]).finally(() => setLoading(false));
   };
 

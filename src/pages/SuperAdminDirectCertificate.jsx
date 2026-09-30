@@ -342,14 +342,12 @@ export default function SuperAdminDirectCertificate() {
 
   const formatSiteAddress = (site) => {
     if (!site) return '';
-    const parts = [site.address_1, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
+    return (site.address || site.address_1 || site.head_office_address || site.address_2 || '').trim();
   };
 
   const formatClientAddress = (client) => {
     if (!client) return '';
-    const parts = [client.address, client.postcode, client.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
+    return (client.address || client.address_1 || client.establishment_address || client.registered_address || '').trim();
   };
 
   const selectedSite = useMemo(() => {

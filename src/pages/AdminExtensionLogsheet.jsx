@@ -72,17 +72,8 @@ export default function AdminExtensionLogsheet() {
       const siteObj = loadedApp?.site_id;
       let siteAddress = '';
       if (siteObj && typeof siteObj === 'object') {
-        siteAddress = [
-          siteObj.address_1,
-          siteObj.address_2,
-          siteObj.city,
-          siteObj.state,
-          siteObj.postcode,
-          siteObj.country
-        ].filter(Boolean).join(', ');
-        if (!siteAddress && siteObj.head_office_address) {
-          siteAddress = siteObj.head_office_address;
-        }
+        siteAddress = siteObj.address || siteObj.address_1 || siteObj.head_office_address || '';
+        if (!siteAddress && siteObj.address_2) siteAddress = siteObj.address_2;
       }
 
       const resolvedFacilityAddress = loadedLog?.facility_address || siteAddress || loadedApp?.client_id?.address || loadedApp?.client_id?.company_address || '';

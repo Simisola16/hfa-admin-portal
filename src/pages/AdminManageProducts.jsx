@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Package, Search, Plus, Edit3, Trash2, CheckCircle, XCircle, RefreshCw, X, Filter } from 'lucide-react';
+import { Package, Search, Plus, Edit3, Trash2, CheckCircle, XCircle, RefreshCw, X } from 'lucide-react';
 import Pagination from '../components/Pagination';
 
 export default function AdminManageProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  
+  const [total, setTotal] = useState(0);
+  const [refreshIndex, setRefreshIndex] = useState(0);
+
   // Modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -22,17 +25,53 @@ export default function AdminManageProducts() {
   const [formIngredients, setFormIngredients] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchProducts = () => {
+  // 300ms debounce on search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Reset to page 1 whenever search or status filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterStatus]);
+
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
-    api.get('/api/products')
-      .then(res => setProducts(res.data?.data || res.data || []))
-      .catch(() => toast.error('Failed to load product catalog'))
-      .finally(() => setLoading(false));
-  };
+    try {
+      const params = {
+        page,
+        limit: pageSize,
+      };
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
+      }
+      if (filterStatus) {
+        params.status = filterStatus;
+      }
+
+      const res = await api.get('/api/products', { params });
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(list);
+      if (res.data?.pagination) {
+        setTotal(res.data.pagination.total);
+      } else {
+        setTotal(list.length);
+      }
+    } catch (err) {
+      toast.error('Failed to load product catalog');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, debouncedSearch, filterStatus]);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts, refreshIndex]);
+
+  const triggerRefresh = () => setRefreshIndex(c => c + 1);
 
   const openCreateModal = () => {
     setEditingProduct(null);
@@ -79,7 +118,7 @@ export default function AdminManageProducts() {
         toast.success('Product added to catalog');
       }
       setShowEditModal(false);
-      fetchProducts();
+      triggerRefresh();
     } catch (err) {
       toast.error(err.message || 'Failed to save product');
     } finally {
@@ -92,7 +131,11 @@ export default function AdminManageProducts() {
     try {
       await api.delete(`/api/products/${id}`);
       toast.success('Product deleted');
-      fetchProducts();
+      if (products.length === 1 && page > 1) {
+        setPage(p => p - 1);
+      } else {
+        triggerRefresh();
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to delete product');
     }
@@ -103,38 +146,46 @@ export default function AdminManageProducts() {
     try {
       await api.put(`/api/products/${prod._id || prod.id}`, { status: nextStatus });
       toast.success(`Product status updated to ${nextStatus}`);
-      fetchProducts();
+      triggerRefresh();
     } catch (err) {
       toast.error(err.message || 'Failed to update status');
     }
   };
 
-  const filtered = products.filter(p => {
-    const matchSearch = !search || 
-      p.name?.toLowerCase().includes(search.toLowerCase()) || 
-      p.category?.toLowerCase().includes(search.toLowerCase()) ||
-      p.description?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = !filterStatus || p.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, filterStatus]);
-
-  const paginatedProducts = filtered.slice((page - 1) * pageSize, page * pageSize);
-
   return (
     <div className="page-content">
       <div className="toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-          <div className="search-box">
+          <div className="search-box" style={{ position: 'relative', flex: 1, maxWidth: 460 }}>
             <Search size={15} className="search-icon" />
             <input 
               placeholder="Search catalog by product name, category, or description..." 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
+              style={{ paddingRight: search ? 30 : 12 }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 2
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
           <select 
             className="form-control" 
@@ -147,8 +198,13 @@ export default function AdminManageProducts() {
             <option value="pending">Pending Review</option>
             <option value="inactive">Inactive / Archived</option>
           </select>
-          <button className="btn btn-ghost btn-sm" onClick={fetchProducts} title="Refresh">
-            <RefreshCw size={14} />
+          <button 
+            className="btn btn-ghost btn-sm" 
+            onClick={triggerRefresh} 
+            title="Refresh catalog"
+            disabled={loading}
+          >
+            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
           </button>
         </div>
 
@@ -163,17 +219,41 @@ export default function AdminManageProducts() {
             <div className="card-title">Manage Product Catalog</div>
             <div className="card-subtitle">Create, edit, activate/deactivate, and maintain master product records</div>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{filtered.length} products total</span>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {total.toLocaleString()} {total === 1 ? 'product' : 'products'}
+            </span>
+            {total > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                Showing {((page - 1) * pageSize + 1).toLocaleString()}–{Math.min(page * pageSize, total).toLocaleString()}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="table-wrap">
           {loading ? (
             <div className="loading-overlay"><div className="spinner" /></div>
-          ) : filtered.length === 0 ? (
+          ) : products.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center' }}>
               <Package size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
-              <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>No catalog products found</div>
-              <div className="empty-state-text" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Try clearing search filters or add a new catalog product above</div>
+              <div className="empty-state-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                {debouncedSearch || filterStatus ? 'No matching products found' : 'No catalog products found'}
+              </div>
+              <div className="empty-state-text" style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: (debouncedSearch || filterStatus) ? 14 : 0 }}>
+                {debouncedSearch || filterStatus 
+                  ? 'Try clearing search filters or adjusting your search keywords' 
+                  : 'Add a new catalog product above to start populating the master directory'}
+              </div>
+              {(debouncedSearch || filterStatus) && (
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  onClick={() => { setSearch(''); setFilterStatus(''); }}
+                  style={{ marginTop: 8 }}
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           ) : (
             <table>
@@ -188,7 +268,7 @@ export default function AdminManageProducts() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProducts.map(p => (
+                {products.map(p => (
                   <tr key={p._id || p.id}>
                     <td>
                       <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 }}>{p.name}</div>
@@ -259,11 +339,16 @@ export default function AdminManageProducts() {
           )}
 
           <Pagination
-            total={filtered.length}
+            total={total}
             page={page}
             pageSize={pageSize}
             onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            onPageSizeChange={newSize => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            itemName="products"
+            disabled={loading}
           />
         </div>
       </div>

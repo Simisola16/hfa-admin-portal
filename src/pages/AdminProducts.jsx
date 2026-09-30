@@ -29,7 +29,7 @@ export default function AdminProducts() {
   const fetchInitialData = () => {
     setLoading(true);
     Promise.all([
-      api.get('/api/products').then(d => setProducts(d.data || [])).catch(() => toast.error('Failed to load products')),
+      api.get('/api/products').then(d => setProducts(Array.isArray(d.data) ? d.data : (d.data?.data || []))).catch(() => toast.error('Failed to load products')),
       api.get('/api/sites').then(d => setSites(d.data || [])).catch(() => {})
     ]).finally(() => setLoading(false));
   };

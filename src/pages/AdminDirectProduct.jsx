@@ -139,7 +139,7 @@ export default function AdminDirectProduct() {
     setHistoryLoading(true);
     try {
       const res = await api.get('/api/products?all=true');
-      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
       setHistoryProducts(list);
     } catch (err) {
       toast.error('Failed to load product history');

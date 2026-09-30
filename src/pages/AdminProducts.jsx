@@ -280,7 +280,11 @@ export default function AdminProducts() {
       if (!matchSearch) return false;
     }
       
-    const matchStatus = !filterStatus || p.status === filterStatus;
+    const matchStatus = !filterStatus || (
+      (filterStatus === 'active' || filterStatus === 'approved')
+        ? (p.status === 'active' || p.status === 'approved')
+        : p.status === filterStatus
+    );
     
     const prodSiteId = p.site_id?._id || p.site_id?.id || p.site_id;
     const matchSite = !filterSite || String(prodSiteId) === String(filterSite);

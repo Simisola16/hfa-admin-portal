@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import Pagination from '../components/Pagination';
 import {
   Package, Plus, Trash2, Copy, Search, CheckCircle2,
   AlertTriangle, FileText, Sparkles, Building2, MapPin,
@@ -108,9 +109,56 @@ export default function AdminDirectProduct() {
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  // Manage Tab Search & Site Filter
+  // Manage Tab Pagination, Search & Site Filter
   const [historySearch, setHistorySearch] = useState('');
+  const [debouncedHistorySearch, setDebouncedHistorySearch] = useState('');
   const [historySiteFilter, setHistorySiteFilter] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(25);
+  const [historyTotal, setHistoryTotal] = useState(0);
+
+  // 300ms debounce on manage tab search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedHistorySearch(historySearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [historySearch]);
+
+  // Reset to page 1 whenever search or site filter changes
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [debouncedHistorySearch, historySiteFilter]);
+
+  // Load products for history/manage tab with server-side pagination
+  const fetchProductsHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const params = {
+        page: historyPage,
+        limit: historyPageSize,
+      };
+      if (debouncedHistorySearch.trim()) {
+        params.search = debouncedHistorySearch.trim();
+      }
+      if (historySiteFilter) {
+        params.site_id = historySiteFilter;
+      }
+
+      const res = await api.get('/api/products', { params });
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setHistoryProducts(list);
+      if (res.data?.pagination) {
+        setHistoryTotal(res.data.pagination.total);
+      } else {
+        setHistoryTotal(list.length);
+      }
+    } catch (err) {
+      toast.error('Failed to load product history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyPage, historyPageSize, debouncedHistorySearch, historySiteFilter]);
 
   // Load clients and sites
   const fetchInitialData = async () => {
@@ -134,24 +182,13 @@ export default function AdminDirectProduct() {
     }
   };
 
-  // Load products for history tab
-  const fetchProductsHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const res = await api.get('/api/products?all=true');
-      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
-      setHistoryProducts(list);
-    } catch (err) {
-      toast.error('Failed to load product history');
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchInitialData();
-    fetchProductsHistory();
   }, []);
+
+  useEffect(() => {
+    fetchProductsHistory();
+  }, [fetchProductsHistory]);
 
   // Filtered Client Suggestions
   const filteredClients = useMemo(() => {
@@ -407,9 +444,13 @@ export default function AdminDirectProduct() {
     const toastId = toast.loading('Removing product...');
     try {
       await api.delete(`/api/products/${id}`);
-      setHistoryProducts(prev => prev.filter(p => String(p._id || p.id) !== String(id)));
       toast.success(`Product "${deletingProduct.name}" removed successfully!`, { id: toastId });
       setDeletingProduct(null);
+      if (historyProducts.length === 1 && historyPage > 1) {
+        setHistoryPage(p => p - 1);
+      } else {
+        fetchProductsHistory();
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to remove product', { id: toastId });
     } finally {
@@ -417,34 +458,8 @@ export default function AdminDirectProduct() {
     }
   };
 
-  // Filtered Products Search & Site Filter (Lists products one by one)
-  const filteredHistory = useMemo(() => {
-    return historyProducts.filter(p => {
-      const siteObj = p.site_id;
-      const sId = siteObj?._id || siteObj?.id || (typeof siteObj === 'string' ? siteObj : '');
-      const clientName = p.client_id?.company_name || p.client_id?.full_name || p.profiles?.company_name || '';
-      const siteName = siteObj?.name || siteObj?.est_name || siteObj?.trading_name || '';
-      const codeStr = p.code || p.barcode || '';
-      const q = historySearch.toLowerCase().trim();
-
-      // Filter by specific site
-      if (historySiteFilter && String(sId) !== String(historySiteFilter)) {
-        return false;
-      }
-
-      if (!q) return true;
-
-      return (
-        p.name?.toLowerCase().includes(q) ||
-        codeStr.toLowerCase().includes(q) ||
-        clientName.toLowerCase().includes(q) ||
-        siteName.toLowerCase().includes(q) ||
-        p.category?.toLowerCase().includes(q) ||
-        p.application_type?.toLowerCase().includes(q) ||
-        p.source?.toLowerCase().includes(q)
-      );
-    });
-  }, [historyProducts, historySearch, historySiteFilter]);
+  // Products returned from server are already filtered & paginated
+  const filteredHistory = historyProducts;
 
   const selectedSiteObj = useMemo(() => {
     if (!historySiteFilter) return null;
@@ -462,14 +477,6 @@ export default function AdminDirectProduct() {
       const cName = c.company_name || c.full_name || '';
       if (cName.toLowerCase().includes(q)) {
         matchedClientIds.add(String(c._id || c.id));
-      }
-    });
-
-    historyProducts.forEach(p => {
-      const pComp = p.client_id?.company_name || p.profiles?.company_name || p.client_id?.full_name || '';
-      if (pComp.toLowerCase().includes(q)) {
-        const cId = p.client_id?._id || p.client_id?.id || (typeof p.client_id === 'string' ? p.client_id : '');
-        if (cId) matchedClientIds.add(String(cId));
       }
     });
 
@@ -500,7 +507,7 @@ export default function AdminDirectProduct() {
     }
 
     return [];
-  }, [sites, clients, historyProducts, historySearch]);
+  }, [sites, clients, historySearch]);
 
   // Reset selected site filter if search is cleared
   useEffect(() => {
@@ -520,12 +527,8 @@ export default function AdminDirectProduct() {
       const name = s.company_name || s.profiles?.company_name || (typeof s.client_id === 'object' ? s.client_id?.company_name : '');
       if (name && name.trim()) set.add(name.trim());
     });
-    historyProducts.forEach(p => {
-      const name = p.client_id?.company_name || p.profiles?.company_name || p.client_id?.full_name;
-      if (name && name.trim()) set.add(name.trim());
-    });
     return Array.from(set).sort();
-  }, [clients, sites, historyProducts]);
+  }, [clients, sites]);
 
   if (!loadingData && !isAdminOrStaff) {
     return (
@@ -605,7 +608,7 @@ export default function AdminDirectProduct() {
               transition: 'all 0.15s'
             }}
           >
-            <Layers size={15} /> Manage Products by Site ({historyProducts.length})
+            <Layers size={15} /> Manage Products by Site ({historyTotal.toLocaleString()})
           </button>
           <button
             type="button"
@@ -1354,8 +1357,13 @@ export default function AdminDirectProduct() {
                     border: '1px solid #bbf7d0', borderRadius: 10,
                     padding: '2px 9px'
                   }}>
-                    {filteredHistory.length} product{filteredHistory.length === 1 ? '' : 's'}
+                    {historyTotal.toLocaleString()} product{historyTotal === 1 ? '' : 's'}
                   </span>
+                  {historyTotal > 0 && (
+                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                      (Showing {((historyPage - 1) * historyPageSize + 1).toLocaleString()}–{Math.min(historyPage * historyPageSize, historyTotal).toLocaleString()})
+                    </span>
+                  )}
                   {historySiteFilter && selectedSiteObj && (
                     <span style={{
                       fontSize: 11, fontWeight: 600,
@@ -1398,11 +1406,11 @@ export default function AdminDirectProduct() {
               </div>
 
               {/* Products Table (One by One) */}
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflowX: 'auto', position: 'relative' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                      <th style={{ padding: '11px 14px', width: 44, color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '11px 14px', width: 50, color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>#</th>
                       <th style={{ padding: '11px 14px', color: '#334155', fontWeight: 700 }}>Product Name</th>
                       <th style={{ padding: '11px 14px', width: 110, color: '#334155', fontWeight: 700 }}>Code</th>
                       <th style={{ padding: '11px 14px', width: 160, color: '#334155', fontWeight: 700 }}>Company</th>
@@ -1424,7 +1432,7 @@ export default function AdminDirectProduct() {
                       return (
                         <tr key={p._id || p.id || pIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '12px 14px', color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>
-                            {pIdx + 1}
+                            {(historyPage - 1) * historyPageSize + pIdx + 1}
                           </td>
                           <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
                             <div>{p.name}</div>
@@ -1551,6 +1559,23 @@ export default function AdminDirectProduct() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Server-Side Pagination Bar */}
+              <div style={{ padding: '10px 16px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                <Pagination
+                  total={historyTotal}
+                  page={historyPage}
+                  pageSize={historyPageSize}
+                  pageSizeOptions={[10, 25, 50, 100]}
+                  onPageChange={setHistoryPage}
+                  onPageSizeChange={newSize => {
+                    setHistoryPageSize(newSize);
+                    setHistoryPage(1);
+                  }}
+                  itemName="products"
+                  disabled={historyLoading}
+                />
               </div>
             </div>
           )}

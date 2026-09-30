@@ -319,13 +319,13 @@ export default function AdminLogsheetWaitingCertificate() {
       bg = '#e0f2fe';
       color = '#0369a1';
       border = '#bae6fd';
-    } else if (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON')) {
+    } else if ((u.includes('HFA') || u.includes('ANNUAL') || !u.includes('GSO')) && u.includes('MEAT') && !u.includes('NON')) {
       displayType = 'HFA SCHEME MEAT';
       bg = '#fee2e2';
       color = '#991b1b';
       border = '#fca5a5';
-    } else if (u.includes('HFA')) {
-      displayType = 'HFA';
+    } else if (u.includes('HFA') || u.includes('ANNUAL')) {
+      displayType = (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')) ? 'HFA SCHEME NON MEAT' : 'HFA';
       bg = '#dcfce7';
       color = '#166534';
       border = '#bbf7d0';
@@ -352,10 +352,11 @@ export default function AdminLogsheetWaitingCertificate() {
         color = '#0369a1';
         border = '#bae6fd';
       } else {
-        displayType = 'HFA';
-        bg = '#dcfce7';
-        color = '#166534';
-        border = '#bbf7d0';
+        const isMeatFallback = appCat.toLowerCase().includes('meat') || (l.product_category || '').toLowerCase().includes('meat');
+        displayType = isMeatFallback ? 'HFA SCHEME MEAT' : 'HFA';
+        bg = isMeatFallback ? '#fee2e2' : '#dcfce7';
+        color = isMeatFallback ? '#991b1b' : '#166534';
+        border = isMeatFallback ? '#fca5a5' : '#bbf7d0';
       }
     }
 
@@ -735,11 +736,17 @@ export default function AdminLogsheetWaitingCertificate() {
 
         const isDirect = l.source_type === 'direct' || (!appId && !isExtension && !isAddon);
 
-        const issueCertUrl =  isExtension
+        const certInfo = getCertificateTypeInfo(l);
+        const resolvedType = certInfo.certType || l.suggested_certificate_type || l.certificate_standard || 'HFA SCHEME MEAT';
+        const clientId = l.client_id?._id || l.client_id || l.application_id?.client_id?._id || l.application_id?.client_id || '';
+
+        const issueCertUrl = isExtension
           ? `/extension-applications/${extId}/processing`
           : isAddon
-          ? `/addon-applications/${addonId}/issue-certificate`
-          : `/applications/${appId}/issue-certificate`;
+          ? `/addon-applications/${addonId}/issue-certificate?logsheet_id=${l._id}&cert_type=${encodeURIComponent(resolvedType)}`
+          : appId
+          ? `/applications/${appId}/issue-certificate?logsheet_id=${l._id}&cert_type=${encodeURIComponent(resolvedType)}`
+          : `/applications/${l._id}/issue-certificate?logsheet_id=${l._id}&cert_type=${encodeURIComponent(resolvedType)}`;
 
         const logsheetUrl = isDirect
           ? `/logsheet/direct/${l._id}`

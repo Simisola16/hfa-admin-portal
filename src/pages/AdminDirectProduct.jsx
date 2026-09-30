@@ -213,8 +213,7 @@ export default function AdminDirectProduct() {
 
   const formatSiteAddress = (site) => {
     if (!site) return '';
-    const parts = [site.address_1, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
+    return (site.address || site.address_1 || site.head_office_address || site.address_2 || '').trim();
   };
 
   const selectedSite = useMemo(() => {

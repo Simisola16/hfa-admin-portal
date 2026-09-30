@@ -110,34 +110,13 @@ export default function AdminCreateCertificate() {
   const formatSiteAddress = (site) => {
     if (!site) return '';
     if (typeof site === 'string') return site.trim();
-    const parts = [site.address_1 || site.address, site.address_2, site.city, site.state, site.postcode, site.country].map(p => (p || '').trim()).filter(Boolean);
-    return parts.join(', ');
+    return (site.address || site.address_1 || site.head_office_address || site.address_2 || '').trim();
   };
 
   const formatClientAddress = (client) => {
     if (!client) return '';
     if (typeof client === 'string') return client.trim();
-    const baseAddr = (client.address || client.address_1 || client.establishment_address || client.registered_address || '').trim();
-    const parts = [];
-    if (baseAddr) parts.push(baseAddr);
-
-    const baseLower = baseAddr.toLowerCase();
-    if (client.address_2 && !baseLower.includes(client.address_2.toLowerCase())) {
-      parts.push(client.address_2.trim());
-    }
-    if (client.city && !baseLower.includes(client.city.toLowerCase())) {
-      parts.push(client.city.trim());
-    }
-    if (client.state && !baseLower.includes(client.state.toLowerCase())) {
-      parts.push(client.state.trim());
-    }
-    if (client.postcode && !baseLower.includes(client.postcode.toLowerCase())) {
-      parts.push(client.postcode.trim());
-    }
-    if (client.country && !baseLower.includes(client.country.toLowerCase())) {
-      parts.push(client.country.trim());
-    }
-    return parts.filter(Boolean).join(', ');
+    return (client.address || client.address_1 || client.establishment_address || client.registered_address || '').trim();
   };
 
   // 1. Fetch Application & Associated Data

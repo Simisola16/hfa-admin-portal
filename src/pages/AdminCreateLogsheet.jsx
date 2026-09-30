@@ -210,22 +210,10 @@ export default function AdminCreateLogsheet() {
           } catch { /* client fetch failed — use partial data */ }
         }
 
-        const addonClientAddr = [
-          addonClient?.address,
-          addonClient?.city,
-          addonClient?.postcode,
-          addonClient?.country
-        ].filter(Boolean).join(', ') || addonClient?.address || '';
+        const addonClientAddr = addonClient?.address || '';
 
         const addonSite = addonData.site_id;
-        const addonSiteAddr = addonSite ? [
-          addonSite.address_1,
-          addonSite.address_2,
-          addonSite.city,
-          addonSite.state,
-          addonSite.postcode || addonSite.postal_code,
-          addonSite.country
-        ].filter(Boolean).join(', ') || addonSite.address || '' : '';
+        const addonSiteAddr = addonSite?.address || '';
 
         const autoSiteName = addonSite?.name
           || addonData?.site_name
@@ -352,22 +340,10 @@ export default function AdminCreateLogsheet() {
           } catch { /* client fetch failed — use partial data */ }
         }
 
-        const ipClientAddr = [
-          ipClient?.address,
-          ipClient?.city,
-          ipClient?.postcode,
-          ipClient?.country
-        ].filter(Boolean).join(', ') || ipClient?.address || '';
+        const ipClientAddr = ipClient?.address || '';
 
         const ipSite = ipData.site_id;
-        const ipSiteAddr = ipSite ? [
-          ipSite.address_1,
-          ipSite.address_2,
-          ipSite.city,
-          ipSite.state,
-          ipSite.postcode || ipSite.postal_code,
-          ipSite.country
-        ].filter(Boolean).join(', ') || ipSite.address || '' : '';
+        const ipSiteAddr = ipSite ? ipSite?.address || '' : '';
 
         const autoSiteName = ipSite?.name
           || ipData?.site_name
@@ -565,21 +541,9 @@ export default function AdminCreateLogsheet() {
           } catch { /* site fetch failed */ }
         }
 
-        const clientFullAddr = [
-          clientData?.address || appData?.profiles?.address || clientData?.registered_address || clientData?.head_office_address || clientData?.street,
-          clientData?.city || appData?.profiles?.city,
-          clientData?.postcode || appData?.profiles?.postcode,
-          clientData?.country || appData?.profiles?.country
-        ].filter(Boolean).join(', ');
+        const clientFullAddr = clientData?.address || appData?.profiles?.address || clientData?.registered_address || clientData?.head_office_address || clientData?.street;
 
-        const siteFullAddr = siteData ? [
-          siteData.address_1 || siteData.address,
-          siteData.address_2,
-          siteData.city,
-          siteData.state,
-          siteData.postcode,
-          siteData.country
-        ].filter(Boolean).join(', ') : (siteData?.address || '');
+        const siteFullAddr = siteData ? siteData?.address : '';
 
         const siteHeadOffice = siteData?.head_office_address || siteData?.head_office || '';
 
@@ -2472,129 +2436,129 @@ export default function AdminCreateLogsheet() {
             {activeTab === 1 && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Auto-populated Indicator Banner */}
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, gridColumn: '1 / -1', marginBottom: 4 }}>
-                  <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
-                  <div style={{ fontSize: 13, color: '#166534', fontWeight: 500 }}>
-                    <strong>Site &amp; Company Details Auto-Populated:</strong> Core business identifiers (Site Name, Company Name, Contact Person) are locked from the verified application record.
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, gridColumn: '1 / -1', marginBottom: 4 }}>
+                  <CheckCircle2 size={18} style={{ color: '#2563eb', flexShrink: 0 }} />
+                  <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 500 }}>
+                    <strong>Fields Pre-filled from Application:</strong> All fields below have been pre-populated from the verified application record. You can edit any field before saving.
                   </div>
                 </div>
 
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Site Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
-                    value={form.site_name || application?.site_id?.name || application?.site_name || application?.establishment_name || 'Main Manufacturing Site'}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    value={form.site_name || ''}
+                    onChange={e => setForm({ ...form, site_name: e.target.value })}
+                    style={{ fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
                     value={form.company_name || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    onChange={e => setForm({ ...form, company_name: e.target.value })}
+                    style={{ fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
                     value={form.contact_person || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                    onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                    style={{ fontWeight: 700 }}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Company Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
                     value={form.company_address || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    onChange={e => setForm({ ...form, company_address: e.target.value })}
                     placeholder="Registered company address"
+                    style={{ fontWeight: 600 }}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
                     value={form.manufacturing_address || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
                     placeholder="Manufacturing site address"
+                    style={{ fontWeight: 600 }}
                   />
                 </div>
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="email"
                     className="form-control"
                     value={form.contact_email || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    onChange={e => setForm({ ...form, contact_email: e.target.value })}
                     placeholder="name@company.com"
+                    style={{ fontWeight: 600 }}
                   />
                 </div>
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0 }}>Nature of the business <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   <input
                     required
-                    readOnly
                     type="text"
                     className="form-control"
                     value={form.nature_of_business || ''}
-                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    onChange={e => setForm({ ...form, nature_of_business: e.target.value })}
                     placeholder="e.g. Halal Food Production"
+                    style={{ fontWeight: 600 }}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -2913,18 +2877,18 @@ export default function AdminCreateLogsheet() {
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Lock size={12} /> Auto-populated
+                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Pre-filled · Editable
                     </span>
                   </div>
                   {isProductLogsheet ? (
                     <input
                       required
-                      readOnly
                       type="text"
                       className="form-control"
                       value={form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'Add-on Products Certification')}
-                      style={{ backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 }}
+                      onChange={e => setForm({ ...form, audit_type: e.target.value })}
+                      style={{ fontWeight: 700 }}
                     />
                   ) : (
                     <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
@@ -2943,20 +2907,18 @@ export default function AdminCreateLogsheet() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isProductLogsheet ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
                     {isProductLogsheet && (
-                      <span style={{ fontSize: 11, color: '#0d9488', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Lock size={12} /> Assigned FT
+                      <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        Pre-filled · Editable
                       </span>
                     )}
                   </div>
                   <input
                     required
-                    readOnly={isProductLogsheet}
                     type="text"
                     className="form-control"
                     placeholder={isProductLogsheet ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
                     value={form.auditors || ''}
                     onChange={e => setForm({ ...form, auditors: e.target.value })}
-                    style={isProductLogsheet ? { backgroundColor: '#f8fafc', color: '#1e293b', cursor: 'not-allowed', borderColor: '#e2e8f0', fontWeight: 700 } : {}}
                   />
                 </div>
                 <div className="form-group">

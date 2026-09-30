@@ -1173,11 +1173,7 @@ export default function AdminCreateLogsheet() {
       setActiveTab(1);
       return;
     }
-    if (!form.manufacturing_address?.trim()) {
-      toast.error('Manufacturing Site Address is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
+
     if (!form.contact_email?.trim()) {
       toast.error('Contact Email is required (Tab 1)');
       setActiveTab(1);
@@ -2512,13 +2508,12 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address</label>
                     <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       Pre-filled · Editable
                     </span>
                   </div>
                   <input
-                    required
                     type="text"
                     className="form-control"
                     value={form.manufacturing_address || ''}

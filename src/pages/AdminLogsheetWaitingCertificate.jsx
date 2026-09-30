@@ -735,9 +735,7 @@ export default function AdminLogsheetWaitingCertificate() {
 
         const isDirect = l.source_type === 'direct' || (!appId && !isExtension && !isAddon);
 
-        const issueCertUrl = isDirect
-          ? `/superadmin/direct-certificate`
-          : isExtension
+        const issueCertUrl =  isExtension
           ? `/extension-applications/${extId}/processing`
           : isAddon
           ? `/addon-applications/${addonId}/issue-certificate`

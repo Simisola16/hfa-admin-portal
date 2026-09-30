@@ -29,8 +29,18 @@ export default function AdminProducts() {
   const fetchInitialData = () => {
     setLoading(true);
     Promise.all([
-      api.get('/api/products').then(d => setProducts(d.data || [])).catch(() => toast.error('Failed to load products')),
-      api.get('/api/sites').then(d => setSites(d.data || [])).catch(() => {})
+      api.get('/api/products?all=true')
+        .then(d => {
+          const list = Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+          setProducts(list);
+        })
+        .catch(() => toast.error('Failed to load products')),
+      api.get('/api/sites')
+        .then(d => {
+          const siteList = Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+          setSites(siteList);
+        })
+        .catch(() => {})
     ]).finally(() => setLoading(false));
   };
 
@@ -280,7 +290,11 @@ export default function AdminProducts() {
       if (!matchSearch) return false;
     }
       
-    const matchStatus = !filterStatus || p.status === filterStatus;
+    const matchStatus = !filterStatus || (
+      (filterStatus === 'active' || filterStatus === 'approved')
+        ? (p.status === 'active' || p.status === 'approved')
+        : p.status === filterStatus
+    );
     
     const prodSiteId = p.site_id?._id || p.site_id?.id || p.site_id;
     const matchSite = !filterSite || String(prodSiteId) === String(filterSite);

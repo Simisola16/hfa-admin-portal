@@ -117,6 +117,8 @@ export default function App() {
             <Route path="/admin/applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/addon-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/admin/addon-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/logsheets/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/admin/logsheets/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/certificates/create/:appId" element={<AdminCreateCertificate />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/certificates/review" element={<AdminCertificates defaultTab="review" />} />

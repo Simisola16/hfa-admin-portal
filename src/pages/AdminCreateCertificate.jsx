@@ -1,6 +1,6 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Award, ArrowLeft, RefreshCw, Send, FileText,
   AlertTriangle, Building, Building2, MapPin, Calendar, Package, Plus, Trash2,
@@ -12,6 +12,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import { useAuth } from '../context/AuthContext';
+import { resolveCertificateType } from '../components/CertificateModal';
 
 const PRODUCT_CATEGORIES = [
   'Meat & Poultry',
@@ -37,6 +38,9 @@ const CERTIFICATE_TYPES = [
 
 export default function AdminCreateCertificate() {
   const { appId } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryCertType = searchParams.get('cert_type');
+  const queryLogsheetId = searchParams.get('logsheet_id');
   const navigate = useNavigate();
 
   const { user, profile } = useAuth();
@@ -50,6 +54,7 @@ export default function AdminCreateCertificate() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [app, setApp] = useState(null);
+  const [linkedLogsheet, setLinkedLogsheet] = useState(null);
   const [clientUser, setClientUser] = useState(null);
   const [siteData, setSiteData] = useState(null);
   const [suggestedCertType, setSuggestedCertType] = useState('');
@@ -81,7 +86,7 @@ export default function AdminCreateCertificate() {
   // Form State
   const [form, setForm] = useState({
     certificate_number: '',
-    certificate_type: 'HFA SCHEME MEAT',
+    certificate_type: queryCertType || 'HFA SCHEME MEAT',
     company_name: '',
     product_category: '',
     company_address: '',
@@ -143,33 +148,98 @@ export default function AdminCreateCertificate() {
       setLoading(true);
       try {
         let appData = null;
-        try {
-          const res = await api.get(`/api/applications/${appId}`);
-          appData = res.data?.data || res.data;
-        } catch (_) {
+        let targetLogsheet = null;
+        let isDirectLogsheet = false;
+
+        // 1. If queryLogsheetId is provided, fetch logsheet upfront
+        if (queryLogsheetId && queryLogsheetId !== 'undefined' && queryLogsheetId !== 'null') {
           try {
-            const addRes = await api.get(`/api/add-on-applications/${appId}`);
-            appData = addRes.data?.data || addRes.data;
-          } catch (e) {
-            console.error('Could not find application:', e);
+            const singleLogRes = await api.get(`/api/application-logsheets/${queryLogsheetId}`).catch(() => null);
+            targetLogsheet = singleLogRes?.data?.data || singleLogRes?.data || null;
+          } catch (_) {}
+        }
+
+        // 2. Try fetching as Application or AddOnApplication if appId is present
+        if (appId && appId !== 'undefined' && appId !== 'null' && appId !== 'direct') {
+          try {
+            const res = await api.get(`/api/applications/${appId}`);
+            appData = res.data?.data || res.data;
+          } catch (_) {
+            try {
+              const addRes = await api.get(`/api/add-on-applications/${appId}`);
+              appData = addRes.data?.data || addRes.data;
+            } catch (e) {
+              // Not an application or add-on
+            }
+          }
+
+          // If no application was found with this appId, check if appId is a logsheet!
+          if (!appData && !targetLogsheet) {
+            try {
+              const logRes = await api.get(`/api/application-logsheets/${appId}`).catch(() => null);
+              targetLogsheet = logRes?.data?.data || logRes?.data || null;
+            } catch (_) {}
           }
         }
 
+        // 3. If targetLogsheet is linked to an application / addon, resolve parent application if not loaded
+        if (!appData && targetLogsheet) {
+          if (targetLogsheet.application_id) {
+            const linkedAppId = targetLogsheet.application_id?._id || targetLogsheet.application_id;
+            try {
+              const linkedAppRes = await api.get(`/api/applications/${linkedAppId}`).catch(() => null);
+              appData = linkedAppRes?.data?.data || linkedAppRes?.data;
+            } catch (_) {}
+          } else if (targetLogsheet.addon_application_id) {
+            const linkedAddonId = targetLogsheet.addon_application_id?._id || targetLogsheet.addon_application_id;
+            try {
+              const linkedAddonRes = await api.get(`/api/add-on-applications/${linkedAddonId}`).catch(() => null);
+              appData = linkedAddonRes?.data?.data || linkedAddonRes?.data;
+            } catch (_) {}
+          }
+        }
+
+        // 4. If STILL no appData, but we have targetLogsheet (this is a logsheet without an application!):
+        if (!appData && targetLogsheet) {
+          isDirectLogsheet = true;
+          appData = {
+            _id: targetLogsheet._id,
+            is_logsheet_only: true,
+            logsheet_id: targetLogsheet._id,
+            application_number: targetLogsheet.direct_ref || targetLogsheet.legacy_id || `LOG-${String(targetLogsheet._id).slice(-6).toUpperCase()}`,
+            application_type: targetLogsheet.certificate_type || 'Halal Certification',
+            company_name: targetLogsheet.company_name,
+            establishment_name: targetLogsheet.site_name || targetLogsheet.company_name,
+            establishment_address: targetLogsheet.company_address,
+            manufacturer_address: targetLogsheet.manufacturing_address,
+            scope: targetLogsheet.product_category || targetLogsheet.nature_of_business || 'Halal Food Certification',
+            category: targetLogsheet.product_category || 'General Food Products',
+            client_id: targetLogsheet.client_id,
+            site_id: targetLogsheet.site_id,
+            suggested_certificate_type: targetLogsheet.suggested_certificate_type || targetLogsheet.certificate_standard || targetLogsheet.certificate_type,
+            products: Array.isArray(targetLogsheet.products_list) ? targetLogsheet.products_list : []
+          };
+        }
+
         if (!appData) {
-          toast.error('Application not found.');
+          toast.error('Application or Logsheet not found.');
           navigate('/certificates');
           return;
         }
 
         if (!isMounted) return;
         setApp(appData);
+        if (targetLogsheet) setLinkedLogsheet(targetLogsheet);
 
-        // Check if certificate already exists for this application
+        // Check if certificate already exists for this application or logsheet
         try {
-          const certRes = await api.get(`/api/certificates/application/${appId}`).catch(() => null);
-          const existing = certRes?.data || certRes?.data?.data || null;
-          if (existing) {
-            setExistingCert(existing);
+          const certSearchId = appData.is_logsheet_only ? (targetLogsheet?._id || appId) : appId;
+          if (certSearchId && certSearchId !== 'undefined' && certSearchId !== 'direct') {
+            const certRes = await api.get(`/api/certificates/application/${certSearchId}`).catch(() => null);
+            const existing = certRes?.data || certRes?.data?.data || null;
+            if (existing) {
+              setExistingCert(existing);
+            }
           }
         } catch (_) {}
 
@@ -274,29 +344,37 @@ export default function AdminCreateCertificate() {
         let detectedLogsheetCat = '';
         let detectedLogsheetCompAddr = '';
         let detectedLogsheetMfgAddr = '';
-        try {
-          const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
-          const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
-          const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
-          logsheets.forEach(l => {
-            if (l.suggested_certificate_type) {
-              setSuggestedCertType(l.suggested_certificate_type);
+
+        if (!targetLogsheet && !appData.is_logsheet_only && appId && appId !== 'undefined' && appId !== 'direct') {
+          try {
+            const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
+            const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
+            const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
+            if (logsheets.length > 0) {
+              targetLogsheet = logsheets[0];
+              setLinkedLogsheet(targetLogsheet);
             }
-            if (l.product_category || l.productCategory) {
-              detectedLogsheetCat = l.product_category || l.productCategory;
-            }
-            if (l.company_address) {
-              detectedLogsheetCompAddr = l.company_address;
-            }
-            if (l.manufacturing_address) {
-              detectedLogsheetMfgAddr = l.manufacturing_address;
-            }
-            if (!detectedLogsheetCat && Array.isArray(l.products_list) && l.products_list.length > 0) {
-              const pWithCat = l.products_list.find(p => p.category && p.category !== 'Halal Certified' && p.category !== 'General Food Products');
-              if (pWithCat?.category) detectedLogsheetCat = pWithCat.category;
-            }
-          });
-        } catch (_) {}
+          } catch (_) {}
+        }
+
+        if (targetLogsheet) {
+          if (targetLogsheet.suggested_certificate_type) {
+            setSuggestedCertType(targetLogsheet.suggested_certificate_type);
+          }
+          if (targetLogsheet.product_category || targetLogsheet.productCategory) {
+            detectedLogsheetCat = targetLogsheet.product_category || targetLogsheet.productCategory;
+          }
+          if (targetLogsheet.company_address) {
+            detectedLogsheetCompAddr = targetLogsheet.company_address;
+          }
+          if (targetLogsheet.manufacturing_address) {
+            detectedLogsheetMfgAddr = targetLogsheet.manufacturing_address;
+          }
+          if (!detectedLogsheetCat && Array.isArray(targetLogsheet.products_list) && targetLogsheet.products_list.length > 0) {
+            const pWithCat = targetLogsheet.products_list.find(p => p.category && p.category !== 'Halal Certified' && p.category !== 'General Food Products');
+            if (pWithCat?.category) detectedLogsheetCat = pWithCat.category;
+          }
+        }
 
         if ((!detectedLogsheetCat || !detectedLogsheetCompAddr) && clientIdStr) {
           try {
@@ -305,6 +383,7 @@ export default function AdminCreateCertificate() {
             const logsheets2 = Array.isArray(logsheetData2) ? logsheetData2 : (logsheetData2 ? [logsheetData2] : []);
             if (logsheets2.length > 0) {
               const l2 = logsheets2[0];
+              if (!targetLogsheet) targetLogsheet = l2;
               if (l2.suggested_certificate_type && !suggestedCertType) {
                 setSuggestedCertType(l2.suggested_certificate_type);
               }
@@ -369,14 +448,20 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        // If no catalog products, use products from application form ONLY for non-add-on applications
-        if (!isAppAddOn && prodList.length === 0 && Array.isArray(appData.products) && appData.products.length > 0) {
-          prodList = appData.products.map((p, idx) => ({
-            _id: `app-prod-${idx}`,
-            name: typeof p === 'string' ? p : (p.name || p.product_name || `Product ${idx + 1}`),
-            code: p.code || p.product_code || `PRD-${idx + 1}`,
-            category: p.category || 'General Food Products'
-          }));
+        // If no catalog products, use products from targetLogsheet or application form ONLY for non-add-on applications
+        if (!isAppAddOn && prodList.length === 0) {
+          const rawProds = (Array.isArray(targetLogsheet?.products_list) && targetLogsheet.products_list.length > 0)
+            ? targetLogsheet.products_list
+            : (Array.isArray(appData.products) ? appData.products : []);
+
+          if (rawProds.length > 0) {
+            prodList = rawProds.map((p, idx) => ({
+              _id: `log-prod-${idx}`,
+              name: typeof p === 'string' ? p : (p.name || p.product_name || p.title || `Product ${idx + 1}`),
+              code: typeof p === 'object' && p.code ? p.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+              category: (typeof p === 'object' && p.category) ? p.category : (detectedLogsheetCat || 'General Food Products')
+            }));
+          }
         }
 
         const scheduledProds = prodList.map(p => ({
@@ -446,16 +531,43 @@ export default function AdminCreateCertificate() {
           setLogsheetCategory(resolvedCategory);
         }
 
-        const typeCode = isAddOn ? 'AD' : normalizeHfaTypeCode(appData.application_type);
+        const typeCode = isAddOn ? 'AD' : (appData.is_logsheet_only ? 'NE' : normalizeHfaTypeCode(appData.application_type));
         const certNum = generateHfaId(compName || 'HFA', typeCode);
 
-        const enforcedYears = (appData.category?.includes('GSO') || appData.category?.includes('SMIIC')) ? 3 : 1;
+        const auditorRecommended = targetLogsheet?.suggested_certificate_type || targetLogsheet?.certificate_type || targetLogsheet?.certificate_standard || '';
+        
+        let initialCertType = '';
+        if (queryCertType && ['HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'GSO MEAT', 'GSO NON MEAT', 'COSMETICS', 'SMIIC'].includes(queryCertType)) {
+          initialCertType = queryCertType;
+        } else if (auditorRecommended) {
+          initialCertType = resolveCertificateType(appData, existingCert, null, targetLogsheet);
+        } else {
+          initialCertType = resolveCertificateType(appData, existingCert, null, targetLogsheet);
+        }
+
+        if (!initialCertType || initialCertType === 'GSO MEAT') {
+          const appCatUpper = String(appData.category || '').toUpperCase();
+          const appScopeUpper = String(appData.scope || '').toUpperCase();
+          const isGsoApp = appCatUpper.includes('GSO') || appScopeUpper.includes('GSO');
+          const isMeatApp = appCatUpper.includes('MEAT') || appScopeUpper.includes('MEAT') || String(appData.food_nature || '').toUpperCase().includes('MEAT') || resolvedCategory.toLowerCase().includes('meat');
+          if (!isGsoApp && isMeatApp) {
+            initialCertType = 'HFA SCHEME MEAT';
+          } else if (!isGsoApp) {
+            initialCertType = 'HFA SCHEME NON MEAT';
+          }
+        }
+
+        if (auditorRecommended) {
+          setSuggestedCertType(auditorRecommended);
+        } else if (initialCertType) {
+          setSuggestedCertType(initialCertType);
+        }
+
+        const isInitGso = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
+        const enforcedYears = isInitGso ? 3 : 1;
         const today = new Date();
         const expDate = new Date(today);
         expDate.setFullYear(expDate.getFullYear() + enforcedYears);
-
-        const initialCertType = appData.suggested_certificate_type || appData.certificate_type || (appData.category?.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
-        const isInitGso = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
 
         setForm(f => ({
           ...f,
@@ -597,6 +709,9 @@ export default function AdminCreateCertificate() {
       expiry_date: end.toISOString().split('T')[0],
       product_table_columns: isNewTypeGso ? 2 : 1
     }));
+
+    // Instantly refresh preview with the newly applied scheme
+    generateLivePreview(true, newType);
   };
 
   // Product Selection Toggle
@@ -678,7 +793,7 @@ export default function AdminCreateCertificate() {
   }, [filteredProducts, productPage]);
 
   // Live PDF Preview Generator
-  const generateLivePreview = async (silent = false) => {
+  const generateLivePreview = async (silent = false, overrideType = null) => {
     if (!form.company_name?.trim() && !selectedClient) {
       if (!silent) toast.error('Please specify company details first.');
       return;
@@ -697,10 +812,12 @@ export default function AdminCreateCertificate() {
       const compName = (form.company_name || selectedClient?.company_name || selectedClient?.full_name || '').trim();
       const compAddr = (form.company_address || '').trim();
       const mfgAddr = (form.manufacturing_address || '').trim();
+      const effectiveType = overrideType || form.certificate_type || queryCertType || 'HFA SCHEME MEAT';
+      const isEffectiveGso = effectiveType.includes('GSO') || effectiveType.includes('SMIIC');
 
       const payload = {
         certificate_number: (form.certificate_number || 'HFA-PREVIEW-001').trim(),
-        certificate_type: form.certificate_type || 'HFA SCHEME MEAT',
+        certificate_type: effectiveType,
         company_name: compName,
         company_address: compAddr,
         manufacturing_address: mfgAddr,
@@ -708,10 +825,10 @@ export default function AdminCreateCertificate() {
         product_category: (form.product_category || form.scope || '').trim(),
         issue_date: form.issue_date || new Date().toISOString().split('T')[0],
         expiry_date: form.expiry_date || '',
-        current_cycle_start_date: isGso ? (form.current_cycle_start_date || form.issue_date) : form.issue_date,
-        original_cycle_start_date: isGso ? (form.original_cycle_start_date || form.issue_date) : form.issue_date,
+        current_cycle_start_date: isEffectiveGso ? (form.current_cycle_start_date || form.issue_date) : form.issue_date,
+        original_cycle_start_date: isEffectiveGso ? (form.original_cycle_start_date || form.issue_date) : form.issue_date,
         certification_start_date: form.certification_start_date || form.issue_date,
-        product_table_columns: Number(form.product_table_columns) || (isGso ? 2 : 1),
+        product_table_columns: Number(form.product_table_columns) || (isEffectiveGso ? 2 : 1),
         products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }],
         product_details: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }]
       };
@@ -756,7 +873,16 @@ export default function AdminCreateCertificate() {
       const siteId = selectedSiteId || siteData?._id || siteData?.id || app?.site_id?._id || app?.site_id;
 
       const formData = new FormData();
-      formData.append('application_id', appId);
+      if (app?._id && !app?.is_logsheet_only) {
+        formData.append('application_id', app._id);
+      }
+      const effectiveLogsheetId = queryLogsheetId || linkedLogsheet?._id || app?.logsheet_id || (app?.is_logsheet_only ? appId : null);
+      if (effectiveLogsheetId) {
+        formData.append('logsheet_id', effectiveLogsheetId);
+      }
+      if (app?.is_logsheet_only) {
+        formData.append('is_direct_issuance', 'true');
+      }
       if (clientId) formData.append('client_id', clientId);
       if (siteId) formData.append('site_id', siteId);
       formData.append('certificate_number', form.certificate_number);
@@ -896,8 +1022,8 @@ export default function AdminCreateCertificate() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Link to={isAddOn ? `/addon-applications/${appId}/processing` : `/applications/${appId}/processing`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
-              <ArrowLeft size={14} /> Back to Application
+            <Link to={app?.is_logsheet_only || queryLogsheetId ? '/logsheet/waiting-certificate' : (isAddOn ? `/addon-applications/${appId}/processing` : `/applications/${appId}/processing`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
+              <ArrowLeft size={14} /> {app?.is_logsheet_only || queryLogsheetId ? 'Back to Waiting for Certificate' : 'Back to Application'}
             </Link>
             <span style={{ color: '#cbd5e1' }}>/</span>
             <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 700 }}>Issue Certificate Studio</span>
@@ -931,9 +1057,9 @@ export default function AdminCreateCertificate() {
           </div>
           <span style={{ color: '#e2e8f0' }}>|</span>
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            <strong>App #:</strong> <span style={{ color: '#0f172a', fontWeight: 700 }}>{app?.application_number || '—'}</span>
+            <strong>{app?.is_logsheet_only ? 'Logsheet Ref:' : 'App #:'}</strong> <span style={{ color: '#0f172a', fontWeight: 700 }}>{app?.application_number || '—'}</span>
             <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 1 }}>
-              Type: {app?.application_type ? (app.application_type.charAt(0).toUpperCase() + app.application_type.slice(1)) : (isAddOn ? 'Addon' : 'New')}
+              Type: {app?.is_logsheet_only ? 'Direct Logsheet Certificate' : (app?.application_type ? (app.application_type.charAt(0).toUpperCase() + app.application_type.slice(1)) : (isAddOn ? 'Addon' : 'New'))}
             </div>
           </div>
         </div>

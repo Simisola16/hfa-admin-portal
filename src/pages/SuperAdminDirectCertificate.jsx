@@ -1,6 +1,6 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -15,15 +15,13 @@ import {
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES = [
-  'GSO MEAT',
-  'GSO NON MEAT',
   'HFA SCHEME MEAT',
   'HFA SCHEME NON MEAT',
+  'GSO MEAT',
+  'GSO NON MEAT',
   'COSMETICS',
   'SMIIC'
 ];
-
-
 
 const PRODUCT_CATEGORIES = [
   'Meat & Poultry',
@@ -38,10 +36,13 @@ const PRODUCT_CATEGORIES = [
   'General Food Products'
 ];
 
-
 export default function SuperAdminDirectCertificate() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryCertType = searchParams.get('cert_type');
+  const queryLogsheetId = searchParams.get('logsheet_id');
+  const queryClientId = searchParams.get('client_id');
 
   // Role & Privilege Security Check
   const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
@@ -90,15 +91,17 @@ export default function SuperAdminDirectCertificate() {
     return generateHfaId(companyName || 'UK', type);
   };
 
+  const initialCertType = queryCertType || 'HFA SCHEME MEAT';
   const [certNumber, setCertNumber] = useState(generateRandomCertNo());
-  const [certType, setCertType] = useState('GSO MEAT');
+  const [certType, setCertType] = useState(initialCertType);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentCycleStartDate, setCurrentCycleStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [originalCycleStartDate, setOriginalCycleStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [certificationStartDate, setCertificationStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [expiryDate, setExpiryDate] = useState(() => {
+    const isFour = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
     const d = new Date();
-    d.setFullYear(d.getFullYear() + 3);
+    d.setFullYear(d.getFullYear() + (isFour ? 3 : 1));
     return d.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
@@ -220,6 +223,13 @@ export default function SuperAdminDirectCertificate() {
       const clientAccounts = userList.filter(u => u.role === 'client');
       setClients(clientAccounts);
       setSites(siteList);
+      if (queryClientId && clientAccounts.length > 0) {
+        const found = clientAccounts.find(c => String(c._id || c.id) === String(queryClientId));
+        if (found) {
+          setSelectedClient(found);
+          setClientSearchQuery(found.company_name || found.full_name || '');
+        }
+      }
     } catch (err) {
       toast.error('Failed to load initial data');
     } finally {
@@ -254,6 +264,49 @@ export default function SuperAdminDirectCertificate() {
       }
     }
   }, [isSuperAdmin, activeTab]);
+
+  // Load logsheet details if queryLogsheetId is passed
+  useEffect(() => {
+    if (queryLogsheetId) {
+      setLoadingLogsheet(true);
+      api.get(`/api/application-logsheets/${queryLogsheetId}`)
+        .then(res => {
+          const l = res?.data?.data || res?.data;
+          if (l) {
+            if (l.company_name) setCertCompanyName(l.company_name);
+            if (l.company_address) setCertCompanyAddress(l.company_address);
+            if (l.manufacturing_address) setCertManufacturingFacility(l.manufacturing_address);
+            if (l.product_category || l.productCategory) setCertProductCategory(l.product_category || l.productCategory);
+            const scheme = queryCertType || l.suggested_certificate_type || l.certificate_type || l.certificate_standard;
+            if (scheme) {
+              const u = String(scheme).toUpperCase();
+              if (u.includes('MEAT') && !u.includes('NON')) {
+                setCertType(u.includes('GSO') ? 'GSO MEAT' : 'HFA SCHEME MEAT');
+              } else if (u.includes('NON') || u.includes('FOOD')) {
+                setCertType(u.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+              } else if (u.includes('GSO')) {
+                setCertType('GSO MEAT');
+              } else {
+                setCertType('HFA SCHEME MEAT');
+              }
+            }
+            if (Array.isArray(l.products_list) && l.products_list.length > 0) {
+              setProducts(l.products_list.map((p, idx) => ({
+                id: Date.now() + idx,
+                name: p.name || p.product_name || '',
+                code: p.code || p.product_code || `PRD-${String(idx + 1).padStart(2, '0')}`,
+                category: p.category || l.product_category || 'Meat & Poultry',
+                product_type: 'Processed',
+                barcode: p.barcode || '',
+                ingredients: ''
+              })));
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingLogsheet(false));
+    }
+  }, [queryLogsheetId, queryCertType]);
 
   // Validity Preset Helper
   const applyValidityPreset = (years, months = 0) => {
@@ -396,6 +449,19 @@ export default function SuperAdminDirectCertificate() {
               const logsheet = list[0];
               const cat = logsheet.product_category || logsheet.productCategory || '';
               if (cat) setCertProductCategory(cat);
+              const recType = logsheet.suggested_certificate_type || logsheet.certificate_type || logsheet.certificate_standard;
+              if (recType && !queryCertType) {
+                const u = String(recType).toUpperCase();
+                if (u.includes('MEAT') && !u.includes('NON')) {
+                  setCertType(u.includes('GSO') ? 'GSO MEAT' : 'HFA SCHEME MEAT');
+                } else if (u.includes('NON') || u.includes('FOOD')) {
+                  setCertType(u.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+                } else if (u.includes('GSO')) {
+                  setCertType('GSO MEAT');
+                } else {
+                  setCertType('HFA SCHEME MEAT');
+                }
+              }
             }
           })
           .catch(() => { })

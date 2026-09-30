@@ -543,6 +543,7 @@ export default function AdminLogsheetManage() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 50, textAlign: 'center' }}>S/N</th>
                   <th>Company Name</th>
                   <th>Created By</th>
                   <th>Site Name</th>
@@ -553,7 +554,7 @@ export default function AdminLogsheetManage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogsheets.map(l => {
+                {paginatedLogsheets.map((l, index) => {
                   const compName = l.company_name || 'Client Facility';
                   const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
                   const rawType = l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW');
@@ -563,6 +564,9 @@ export default function AdminLogsheetManage() {
 
                   return (
                     <tr key={l._id}>
+                      <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: 13 }}>
+                        {(page - 1) * pageSize + index + 1}
+                      </td>
                       <td style={{ fontWeight: 700, color: '#0f172a', fontSize: 13.5 }}>
                         <div
                           style={{ cursor: 'pointer', transition: 'color 0.15s' }}

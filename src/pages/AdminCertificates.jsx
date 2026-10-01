@@ -865,8 +865,16 @@ export default function AdminCertificates({ defaultTab }) {
               const certId = actionModalCert?.id || actionModalCert?._id;
               setActionModalCert(null);
               try {
-                await api.put(`/api/certificates/${certId}/approve`);
-                toast.success('Certificate approved and sent to client.');
+                try {
+                  await api.put(`/api/certificates/${certId}/approve`);
+                } catch (putErr) {
+                  if (putErr.response?.status === 404) {
+                    await api.post(`/api/certificates/${certId}/approve-and-send`);
+                  } else {
+                    throw putErr;
+                  }
+                }
+                toast.success('🏅 Certificate approved and sent to client.');
                 fetchAllData();
               } catch (err) {
                 toast.error(err.response?.data?.error || err.message || 'Failed to send certificate.');

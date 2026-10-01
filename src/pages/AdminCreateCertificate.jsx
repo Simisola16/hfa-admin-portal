@@ -443,8 +443,8 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        const scheduledProds = prodList.map(p => ({
-          _id: p._id || p.id,
+        const scheduledProds = prodList.map((p, idx) => ({
+          _id: p._id || p.id || `sched-prod-${idx}`,
           name: p.name || p.product_name || '',
           code: p.code || p.product_code || '',
           category: p.category || 'General Food Products',
@@ -635,8 +635,8 @@ export default function AdminCreateCertificate() {
         const pRes = await api.get(`/api/products?client_id=${cId}`);
         const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : (Array.isArray(pRes) ? pRes : []));
         if (pList.length > 0) {
-          const mapped = pList.map(p => ({
-            _id: p._id || p.id,
+          const mapped = pList.map((p, idx) => ({
+            _id: p._id || p.id || `client-prod-${idx}`,
             name: p.name || p.product_name || '',
             code: p.code || p.product_code || '',
             category: p.category || 'General Food Products',
@@ -1763,11 +1763,11 @@ export default function AdminCreateCertificate() {
                     ) : (
                       paginatedProducts.map((prod, index) => {
                         const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
-                        const actualIdx = siteProducts.findIndex(sp => (sp._id && sp._id === prod._id) || (sp.name === prod.name && sp.code === prod.code));
+                        const actualIdx = siteProducts.findIndex(sp => (sp._id && prod._id && sp._id === prod._id) || (sp === prod) || (sp.name === prod.name && (sp.code || '') === (prod.code || '')));
                         const selected = prod.isSelected !== false;
                         return (
                           <tr
-                            key={prod._id || prod.code || itemIndex}
+                            key={prod._id || `prod-${itemIndex}`}
                             onClick={() => actualIdx !== -1 && toggleProductSelect(actualIdx)}
                             style={{
                               borderBottom: '1px solid #f1f5f9',

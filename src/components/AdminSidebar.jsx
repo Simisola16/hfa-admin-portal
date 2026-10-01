@@ -6,7 +6,7 @@ import {
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
-  Sparkles, ShieldCheck, AlertTriangle, ExternalLink
+  Sparkles, ShieldCheck, AlertTriangle, ExternalLink, Activity
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -131,6 +131,13 @@ const NAV_SECTIONS = [
     label: '👑 SUPERADMIN CONSOLE',
     directCertOnly: true,
     items: [
+      {
+        icon: Activity,
+        label: 'Live User Monitor',
+        path: '/superadmin/live-monitor',
+        badge: '🟢 LIVE',
+        superadminOnly: true
+      },
       {
         icon: Sparkles,
         label: 'Direct Certificate',
@@ -288,12 +295,16 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
     return true;
   }).map(section => ({
     ...section,
-    items: section.items.map(item => {
+    items: section.items.filter(item => {
+      if (item.superadminOnly && !isSuperAdmin) return false;
+      return true;
+    }).map(item => {
       if (!item.children) return item;
       return {
         ...item,
         children: item.children.filter(child => {
           if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
+          if (child.superadminOnly && !isSuperAdmin) return false;
           return true;
         })
       };

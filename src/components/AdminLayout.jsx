@@ -21,6 +21,7 @@ import ErrorBoundary from './ErrorBoundary';
 /* ─── Page title + breadcrumb mapping ─────────────────────────── */
 const pageMeta = {
   '/dashboard':                   { title: 'Dashboard',           sub: 'System overview',                section: null },
+  '/superadmin/live-monitor':     { title: 'Live Presence & Activity Monitor', sub: 'Real-time online status and login tracking for staff and clients', section: 'Superadmin' },
   '/superadmin/direct-certificate': { title: 'Direct Certificate Studio', sub: 'Instant Superadmin Certificate & Product Issuance', section: 'Superadmin' },
   '/applications':                { title: 'Applications',        sub: 'Manage all applications',        section: 'Applications' },
   '/clients':                     { title: 'Companies',           sub: 'Manage client accounts',         section: 'Applications' },
@@ -306,13 +307,76 @@ export default function AdminLayout() {
 
     socket.on('notification', handleNotification);
 
+    let handleSuperadminEvent;
+    const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
+    const isSuperAdmin = userRoles.includes('superadmin');
+
+    if (isSuperAdmin) {
+      handleSuperadminEvent = (data) => {
+        if (!data) return;
+        const isSignIn = data.action === 'sign_in';
+        const isSignOut = data.action === 'sign_out';
+        if (!isSignIn && !isSignOut) return;
+
+        const isClient = data.user_type === 'client';
+        const actorType = isClient ? 'Client' : 'Staff / Admin';
+        const name = data.name || data.username || data.email || 'A user';
+        const roleLabel = data.role ? `(${data.role})` : (isClient ? '(Client)' : '');
+
+        toast.custom((t) => (
+          <div
+            onClick={() => {
+              toast.dismiss(t.id);
+              navigate('/superadmin/live-monitor');
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 16px',
+              background: isSignIn ? '#f0fdf4' : '#fff7ed',
+              border: `1.5px solid ${isSignIn ? '#86efac' : '#fed7aa'}`,
+              borderRadius: 12,
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12)',
+              maxWidth: 420,
+              width: '100%',
+              cursor: 'pointer',
+              animation: t.visible ? 'slideIn 0.25s ease' : 'fadeOut 0.25s ease',
+              fontFamily: 'Inter, sans-serif'
+            }}
+          >
+            <span style={{ fontSize: 22, flexShrink: 0 }}>{isSignIn ? '🟢' : '🔴'}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{actorType} {isSignIn ? 'Signed In' : 'Signed Out'}</span>
+                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: isSignIn ? '#dcfce7' : '#ffedd5', color: isSignIn ? '#166534' : '#9a3412', fontWeight: 600 }}>
+                  NOW
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: '#334155', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <strong style={{ color: '#0f172a' }}>{name}</strong> {roleLabel} • {data.email}
+              </div>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', padding: '4px 8px', borderRadius: 6, background: '#eff6ff', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Live Monitor →
+            </div>
+          </div>
+        ), { duration: 6000, id: `sa-live-${data.user_id}-${data.action}-${Date.now()}` });
+      };
+
+      socket.on('superadmin_user_event', handleSuperadminEvent);
+    }
+
     return () => {
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
       socket.off('notification', handleNotification);
+      if (handleSuperadminEvent) {
+        socket.off('superadmin_user_event', handleSuperadminEvent);
+      }
     };
-  }, [profile]);
+  }, [profile, navigate]);
 
   // Initial load + Fallback Polling (only if socket is disconnected)
   useEffect(() => {

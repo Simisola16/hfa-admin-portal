@@ -47,6 +47,7 @@ const AdminExtensionLogsheet = lazy(() => import('./pages/AdminExtensionLogsheet
 const AdminDirectLogsheet = lazy(() => import('./pages/AdminDirectLogsheet'));
 const AdminDirectProduct = lazy(() => import('./pages/AdminDirectProduct'));
 const AdminSurveillanceDueDates = lazy(() => import('./pages/AdminSurveillanceDueDates'));
+const SuperAdminLiveMonitor = lazy(() => import('./pages/SuperAdminLiveMonitor'));
 
 const PageFallback = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/superadmin/live-monitor" element={<SuperAdminLiveMonitor />} />
             <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
             <Route path="/superadmin/direct-logsheet" element={<AdminDirectLogsheet />} />
             <Route path="/superadmin/direct-product" element={<AdminDirectProduct />} />

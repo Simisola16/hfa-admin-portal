@@ -12,6 +12,18 @@ import { getPdfUrl } from '../../lib/pdfUtils';
 import ProcessingTimeline from '../../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../../lib/applicationStatuses';
 import { getSocket } from '../../lib/socket';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canAcceptOrRejectApp,
+  canSendInvoice,
+  canConfirmPayment,
+  canManageAuditDates,
+  canCompleteAudit,
+  canManageNC,
+  canCreateLogsheet,
+  canMarkApplicationSuccessful,
+  canIssueCertificate
+} from '../../lib/permissions';
 
 // Extracted Modals
 import InvoiceModal from '../../components/InvoiceModal';
@@ -41,6 +53,9 @@ export default function HFARenewalProcessing(props) {
   const params = useParams();
   const navigate = useNavigate();
   const appId = props.appId || params.appId;
+
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
 
   const [app, setApp] = useState(props.app || null);
   const [loading, setLoading] = useState(!props.app);
@@ -490,11 +505,18 @@ export default function HFARenewalProcessing(props) {
     invoice?.status === 'client_paid' ||
     allInvoices.some(inv => inv.status === 'client_paid')
   ) && !isRenewalInvoicePaid;
-  const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
+  const auditCanBeCompleted = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
 
   const renderPrimaryAction = () => {
     // 1. Review (Accept / Put On Hold / Reject)
     if (status === 'submitted' || status === 'under_review') {
+      if (!canAcceptOrRejectApp(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Awaiting Scheme Manager Decision
+          </span>
+        );
+      }
       return (
         <>
           <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
@@ -554,6 +576,14 @@ export default function HFARenewalProcessing(props) {
         );
       }
 
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Issuance (Certificate Officer)
+          </span>
+        );
+      }
+
       return (
         <button
           className="btn btn-primary"
@@ -567,6 +597,13 @@ export default function HFARenewalProcessing(props) {
 
     // 4. Invoice Stage - Client Paid awaiting confirmation MUST come BEFORE post-payment!
     if (isRenewalClientPaid) {
+      if (!canConfirmPayment(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Client Paid (Awaiting Accountant Verification)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -581,6 +618,13 @@ export default function HFARenewalProcessing(props) {
 
     // 5a. Post-Payment -> Mark Ready for Certificate
     if (status === 'payment_received' || (isRenewalInvoicePaid && status !== 'ready_for_certificate' && status !== 'certificate_issued')) {
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Officer Action
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -594,6 +638,13 @@ export default function HFARenewalProcessing(props) {
     }
 
     if ((status === 'invoice_sent' || renewalInvoice) && !isRenewalInvoicePaid) {
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -606,6 +657,13 @@ export default function HFARenewalProcessing(props) {
     }
 
     if (status === 'application_successful' && !renewalInvoice) {
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -619,6 +677,13 @@ export default function HFARenewalProcessing(props) {
 
     // 3c. Logsheet Signed -> Application Successful Action
     if (status === 'logsheet_signed') {
+      if (!canMarkApplicationSuccessful(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Signed (Awaiting Audit Manager Decision)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -633,6 +698,13 @@ export default function HFARenewalProcessing(props) {
 
     // 3a. NC Resolution Stage (STRICTLY AFTER AUDIT COMPLETE and BEFORE LOGSHEET)
     if (!isNcClosed && (status === 'audit_completed' || status === 'audit_successful' || status === 'nc_flagged' || hasActiveNc || (status === 'on_hold' && audits.length > 0))) {
+      if (!canManageNC(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={15} /> Non-Conformance Review (Audit Team)
+          </span>
+        );
+      }
       return (
         <>
           <button
@@ -659,6 +731,13 @@ export default function HFARenewalProcessing(props) {
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
     if (isNcClosed && !hasActiveNc && !isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done' && status !== 'invoice_sent' && status !== 'payment_received') {
+      if (!canCreateLogsheet(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Processing (Audit / Technical Staff)
+          </span>
+        );
+      }
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -674,25 +753,37 @@ export default function HFARenewalProcessing(props) {
 
     // 2. Audit Scheduling & Execution (Directly after Accept)
     if (['approved', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned'].includes(status)) {
-      if (canCompleteAudit) {
+      if (auditCanBeCompleted) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Renewal Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
-            </button>
+            {canManageAuditDates(currentUser) && (
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Renewal Audit
+              </button>
+            )}
+            {canCompleteAudit(currentUser) && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+              </button>
+            )}
           </div>
+        );
+      }
+
+      if (!canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={15} /> Audit in Progress (Audit Team)
+          </span>
         );
       }
 
@@ -852,7 +943,7 @@ export default function HFARenewalProcessing(props) {
             status={app?.status}
             isInitial={false}
             isRenewal={true}
-            onConfirmPayment={renewalInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            onConfirmPayment={renewalInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
             onSendInvoice={() => setShowInvoiceModal(true)}
           />

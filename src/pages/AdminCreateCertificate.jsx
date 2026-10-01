@@ -6,13 +6,14 @@ import {
   AlertTriangle, Building, Building2, MapPin, Calendar, Package, Plus, Trash2,
   ExternalLink, Download, Check, X, ShieldCheck, Eye,
   Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle,
-  CheckCircle2, ArrowRight, ChevronLeft, ChevronRight
+  CheckCircle2, ArrowRight, ChevronLeft, ChevronRight, Clock
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import { useAuth } from '../context/AuthContext';
 import { resolveCertificateType } from '../components/CertificateModal';
+import { canIssueCertificate } from '../lib/permissions';
 
 const PRODUCT_CATEGORIES = [
   'Meat & Poultry',
@@ -470,10 +471,9 @@ export default function AdminCreateCertificate() {
         const appAddress = (appData.establishment_address || appData.company_address || appData.registered_address || parentAppData?.establishment_address || parentAppData?.company_address || '').trim();
         const compAddr = (clientFullAddress || appAddress || detectedLogsheetCompAddr || '').trim() || appAddress || clientFullAddress;
 
-        // Auto-fill Manufacturing / Facility Address
-        const siteFullAddress = formatSiteAddress(resolvedSite) || (resolvedSite?.address || '').trim();
-        const appMfgAddress = (appData.site_id?.address || appData.site_address || appData.manufacturer_address || parentAppData?.manufacturer_address || '').trim();
-        const mfgAddr = (siteFullAddress || appMfgAddress || detectedLogsheetMfgAddr || '').trim();
+        // Manufacturing / Facility Address (Optional - only prefill if specifically specified in logsheet/application)
+        const appMfgAddress = (appData.manufacturer_address || parentAppData?.manufacturer_address || '').trim();
+        const mfgAddr = (detectedLogsheetMfgAddr || appMfgAddress || '').trim();
 
         // Resolve Product Category:
         // Priority: Logsheet Category -> Application Category -> Parent App Category -> Products Schedule -> Scope
@@ -842,6 +842,9 @@ export default function AdminCreateCertificate() {
   // Handle Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canIssueCertificate(currentUser)) {
+      return toast.error('Only Certificate Officer or Superadmin can generate and issue certificates.');
+    }
     if (!form.company_name.trim()) return toast.error('Company name is required.');
     if (!form.issue_date || !form.expiry_date) return toast.error('Validity dates are required.');
 
@@ -887,11 +890,6 @@ export default function AdminCreateCertificate() {
 
       toast.success('Certificate created successfully! Opening Review Studio...');
       const createdCertId = certRes?.certificate?._id || certRes?.certificate?.id || certRes?._id || certRes?.id || certRes?.data?._id || certRes?.data?.id || certRes?.data?.certificate?._id;
-      if (createdCertId) {
-        navigate(`/certificates/${createdCertId}/review`);
-      } else {
-        navigate('/certificates?status=under_review');
-      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
     } finally {
@@ -1865,35 +1863,41 @@ export default function AdminCreateCertificate() {
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn btn-primary"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontWeight: 800,
-                    fontSize: 14,
-                    padding: '11px 26px',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-                    borderColor: '#15803d',
-                    borderRadius: 10,
-                    boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <span className="spin"><RefreshCw size={16} /></span>
-                      Creating Certificate...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={18} />
-                      Submit to Review
-                    </>
-                  )}
-                </button>
+                {canIssueCertificate(currentUser) ? (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn btn-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontWeight: 800,
+                      fontSize: 14,
+                      padding: '11px 26px',
+                      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                      borderColor: '#15803d',
+                      borderRadius: 10,
+                      boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="spin"><RefreshCw size={16} /></span>
+                        Creating Certificate...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={18} />
+                        Submit to Review
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <span className="badge badge-teal" style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={15} /> Awaiting Certificate Officer to Issue Certificate
+                  </span>
+                )}
               </div>
             </div>
 

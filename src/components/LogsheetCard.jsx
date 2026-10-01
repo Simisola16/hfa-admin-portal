@@ -1,5 +1,7 @@
 import { ClipboardList, Lock, ChevronRight, CheckCircle, Clock, FilePlus, PenTool, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { canCreateLogsheet, canMarkApplicationSuccessful } from '../lib/permissions';
 
 const POST_NC_STATUSES = [
   'nc_closed',
@@ -23,6 +25,7 @@ export default function LogsheetCard({
   logsheet, 
   status, 
   appId, 
+  user: propUser,
   isRenewal = false, 
   isSurveillance = false, 
   hasActiveNc = false, 
@@ -31,6 +34,11 @@ export default function LogsheetCard({
   markingDone = false 
 }) {
   const navigate = useNavigate();
+  const auth = useAuth?.() || {};
+  const user = propUser || auth.user;
+  const canCreate = canCreateLogsheet(user);
+  const canApprove = canMarkApplicationSuccessful(user);
+
   const normalizedStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
 
   const isRen = Boolean(
@@ -137,15 +145,23 @@ export default function LogsheetCard({
         </div>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Halal LogSheet Ready</div>
         <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4, maxWidth: 380, margin: '4px auto 16px', lineHeight: 1.45 }}>
-          NC is closed. You can now generate the official LogSheet for Shariah and Executive committee review.
+          {canCreate
+            ? 'NC is closed. You can now generate the official LogSheet for Shariah and Executive committee review.'
+            : 'NC is closed. Awaiting Audit / Technical Staff to generate the official LogSheet.'}
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => navigate(`/applications/${appId}/logsheet`)}
-          style={{ background: '#0e7490', borderColor: '#0e7490', fontSize: 13.5, fontWeight: 700, padding: '10px 20px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}
-        >
-          <FilePlus size={16} /> Create LogSheet
-        </button>
+        {canCreate ? (
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate(`/applications/${appId}/logsheet`)}
+            style={{ background: '#0e7490', borderColor: '#0e7490', fontSize: 13.5, fontWeight: 700, padding: '10px 20px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <FilePlus size={16} /> Create LogSheet
+          </button>
+        ) : (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 14px', background: '#f1f5f9', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Creation (Audit / Technical Staff)
+          </span>
+        )}
       </div>
     );
   }
@@ -192,7 +208,7 @@ export default function LogsheetCard({
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {onMarkDone && isComplete && !isAdvancedPastLogsheet && (
+          {canApprove && onMarkDone && isComplete && !isAdvancedPastLogsheet && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -226,7 +242,7 @@ export default function LogsheetCard({
             <PenTool size={13} /> Signatures Portal
           </button>
           
-          {!isAdvancedPastLogsheet && (
+          {canCreate && !isAdvancedPastLogsheet && (
             <button
               type="button"
               className="btn btn-outline btn-sm"

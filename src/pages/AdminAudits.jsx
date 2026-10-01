@@ -13,9 +13,15 @@ import {
 import AuditManageModal from '../components/AuditManageModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import { canManageNC, canManageAuditDates } from '../lib/permissions';
 
 export default function AdminAudits() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEditNC = canManageNC(user);
+  const canManageAudit = canManageAuditDates(user);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('filter') || 'all';
 
@@ -681,7 +687,7 @@ export default function AdminAudits() {
               </span>
             }
             actions={[
-              {
+              canManageAudit && {
                 label: 'Manage Audit & Assign Team',
                 description: 'Set schedule dates, lead auditor, and team assignment',
                 icon: Settings,
@@ -851,7 +857,7 @@ export default function AdminAudits() {
                         )}
 
                         {/* NC Action Footer */}
-                        {!isClosed && (
+                        {!isClosed && canEditNC && (
                           <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                             <button
                               className="btn btn-primary btn-sm"
@@ -870,7 +876,7 @@ export default function AdminAudits() {
               )}
 
               {/* Admin Reply Form */}
-              {selectedAuditForNc.nc_reports && selectedAuditForNc.nc_reports.some(r => r.status !== 'closed') && (
+              {canEditNC && selectedAuditForNc.nc_reports && selectedAuditForNc.nc_reports.some(r => r.status !== 'closed') && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: '#1e293b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <MessageSquare size={13} style={{ color: 'var(--primary)' }} /> Send Additional Guidance / Reply to Client
@@ -902,15 +908,17 @@ export default function AdminAudits() {
               )}
 
               {/* Action to Flag New NC */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ gap: 6, color: '#dc2626', borderColor: '#fecaca', borderRadius: 6 }}
-                  onClick={() => setShowFlagNcModal(true)}
-                >
-                  <Plus size={13} /> Flag New Non-Conformity
-                </button>
-              </div>
+              {canEditNC && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ gap: 6, color: '#dc2626', borderColor: '#fecaca', borderRadius: 6 }}
+                    onClick={() => setShowFlagNcModal(true)}
+                  >
+                    <Plus size={13} /> Flag New Non-Conformity
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer" style={{ padding: '14px 24px', borderTop: '1px solid #f1f5f9' }}>

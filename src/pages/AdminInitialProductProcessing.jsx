@@ -11,6 +11,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
+import { canAssignFoodTech, canManageProductForm } from '../lib/permissions';
 import ProductApprovalRequestForm from '../components/ProductApprovalRequestForm';
 import InitialProductTimeline from '../components/InitialProductTimeline';
 
@@ -48,7 +49,8 @@ export default function AdminInitialProductProcessing() {
   // Direct Mark Received
   const [markingReceived, setMarkingReceived] = useState(false);
 
-  const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
+  const isManagerOrAdmin = canAssignFoodTech(user);
+  const canManageForm = canManageProductForm(user);
 
   const fetchApp = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -96,6 +98,9 @@ export default function AdminInitialProductProcessing() {
 
   // Handler: Assign FT (Directly, no accept/reject)
   const handleAssignFt = async () => {
+    if (!isManagerOrAdmin) {
+      return toast.error('Only Food Tech Manager can assign FT.');
+    }
     if (selectedFtIds.length === 0 && !customFtName.trim()) {
       return toast.error('Please select at least one FT or enter specialist details.');
     }
@@ -293,80 +298,98 @@ export default function AdminInitialProductProcessing() {
           </div>
 
           {/* ── Dynamic Next Action Button in Header ── */}
-          {isManagerOrAdmin && !isApproved && (
+          {!isApproved && (
             <div>
               {!hasFtAssigned ? (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setShowFtModal(true)}
-                  style={{
-                    background: '#2563eb',
-                    borderColor: '#2563eb',
-                    fontWeight: 800,
-                    padding: '10px 20px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
-                  }}
-                >
-                  <User size={16} /> Assign FT &rarr;
-                </button>
+                isManagerOrAdmin ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setShowFtModal(true)}
+                    style={{
+                      background: '#2563eb',
+                      borderColor: '#2563eb',
+                      fontWeight: 800,
+                      padding: '10px 20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+                    }}
+                  >
+                    <User size={16} /> Assign FT &rarr;
+                  </button>
+                ) : (
+                  <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 14px', background: '#f1f5f9', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={15} /> Awaiting FT Manager Assignment
+                  </span>
+                )
               ) : (
                 <>
                   {app.status === 'ft_assigned' && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={savingEnableForm}
-                      onClick={handleEnableForm}
-                      style={{
-                        background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-                        borderColor: '#6d28d9',
-                        fontWeight: 800,
-                        padding: '10px 20px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        boxShadow: '0 4px 12px rgba(124,58,237,0.25)',
-                        cursor: savingEnableForm ? 'not-allowed' : 'pointer',
-                        opacity: savingEnableForm ? 0.75 : 1
-                      }}
-                    >
-                      {savingEnableForm ? (
-                        <>
-                          <span className="spinner-white" style={{ width: 16, height: 16 }} /> Enabling Product Form...
-                        </>
-                      ) : (
-                        <>
-                          <Send size={16} /> Enable Product Form &rarr;
-                        </>
-                      )}
-                    </button>
+                    canManageForm ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={savingEnableForm}
+                        onClick={handleEnableForm}
+                        style={{
+                          background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                          borderColor: '#6d28d9',
+                          fontWeight: 800,
+                          padding: '10px 20px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 4px 12px rgba(124,58,237,0.25)',
+                          cursor: savingEnableForm ? 'not-allowed' : 'pointer',
+                          opacity: savingEnableForm ? 0.75 : 1
+                        }}
+                      >
+                        {savingEnableForm ? (
+                          <>
+                            <span className="spinner-white" style={{ width: 16, height: 16 }} /> Enabling Product Form...
+                          </>
+                        ) : (
+                          <>
+                            <Send size={16} /> Enable Product Form &rarr;
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 14px', background: '#f1f5f9', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Send size={15} /> Awaiting Product Form Enablement (Food Tech)
+                      </span>
+                    )
                   )}
 
                   {app.status === 'product_approval_form_enabled' && (
                     <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
                       {isClientSubmitted ? (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={handleMarkFormReceived}
-                          disabled={markingReceived}
-                          style={{
-                            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                            borderColor: '#047857',
-                            fontWeight: 800,
-                            padding: '10px 20px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
-                          }}
-                        >
-                          <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Mark Product Form Received →'}
-                        </button>
+                        canManageForm ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={handleMarkFormReceived}
+                            disabled={markingReceived}
+                            style={{
+                              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                              borderColor: '#047857',
+                              fontWeight: 800,
+                              padding: '10px 20px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                            }}
+                          >
+                            <CheckCircle size={16} /> {markingReceived ? 'Marking Received...' : 'Mark Product Form Received →'}
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 14px', background: '#e0f2fe', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle size={15} /> Form Submitted by Client (Awaiting FT Verification)
+                          </span>
+                        )
                       ) : (
                         <span
                           style={{
@@ -389,23 +412,29 @@ export default function AdminInitialProductProcessing() {
                   )}
 
                   {app.status === 'all_forms_received' && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
-                      style={{
-                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                        borderColor: '#047857',
-                        fontWeight: 800,
-                        padding: '10px 20px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
-                      }}
-                    >
-                      <FileSpreadsheet size={16} /> Create Logsheet &rarr;
-                    </button>
+                    canManageForm ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
+                        style={{
+                          background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                          borderColor: '#047857',
+                          fontWeight: 800,
+                          padding: '10px 20px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 4px 12px rgba(5,150,105,0.25)'
+                        }}
+                      >
+                        <FileSpreadsheet size={16} /> Create Logsheet &rarr;
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 14px', background: '#f1f5f9', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <FileSpreadsheet size={15} /> Form Received
+                      </span>
+                    )
                   )}
                 </>
               )}
@@ -576,15 +605,17 @@ export default function AdminInitialProductProcessing() {
                       )}
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => setShowFtModal(true)}
-                      style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                      title="Food Technologist must be assigned before enabling form"
-                    >
-                      <User size={14} /> Assign FT to Enable Form &rarr;
-                    </button>
+                    canAssignFoodTech(user) ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowFtModal(true)}
+                        style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        title="Food Technologist must be assigned before enabling form"
+                      >
+                        <User size={14} /> Assign FT to Enable Form &rarr;
+                      </button>
+                    ) : null
                   )
                 )}
 
@@ -722,14 +753,16 @@ export default function AdminInitialProductProcessing() {
                 {hasFtAssigned ? (
                   logsheets.length === 0 ? (
                     isFormReceived ? (
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
-                        style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                      >
-                        <Plus size={14} /> Create Logsheet
-                      </button>
+                      canManageForm ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => navigate(`/admin/initial-products/${id}/logsheet`)}
+                          style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <Plus size={14} /> Create Logsheet
+                        </button>
+                      ) : null
                     ) : (
                       <span
                         style={{
@@ -760,24 +793,26 @@ export default function AdminInitialProductProcessing() {
                     </button>
                   )
                 ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowFtModal(true)}
-                    style={{
-                      color: '#b45309',
-                      borderColor: '#fde68a',
-                      background: '#fffbeb',
-                      fontWeight: 800,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      fontSize: 12
-                    }}
-                    title="Food Technologist must be assigned before creating logsheet"
-                  >
-                    <User size={14} /> Assign FT to Enable Logsheet &rarr;
-                  </button>
+                  canAssignFoodTech(user) ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowFtModal(true)}
+                      style={{
+                        color: '#b45309',
+                        borderColor: '#fde68a',
+                        background: '#fffbeb',
+                        fontWeight: 800,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        fontSize: 12
+                      }}
+                      title="Food Technologist must be assigned before creating logsheet"
+                    >
+                      <User size={14} /> Assign FT to Enable Logsheet &rarr;
+                    </button>
+                  ) : null
                 )}
               </div>
             </div>
@@ -813,7 +848,11 @@ export default function AdminInitialProductProcessing() {
                 </div>
               ) : (
                 <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, color: '#64748b' }}>
-                  Product Approval Form received. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.
+                  {canManageForm ? (
+                    <>Product Approval Form received. Click <strong>Create Logsheet</strong> to initiate Shari'a &amp; Technical committee sign-offs.</>
+                  ) : (
+                    <>Product Approval Form received. Awaiting Food Technologist to create committee logsheet.</>
+                  )}
                 </div>
               )
             ) : (

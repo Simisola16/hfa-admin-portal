@@ -1,9 +1,14 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { FileCheck, Download, Lock, UploadCloud, CheckCircle, RefreshCw, Send } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { canSendAgreement } from '../lib/permissions';
 
+export default function AgreementCard({ app, agreement, status, user: propUser, onReupload, onSendFinal, onMarkDone, markingDone = false }) {
+  const auth = useAuth?.() || {};
+  const user = propUser || auth.user;
+  const canManage = canSendAgreement(user);
 
-export default function AgreementCard({ app, agreement, status, onReupload, onSendFinal, onMarkDone, markingDone = false }) {
   const normalizedStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
   const finalInvoiceSentStatuses = ['final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'];
   const canReupload = !finalInvoiceSentStatuses.includes(normalizedStatus);
@@ -88,10 +93,12 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
         </div>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Certification Agreement Ready</div>
         <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4, maxWidth: 420, margin: '4px auto 16px', lineHeight: 1.45 }}>
-          LogSheet has been approved. You can now send the official certification agreement document to the client.
+          {canManage
+            ? 'LogSheet has been approved. You can now send the official certification agreement document to the client.'
+            : 'LogSheet has been approved. Awaiting Scheme Manager to send certification agreement to the client.'}
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {onReupload && canReupload && (
+          {canManage && onReupload && canReupload && (
             <button
               type="button"
               className="btn btn-primary"
@@ -142,7 +149,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
         {/* Action Controls & Download Links */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Re-upload Agreement Button */}
-          {onReupload && canReupload && (
+          {canManage && onReupload && canReupload && (
             <button
               type="button"
               className="btn btn-outline btn-sm"
@@ -155,7 +162,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
           )}
 
           {/* STEP 1: When client has signed, but Admin has NOT sent their signed copy yet -> Show 'Send HFA Signed Agreement' button */}
-          {hasClientSigned && !hasAdminSentSignedCopy && onSendFinal && (
+          {canManage && hasClientSigned && !hasAdminSentSignedCopy && onSendFinal && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -180,7 +187,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
           )}
 
           {/* STEP 2: ONLY AFTER Admin has sent their own signed agreement -> Show 'Mark Agreement Done' button (until finalized) */}
-          {hasAdminSentSignedCopy && onMarkDone && agreement?.status !== 'finalized' && !['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
+          {canManage && hasAdminSentSignedCopy && onMarkDone && agreement?.status !== 'finalized' && !['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -250,7 +257,7 @@ export default function AgreementCard({ app, agreement, status, onReupload, onSe
                 <div style={{ fontSize: 12, color: '#15803d', marginTop: 1 }}>Please send the HFA countersigned / signed agreement copy to unlock the next stage.</div>
               </div>
             </div>
-            {onSendFinal && (
+            {canManage && onSendFinal && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"

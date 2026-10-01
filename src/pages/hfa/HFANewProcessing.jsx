@@ -12,6 +12,20 @@ import { getPdfUrl } from '../../lib/pdfUtils';
 import ProcessingTimeline from '../../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../../lib/applicationStatuses';
 import { getSocket } from '../../lib/socket';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canAcceptOrRejectApp,
+  canSendProposal,
+  canSendAgreement,
+  canSendInvoice,
+  canConfirmPayment,
+  canManageAuditDates,
+  canManageNC,
+  canCompleteAudit,
+  canMarkApplicationSuccessful,
+  canCreateLogsheet,
+  canIssueCertificate
+} from '../../lib/permissions';
 
 // Extracted Modals
 import ProposalModal from '../../components/ProposalModal';
@@ -52,6 +66,9 @@ export default function HFANewProcessing(props) {
   const params = useParams();
   const navigate = useNavigate();
   const appId = props.appId || params.appId;
+
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
 
   const [app, setApp] = useState(props.app || null);
   const [loading, setLoading] = useState(!props.app);
@@ -573,7 +590,7 @@ export default function HFANewProcessing(props) {
     (invoice && invoice.invoice_type === 'final' ? invoice : null);
   const isFinalInvoicePaid = (finalInvoice && (finalInvoice.status === 'paid' || finalInvoice.status === 'confirmed' || finalInvoice.status === 'payment_received')) || status === 'final_invoice_paid';
   const isInitialProductApproved = Boolean(status === 'initial_product_approved' || (initialProduct && initialProduct.status === 'initial_product_approved') || app?.is_initial_product_approved);
-  const canCompleteAudit = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
+  const auditCanBeCompleted = status === 'audit_assigned' || activeAudit?.status === 'auditors_assigned' || (activeAudit?.status === 'date_finalized' && activeAudit?.auditors?.length > 0);
 
   const renderPrimaryAction = () => {
     // 0. Final states (Done / Certificate Issued)
@@ -595,6 +612,13 @@ export default function HFANewProcessing(props) {
 
     // 1. Initial Application Review (Accept / Put On Hold / Reject)
     if (status === 'submitted' || status === 'under_review') {
+      if (!canAcceptOrRejectApp(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Awaiting Scheme Manager Decision
+          </span>
+        );
+      }
       return (
         <>
           <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
@@ -616,6 +640,13 @@ export default function HFANewProcessing(props) {
 
     // 2. Proposal Stage
     if (status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected') {
+      if (!canSendProposal(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Proposal in Progress (Scheme Manager)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -630,6 +661,13 @@ export default function HFANewProcessing(props) {
     // 3. Initial Invoice Stage
     if (status === 'proposal_approved' || status === 'proposal_accepted' || status === 'invoice_sent') {
       if (initialInvoice?.status === 'client_paid' || invoice?.status === 'client_paid' || (allInvoices.length > 0 && allInvoices[0].status === 'client_paid')) {
+        if (!canConfirmPayment(currentUser)) {
+          return (
+            <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Client Paid (Awaiting Accountant Verification)
+            </span>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -639,6 +677,13 @@ export default function HFANewProcessing(props) {
           >
             <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
           </button>
+        );
+      }
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
         );
       }
       return (
@@ -697,25 +742,37 @@ export default function HFANewProcessing(props) {
         );
       }
 
-      if (canCompleteAudit) {
+      if (auditCanBeCompleted) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
-            </button>
+            {canManageAuditDates(currentUser) && (
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Audit
+              </button>
+            )}
+            {canCompleteAudit(currentUser) && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
+              </button>
+            )}
           </div>
+        );
+      }
+
+      if (!canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={15} /> Audit in Progress (Audit Team)
+          </span>
         );
       }
 
@@ -732,6 +789,13 @@ export default function HFANewProcessing(props) {
 
     // 5. Post-Audit Decision (NC Resolution)
     if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold')) {
+      if (!canManageNC(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={15} /> Non-Conformance Review (Audit Team)
+          </span>
+        );
+      }
       return (
         <>
           <button
@@ -758,6 +822,13 @@ export default function HFANewProcessing(props) {
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
     if (!hasActiveNc && !isLogsheetSigned && ['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
+      if (!canCreateLogsheet(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Processing (Audit / Technical Staff)
+          </span>
+        );
+      }
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -772,6 +843,13 @@ export default function HFANewProcessing(props) {
     }
 
     if (status === 'logsheet_signed') {
+      if (!canMarkApplicationSuccessful(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Signed (Awaiting Audit Manager Decision)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -786,6 +864,13 @@ export default function HFANewProcessing(props) {
 
     // 7. Send Agreement Stage
     if (status === 'application_successful' || status === 'agreement_sent') {
+      if (!canSendAgreement(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Awaiting Agreement Issuance (Scheme Manager)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -799,6 +884,13 @@ export default function HFANewProcessing(props) {
 
     // 8. Final Countersigned Agreement Copy
     if (status === 'agreement_signed') {
+      if (!canSendAgreement(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Agreement Signed by Client (Awaiting Final Countersigned Copy)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -813,6 +905,13 @@ export default function HFANewProcessing(props) {
     // 9. Final Invoice Stage
     if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
       if (finalInvoice?.status === 'client_paid') {
+        if (!canConfirmPayment(currentUser)) {
+          return (
+            <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Final Invoice Paid (Awaiting Accountant Verification)
+            </span>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -831,6 +930,13 @@ export default function HFANewProcessing(props) {
           </span>
         );
       }
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Final Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -844,6 +950,13 @@ export default function HFANewProcessing(props) {
 
     // 10. Mark Ready for Certificate Stage
     if (status === 'final_invoice_paid' || status === 'agreement_finalised') {
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Officer Action
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -882,6 +995,14 @@ export default function HFANewProcessing(props) {
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
             <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Issuance (Certificate Officer)
           </span>
         );
       }
@@ -1027,7 +1148,7 @@ export default function HFANewProcessing(props) {
             invoice={initialInvoice}
             status={app?.status}
             isInitial={true}
-            onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            onConfirmPayment={initialInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
             onSendInvoice={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
           />
@@ -1091,7 +1212,7 @@ export default function HFANewProcessing(props) {
               invoice={finalInvoice}
               status={app?.status}
               isFinal={true}
-              onConfirmPayment={finalInvoice?.status === 'client_paid' ? handleConfirmFinalPayment : undefined}
+              onConfirmPayment={finalInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmFinalPayment : undefined}
               confirmingPayment={confirmingPayment}
               onSendInvoice={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
             />

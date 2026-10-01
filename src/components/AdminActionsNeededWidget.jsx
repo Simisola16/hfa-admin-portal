@@ -8,6 +8,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import {
+  isSuperAdmin, canAcceptOrRejectApp, canSendProposal, canSendAgreement,
+  canSendInvoice, canConfirmPayment, canManageAuditDates, canManageNC,
+  canCreateLogsheet, canIssueCertificate, canManageProductForm,
+} from '../lib/permissions';
 
 // Shared Admin Modals
 import ProposalModal from './ProposalModal';
@@ -25,8 +31,62 @@ const getCleanId = (val) => {
   return String(val);
 };
 
+/**
+ * Maps each action item type to its required role permission.
+ * Ensures each admin only sees action items relevant to their role team.
+ */
+function canHandleItem(item, user) {
+  if (!user) return false;
+  if (isSuperAdmin(user)) return true;
+  switch (item.type) {
+    case 'confirm_payment':
+      return canConfirmPayment(user);
+    case 'send_initial_invoice':
+    case 'send_final_invoice':
+      return canSendInvoice(user);
+    case 'send_proposal':
+      return canSendProposal(user);
+    case 'send_agreement':
+    case 'send_final_agreement':
+    case 'mark_ready_certificate':
+      return canSendAgreement(user);
+    case 'review_app':
+      // NC review tasks → Audit Team; Application review tasks → Scheme Manager
+      return item.category === 'ncs' ? canManageNC(user) : canAcceptOrRejectApp(user);
+    case 'manage_audit':
+    case 'finalize_audit_date':
+      return canManageAuditDates(user);
+    case 'create_logsheet':
+      return canCreateLogsheet(user);
+    case 'review_init_prod':
+    case 'enable_init_prod_form':
+    case 'create_init_prod_logsheet':
+    case 'manage_init_prod_logsheet':
+    case 'review_addon':
+    case 'enable_addon_form':
+    case 'create_addon_logsheet':
+    case 'manage_addon_logsheet':
+      return canManageProductForm(user);
+    case 'issue_certificate':
+    case 'update_addon_certificate':
+      return canIssueCertificate(user);
+    case 'navigate':
+      // "In Progress" navigation items are FT team workflow items
+      return canManageProductForm(user);
+    case 'review_extension':
+    case 'create_extension_logsheet':
+    case 'manage_extension_logsheet':
+    case 'issue_extension_certificate':
+      // Extension applications are managed by Scheme Manager or Audit Manager
+      return canAcceptOrRejectApp(user) || canManageAuditDates(user);
+    default:
+      return false;
+  }
+}
+
 export default function AdminActionsNeededWidget({ onActionCompleted }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -855,9 +915,12 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
     }
   };
 
-  // Filtered action items
+  // Role-filtered items: only items the current user's team is responsible for
+  const userItems = useMemo(() => items.filter(item => canHandleItem(item, user)), [items, user]);
+
+  // Search + category filtered items (scoped to user's role)
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return userItems.filter(item => {
       const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
       if (!matchesCategory) return false;
 
@@ -869,23 +932,23 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
       const desc = String(item.desc || '').toLowerCase();
       return appNum.includes(q) || estName.includes(q) || title.includes(q) || desc.includes(q);
     });
-  }, [items, activeCategory, searchQuery]);
+  }, [userItems, activeCategory, searchQuery]);
 
   const categoryCounts = useMemo(() => {
     return {
-      all: items.length,
-      applications: items.filter(i => i.category === 'applications').length,
-      ncs: items.filter(i => i.category === 'ncs').length,
-      proposals: items.filter(i => i.category === 'proposals').length,
-      invoices: items.filter(i => i.category === 'invoices').length,
-      initial_products: items.filter(i => i.category === 'initial_products').length,
-      addons: items.filter(i => i.category === 'addons').length,
-      extensions: items.filter(i => i.category === 'extensions').length,
+      all: userItems.length,
+      applications: userItems.filter(i => i.category === 'applications').length,
+      ncs: userItems.filter(i => i.category === 'ncs').length,
+      proposals: userItems.filter(i => i.category === 'proposals').length,
+      invoices: userItems.filter(i => i.category === 'invoices').length,
+      initial_products: userItems.filter(i => i.category === 'initial_products').length,
+      addons: userItems.filter(i => i.category === 'addons').length,
+      extensions: userItems.filter(i => i.category === 'extensions').length,
     };
-  }, [items]);
+  }, [userItems]);
 
   if (loading && items.length === 0) return null;
-  if (items.length === 0) return null;
+  if (userItems.length === 0) return null;
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -924,11 +987,11 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                 borderRadius: 12, padding: '2px 10px',
                 fontSize: 12, fontWeight: 800, letterSpacing: '0.02em'
               }}>
-                {items.length} {items.length === 1 ? 'Task' : 'Tasks'}
+                {userItems.length} {userItems.length === 1 ? 'Task' : 'Tasks'}
               </span>
             </div>
             <div style={{ fontSize: 13, color: '#3b82f6', marginTop: 3, fontWeight: 500 }}>
-              {items.length === 1 ? '1 task requires immediate administrative action' : `${items.length} tasks require immediate administrative action`} &middot; Click to review &amp; process
+              {userItems.length === 1 ? '1 task requires immediate administrative action' : `${userItems.length} tasks require immediate administrative action`} &middot; Click to review &amp; process
             </div>
           </div>
         </div>
@@ -970,7 +1033,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
                     Admin Action Required
                     <span style={{ background: '#2563eb', color: 'white', borderRadius: 12, padding: '2px 9px', fontSize: 12, fontWeight: 800 }}>
-                      {items.length}
+                      {userItems.length}
                     </span>
                   </div>
                   <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
@@ -1205,7 +1268,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             {/* Modal Footer */}
             <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>
-                Showing <strong>{filteredItems.length}</strong> of <strong>{items.length}</strong> pending action {items.length === 1 ? 'item' : 'items'}
+                Showing <strong>{filteredItems.length}</strong> of <strong>{userItems.length}</strong> pending action {userItems.length === 1 ? 'item' : 'items'}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button

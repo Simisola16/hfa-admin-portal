@@ -1,9 +1,12 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
-
+import { useAuth } from '../context/AuthContext';
+import { canManageAuditDates } from '../lib/permissions';
 
 export default function AuditCard({ audits, status, app, initialProduct, isInitialProductApproved = true, isFastTrack = false, onManage }) {
+  const { user } = useAuth();
+  const canManage = canManageAuditDates(user);
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
   const hasAudits = audits && audits.length > 0;
 
@@ -134,11 +137,11 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
           </div>
         )}
 
-        {onManage && !isAuditLockedByProduct ? (
+        {canManage && onManage && !isAuditLockedByProduct ? (
           <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={onManage}>
             Schedule Audit
           </button>
-        ) : isAuditLockedByProduct ? (
+        ) : canManage && isAuditLockedByProduct ? (
           <button
             className="btn btn-outline btn-sm"
             disabled
@@ -259,7 +262,7 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
             </div>
           </div>
         </div>
-        {onManage && (
+        {canManage && onManage && (
           <button className="btn btn-ghost btn-sm" onClick={onManage} style={{ fontSize: 12 }}>
             Manage
           </button>

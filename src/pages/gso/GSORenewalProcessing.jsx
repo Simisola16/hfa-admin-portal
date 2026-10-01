@@ -11,6 +11,18 @@ import { getPdfUrl } from '../../lib/pdfUtils';
 import ProcessingTimeline from '../../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../../lib/applicationStatuses';
 import { getSocket } from '../../lib/socket';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canAcceptOrRejectApp,
+  canSendInvoice,
+  canConfirmPayment,
+  canManageAuditDates,
+  canCompleteAudit,
+  canManageNC,
+  canCreateLogsheet,
+  canMarkApplicationSuccessful,
+  canIssueCertificate
+} from '../../lib/permissions';
 
 // Shared Modals
 import InvoiceModal from '../../components/InvoiceModal';
@@ -30,6 +42,9 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const routeParams = useParams();
   const appId = propAppId || routeParams.appId;
   const navigate = useNavigate();
+
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
 
   const [app, setApp] = useState(initialData?.app || null);
   const [loading, setLoading] = useState(true);
@@ -200,7 +215,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
   const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
   const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
-  const canCompleteAudit = isStage1Complete ? isStage2Ready : isStage1Ready;
+  const auditCanBeCompleted = isStage1Complete ? isStage2Ready : isStage1Ready;
 
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
@@ -530,6 +545,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
   const renderPrimaryAction = () => {
     // 1. Initial Review
     if (status === 'submitted' || status === 'under_review') {
+      if (!canAcceptOrRejectApp(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Awaiting Scheme Manager Decision
+          </span>
+        );
+      }
       return (
         <>
           <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
@@ -589,6 +611,14 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
         );
       }
 
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Issuance (Certificate Officer)
+          </span>
+        );
+      }
+
       return (
         <button
           className="btn btn-primary"
@@ -608,6 +638,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     ) && !isRenewalInvoicePaid;
 
     if (isRenewalClientPaid) {
+      if (!canConfirmPayment(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Client Paid (Awaiting Accountant Verification)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -622,6 +659,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
     // 5A. Post-Payment Stage: Bring button to mark ready for certificate!
     if ((status === 'payment_received' || isRenewalInvoicePaid) && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done') {
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Officer Action
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -635,6 +679,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     if (status === 'invoice_sent' && !isRenewalInvoicePaid) {
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -647,6 +698,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     if (status === 'application_successful' && !renewalInvoice) {
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -663,6 +721,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
     if (isStage2Complete && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
       if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done' && status !== 'invoice_sent' && status !== 'payment_received') {
+        if (!canCreateLogsheet(currentUser)) {
+          return (
+            <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ClipboardList size={15} /> Logsheet Processing (Audit / Technical Staff)
+            </span>
+          );
+        }
         const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
         return (
           <button
@@ -678,6 +743,13 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     }
 
     if (status === 'logsheet_signed') {
+      if (!canMarkApplicationSuccessful(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Signed (Awaiting Audit Manager Decision)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -692,47 +764,63 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
 
     // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
     if (!isStage2Complete) {
-      if (canCompleteAudit) {
+      if (auditCanBeCompleted) {
         if (isStage1Complete) {
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-ghost"
-                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-                onClick={() => setShowAuditModal(true)}
-              >
-                <Calendar size={16} /> Manage Stage 2 Audit
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                onClick={handleMarkAuditCompleted}
-                disabled={actionSubmitting}
-              >
-                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
-              </button>
+              {canManageAuditDates(currentUser) && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                  onClick={() => setShowAuditModal(true)}
+                >
+                  <Calendar size={16} /> Manage Stage 2 Audit
+                </button>
+              )}
+              {canCompleteAudit(currentUser) && (
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                  onClick={handleMarkAuditCompleted}
+                  disabled={actionSubmitting}
+                >
+                  <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+                </button>
+              )}
             </div>
           );
         }
 
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Stage 1 Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
-            </button>
+            {canManageAuditDates(currentUser) && (
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 1 Audit
+              </button>
+            )}
+            {canCompleteAudit(currentUser) && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
+              </button>
+            )}
           </div>
+        );
+      }
+
+      if (!canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={15} /> Audit in Progress (Audit Team)
+          </span>
         );
       }
 
@@ -754,31 +842,44 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
     // Step A: ONLY AFTER Stage 2 audit has been marked completed (and NC not yet closed):
     // Show [Manage Audit], [Flag NC], and [Close NC]
     if (isStage2Complete && !isNcClosed) {
+      if (!canManageNC(currentUser) && !canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={15} /> Non-Conformance Review (Audit Team)
+          </span>
+        );
+      }
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-ghost"
-            style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-            onClick={() => setShowAuditModal(true)}
-          >
-            <Calendar size={16} /> Manage Audit
-          </button>
-          <button
-            className="btn btn-danger"
-            style={{ gap: 8 }}
-            onClick={() => setShowNcModal(true)}
-            disabled={actionSubmitting}
-          >
-            <AlertTriangle size={16} /> Flag NC
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-            onClick={handleCloseNc}
-            disabled={actionSubmitting}
-          >
-            <CheckCircle size={16} /> Close NC
-          </button>
+          {canManageAuditDates(currentUser) && (
+            <button
+              className="btn btn-ghost"
+              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+              onClick={() => setShowAuditModal(true)}
+            >
+              <Calendar size={16} /> Manage Audit
+            </button>
+          )}
+          {canManageNC(currentUser) && (
+            <>
+              <button
+                className="btn btn-danger"
+                style={{ gap: 8 }}
+                onClick={() => setShowNcModal(true)}
+                disabled={actionSubmitting}
+              >
+                <AlertTriangle size={16} /> Flag NC
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleCloseNc}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> Close NC
+              </button>
+            </>
+          )}
         </div>
       );
     }
@@ -907,7 +1008,7 @@ export default function GSORenewalProcessing({ appId: propAppId, initialData }) 
             status={app?.status}
             isInitial={false}
             isRenewal={true}
-            onConfirmPayment={renewalInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            onConfirmPayment={renewalInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
             onSendInvoice={() => setShowInvoiceModal(true)}
           />

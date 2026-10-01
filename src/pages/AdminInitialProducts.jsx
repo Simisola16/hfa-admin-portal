@@ -8,6 +8,7 @@ import {
   Settings, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { canAssignFoodTech } from '../lib/permissions';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 
@@ -46,7 +47,7 @@ export default function AdminInitialProducts() {
   const [customFtNotes, setCustomFtNotes] = useState('');
   const [submittingFt, setSubmittingFt] = useState(false);
 
-  const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
+  const isManagerOrAdmin = canAssignFoodTech(user);
 
   const fetchApps = async () => {
     setLoading(true);

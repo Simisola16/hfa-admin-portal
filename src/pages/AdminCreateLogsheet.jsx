@@ -722,12 +722,12 @@ export default function AdminCreateLogsheet() {
 
             audit_type: autoAuditType,
             audit_date: autoAuditDate || todayStr,
-            auditors: autoAuditors || (user?.full_name ? `${user.full_name} (Lead Auditor)` : 'Lead Auditor'),
+            auditors: autoAuditors || (user?.full_name ? `${user.full_name}` : ''),
             ncs_close: autoNcsClose,
             docs_satisfactory: 'Satisfactory - all documentation verified',
             pork_free_statement: 'Confirmed - signed pork-free declaration in place',
-            reviewed_by: user?.full_name || 'HFA Technical Committee',
-            reviewer_name: user?.full_name || 'Technical Reviewer',
+            reviewed_by: user?.full_name || '',
+            reviewer_name: user?.full_name || '',
             review_date: todayStr,
 
             annual_certificate: 'Yes',

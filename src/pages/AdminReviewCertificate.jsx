@@ -758,7 +758,16 @@ export default function AdminReviewCertificate() {
         review_notes: form.review_notes
       };
 
-      const res = await api.post(`/api/certificates/${certId}/approve-and-send`, payload);
+      let res;
+      try {
+        res = await api.post(`/api/certificates/${certId}/approve-and-send`, payload);
+      } catch (postErr) {
+        if (postErr.response?.status === 404) {
+          res = await api.put(`/api/certificates/${certId}/approve`, payload);
+        } else {
+          throw postErr;
+        }
+      }
 
       toast.success('🏅 Certificate approved & successfully issued to client!');
       setShowConfirmModal(false);

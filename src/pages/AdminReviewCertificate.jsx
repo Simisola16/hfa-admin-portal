@@ -293,49 +293,63 @@ export default function AdminReviewCertificate() {
               return pSiteIdStr === targetSiteStr;
             });
 
-            const prodsToAdd = siteMatched.length > 0 ? siteMatched : clientMatched;
-            prodsToAdd.forEach(p => addCandidate(p, siteMatched.length > 0 ? 'site_inventory' : 'client_inventory'));
+            // If targetSiteStr exists, ONLY allow siteMatched products (never fall back to other sites of this client!)
+            const prodsToAdd = targetSiteStr ? siteMatched : clientMatched;
+            prodsToAdd.forEach(p => addCandidate(p, targetSiteStr ? 'site_inventory' : 'client_inventory'));
           }
         } catch (err) {
           console.warn('Fallback /api/products query failed:', err);
         }
 
-        // Fallback B: Products from populated application_id
-        if (c.application_id?.products && Array.isArray(c.application_id.products)) {
-          c.application_id.products.forEach(p => addCandidate(p, 'application'));
-        }
-
-        // Fallback C: Products from ApplicationLogsheet
-        if (appId) {
-          try {
-            const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
-            const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
-            const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
-            logsheets.forEach(l => {
-              if (Array.isArray(l.products_list)) {
-                l.products_list.forEach(p => addCandidate(p, 'logsheet'));
-              }
-              if (l.product_name) {
-                addCandidate({ name: l.product_name }, 'logsheet');
+        // Only use Fallbacks B, C, D if targetSiteId was not specified or if no site products found yet
+        if (!targetSiteId || fallbackMap.size === 0) {
+          // Fallback B: Products from populated application_id
+          if (c.application_id?.products && Array.isArray(c.application_id.products)) {
+            c.application_id.products.forEach(p => {
+              if (!targetSiteId || !p.site_id || String(p.site_id._id || p.site_id) === String(targetSiteId._id || targetSiteId)) {
+                addCandidate(p, 'application');
               }
             });
-          } catch (err) {
-            console.warn('Fallback logsheet check notice:', err?.message);
+          }
+
+          // Fallback C: Products from ApplicationLogsheet
+          if (appId) {
+            try {
+              const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
+              const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
+              const logsheets = Array.isArray(logsheetData) ? logsheetData : (logsheetData ? [logsheetData] : []);
+              logsheets.forEach(l => {
+                const lSiteId = l.site_id ? String(l.site_id._id || l.site_id) : '';
+                const targetSiteStr = targetSiteId ? String(targetSiteId._id || targetSiteId) : '';
+                if (!targetSiteStr || !lSiteId || lSiteId === targetSiteStr) {
+                  if (Array.isArray(l.products_list)) {
+                    l.products_list.forEach(p => addCandidate(p, 'logsheet'));
+                  }
+                  if (l.product_name) {
+                    addCandidate({ name: l.product_name }, 'logsheet');
+                  }
+                }
+              });
+            } catch (err) {
+              console.warn('Fallback logsheet check notice:', err?.message);
+            }
           }
         }
 
-        // Fallback D: Products currently recorded on certificate
-        if (Array.isArray(c.product_details)) {
-          c.product_details.forEach(p => addCandidate(p, 'certificate'));
-        }
-        if (Array.isArray(c.products_covered)) {
-          c.products_covered.forEach(p => {
-            if (typeof p === 'string') addCandidate({ name: p }, 'certificate');
-            else if (typeof p === 'object') addCandidate(p, 'certificate');
-          });
-        }
-
         fetchedSiteProducts = Array.from(fallbackMap.values());
+      }
+
+      // Enforce that fetchedSiteProducts strictly belongs to targetSiteId
+      if (targetSiteId && fetchedSiteProducts.length > 0) {
+        const targetSiteStr = String(targetSiteId._id || targetSiteId).trim();
+        const siteStrict = fetchedSiteProducts.filter(p => {
+          if (!p.site_id) return true;
+          const pSiteStr = String(p.site_id._id || p.site_id).trim();
+          return pSiteStr === targetSiteStr;
+        });
+        if (siteStrict.length > 0) {
+          fetchedSiteProducts = siteStrict;
+        }
       }
 
       setSiteProducts(fetchedSiteProducts);
@@ -368,11 +382,77 @@ export default function AdminReviewCertificate() {
           : []
         );
 
-      // If certificate has NO products recorded yet, but site products are available, default to selecting all site products
-      if (resolvedDetails.length === 0 && fetchedSiteProducts.length > 0) {
+      // If site products are available, strictly filter resolvedDetails so products from other sites do not appear
+      if (fetchedSiteProducts.length > 0) {
+        const siteIdMap = new Map();
+        const siteCodeMap = new Map();
+        const siteNameMap = new Map();
+
+        fetchedSiteProducts.forEach(sp => {
+          const spId = sp._id ? (sp._id.toString ? sp._id.toString() : sp._id) : (sp.id || '');
+          if (spId) siteIdMap.set(String(spId), sp);
+          if (sp.code && sp.code.trim()) {
+            siteCodeMap.set(sp.code.trim().toLowerCase(), sp);
+          }
+          if (sp.barcode && sp.barcode.trim()) {
+            siteCodeMap.set(sp.barcode.trim().toLowerCase(), sp);
+          }
+          if (sp.name && sp.name.trim()) {
+            siteNameMap.set(sp.name.trim().toLowerCase(), sp);
+          }
+        });
+
+        const filteredDetails = [];
+        const seenKeys = new Set();
+
+        resolvedDetails.forEach(d => {
+          if (!d || !d.name) return;
+          const dId = d._id ? (d._id.toString ? d._id.toString() : d._id) : (d.id || '');
+          const dCode = (d.code || d.barcode || '').trim().toLowerCase();
+          const dName = (d.name || '').trim().toLowerCase();
+
+          let matchedSp = null;
+          if (dId && siteIdMap.has(String(dId))) {
+            matchedSp = siteIdMap.get(String(dId));
+          } else if (dCode && siteCodeMap.has(dCode)) {
+            matchedSp = siteCodeMap.get(dCode);
+          } else if (dName && siteNameMap.has(dName)) {
+            matchedSp = siteNameMap.get(dName);
+          }
+
+          if (matchedSp) {
+            const uniqueKey = matchedSp._id ? String(matchedSp._id) : (matchedSp.id ? String(matchedSp.id) : `${matchedSp.name}_${matchedSp.code || ''}`);
+            if (!seenKeys.has(uniqueKey)) {
+              seenKeys.add(uniqueKey);
+              filteredDetails.push({
+                ...d,
+                id: matchedSp.id || matchedSp._id || d.id || d._id,
+                name: matchedSp.name || d.name,
+                code: (matchedSp.code || matchedSp.barcode || d.code || '').trim(),
+                category: matchedSp.category || d.category || 'Halal Certified',
+                barcode: matchedSp.barcode || d.barcode || ''
+              });
+            }
+          }
+        });
+
+        // If the certificate had products from other sites or no matching items for this facility, default to all site products
+        if (filteredDetails.length > 0) {
+          resolvedDetails = filteredDetails;
+        } else {
+          resolvedDetails = fetchedSiteProducts.map((p, idx) => ({
+            id: p.id || p._id,
+            name: p.name,
+            code: p.code || p.barcode || `PRD-${String(idx + 1).padStart(2, '0')}`,
+            category: p.category || 'Halal Certified',
+            barcode: p.barcode || ''
+          }));
+        }
+      } else if (resolvedDetails.length === 0 && fetchedSiteProducts.length > 0) {
         resolvedDetails = fetchedSiteProducts.map((p, idx) => ({
+          id: p.id || p._id,
           name: p.name,
-          code: p.code || `PRD-${String(idx + 1).padStart(2, '0')}`,
+          code: p.code || p.barcode || `PRD-${String(idx + 1).padStart(2, '0')}`,
           category: p.category || 'Halal Certified',
           barcode: p.barcode || ''
         }));
@@ -1533,13 +1613,13 @@ export default function AdminReviewCertificate() {
                     </span>
                     {siteProducts.length > 0 && (
                       <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12 }}>
-                        {selectedSiteCount} / {siteProducts.length} Client Items Picked
+                        {selectedSiteCount} / {siteProducts.length} Site Items Picked
                       </span>
                     )}
                   </div>
                   <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
                     {siteProducts.length > 0
-                      ? `Select products from ${(siteData?.name || clientUser?.company_name || 'client')}'s catalog to include on this certificate:`
+                      ? `Select products from ${(siteData?.name || siteData?.site_name || clientUser?.company_name || 'facility')}'s catalog to include on this certificate:`
                       : 'Add and certify products directly covered under this certificate'}
                   </p>
                 </div>

@@ -364,11 +364,26 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       candidateProducts.forEach((p, idx) => {
         if (!p) return;
         const pName = (p.name || p.title || p.new_name || '').trim();
-        if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+        const pCode = (p.code || p.barcode || '').trim();
+        const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
+
+        const isDuplicate = resolvedProductItems.some(r => {
+          if (pId && r.id && r.id === pId) return true;
+          if (r.name.toLowerCase() === pName.toLowerCase()) {
+            const rCode = (r.code || '').trim().toLowerCase();
+            const curCode = pCode.toLowerCase();
+            if (rCode && curCode) return rCode === curCode;
+            if (!rCode && !curCode) return true;
+            return false;
+          }
+          return false;
+        });
+
+        if (pName && !isDuplicate) {
           resolvedProductItems.push({
-            id: p._id ? String(p._id) : (p.id ? String(p.id) : `prd-${idx}`),
+            id: pId || `prd-${idx}`,
             name: pName,
-            code: p.code || p.barcode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+            code: pCode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
             category: p.category || loadedApp?.category || 'Halal Certified',
             ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
             description: p.description || '',
@@ -393,11 +408,24 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         }
         epList.forEach((item, idx) => {
           const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
-          if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+          const pCode = typeof item === 'object' && item.code ? String(item.code).trim() : '';
+
+          const isDuplicate = resolvedProductItems.some(r => {
+            if (r.name.toLowerCase() === pName.toLowerCase()) {
+              const rCode = (r.code || '').trim().toLowerCase();
+              const curCode = pCode.toLowerCase();
+              if (rCode && curCode) return rCode === curCode;
+              if (!rCode && !curCode) return true;
+              return false;
+            }
+            return false;
+          });
+
+          if (pName && !isDuplicate) {
             resolvedProductItems.push({
               id: `ep-${idx}`,
               name: pName,
-              code: typeof item === 'object' && item.code ? item.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+              code: pCode || `PRD-${String(idx + 1).padStart(2, '0')}`,
               category: typeof item === 'object' && item.category ? item.category : (loadedApp?.category || 'Halal Certified'),
               isSelected: true
             });
@@ -422,11 +450,26 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         if (Array.isArray(initProd.products) && initProd.products.length > 0) {
           initProd.products.forEach((p, idx) => {
             const pName = (p.name || p.title || '').trim();
-            if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+            const pCode = (p.code || '').trim();
+            const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
+
+            const isDuplicate = resolvedProductItems.some(r => {
+              if (pId && r.id && r.id === pId) return true;
+              if (r.name.toLowerCase() === pName.toLowerCase()) {
+                const rCode = (r.code || '').trim().toLowerCase();
+                const curCode = pCode.toLowerCase();
+                if (rCode && curCode) return rCode === curCode;
+                if (!rCode && !curCode) return true;
+                return false;
+              }
+              return false;
+            });
+
+            if (pName && !isDuplicate) {
               resolvedProductItems.push({
-                id: `init-${idx + 1}`,
+                id: pId || `init-${idx + 1}`,
                 name: pName,
-                code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                code: pCode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
                 category: p.category || loadedApp?.category || 'Halal Certified',
                 ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || ''),
                 description: p.description || '',
@@ -444,32 +487,63 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           const pType = p.type || 'Add product';
           const pName = (p.new_name || p.name || p.title || '').trim();
           const origName = (p.original_name || p.name || '').trim();
+          const pCode = (p.code || p.new_code || '').trim();
+          const origCode = (p.original_code || p.code || '').trim();
+          const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
 
           if (pType === 'Add product' || !p.type) {
-            if (pName && !resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+            const isDuplicate = resolvedProductItems.some(r => {
+              if (pId && r.id && r.id === pId) return true;
+              if (r.name.toLowerCase() === pName.toLowerCase()) {
+                const rCode = (r.code || '').trim().toLowerCase();
+                const curCode = pCode.toLowerCase();
+                if (rCode && curCode) return rCode === curCode;
+                if (!rCode && !curCode) return true;
+                return false;
+              }
+              return false;
+            });
+
+            if (pName && !isDuplicate) {
               resolvedProductItems.push({
-                id: p._id ? String(p._id) : `addon-${resolvedProductItems.length}`,
+                id: pId || `addon-${resolvedProductItems.length}`,
                 name: pName,
-                code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                code: pCode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
                 category: p.category || loadedApp?.category || 'Halal Certified',
                 isSelected: true
               });
             }
           } else if (pType === 'Remove product') {
             if (origName) {
-              resolvedProductItems = resolvedProductItems.filter(item => item.name.toLowerCase() !== origName.toLowerCase());
+              resolvedProductItems = resolvedProductItems.filter(item => {
+                const sameName = item.name.toLowerCase() === origName.toLowerCase();
+                const itemCode = (item.code || '').trim().toLowerCase();
+                const targetCode = origCode.toLowerCase();
+                if (sameName && targetCode) {
+                  return itemCode !== targetCode;
+                }
+                return !sameName;
+              });
             }
           } else if (pType === 'Change name/code') {
             if (origName && pName) {
-              const idx = resolvedProductItems.findIndex(r => r.name.toLowerCase() === origName.toLowerCase());
+              const idx = resolvedProductItems.findIndex(r => {
+                const sameName = r.name.toLowerCase() === origName.toLowerCase();
+                const rCode = (r.code || '').trim().toLowerCase();
+                const targetCode = origCode.toLowerCase();
+                if (sameName && targetCode) {
+                  return rCode === targetCode;
+                }
+                return sameName;
+              });
               if (idx !== -1) {
                 resolvedProductItems[idx].name = pName;
-                if (p.code) resolvedProductItems[idx].code = p.code;
-              } else if (!resolvedProductItems.some(r => r.name.toLowerCase() === pName.toLowerCase())) {
+                if (pCode) resolvedProductItems[idx].code = pCode;
+              } else {
                 resolvedProductItems.push({
-                  id: p._id ? String(p._id) : `addon-${resolvedProductItems.length}`,
+                  id: pId || `addon-${resolvedProductItems.length}`,
                   name: pName,
-                  code: p.code || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
+                  code: pCode || `PRD-${String(resolvedProductItems.length + 1).padStart(2, '0')}`,
                   category: p.category || loadedApp?.category || 'Halal Certified',
                   isSelected: true
                 });

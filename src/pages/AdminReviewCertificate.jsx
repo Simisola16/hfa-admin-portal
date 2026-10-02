@@ -215,16 +215,42 @@ export default function AdminReviewCertificate() {
       if (fetchedSiteProducts.length === 0) {
         const fallbackMap = new Map();
 
+        const findExistingFallbackKey = (p) => {
+          const pId = p._id ? (p._id.toString ? p._id.toString() : p._id) : (p.id || '');
+          const name = (p.name || p.title || p.product_name || '').trim().toLowerCase();
+          const code = (p.code || p.barcode || '').trim().toLowerCase();
+
+          for (const [k, existing] of fallbackMap.entries()) {
+            const existingId = existing.id ? String(existing.id) : '';
+            const existingName = (existing.name || '').trim().toLowerCase();
+            const existingCode = (existing.code || existing.barcode || '').trim().toLowerCase();
+
+            if (pId && existingId && pId === existingId) return k;
+            if (name && existingName && name === existingName) {
+              if (code && existingCode) {
+                if (code === existingCode) return k;
+              } else if (!code && !existingCode) {
+                return k;
+              }
+            }
+          }
+          return null;
+        };
+
         const addCandidate = (p, source = 'site_product') => {
           if (!p) return;
           const name = (p.name || p.title || p.product_name || '').trim();
           if (!name) return;
-          const key = name.toLowerCase();
-          if (!fallbackMap.has(key)) {
-            fallbackMap.set(key, {
-              id: p._id ? (p._id.toString ? p._id.toString() : p._id) : (p.id || `p_${Math.random().toString(36).substr(2, 8)}`),
+          const code = (p.code || p.barcode || '').trim();
+          const pId = p._id ? (p._id.toString ? p._id.toString() : p._id) : (p.id || '');
+          const existingKey = findExistingFallbackKey(p);
+
+          if (!existingKey) {
+            const newKey = pId ? `id_${pId}` : `fb_${fallbackMap.size}_${Math.random().toString(36).substr(2, 6)}`;
+            fallbackMap.set(newKey, {
+              id: pId || `p_${Math.random().toString(36).substr(2, 8)}`,
               name,
-              code: p.code || p.barcode || '',
+              code: code,
               category: p.category || 'Halal Certified',
               product_type: p.product_type || p.type || 'Processed',
               description: p.description || '',
@@ -234,8 +260,8 @@ export default function AdminReviewCertificate() {
               site_id: p.site_id || targetSiteId || null
             });
           } else {
-            const existing = fallbackMap.get(key);
-            if (!existing.code && (p.code || p.barcode)) existing.code = p.code || p.barcode;
+            const existing = fallbackMap.get(existingKey);
+            if (!existing.code && code) existing.code = code;
             if (!existing.category && p.category) existing.category = p.category;
             if (!existing.description && p.description) existing.description = p.description;
             if (!existing.barcode && p.barcode) existing.barcode = p.barcode;
@@ -423,22 +449,59 @@ export default function AdminReviewCertificate() {
   }, [certId]);
 
   // Check if a site product is currently picked for certificate
-  const isProductSelected = (prodName) => {
-    if (!prodName) return false;
-    const target = prodName.trim().toLowerCase();
-    return form.product_details.some(p => (p.name || '').trim().toLowerCase() === target);
+  const isProductSelected = (prod) => {
+    if (!prod) return false;
+    const prodName = typeof prod === 'string' ? prod.trim().toLowerCase() : (prod.name || '').trim().toLowerCase();
+    const prodCode = typeof prod === 'object' ? (prod.code || prod.barcode || '').trim().toLowerCase() : '';
+    const prodId = typeof prod === 'object' ? (prod._id || prod.id) : null;
+
+    if (!prodName && !prodId) return false;
+
+    return form.product_details.some(p => {
+      if (prodId && (p._id || p.id)) {
+        if (String(p._id || p.id) === String(prodId)) return true;
+      }
+      const pName = (p.name || '').trim().toLowerCase();
+      if (pName && pName === prodName) {
+        const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+        if (prodCode || pCode) {
+          return prodCode === pCode;
+        }
+        return true;
+      }
+      return false;
+    });
   };
 
   // Toggle selection of a product from the site inventory
   const handleToggleProduct = (prod) => {
+    if (!prod) return;
     const prodName = (prod.name || '').trim();
-    if (!prodName) return;
-    const target = prodName.toLowerCase();
-    const alreadySelected = form.product_details.some(p => (p.name || '').trim().toLowerCase() === target);
+    if (!prodName && !prod.id && !prod._id) return;
+
+    const alreadySelected = isProductSelected(prod);
 
     if (alreadySelected) {
       // Deselect / Remove
-      const updatedDetails = form.product_details.filter(p => (p.name || '').trim().toLowerCase() !== target);
+      const prodCode = (prod.code || prod.barcode || '').trim().toLowerCase();
+      const prodId = prod._id || prod.id;
+      const prodNameLower = prodName.toLowerCase();
+
+      const updatedDetails = form.product_details.filter(p => {
+        if (prodId && (p._id || p.id)) {
+          if (String(p._id || p.id) === String(prodId)) return false;
+        }
+        const pName = (p.name || '').trim().toLowerCase();
+        if (pName && pName === prodNameLower) {
+          const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+          if (prodCode || pCode) {
+            return prodCode !== pCode;
+          }
+          return false;
+        }
+        return true;
+      });
+
       const updatedCovered = updatedDetails.map(p => p.name);
       setForm(f => ({
         ...f,
@@ -447,9 +510,10 @@ export default function AdminReviewCertificate() {
       }));
     } else {
       // Select / Add
-      const newCode = prod.code || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
+      const newCode = prod.code || prod.barcode || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
       const newCat = prod.category || 'Halal Certified';
       const newItem = {
+        id: prod.id || prod._id || `p_${Date.now()}`,
         name: prodName,
         code: newCode,
         category: newCat,
@@ -471,19 +535,13 @@ export default function AdminReviewCertificate() {
     const list = productsToSelect || siteProducts;
     if (list.length === 0) return;
 
-    const currentMap = new Map();
-    form.product_details.forEach(p => {
-      if (p.name) currentMap.set(p.name.trim().toLowerCase(), p);
-    });
-
-    list.forEach((p) => {
-      const name = (p.name || '').trim();
-      if (!name) return;
-      const key = name.toLowerCase();
-      if (!currentMap.has(key)) {
-        currentMap.set(key, {
-          name,
-          code: p.code || `PRD-${String(currentMap.size + 1).padStart(2, '0')}`,
+    const toAdd = [];
+    list.forEach((p, idx) => {
+      if (!isProductSelected(p)) {
+        toAdd.push({
+          id: p.id || p._id || `p_${Date.now()}_${idx}`,
+          name: p.name,
+          code: p.code || p.barcode || `PRD-${String(form.product_details.length + toAdd.length + 1).padStart(2, '0')}`,
           category: p.category || 'Halal Certified',
           barcode: p.barcode || '',
           description: p.description || ''
@@ -491,14 +549,19 @@ export default function AdminReviewCertificate() {
       }
     });
 
-    const updatedDetails = Array.from(currentMap.values());
+    if (toAdd.length === 0) {
+      toast.info('All displayed products are already selected.');
+      return;
+    }
+
+    const updatedDetails = [...form.product_details, ...toAdd];
     const updatedCovered = updatedDetails.map(p => p.name);
     setForm(f => ({
       ...f,
       product_details: updatedDetails,
       products_covered: updatedCovered
     }));
-    toast.success(`Selected all ${list.length} site products.`);
+    toast.success(`Selected ${toAdd.length} additional site product(s).`);
   };
 
   // Deselect all products from certificate
@@ -813,7 +876,7 @@ export default function AdminReviewCertificate() {
   }, [filteredSiteProducts, productPage]);
 
   const selectedSiteCount = useMemo(() => {
-    return siteProducts.filter(p => isProductSelected(p.name)).length;
+    return siteProducts.filter(p => isProductSelected(p)).length;
   }, [siteProducts, form.product_details]);
 
   if (loading) {
@@ -1649,7 +1712,7 @@ export default function AdminReviewCertificate() {
                         <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
                           <input
                             type="checkbox"
-                            checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item.name))}
+                            checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item))}
                             onChange={(e) => {
                               if (e.target.checked) {
                                 handleSelectAllSiteProducts(filteredSiteProducts);
@@ -1676,7 +1739,7 @@ export default function AdminReviewCertificate() {
                       ) : (
                         paginatedSiteProducts.map((prod, index) => {
                           const itemIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
-                          const selected = isProductSelected(prod.name);
+                          const selected = isProductSelected(prod);
                           return (
                             <tr
                               key={prod._id || prod.id || itemIndex}

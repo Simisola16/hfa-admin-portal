@@ -11,7 +11,7 @@ import {
   Calendar, Check, X, ArrowRight, RefreshCw, Upload, Eye, FileCheck2,
   Lock, ExternalLink, HelpCircle, Layers, AlertCircle, Info,
   CheckSquare, Square, Filter, ListChecks, CheckCheck,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES = [
@@ -122,7 +122,11 @@ export default function SuperAdminDirectCertificate() {
   useEffect(() => {
     if (selectedClient?._id || selectedClient?.id) {
       const cId = selectedClient._id || selectedClient.id;
-      api.get(`/api/products?client_id=${cId}`)
+      let url = `/api/products?client_id=${cId}&all=true`;
+      if (selectedSiteId) {
+        url += `&site_id=${selectedSiteId}`;
+      }
+      api.get(url)
         .then(res => {
           const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
           setClientExistingProducts(list);
@@ -131,7 +135,7 @@ export default function SuperAdminDirectCertificate() {
     } else {
       setClientExistingProducts([]);
     }
-  }, [selectedClient]);
+  }, [selectedClient, selectedSiteId]);
 
   const handleImportClientProducts = () => {
     if (!clientExistingProducts.length) return;
@@ -371,23 +375,58 @@ export default function SuperAdminDirectCertificate() {
     return '';
   }, [selectedSite, selectedClient, defaultSite]);
 
-  // Fetch Client Products Catalog
-  const fetchClientCatalog = async (clientId) => {
+  // Auto-select site if client has exactly 1 registered site
+  useEffect(() => {
+    if (selectedClient && clientSites.length === 1 && !selectedSiteId) {
+      const singleSite = clientSites[0];
+      const sId = singleSite._id || singleSite.id;
+      setSelectedSiteId(sId);
+      const siteAddr = formatSiteAddress(singleSite);
+      setCustomSiteAddress(siteAddr);
+      setCertCompanyAddress(siteAddr);
+      setCertManufacturingFacility(singleSite.name ? `${singleSite.name}, ${siteAddr}` : siteAddr);
+    }
+  }, [selectedClient, clientSites, selectedSiteId]);
+
+  // Fetch Client Products Catalog (strictly scoped per site)
+  const fetchClientCatalog = async (clientId, siteId) => {
     if (!clientId) {
       setClientCatalog([]);
+      setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
       return;
     }
+    // If client has registered sites, do not load products until a site is chosen
+    if (!siteId && clientSites.length > 0) {
+      setClientCatalog([]);
+      setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+      return;
+    }
+
     setLoadingCatalog(true);
     try {
-      const res = await api.get(`/api/products?client_id=${clientId}`);
+      let endpoint = `/api/products?client_id=${clientId}&all=true`;
+      if (siteId) {
+        endpoint += `&site_id=${siteId}`;
+      }
+      const res = await api.get(endpoint);
       const rawList = Array.isArray(res?.data)
         ? res.data
         : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
 
-      // Deduplicate rawList by product name & code
+      // Extra safeguard: strictly filter rawList by siteId if siteId is present
+      const targetSiteStr = siteId ? String(siteId) : null;
+      const siteFilteredList = targetSiteStr
+        ? rawList.filter(p => {
+            if (!p.site_id) return false;
+            const pSiteId = typeof p.site_id === 'object' ? (p.site_id._id || p.site_id.id) : p.site_id;
+            return String(pSiteId) === targetSiteStr;
+          })
+        : rawList;
+
+      // Deduplicate by product name & code (retaining products with same name and different codes)
       const uniqueCatalog = [];
       const seenCatalogKeys = new Set();
-      for (const p of rawList) {
+      for (const p of siteFilteredList) {
         const nameStr = (p.name || '').trim();
         if (!nameStr) continue;
         const codeStr = (p.code || p.barcode || '').trim();
@@ -411,22 +450,34 @@ export default function SuperAdminDirectCertificate() {
           ingredients: Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || '')
         }));
         setProducts(catalogItems);
+      } else {
+        setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
       }
     } catch (err) {
-      console.error('Failed to load client products:', err);
+      console.error('Failed to load site products:', err);
       setClientCatalog([]);
+      setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
     } finally {
       setLoadingCatalog(false);
     }
   };
 
   useEffect(() => {
-    if (selectedClient?._id) {
-      fetchClientCatalog(selectedClient._id);
+    const cId = selectedClient?._id || selectedClient?.id;
+    if (cId) {
+      if (selectedSiteId) {
+        fetchClientCatalog(cId, selectedSiteId);
+      } else if (clientSites.length === 0) {
+        fetchClientCatalog(cId, null);
+      } else {
+        setClientCatalog([]);
+        setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+      }
     } else {
       setClientCatalog([]);
+      setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
     }
-  }, [selectedClient?._id]);
+  }, [selectedClient?._id, selectedClient?.id, selectedSiteId, clientSites.length]);
 
   // Auto-populate Section 2 fields when a client is selected
   useEffect(() => {
@@ -486,9 +537,16 @@ export default function SuperAdminDirectCertificate() {
   const isProductSelected = (catalogItem) => {
     const cId = catalogItem._id || catalogItem.id;
     const cName = (catalogItem.name || '').trim().toLowerCase();
+    const cCode = (catalogItem.code || catalogItem.barcode || '').trim().toLowerCase();
     return products.some(p => {
       if (p._sourceId && cId && String(p._sourceId) === String(cId)) return true;
-      if (cName && (p.name || '').trim().toLowerCase() === cName) return true;
+      if (cName && (p.name || '').trim().toLowerCase() === cName) {
+        const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+        if (cCode || pCode) {
+          return cCode === pCode;
+        }
+        return true;
+      }
       return false;
     });
   };
@@ -498,13 +556,20 @@ export default function SuperAdminDirectCertificate() {
     const selected = isProductSelected(catalogItem);
     const cId = catalogItem._id || catalogItem.id;
     const cName = (catalogItem.name || '').trim().toLowerCase();
+    const cCode = (catalogItem.code || catalogItem.barcode || '').trim().toLowerCase();
 
     if (selected) {
       // Deselect: remove from products table
       setProducts(prev => {
         const filtered = prev.filter(p => {
           if (p._sourceId && cId && String(p._sourceId) === String(cId)) return false;
-          if (cName && (p.name || '').trim().toLowerCase() === cName) return false;
+          if (cName && (p.name || '').trim().toLowerCase() === cName) {
+            const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+            if (cCode || pCode) {
+              return cCode !== pCode;
+            }
+            return false;
+          }
           return true;
         });
         return filtered.length > 0
@@ -514,7 +579,7 @@ export default function SuperAdminDirectCertificate() {
     } else {
       // Select: add to products table
       const newProductItem = {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         _sourceId: cId,
         name: catalogItem.name || '',
         code: catalogItem.code || catalogItem.barcode || `PRD-${String(products.length + 1).padStart(2, '0')}`,
@@ -568,12 +633,13 @@ export default function SuperAdminDirectCertificate() {
   // Deselect all catalog products
   const handleDeselectAllCatalog = () => {
     const catalogIds = new Set(clientCatalog.map(c => String(c._id || c.id)));
-    const catalogNames = new Set(clientCatalog.map(c => (c.name || '').trim().toLowerCase()));
+    const catalogKeys = new Set(clientCatalog.map(c => `${(c.name || '').trim().toLowerCase()}:::${(c.code || c.barcode || '').trim().toLowerCase()}`));
 
     setProducts(prev => {
       const remaining = prev.filter(p => {
         if (p._sourceId && catalogIds.has(String(p._sourceId))) return false;
-        if (p.name && catalogNames.has(p.name.trim().toLowerCase())) return false;
+        const pKey = `${(p.name || '').trim().toLowerCase()}:::${(p.code || p.barcode || '').trim().toLowerCase()}`;
+        if (catalogKeys.has(pKey)) return false;
         return true;
       });
       return remaining.length > 0
@@ -722,13 +788,14 @@ export default function SuperAdminDirectCertificate() {
       return toast.error('Certificate number is required.');
     }
 
-    // Deduplicate products by normalized name
+    // Deduplicate products by normalized name and code
     const validProducts = [];
     const seenProductKeys = new Set();
     for (const p of products) {
       const nameStr = (p.name || '').trim();
       if (!nameStr) continue;
-      const key = nameStr.toLowerCase();
+      const codeStr = (p.code || p.barcode || '').trim();
+      const key = `${nameStr.toLowerCase()}|${codeStr.toLowerCase()}`;
       if (!seenProductKeys.has(key)) {
         seenProductKeys.add(key);
         validProducts.push(p);
@@ -839,6 +906,7 @@ export default function SuperAdminDirectCertificate() {
     setSelectedSiteId('');
     setCustomSiteAddress('');
     setClientSearchQuery('');
+    setClientCatalog([]);
     const today = new Date().toISOString().split('T')[0];
     setIssueDate(today);
     setCurrentCycleStartDate(today);
@@ -1035,8 +1103,22 @@ export default function SuperAdminDirectCertificate() {
                               setClientSearchQuery(c.company_name || c.full_name || '');
                               setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
                               setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
-                              setSelectedSiteId('');
-                              setCustomSiteAddress('');
+                              const clientMatchedSites = sites.filter(s => {
+                                const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
+                                return String(sClientId) === String(c._id || c.id);
+                              });
+                              if (clientMatchedSites.length === 1) {
+                                const onlySite = clientMatchedSites[0];
+                                const sId = onlySite._id || onlySite.id;
+                                setSelectedSiteId(sId);
+                                const siteAddr = formatSiteAddress(onlySite);
+                                setCustomSiteAddress(siteAddr);
+                                setCertCompanyAddress(siteAddr);
+                                setCertManufacturingFacility(onlySite.name ? `${onlySite.name}, ${siteAddr}` : siteAddr);
+                              } else {
+                                setSelectedSiteId('');
+                                setCustomSiteAddress('');
+                              }
                             }}
                             style={{
                               padding: '12px 16px',
@@ -1097,6 +1179,8 @@ export default function SuperAdminDirectCertificate() {
                             setClientSearchQuery('');
                             setSelectedSiteId('');
                             setCustomSiteAddress('');
+                            setClientCatalog([]);
+                            setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
                           }}
                           style={{ background: '#dcfce7', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', color: '#15803d', fontSize: 11.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}
                         >
@@ -1466,14 +1550,21 @@ export default function SuperAdminDirectCertificate() {
                         </span>
                         {clientCatalog.length > 0 && (
                           <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12 }}>
-                            {selectedCatalogCount} / {clientCatalog.length} Client Items Picked
+                            {selectedCatalogCount} / {clientCatalog.length} Site Items Picked
+                          </span>
+                        )}
+                        {selectedSite && (
+                          <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Building2 size={11} /> Site: {selectedSite.name || 'Approved Facility'}
                           </span>
                         )}
                       </div>
                       <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
-                        {selectedClient && clientCatalog.length > 0
-                          ? `Select products from ${selectedClient.company_name || selectedClient.full_name}'s catalog to include on this certificate:`
-                          : 'Add and certify products directly covered under this certificate'}
+                        {selectedClient && selectedSite && clientCatalog.length > 0
+                          ? `Select products from ${selectedSite.name || 'the selected facility'}'s catalog to certify for this site:`
+                          : (selectedClient && !selectedSiteId && clientSites.length > 0
+                            ? 'Please assign an approved site in Section 1 to load products for that site.'
+                            : 'Add and certify products directly covered under this certificate')}
                       </p>
                     </div>
                   </div>
@@ -1610,6 +1701,57 @@ export default function SuperAdminDirectCertificate() {
                     </button>
                   </div>
                 </div>
+
+                {/* Notice when client is selected but no site is chosen yet */}
+                {selectedClient && !selectedSiteId && clientSites.length > 0 && (
+                  <div style={{
+                    background: '#eff6ff',
+                    border: '1.5px dashed #93c5fd',
+                    borderRadius: 10,
+                    padding: '16px 20px',
+                    marginBottom: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12
+                  }}>
+                    <Building2 size={24} style={{ color: '#2563eb', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e40af' }}>
+                        Please select an approved site / facility in Section 1 above
+                      </div>
+                      <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>
+                        Products are managed per site. Once you select a facility, all products registered for that site will be loaded here.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading catalog indicator */}
+                {loadingCatalog && (
+                  <div style={{ textAlign: 'center', padding: '32px 20px', color: '#64748b', fontSize: 13, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+                    <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#16a34a' }} />
+                    <div>Loading products for <strong>{selectedSite?.name || 'the selected facility'}</strong>...</div>
+                  </div>
+                )}
+
+                {/* Notice when site is selected but has 0 products */}
+                {selectedClient && selectedSiteId && clientCatalog.length === 0 && !loadingCatalog && (
+                  <div style={{
+                    background: '#fefce8',
+                    border: '1px solid #fef08a',
+                    borderRadius: 10,
+                    padding: '14px 18px',
+                    marginBottom: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10
+                  }}>
+                    <Package size={20} style={{ color: '#ca8a04', flexShrink: 0 }} />
+                    <div style={{ fontSize: 12.5, color: '#854d0e' }}>
+                      No pre-registered products found for site <strong>{selectedSite?.name || selectedSiteId}</strong>. You can enter products manually below or use Bulk Paste.
+                    </div>
+                  </div>
+                )}
 
                 {/* SEARCH & FILTER BAR FOR CLIENT CATALOG PRODUCTS */}
                 {clientCatalog.length > 0 && (

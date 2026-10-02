@@ -6,8 +6,13 @@ import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, Ext
 import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import { canSendInvoice, canConfirmPayment } from '../lib/permissions';
 
 export default function AdminInvoices() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +42,11 @@ export default function AdminInvoices() {
   useEffect(() => { fetch(); }, []);
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSubmitting(true);
+    e.preventDefault();
+    if (!canSendInvoice(currentUser)) {
+      return toast.error('Only Accountant can create or send invoices.');
+    }
+    setSubmitting(true);
     try{ await api.post('/api/invoices',form); toast.success('Invoice created'); setShowModal(false); fetch(); }
     catch(err){toast.error(err.message);} finally{setSubmitting(false);}
   };
@@ -56,6 +65,9 @@ export default function AdminInvoices() {
   };
 
   const handleOneClickConfirm = async (inv) => {
+    if (!canConfirmPayment(currentUser)) {
+      return toast.error('Only Accountant can confirm client payments.');
+    }
     const invId = inv._id || inv.id;
     if (!invId) return;
     setConfirmingId(invId);
@@ -117,7 +129,9 @@ export default function AdminInvoices() {
           <option value="overdue">Overdue</option>
         </select>
         <button className="btn btn-ghost btn-sm" onClick={fetch}><RefreshCw size={14} /></button>
-        <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{marginLeft:'auto'}}><Plus size={15}/> Create Invoice</button>
+        {canSendInvoice(currentUser) && (
+          <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{marginLeft:'auto'}}><Plus size={15}/> Create Invoice</button>
+        )}
       </div>
       <div className="card">
         <div className="card-header"><div className="card-title">Invoices ({filtered.length})</div></div>
@@ -158,7 +172,7 @@ export default function AdminInvoices() {
                               badge: isPaid ? 'Payment Confirmed' : inv.status === 'client_paid' ? 'Payment Pending Verification' : (inv.status || 'Pending Payment'),
                               badgeVariant: statusBadgeClass,
                               actions: [
-                                ...(!isPaid ? [{
+                                ...(!isPaid && canConfirmPayment(currentUser) ? [{
                                   label: confirmingId === invId ? 'Confirming Payment...' : 'Confirm Client Payment',
                                   icon: Check,
                                   variant: 'success',

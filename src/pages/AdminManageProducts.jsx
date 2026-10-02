@@ -3,8 +3,14 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { Package, Search, Plus, Edit3, Trash2, CheckCircle, XCircle, RefreshCw, X } from 'lucide-react';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import { canManageProductForm } from '../lib/permissions';
 
 export default function AdminManageProducts() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const canEdit = canManageProductForm(currentUser);
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -95,6 +101,10 @@ export default function AdminManageProducts() {
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    if (!canEdit) {
+      toast.error('Only Food Tech or FT Manager can manage products');
+      return;
+    }
     if (!formName.trim()) {
       toast.error('Product name is required');
       return;
@@ -127,6 +137,10 @@ export default function AdminManageProducts() {
   };
 
   const handleDeleteProduct = async (id, name) => {
+    if (!canEdit) {
+      toast.error('Only Food Tech or FT Manager can delete products');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete "${name}" from the product catalog?`)) return;
     try {
       await api.delete(`/api/products/${id}`);
@@ -142,6 +156,10 @@ export default function AdminManageProducts() {
   };
 
   const handleToggleStatus = async (prod) => {
+    if (!canEdit) {
+      toast.error('Only Food Tech or FT Manager can update product status');
+      return;
+    }
     const nextStatus = prod.status === 'active' ? 'inactive' : 'active';
     try {
       await api.put(`/api/products/${prod._id || prod.id}`, { status: nextStatus });
@@ -208,9 +226,11 @@ export default function AdminManageProducts() {
           </button>
         </div>
 
-        <button className="btn btn-primary" style={{ gap: 6, display: 'inline-flex', alignItems: 'center' }} onClick={openCreateModal}>
-          <Plus size={16} /> Add Catalog Product
-        </button>
+        {canEdit && (
+          <button className="btn btn-primary" style={{ gap: 6, display: 'inline-flex', alignItems: 'center' }} onClick={openCreateModal}>
+            <Plus size={16} /> Add Catalog Product
+          </button>
+        )}
       </div>
 
       <div className="card">
@@ -264,7 +284,7 @@ export default function AdminManageProducts() {
                   <th>Status</th>
                   <th>Ingredients</th>
                   <th>Date Created</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  {canEdit && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -304,34 +324,36 @@ export default function AdminManageProducts() {
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                       {new Date(p.created_at || p.createdAt || Date.now()).toLocaleDateString('en-GB')}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
-                          style={{ padding: '4px 8px', height: 'auto', fontSize: 11 }}
-                          onClick={() => handleToggleStatus(p)}
-                          title="Toggle Status"
-                        >
-                          {p.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
-                          style={{ padding: '4px 8px', height: 'auto' }}
-                          onClick={() => openEditModal(p)}
-                          title="Edit Product"
-                        >
-                          <Edit3 size={13} />
-                        </button>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
-                          style={{ padding: '4px 8px', height: 'auto', color: '#dc2626' }}
-                          onClick={() => handleDeleteProduct(p._id || p.id, p.name)}
-                          title="Delete Product"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
+                    {canEdit && (
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 6 }}>
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ padding: '4px 8px', height: 'auto', fontSize: 11 }}
+                            onClick={() => handleToggleStatus(p)}
+                            title="Toggle Status"
+                          >
+                            {p.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ padding: '4px 8px', height: 'auto' }}
+                            onClick={() => openEditModal(p)}
+                            title="Edit Product"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ padding: '4px 8px', height: 'auto', color: '#dc2626' }}
+                            onClick={() => handleDeleteProduct(p._id || p.id, p.name)}
+                            title="Delete Product"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

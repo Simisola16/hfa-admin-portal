@@ -12,6 +12,14 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 import { getSocket } from '../lib/socket';
+import {
+  canAcceptOrRejectApp,
+  canAssignFoodTech,
+  canManageProductForm,
+  canCreateLogsheet,
+  canIssueCertificate,
+  canSendReviewedCertificate
+} from '../lib/permissions';
 
 const STATUS_LABELS = {
   submitted: 'Submit Add-On',
@@ -87,12 +95,7 @@ export default function AdminAddOnProcessing() {
     );
   };
 
-  const userRoles = Array.isArray(user?.roles) && user.roles.length > 0
-    ? user.roles
-    : (user?.role ? [user.role] : []);
-  const isManagerOrAdmin = userRoles.some(r =>
-    ['admin', 'superadmin', 'food_tech_manager', 'food_tech', 'officer', 'staff', 'manager', 'operations'].includes(String(r).toLowerCase())
-  ) || !user;
+  const isManagerOrAdmin = canAssignFoodTech(user);
 
   const isReadyForCert = Boolean(
     app && (
@@ -183,6 +186,9 @@ export default function AdminAddOnProcessing() {
 
   // Action handlers
   const handleReview = async () => {
+    if (!canAcceptOrRejectApp(user)) {
+      return toast.error('Only Scheme Manager can accept or reject applications.');
+    }
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
     setSubmitting(true);
     try {
@@ -196,6 +202,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleAssignFt = async () => {
+    if (!canAssignFoodTech(user)) {
+      return toast.error('Only FT Manager can assign Food Tech specialists.');
+    }
     if (selectedFtIds.length === 0 && !customFtName.trim()) {
       return toast.error('Please select at least one FT staff member or type FT staff details.');
     }
@@ -230,6 +239,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleRequestProductApprovalForm = async () => {
+    if (!canManageProductForm(user)) {
+      return toast.error('Only FT or FT Manager can manage product approval forms.');
+    }
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${app._id}/enable-form`, {
@@ -246,6 +258,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleEnableForm = async () => {
+    if (!canManageProductForm(user)) {
+      return toast.error('Only FT or FT Manager can enable product approval forms.');
+    }
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -261,6 +276,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleCreateLogsheet = () => {
+    if (!canCreateLogsheet(user)) {
+      return toast.error('Only FT or FT Manager can create logsheets.');
+    }
     sessionStorage.setItem('addon_app_id', app._id);
     navigate(`/addon-applications/${app._id}/logsheet`);
   };
@@ -291,6 +309,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleRequestMoreInfo = async () => {
+    if (!canManageProductForm(user)) {
+      return toast.error('Only FT or FT Manager can request more information.');
+    }
     if (!moreInfoMessage.trim()) {
       return toast.error('Please specify the information or clarification needed.');
     }
@@ -331,6 +352,9 @@ export default function AdminAddOnProcessing() {
   };
 
   const handleConfirmFormReceived = async () => {
+    if (!canManageProductForm(user)) {
+      return toast.error('Only FT or FT Manager can confirm product forms received.');
+    }
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${app._id}/confirm-form-received`);
@@ -446,38 +470,58 @@ export default function AdminAddOnProcessing() {
 
   // Render Primary Action Buttons
   const renderPrimaryActionButtons = () => {
-    if (!isManagerOrAdmin) return null;
-
     if (app.status === 'submitted') {
+      if (canAcceptOrRejectApp(user)) {
+        return (
+          <button className="btn btn-primary" onClick={() => setActionType('review')}>
+            <CheckCircle size={16} style={{ marginRight: 6 }} /> Accept Or Reject
+          </button>
+        );
+      }
       return (
-        <button className="btn btn-primary" onClick={() => setActionType('review')}>
-          <CheckCircle size={16} style={{ marginRight: 6 }} /> Accept Or Reject
-        </button>
+        <span className="badge badge-yellow" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Clock size={15} /> Awaiting Scheme Manager Decision
+        </span>
       );
     }
 
     if (app.status === 'accepted') {
+      if (canAssignFoodTech(user)) {
+        return (
+          <button className="btn btn-primary" style={{ background: '#2563eb', borderColor: '#2563eb' }} onClick={openAssignFtModal}>
+            <Users size={16} style={{ marginRight: 6 }} /> Assign FT Staff
+          </button>
+        );
+      }
       return (
-        <button className="btn btn-primary" style={{ background: '#2563eb', borderColor: '#2563eb' }} onClick={openAssignFtModal}>
-          <Users size={16} style={{ marginRight: 6 }} /> Assign FT Staff
-        </button>
+        <span className="badge badge-blue" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Clock size={15} /> Awaiting FT Assignment by FT Manager
+        </span>
       );
     }
 
     if (app.status === 'ft_assigned') {
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-ghost" style={{ border: '1.5px solid #cbd5e1' }} onClick={openAssignFtModal}>
-            <Users size={15} style={{ marginRight: 4 }} /> Re-assign FT
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
-            disabled={submitting}
-            onClick={handleRequestProductApprovalForm}
-          >
-            <FileText size={16} style={{ marginRight: 6 }} /> Request for Product Approval Form
-          </button>
+          {canAssignFoodTech(user) && (
+            <button className="btn btn-ghost" style={{ border: '1.5px solid #cbd5e1' }} onClick={openAssignFtModal}>
+              <Users size={15} style={{ marginRight: 4 }} /> Re-assign FT
+            </button>
+          )}
+          {canManageProductForm(user) ? (
+            <button
+              className="btn btn-primary"
+              style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+              disabled={submitting}
+              onClick={handleRequestProductApprovalForm}
+            >
+              <FileText size={16} style={{ marginRight: 6 }} /> Request for Product Approval Form
+            </button>
+          ) : !canAssignFoodTech(user) ? (
+            <span className="badge badge-purple" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> FT Assigned (Awaiting Form Request)
+            </span>
+          ) : null}
         </div>
       );
     }
@@ -490,7 +534,7 @@ export default function AdminAddOnProcessing() {
           <button className="btn btn-ghost" style={{ border: '1.5px solid #cbd5e1' }} onClick={() => navigate(`/addon-applications/${app._id}/approval-form`)}>
             <Eye size={15} style={{ marginRight: 6 }} /> View Form Template
           </button>
-          {isClientSubmitted && (
+          {isClientSubmitted && canManageProductForm(user) && (
             <>
               <button
                 type="button"
@@ -523,15 +567,27 @@ export default function AdminAddOnProcessing() {
               </button>
             </>
           )}
+          {isClientSubmitted && !canManageProductForm(user) && (
+            <span className="badge badge-teal" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Form Submitted by Client (Awaiting FT Review)
+            </span>
+          )}
         </div>
       );
     }
 
     if (app.status === 'all_forms_received') {
+      if (canCreateLogsheet(user)) {
+        return (
+          <button className="btn btn-primary" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={handleCreateLogsheet}>
+            <ClipboardList size={16} style={{ marginRight: 6 }} /> Create Logsheet
+          </button>
+        );
+      }
       return (
-        <button className="btn btn-primary" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={handleCreateLogsheet}>
-          <ClipboardList size={16} style={{ marginRight: 6 }} /> Create Logsheet
-        </button>
+        <span className="badge badge-blue" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Clock size={15} /> All Forms Received (Awaiting Logsheet Creation)
+        </span>
       );
     }
 
@@ -586,28 +642,35 @@ export default function AdminAddOnProcessing() {
 
     // Before certificate is issued, when ready for certificate: show "Issue Certificate"
     if (isReadyForCert) {
+      if (canIssueCertificate(user)) {
+        return (
+          <button
+            className="btn btn-primary"
+            style={{
+              background: '#16a34a',
+              borderColor: '#16a34a',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: 13.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '9px 18px',
+              borderRadius: 10,
+              boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+              cursor: 'pointer'
+            }}
+            onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
+            title="Open Certificate Studio to issue certificate"
+          >
+            <Award size={16} /> Issue Certificate
+          </button>
+        );
+      }
       return (
-        <button
-          className="btn btn-primary"
-          style={{
-            background: '#16a34a',
-            borderColor: '#16a34a',
-            color: 'white',
-            fontWeight: 700,
-            fontSize: 13.5,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '9px 18px',
-            borderRadius: 10,
-            boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
-            cursor: 'pointer'
-          }}
-          onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}
-          title="Open Certificate Studio to issue certificate"
-        >
-          <Award size={16} /> Issue Certificate
-        </button>
+        <span className="badge badge-teal" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Clock size={15} /> Ready for Certificate (Certificate Officer action required)
+        </span>
       );
     }
 
@@ -759,7 +822,7 @@ export default function AdminAddOnProcessing() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {isManagerOrAdmin && app.status === 'ft_assigned' && (
+                {canManageProductForm(user) && app.status === 'ft_assigned' && (
                   <button
                     className="btn btn-primary btn-sm"
                     style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
@@ -770,7 +833,7 @@ export default function AdminAddOnProcessing() {
                   </button>
                 )}
 
-                {isManagerOrAdmin && app.status === 'product_approval_form_enabled' && (() => {
+                {app.status === 'product_approval_form_enabled' && (() => {
                   const isClientSubmitted = !!app.product_approval_form?.submitted_at;
 
                   if (!isClientSubmitted) {
@@ -779,6 +842,14 @@ export default function AdminAddOnProcessing() {
                     return (
                       <span className="badge badge-orange" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
                         <Clock size={12} /> Awaiting Client Submission ({respondedCount} of {totalCount} filled)
+                      </span>
+                    );
+                  }
+
+                  if (!canManageProductForm(user)) {
+                    return (
+                      <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={12} /> Form Submitted by Client (Awaiting FT Review)
                       </span>
                     );
                   }
@@ -826,7 +897,7 @@ export default function AdminAddOnProcessing() {
                   );
                 })()}
 
-                {isManagerOrAdmin && ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
+                {canManageProductForm(user) && ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
                   <button
                     type="button"
                     className="btn btn-sm"
@@ -1002,7 +1073,7 @@ export default function AdminAddOnProcessing() {
                 <button className="btn btn-outline btn-sm" onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
                   Manage Logsheet
                 </button>
-              ) : isManagerOrAdmin && app.status === 'all_forms_received' ? (
+              ) : canCreateLogsheet(user) && app.status === 'all_forms_received' ? (
                 <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={handleCreateLogsheet}>
                   Create Logsheet
                 </button>
@@ -1028,7 +1099,7 @@ export default function AdminAddOnProcessing() {
                       <button className="btn btn-primary btn-sm" style={{ background: '#0284c7', borderColor: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => navigate(`/certificates/${certId}/review`)}>
                         <FileText size={14} /> Open Review Certificate
                       </button>
-                    ) : isReadyForCert && app.status !== 'completed' ? (
+                    ) : isReadyForCert && app.status !== 'completed' && canIssueCertificate(user) ? (
                       <button className="btn btn-primary btn-sm" style={{ background: '#16a34a', borderColor: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => navigate(`/addon-applications/${addonId}/issue-certificate`)}>
                         <Award size={14} /> Issue Certificate
                       </button>
@@ -1386,7 +1457,7 @@ export default function AdminAddOnProcessing() {
           <div className="card">
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="card-title">Assigned Food Techs</div>
-              {isManagerOrAdmin && ['accepted', 'ft_assigned', 'product_approval_form_enabled'].includes(app.status) && (
+              {canAssignFoodTech(user) && ['accepted', 'ft_assigned', 'product_approval_form_enabled'].includes(app.status) && (
                 <button
                   className="btn btn-ghost btn-sm"
                   style={{ fontSize: 11.5, color: 'var(--primary)' }}
@@ -1449,7 +1520,7 @@ export default function AdminAddOnProcessing() {
       {/* ─── ACTION MODALS ────────────────────────────────────────────── */}
 
       {/* 1. Review (Accept Or Reject) Modal */}
-      {actionType === 'review' && (
+      {actionType === 'review' && canAcceptOrRejectApp(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">
@@ -1494,7 +1565,7 @@ export default function AdminAddOnProcessing() {
       )}
 
       {/* 2. Assign FT Modal — Select Registered or Type Custom Details */}
-      {actionType === 'assign_ft' && (
+      {actionType === 'assign_ft' && canAssignFoodTech(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 540 }}>
             <div className="modal-header">
@@ -1619,7 +1690,7 @@ export default function AdminAddOnProcessing() {
       )}
 
       {/* 3. Enable Product Approval Form Modal */}
-      {actionType === 'enable_form' && (
+      {actionType === 'enable_form' && canManageProductForm(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 600 }}>
             <div className="modal-header">
@@ -1652,7 +1723,7 @@ export default function AdminAddOnProcessing() {
       )}
 
       {/* 4. Approve Form Modal */}
-      {actionType === 'approve_form' && (
+      {actionType === 'approve_form' && canManageProductForm(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }}>
             <div className="modal-header">
@@ -1676,7 +1747,7 @@ export default function AdminAddOnProcessing() {
 
 
       {/* 6. Request for More Information Modal */}
-      {actionType === 'request_more_info' && (
+      {actionType === 'request_more_info' && canManageProductForm(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-header" style={{ borderBottom: '1px solid #fed7aa', background: '#fff7ed' }}>

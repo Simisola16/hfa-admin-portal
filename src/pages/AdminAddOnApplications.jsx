@@ -11,6 +11,7 @@ import {
   Tag, ArrowUpRight, Award, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { canIssueCertificate, canAssignFoodTech } from '../lib/permissions';
 import Pagination from '../components/Pagination';
 import RestoreModal from '../components/RestoreModal';
 
@@ -79,7 +80,7 @@ export default function AdminAddOnApplications() {
   const [customFtEmail, setCustomFtEmail] = useState('');
   const [customFtNotes, setCustomFtNotes] = useState('');
 
-  const isManagerOrAdmin = ['admin', 'superadmin', 'food_tech_manager'].includes(user?.role);
+  const isManagerOrAdmin = canAssignFoodTech(user);
   const isSuperAdmin = user?.role === 'superadmin' || (Array.isArray(user?.roles) && user.roles.includes('superadmin'));
   const hasDonePrivilege = isSuperAdmin || Boolean(user?.can_mark_done);
 
@@ -602,8 +603,8 @@ export default function AdminAddOnApplications() {
                       {/* 4. Action Buttons */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
 
-                        {/* Issue Certificate Button when ready */}
-                        {['ready_for_certificate', 'product_form_approved'].includes(app.status) && (
+                        {/* Issue Certificate Button when ready — only for Certificate Officer / SuperAdmin */}
+                        {canIssueCertificate(user) && ['ready_for_certificate', 'product_form_approved'].includes(app.status) && (
                           <button
                             className="btn btn-primary btn-sm"
                             onClick={() => navigate(`/addon-applications/${app._id}/issue-certificate`)}

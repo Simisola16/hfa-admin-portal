@@ -1,9 +1,12 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { FileText, Download, Lock } from 'lucide-react';
-
+import { useAuth } from '../context/AuthContext';
+import { canSendProposal } from '../lib/permissions';
 
 export default function ProposalCard({ app, proposal, status, onSendProposal }) {
+  const { user } = useAuth();
+  const canSend = canSendProposal(user);
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
   const isAvailable = ['approved', 'proposal_sent', 'proposal_rejected', 'proposal_approved', 'invoice_sent', 'audit_assigned', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'certificate_issued', 'done'].includes(normStatus) || proposal;
 
@@ -47,8 +50,8 @@ export default function ProposalCard({ app, proposal, status, onSendProposal }) 
       <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', padding: 24, textAlign: 'center' }}>
         <FileText size={28} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
         <div style={{ fontWeight: 700, fontSize: 14, color: '#475569' }}>No Proposal Generated</div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, marginBottom: onSendProposal ? 14 : 0 }}>Proposal needs to be drafted and sent to the client.</div>
-        {onSendProposal && (
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, marginBottom: canSend && onSendProposal ? 14 : 0 }}>Proposal needs to be drafted and sent to the client.</div>
+        {canSend && onSendProposal && (
           <button className="btn btn-primary btn-sm" onClick={onSendProposal} style={{ background: '#6b21a8', borderColor: '#6b21a8', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
             <FileText size={14} /> Send Proposal
           </button>
@@ -60,7 +63,7 @@ export default function ProposalCard({ app, proposal, status, onSendProposal }) 
   const isAccepted = ['accepted', 'approved', 'proposal_approved'].includes(proposal?.status) || 
     ['proposal_approved', 'invoice_sent', 'payment_received', 'initial_product', 'dates_proposed', 'dates_rejected', 'dates_accepted', 'date_finalized', 'audit_assigned', 'audit_successful', 'audit_completed', 'nc_flagged', 'nc_closed', 'logsheet_created', 'logsheet_signed', 'application_successful', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normStatus);
 
-  const canResend = onSendProposal && !isAccepted && (proposal?.status === 'rejected' || proposal?.status === 'pending' || proposal?.status === 'sent' || normStatus === 'proposal_rejected' || normStatus === 'proposal_sent');
+  const canResend = canSend && onSendProposal && !isAccepted && (proposal?.status === 'rejected' || proposal?.status === 'pending' || proposal?.status === 'sent' || normStatus === 'proposal_rejected' || normStatus === 'proposal_sent');
 
   return (
     <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>

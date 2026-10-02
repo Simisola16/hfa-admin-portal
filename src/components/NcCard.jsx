@@ -1,9 +1,14 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React from 'react';
 import { AlertTriangle, CheckCircle, AlertCircle, Clock, FileText, Download, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { canManageNC } from '../lib/permissions';
 
+export default function NcCard({ app, audits = [], status = '', user: propUser, onFlagNc, onCloseNc, actionSubmitting = false }) {
+  const auth = useAuth?.() || {};
+  const user = propUser || auth.user;
+  const canEditNC = canManageNC(user);
 
-export default function NcCard({ app, audits = [], status = '', onFlagNc, onCloseNc, actionSubmitting = false }) {
   const appStatus = (app?.status || '').toLowerCase().replace(/ /g, '_');
   const normStatus = (status || appStatus || '').toLowerCase().replace(/ /g, '_');
 
@@ -218,7 +223,9 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
                 : hasNc && hasClientCorrection
                 ? 'Client has submitted corrective action — review below.'
                 : isAuditMarkedCompleted
-                ? 'Audit completed. Record any findings with Flag NC, or click Close NC to proceed.'
+                ? (canEditNC
+                    ? 'Audit completed. Record any findings with Flag NC, or click Close NC to proceed.'
+                    : 'Audit completed. Awaiting audit inspection team NC review.')
                 : 'Audit session findings and non-conformity management.'}
             </div>
           </div>
@@ -349,7 +356,9 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
             <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
               {isNcClosed
                 ? 'All audit observations, findings, and Non-Conformities (NC) have been verified and officially closed.'
-                : 'No Non-Conformities (NC) currently recorded for this audit. If any non-compliance issues were identified during audit inspection, click Flag NC to record findings and notify the client. Otherwise, click Close NC to complete and proceed.'}
+                : canEditNC
+                ? 'No Non-Conformities (NC) currently recorded for this audit. If any non-compliance issues were identified during audit inspection, click Flag NC to record findings and notify the client. Otherwise, click Close NC to complete and proceed.'
+                : 'No Non-Conformities (NC) currently recorded for this audit. Non-conformity review is managed by the audit inspection team.'}
             </div>
           </div>
         )}
@@ -362,7 +371,7 @@ export default function NcCard({ app, audits = [], status = '', onFlagNc, onClos
               All Non-Conformities (NC) have been closed &amp; verified. Audit stage completed.
             </div>
           </div>
-        ) : isAuditMarkedCompleted ? (
+        ) : isAuditMarkedCompleted && canEditNC ? (
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
             <button
               type="button"

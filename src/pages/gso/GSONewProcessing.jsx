@@ -12,6 +12,20 @@ import { getPdfUrl } from '../../lib/pdfUtils';
 import ProcessingTimeline from '../../components/ProcessingTimeline';
 import { STATUS_LABELS, STATUS_BADGE } from '../../lib/applicationStatuses';
 import { getSocket } from '../../lib/socket';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canAcceptOrRejectApp,
+  canSendProposal,
+  canSendAgreement,
+  canSendInvoice,
+  canConfirmPayment,
+  canManageAuditDates,
+  canManageNC,
+  canCompleteAudit,
+  canMarkApplicationSuccessful,
+  canCreateLogsheet,
+  canIssueCertificate
+} from '../../lib/permissions';
 
 // Shared Modals
 import ProposalModal from '../../components/ProposalModal';
@@ -37,6 +51,9 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const routeParams = useParams();
   const appId = propAppId || routeParams.appId;
   const navigate = useNavigate();
+
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
 
   const [app, setApp] = useState(initialData?.app || null);
   const [loading, setLoading] = useState(true);
@@ -292,7 +309,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
   const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
   const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
   const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
-  const canCompleteAudit = isStage1Complete ? isStage2Ready : isStage1Ready;
+  const auditCanBeCompleted = isStage1Complete ? isStage2Ready : isStage1Ready;
 
   const handleApprove = async () => {
     setActionSubmitting(true);
@@ -596,6 +613,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 1. Initial Review
     if (status === 'submitted' || status === 'under_review') {
+      if (!canAcceptOrRejectApp(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} /> Awaiting Scheme Manager Decision
+          </span>
+        );
+      }
       return (
         <>
           <button className="btn btn-danger" style={{ gap: 8 }} onClick={() => setShowRejectModal(true)}>
@@ -617,6 +641,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 2. Proposal Stage
     if (status === 'approved' || status === 'proposal_sent' || status === 'proposal_rejected') {
+      if (!canSendProposal(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Proposal in Progress (Scheme Manager)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -631,6 +662,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     // 3. Initial Invoice Stage
     if (status === 'proposal_approved' || status === 'proposal_accepted' || status === 'invoice_sent') {
       if (initialInvoice?.status === 'client_paid' || invoice?.status === 'client_paid' || (allInvoices.length > 0 && allInvoices[0].status === 'client_paid')) {
+        if (!canConfirmPayment(currentUser)) {
+          return (
+            <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Client Paid (Awaiting Accountant Verification)
+            </span>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -640,6 +678,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
           >
             <ShieldCheck size={16} /> {confirmingPayment ? 'Confirming...' : 'Confirm Payment'}
           </button>
+        );
+      }
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
+          </span>
         );
       }
       return (
@@ -699,47 +744,63 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
         );
       }
 
-      if (canCompleteAudit) {
+      if (auditCanBeCompleted) {
         if (isStage1Complete) {
           return (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-ghost"
-                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-                onClick={() => setShowAuditModal(true)}
-              >
-                <Calendar size={16} /> Manage Stage 2 Audit
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                onClick={handleMarkAuditCompleted}
-                disabled={actionSubmitting}
-              >
-                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
-              </button>
+              {canManageAuditDates(currentUser) && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                  onClick={() => setShowAuditModal(true)}
+                >
+                  <Calendar size={16} /> Manage Stage 2 Audit
+                </button>
+              )}
+              {canCompleteAudit(currentUser) && (
+                <button
+                  className="btn btn-primary"
+                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                  onClick={handleMarkAuditCompleted}
+                  disabled={actionSubmitting}
+                >
+                  <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+                </button>
+              )}
             </div>
           );
         }
 
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Stage 1 Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
-            </button>
+            {canManageAuditDates(currentUser) && (
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 1 Audit
+              </button>
+            )}
+            {canCompleteAudit(currentUser) && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
+              </button>
+            )}
           </div>
+        );
+      }
+
+      if (!canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={15} /> Audit in Progress (Audit Team)
+          </span>
         );
       }
 
@@ -761,6 +822,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     // 5. Post-Audit Decision (NC vs Clean Close & NC Reply)
     // If NC is currently flagged, prioritize NC resolution
     if (!isNcClosed && (status === 'nc_flagged' || hasActiveNc)) {
+      if (!canManageNC(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={15} /> Non-Conformance Review (Audit Team)
+          </span>
+        );
+      }
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -803,25 +871,37 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     ].includes(status);
 
     if (!isPostAuditPhase && !isStage2Complete) {
-      if (canCompleteAudit) {
+      if (auditCanBeCompleted) {
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-ghost"
-              style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-              onClick={() => setShowAuditModal(true)}
-            >
-              <Calendar size={16} /> Manage Stage 2 Audit
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-              onClick={handleMarkAuditCompleted}
-              disabled={actionSubmitting}
-            >
-              <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
-            </button>
+            {canManageAuditDates(currentUser) && (
+              <button
+                className="btn btn-ghost"
+                style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
+                onClick={() => setShowAuditModal(true)}
+              >
+                <Calendar size={16} /> Manage Stage 2 Audit
+              </button>
+            )}
+            {canCompleteAudit(currentUser) && (
+              <button
+                className="btn btn-primary"
+                style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={handleMarkAuditCompleted}
+                disabled={actionSubmitting}
+              >
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
+              </button>
+            )}
           </div>
+        );
+      }
+
+      if (!canManageAuditDates(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={15} /> Stage 2 Audit in Progress (Audit Team)
+          </span>
         );
       }
 
@@ -838,6 +918,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
 
     if (!isPostAuditPhase && !isNcClosed && (hasActiveNc || status === 'nc_flagged' || status === 'audit_successful' || status === 'audit_completed' || status === 'on_hold' || isStage2Complete)) {
+      if (!canManageNC(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={15} /> Non-Conformance Review (Audit Team)
+          </span>
+        );
+      }
       return (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -864,6 +951,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     const isLogsheetSigned = status === 'logsheet_signed' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
     if (!hasActiveNc && !isLogsheetSigned && ['nc_closed', 'audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status)) {
+      if (!canCreateLogsheet(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Processing (Audit / Technical Staff)
+          </span>
+        );
+      }
       const isCreated = ['logsheet_created', 'logsheet_sign_requested'].includes(status) || !!logsheet;
       return (
         <button
@@ -878,6 +972,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     }
 
     if (status === 'logsheet_signed') {
+      if (!canMarkApplicationSuccessful(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={15} /> Logsheet Signed (Awaiting Audit Manager Decision)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -892,6 +993,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 7. Send Agreement Stage (application_successful -> Send Agreement)
     if (status === 'application_successful' || status === 'agreement_sent') {
+      if (!canSendAgreement(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Awaiting Agreement Issuance (Scheme Manager)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -905,6 +1013,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 8. Final Countersigned Agreement Copy (Client signed agreement -> Admin countersigns and uploads final copy)
     if (status === 'agreement_signed') {
+      if (!canSendAgreement(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={15} /> Agreement Signed by Client (Awaiting Final Countersigned Copy)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -919,6 +1034,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
     // 9. Final Invoice Stage (For non-renewal apps when agreement is finalized)
     if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
       if (finalInvoice?.status === 'client_paid') {
+        if (!canConfirmPayment(currentUser)) {
+          return (
+            <span style={{ fontSize: 13, color: '#0369a1', fontWeight: 600, padding: '8px 12px', background: '#e0f2fe', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Final Invoice Paid (Awaiting Accountant Verification)
+            </span>
+          );
+        }
         return (
           <button
             className="btn btn-primary"
@@ -937,6 +1059,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
           </span>
         );
       }
+      if (!canSendInvoice(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={15} /> Awaiting Final Invoice Issuance (Accountant)
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -950,6 +1079,13 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
 
     // 10. Mark Ready for Certificate Stage
     if (status === 'final_invoice_paid' || status === 'agreement_finalised') {
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Officer Action
+          </span>
+        );
+      }
       return (
         <button
           className="btn btn-primary"
@@ -988,6 +1124,14 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
         return (
           <span className="badge badge-green" style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
             <CheckCircle size={15} /> ✓ Certificate Issued
+          </span>
+        );
+      }
+
+      if (!canIssueCertificate(currentUser)) {
+        return (
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Award size={15} /> Awaiting Certificate Issuance (Certificate Officer)
           </span>
         );
       }
@@ -1112,7 +1256,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
             invoice={initialInvoice}
             status={app?.status}
             isInitial={true}
-            onConfirmPayment={initialInvoice?.status === 'client_paid' ? handleConfirmPayment : undefined}
+            onConfirmPayment={initialInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmPayment : undefined}
             confirmingPayment={confirmingPayment}
             onSendInvoice={() => { setInvoiceModalType('initial'); setShowInvoiceModal(true); }}
           />
@@ -1168,7 +1312,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
               invoice={finalInvoice}
               status={app?.status}
               isFinal={true}
-              onConfirmPayment={finalInvoice?.status === 'client_paid' ? handleConfirmFinalPayment : undefined}
+              onConfirmPayment={finalInvoice?.status === 'client_paid' && canConfirmPayment(currentUser) ? handleConfirmFinalPayment : undefined}
               confirmingPayment={confirmingPayment}
               onSendInvoice={() => { setInvoiceModalType('final'); setShowInvoiceModal(true); }}
             />

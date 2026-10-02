@@ -2,9 +2,14 @@ import React from 'react';
 import { Award, ShieldCheck, FileText, Download, ArrowRight, ExternalLink, Calendar, CheckCircle2, Clock, Lock, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getPdfUrl } from '../lib/pdfUtils';
+import { useAuth } from '../context/AuthContext';
+import { canIssueCertificate } from '../lib/permissions';
 
-export default function CertificateCard({ app, certificate, status, isSurveillance, onIssueCertificate }) {
+export default function CertificateCard({ app, certificate, status, user: propUser, isSurveillance, onIssueCertificate }) {
   const navigate = useNavigate();
+  const auth = useAuth?.() || {};
+  const user = propUser || auth.user;
+  const canIssue = canIssueCertificate(user);
 
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
   const isRen = (
@@ -308,7 +313,7 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 ? 'Audit evaluations and payments are completed. Issue the official Surveillance Letter to confirm compliance for this surveillance cycle.'
                 : 'Final payments and evaluations are completed. Create the certificate to enter the Review Certification workflow before sending it to the client.'}
             </div>
-            {onIssueCertificate && (
+            {canIssue && onIssueCertificate ? (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -324,7 +329,11 @@ export default function CertificateCard({ app, certificate, status, isSurveillan
                 {isSurv ? <FileText size={15} /> : <Award size={15} />}
                 {isSurv ? 'Surveillance Letter' : 'Issue Certificate'}
               </button>
-            )}
+            ) : !canIssue ? (
+              <div style={{ fontSize: 13, color: '#7e22ce', fontWeight: 600, padding: '8px 14px', background: '#faf5ff', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={15} /> Awaiting Certificate Officer to {isSurv ? 'issue Surveillance Letter' : 'issue certificate'}
+              </div>
+            ) : null}
           </div>
         )}
 

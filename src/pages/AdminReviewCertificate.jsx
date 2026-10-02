@@ -6,12 +6,13 @@ import {
   AlertTriangle, Building, MapPin, Calendar, Package, Plus, Trash2,
   ExternalLink, Download, Check, X, Lock, ShieldCheck, Eye, UploadCloud,
   Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Clock
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import { useAuth } from '../context/AuthContext';
+import { canSendReviewedCertificate } from '../lib/permissions';
 
 
 const PRODUCT_CATEGORIES = [
@@ -33,11 +34,7 @@ export default function AdminReviewCertificate() {
 
   const { user, profile } = useAuth();
   const currentUser = profile || user;
-  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
-    ? currentUser.roles
-    : (currentUser?.role ? [currentUser.role] : []);
-  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
-  const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
+  const canReviewCertificate = canSendReviewedCertificate(currentUser);
 
   const [loading, setLoading] = useState(true);
   const [cert, setCert] = useState(null);
@@ -56,12 +53,6 @@ export default function AdminReviewCertificate() {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [applicationData, setApplicationData] = useState(null);
 
-  useEffect(() => {
-    if (currentUser && !canReviewCertificate) {
-      toast.error('Access denied. You do not have the Review Certificate Privilege required to access this page.');
-      navigate('/certificates', { replace: true });
-    }
-  }, [currentUser, canReviewCertificate, navigate]);
 
   // Form State
   const [form, setForm] = useState({
@@ -423,7 +414,7 @@ export default function AdminReviewCertificate() {
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
-        manufacturing_address: c.manufacturing_address || resolvedSite?.address_1 || resolvedSite?.address || c.application_id?.manufacturer_address || c.company_address || '',
+        manufacturing_address: (c.manufacturing_address || '').trim(),
         scope: resolvedCategory,
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -897,22 +888,6 @@ export default function AdminReviewCertificate() {
     );
   }
 
-  if (!canReviewCertificate) {
-    return (
-      <div style={{ maxWidth: 640, margin: '80px auto', padding: 36, background: '#fff', borderRadius: 16, border: '1.5px solid #fee2e2', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
-        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <AlertTriangle size={30} />
-        </div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 10px' }}>Access Denied: Review Certificate Privilege Required</h2>
-        <p style={{ fontSize: 13.5, color: '#64748b', lineHeight: 1.6, margin: '0 0 24px' }}>
-          You do not have the <strong>Review Certificate Privilege</strong> required to view this review page, modify draft certificates, or dispatch issued certificates to clients. Please contact a Superadmin to grant you this privilege.
-        </p>
-        <button className="btn btn-primary" onClick={() => navigate('/certificates')}>
-          Return to Certificates
-        </button>
-      </div>
-    );
-  }
 
   if (!cert) {
     return (
@@ -1254,19 +1229,29 @@ export default function AdminReviewCertificate() {
                   />
                 </div>
 
-                {/* Manufacturing Site Address */}
+                {/* Manufacturing Site Address (Optional) */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontWeight: 700 }}>
-                    Manufacturing Site <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Manufacturing Site <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
+                    </label>
+                    {(siteData || siteData?.address_1 || siteData?.address) && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, manufacturing_address: (siteData?.address_1 || siteData?.address || '').trim() }))}
+                        style={{ background: 'none', border: 'none', color: '#047857', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Fill from Facility Site
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     rows={1}
-                    required
                     className="form-control"
                     style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
                     value={form.manufacturing_address}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Physical site location where certified products are manufactured"
+                    placeholder="Physical site location where certified products are manufactured (Optional)"
                   />
                 </div>
 
@@ -1965,51 +1950,59 @@ export default function AdminReviewCertificate() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Save Changes button */}
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            disabled={saving || regenerating || approving}
-            className="btn btn-ghost"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-          >
-            <Save size={15} />
-            {saving ? 'Saving...' : 'Save Draft'}
-          </button>
+          {canReviewCertificate ? (
+            <>
+              {/* Save Changes button */}
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={saving || regenerating || approving}
+                className="btn btn-ghost"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+              >
+                <Save size={15} />
+                {saving ? 'Saving...' : 'Save Draft'}
+              </button>
 
-          {/* Regenerate PDF button */}
-          <button
-            type="button"
-            onClick={handleRegeneratePdf}
-            disabled={saving || regenerating || approving}
-            className="btn btn-ghost"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#047857', borderColor: '#bbf7d0', background: '#f0fdf4' }}
-          >
-            <RefreshCw size={15} className={regenerating ? 'spinner' : ''} />
-            {regenerating ? 'Regenerating PDF...' : 'Regenerate PDF'}
-          </button>
+              {/* Regenerate PDF button */}
+              <button
+                type="button"
+                onClick={handleRegeneratePdf}
+                disabled={saving || regenerating || approving}
+                className="btn btn-ghost"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#047857', borderColor: '#bbf7d0', background: '#f0fdf4' }}
+              >
+                <RefreshCw size={15} className={regenerating ? 'spinner' : ''} />
+                {regenerating ? 'Regenerating PDF...' : 'Regenerate PDF'}
+              </button>
 
-          {/* Approve & Send to Client button */}
-          <button
-            type="button"
-            onClick={handleOpenApproveModal}
-            disabled={saving || regenerating || approving}
-            className="btn btn-primary"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontWeight: 800,
-              padding: '10px 22px',
-              fontSize: 14,
-              background: '#047857',
-              borderColor: '#047857',
-              boxShadow: '0 2px 8px rgba(4,120,87,0.3)'
-            }}
-          >
-            <Send size={16} />
-            {isUnderReview ? 'Approve & Send to Client' : 'Update & Re-send Certificate'}
-          </button>
+              {/* Approve & Send to Client button */}
+              <button
+                type="button"
+                onClick={handleOpenApproveModal}
+                disabled={saving || regenerating || approving}
+                className="btn btn-primary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontWeight: 800,
+                  padding: '10px 22px',
+                  fontSize: 14,
+                  background: '#047857',
+                  borderColor: '#047857',
+                  boxShadow: '0 2px 8px rgba(4,120,87,0.3)'
+                }}
+              >
+                <Send size={16} />
+                {isUnderReview ? 'Approve & Send to Client' : 'Update & Re-send Certificate'}
+              </button>
+            </>
+          ) : (
+            <span className="badge badge-teal" style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} /> Awaiting Certificate Officer Review &amp; Issuance
+            </span>
+          )}
         </div>
       </div>
 

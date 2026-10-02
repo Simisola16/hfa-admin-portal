@@ -1,8 +1,10 @@
-﻿import { getPdfUrl } from '../lib/pdfUtils';
+import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Users, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { canAssignAuditor } from '../lib/permissions';
 
 
 const getCleanId = (val) => {
@@ -21,6 +23,8 @@ export default function AuditManageModal({
   existingAudits: propExistingAudits,
   onSuccess
 }) {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
   const app = propApp || audit?.application_id || audit?.applications || applicationId;
   const [existingAudits, setExistingAudits] = useState(
     propExistingAudits || (audit ? [audit] : [])
@@ -370,6 +374,10 @@ export default function AuditManageModal({
   };
 
   const handleAssignAuditors = async () => {
+    if (!canAssignAuditor(currentUser)) {
+      toast.error('Only Audit Manager can assign auditors.');
+      return;
+    }
     if (!Array.isArray(auditForm.auditors) || auditForm.auditors.length === 0 || auditForm.auditors.some(a => !a || !a.name || !a.email)) {
       toast.error('Please fill in Name and Email for all auditors.');
       return;
@@ -647,148 +655,162 @@ export default function AuditManageModal({
                 </p>
               </div>
 
-              {/* Stage 1 Auditors */}
-              <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 4, fontWeight: 700 }}>
-                {isDualStage ? 'Stage 1 Auditor(s)' : 'Assign Auditor(s)'}
-              </h4>
-              {isDualStage && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>These auditors will conduct the Stage 1 (initial) audit visit.</p>}
-              
-              <div style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
-                {auditForm.auditors.map((auditor, i) => (
-                  <div key={i} style={{ padding: '18px', border: '1.5px solid #e2e8f0', borderRadius: '12px', position: 'relative', background: '#f8fafc' }}>
-                    {auditForm.auditors.length > 1 && (
+              {!canAssignAuditor(currentUser) ? (
+                <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '24px 20px', textAlign: 'center' }}>
+                  <Users size={28} style={{ color: '#64748b', marginBottom: 8 }} />
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                    Auditor Assignment Pending
+                  </h4>
+                  <p style={{ fontSize: 13, color: '#64748b', maxWidth: 460, margin: '0 auto' }}>
+                    The audit date has been confirmed. Only an <strong>Audit Manager</strong> can assign the auditor(s) to this facility.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Stage 1 Auditors */}
+                  <h4 style={{ fontSize: 15, color: '#334155', marginBottom: 4, fontWeight: 700 }}>
+                    {isDualStage ? 'Stage 1 Auditor(s)' : 'Assign Auditor(s)'}
+                  </h4>
+                  {isDualStage && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>These auditors will conduct the Stage 1 (initial) audit visit.</p>}
+                  
+                  <div style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
+                    {auditForm.auditors.map((auditor, i) => (
+                      <div key={i} style={{ padding: '18px', border: '1.5px solid #e2e8f0', borderRadius: '12px', position: 'relative', background: '#f8fafc' }}>
+                        {auditForm.auditors.length > 1 && (
+                          <button
+                            type="button"
+                            style={{ position: 'absolute', top: 14, right: 14, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                            onClick={() => {
+                              const newAuditors = auditForm.auditors.filter((_, idx) => idx !== i);
+                              setAuditForm({ ...auditForm, auditors: newAuditors });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>Auditor {i + 1}</span>
+                          {auditor.inspector_id && auditor.inspector_id !== 'custom' && (
+                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                              ✓ HFA Staff / Registered Auditor Linked
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Choose Registered Auditor Dropdown */}
+                        <div className="form-group" style={{ marginBottom: 14 }}>
+                          <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Select Auditor <span style={{ color: '#ef4444' }}>*</span></span>
+                          </label>
+                          <select
+                            className="form-control"
+                            value={auditor.inspector_id || ''}
+                            onChange={e => handleSelectAuditor(i, e.target.value)}
+                            style={{
+                              borderColor: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#16a34a' : '#cbd5e1',
+                              background: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#f0fdf4' : '#ffffff',
+                              fontWeight: 600,
+                              fontSize: 13,
+                              padding: '10px 14px'
+                            }}
+                          >
+                            <option value="">-- Choose Registered Auditor --</option>
+                            {inspectorsList.map(aud => (
+                              <option key={aud._id || aud.id} value={aud._id || aud.id}>
+                                👤 {aud.full_name || aud.name} ({aud.email}) — [AUDITOR]
+                              </option>
+                            ))}
+                            <option value="custom">✏️ Enter Custom / External Auditor Details</option>
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Name</label>
+                            <input
+                              className="form-control"
+                              disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                              value={auditor.name}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, name: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. Dr. Ahmad Khan"
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Email</label>
+                            <input
+                              type="email"
+                              className="form-control"
+                              disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                              value={auditor.email}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, email: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. ahmad@hfa.org"
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Contact Number</label>
+                            <input
+                              className="form-control"
+                              value={auditor.contact_number}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, contact_number: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="+44..."
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Audit Purpose / Role</label>
+                            <input
+                              className="form-control"
+                              value={auditor.purpose}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, purpose: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. Halal Facility & Systems Audit"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div style={{ textAlign: 'left' }}>
                       <button
                         type="button"
-                        style={{ position: 'absolute', top: 14, right: 14, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                        className="btn btn-ghost btn-sm"
                         onClick={() => {
-                          const newAuditors = auditForm.auditors.filter((_, idx) => idx !== i);
+                          const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '' }];
                           setAuditForm({ ...auditForm, auditors: newAuditors });
                         }}
                       >
-                        Remove
+                        + Add Another Auditor
                       </button>
-                    )}
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>Auditor {i + 1}</span>
-                      {auditor.inspector_id && auditor.inspector_id !== 'custom' && (
-                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
-                          ✓ HFA Staff / Registered Auditor Linked
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Choose Registered Auditor Dropdown */}
-                    <div className="form-group" style={{ marginBottom: 14 }}>
-                      <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Select Auditor <span style={{ color: '#ef4444' }}>*</span></span>
-                      </label>
-                      <select
-                        className="form-control"
-                        value={auditor.inspector_id || ''}
-                        onChange={e => handleSelectAuditor(i, e.target.value)}
-                        style={{
-                          borderColor: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#16a34a' : '#cbd5e1',
-                          background: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 600,
-                          fontSize: 13,
-                          padding: '10px 14px'
-                        }}
-                      >
-                        <option value="">-- Choose Registered Auditor --</option>
-                        {inspectorsList.map(aud => (
-                          <option key={aud._id || aud.id} value={aud._id || aud.id}>
-                            👤 {aud.full_name || aud.name} ({aud.email}) — [AUDITOR]
-                          </option>
-                        ))}
-                        <option value="custom">✏️ Enter Custom / External Auditor Details</option>
-                      </select>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Name</label>
-                        <input
-                          className="form-control"
-                          disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
-                          value={auditor.name}
-                          onChange={e => {
-                            const newAuditors = [...auditForm.auditors];
-                            newAuditors[i] = { ...auditor, name: e.target.value };
-                            setAuditForm({ ...auditForm, auditors: newAuditors });
-                          }}
-                          placeholder="e.g. Dr. Ahmad Khan"
-                        />
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Email</label>
-                        <input
-                          type="email"
-                          className="form-control"
-                          disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
-                          value={auditor.email}
-                          onChange={e => {
-                            const newAuditors = [...auditForm.auditors];
-                            newAuditors[i] = { ...auditor, email: e.target.value };
-                            setAuditForm({ ...auditForm, auditors: newAuditors });
-                          }}
-                          placeholder="e.g. ahmad@hfa.org"
-                        />
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Contact Number</label>
-                        <input
-                          className="form-control"
-                          value={auditor.contact_number}
-                          onChange={e => {
-                            const newAuditors = [...auditForm.auditors];
-                            newAuditors[i] = { ...auditor, contact_number: e.target.value };
-                            setAuditForm({ ...auditForm, auditors: newAuditors });
-                          }}
-                          placeholder="+44..."
-                        />
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Audit Purpose / Role</label>
-                        <input
-                          className="form-control"
-                          value={auditor.purpose}
-                          onChange={e => {
-                            const newAuditors = [...auditForm.auditors];
-                            newAuditors[i] = { ...auditor, purpose: e.target.value };
-                            setAuditForm({ ...auditForm, auditors: newAuditors });
-                          }}
-                          placeholder="e.g. Halal Facility & Systems Audit"
-                        />
-                      </div>
                     </div>
                   </div>
-                ))}
-                
-                <div style={{ textAlign: 'left' }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '' }];
-                      setAuditForm({ ...auditForm, auditors: newAuditors });
-                    }}
-                  >
-                    + Add Another Auditor
-                  </button>
-                </div>
-              </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <button
-                  className="btn btn-primary"
-                  disabled={auditSubmitting}
-                  onClick={handleAssignAuditors}
-                >
-                  {auditSubmitting ? 'Assigning...' : 'Assign Auditors'}
-                </button>
-              </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={auditSubmitting}
+                      onClick={handleAssignAuditors}
+                    >
+                      {auditSubmitting ? 'Assigning...' : 'Assign Auditors'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

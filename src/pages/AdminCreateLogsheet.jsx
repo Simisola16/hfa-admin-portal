@@ -634,10 +634,10 @@ export default function AdminCreateLogsheet() {
             certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
             suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || '',
             next_surveillance_due_date: logsheetObj.next_surveillance_due_date ? new Date(logsheetObj.next_surveillance_due_date).toISOString().split('T')[0] : (appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : ''),
-            site_name: (logsheetObj.site_name && logsheetObj.site_name.trim()) ? logsheetObj.site_name : autoSiteName,
+            site_name: (logsheetObj.site_name != null) ? logsheetObj.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
-            company_address: (logsheetObj.company_address && logsheetObj.company_address.trim()) ? logsheetObj.company_address : autoCompanyAddress,
-            manufacturing_address: (logsheetObj.manufacturing_address && logsheetObj.manufacturing_address.trim()) ? logsheetObj.manufacturing_address : autoManufacturingAddress,
+            company_address: (logsheetObj.company_address != null) ? logsheetObj.company_address : autoCompanyAddress,
+            manufacturing_address: (logsheetObj.manufacturing_address != null) ? logsheetObj.manufacturing_address : autoManufacturingAddress,
             confirmed: false
           }));
         } else {
@@ -722,12 +722,12 @@ export default function AdminCreateLogsheet() {
 
             audit_type: autoAuditType,
             audit_date: autoAuditDate || todayStr,
-            auditors: autoAuditors || (user?.full_name ? `${user.full_name} (Lead Auditor)` : 'Lead Auditor'),
+            auditors: autoAuditors || (user?.full_name ? `${user.full_name}` : ''),
             ncs_close: autoNcsClose,
             docs_satisfactory: 'Satisfactory - all documentation verified',
             pork_free_statement: 'Confirmed - signed pork-free declaration in place',
-            reviewed_by: user?.full_name || 'HFA Technical Committee',
-            reviewer_name: user?.full_name || 'Technical Reviewer',
+            reviewed_by: user?.full_name || '',
+            reviewer_name: user?.full_name || '',
             review_date: todayStr,
 
             annual_certificate: 'Yes',
@@ -1173,11 +1173,7 @@ export default function AdminCreateLogsheet() {
       setActiveTab(1);
       return;
     }
-    if (!form.manufacturing_address?.trim()) {
-      toast.error('Manufacturing Site Address is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
+
     if (!form.contact_email?.trim()) {
       toast.error('Contact Email is required (Tab 1)');
       setActiveTab(1);
@@ -1300,7 +1296,8 @@ export default function AdminCreateLogsheet() {
 
     setSubmitting(true);
     try {
-      const isRedoingSave = isRedoing || Boolean(currentLogsheet?._id);
+      // Bug fix: only clear signatures when actually in redo mode, not just because a logsheet exists
+      const isRedoingSave = isRedoing;
       const redoPayload = isRedoingSave ? {
         clear_signatures: true,
         is_redo: true,
@@ -1330,9 +1327,11 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('Logsheet updated! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('Logsheet created for Initial Product!');
           navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`);
@@ -1347,9 +1346,11 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('Logsheet updated! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('Logsheet created for add-on application!');
           navigate('/addon-applications');
@@ -1384,9 +1385,11 @@ export default function AdminCreateLogsheet() {
         }
 
         if (isRedoing) {
-          setIsRedoing(false);
-          await fetchData();
           toast.success('LogSheet updated successfully! All previous signatures cleared.');
+          setIsRedoing(false);
+          // Small delay to ensure server write is committed before re-fetching
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
         } else {
           toast.success('LogSheet saved and status updated successfully!');
           navigate(`/applications/${targetAppId}/processing`);
@@ -2512,13 +2515,12 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address</label>
                     <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       Pre-filled · Editable
                     </span>
                   </div>
                   <input
-                    required
                     type="text"
                     className="form-control"
                     value={form.manufacturing_address || ''}

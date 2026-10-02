@@ -10,6 +10,7 @@ import {
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 import RestoreModal from '../components/RestoreModal';
+import { canIssueCertificate } from '../lib/permissions';
 
 export default function AdminLogsheetWaitingCertificate() {
   const { user, profile } = useAuth();
@@ -772,13 +773,13 @@ export default function AdminLogsheetWaitingCertificate() {
               </span>
             }
             actions={[
-              {
+              ...(canIssueCertificate(currentUser) ? [{
                 label: 'Issue Certificate Studio',
                 description: 'Open dedicated studio to generate and issue certificate',
                 icon: Award,
                 variant: 'primary',
                 onClick: () => navigate(issueCertUrl)
-              },
+              }] : []),
               {
                 label: 'View Signed Logsheet',
                 description: 'Inspect completed logsheet and committee signatures',

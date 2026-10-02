@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Package, CheckCircle, Clock, ChevronRight, AlertCircle, User, ArrowRight, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { canManageProductForm } from '../lib/permissions';
 
 const STATUS_CONFIG = {
   submitted: { label: 'Submitted by Client', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
@@ -14,7 +16,9 @@ const STATUS_CONFIG = {
   rejected: { label: 'Rejected', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }
 };
 
-export default function InitialProductCard({ app, initialProduct, isFastTrack }) {
+export default function InitialProductCard({ app, initialProduct, isFastTrack, user: propUser }) {
+  const auth = useAuth?.() || {};
+  const user = propUser || auth.user;
   if (isFastTrack) return null;
 
   const appType = (app?.application_type || 'new').toLowerCase();
@@ -132,13 +136,15 @@ export default function InitialProductCard({ app, initialProduct, isFastTrack })
             }}>
               {cfg.label}
             </span>
-            <Link
-              to={`/admin/initial-products/${ipId}/processing`}
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              Process Product <ArrowRight size={13} />
-            </Link>
+            {canManageProductForm(user) && (
+              <Link
+                to={`/admin/initial-products/${ipId}/processing`}
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                Process Product <ArrowRight size={13} />
+              </Link>
+            )}
           </div>
         )}
       </div>

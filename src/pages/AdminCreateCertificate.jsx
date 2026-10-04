@@ -34,13 +34,17 @@ const CERTIFICATE_TYPES = [
   'GSO MEAT',
   'GSO NON MEAT',
   'COSMETICS',
-  'SMIIC'
+  'SMIIC',
+  'SURVEILLANCE LETTER'
 ];
 
 export default function AdminCreateCertificate() {
   const { appId } = useParams();
   const [searchParams] = useSearchParams();
-  const queryCertType = searchParams.get('cert_type');
+  const rawQueryCertType = searchParams.get('cert_type');
+  const queryCertType = rawQueryCertType && rawQueryCertType.toUpperCase().includes('SURVEILLANCE')
+    ? 'SURVEILLANCE LETTER'
+    : rawQueryCertType;
   const queryLogsheetId = searchParams.get('logsheet_id');
   const navigate = useNavigate();
 
@@ -510,13 +514,30 @@ export default function AdminCreateCertificate() {
           setLogsheetCategory(resolvedCategory);
         }
 
-        const typeCode = isAddOn ? 'AD' : (appData.is_logsheet_only ? 'NE' : normalizeHfaTypeCode(appData.application_type));
-        const certNum = generateHfaId(compName || 'HFA', typeCode);
-
         const auditorRecommended = targetLogsheet?.suggested_certificate_type || targetLogsheet?.certificate_type || targetLogsheet?.certificate_standard || '';
         
+        const isSurvApp = Boolean(
+          queryCertType?.toUpperCase().includes('SURVEILLANCE') ||
+          String(appData?.application_type || '').toLowerCase().includes('surveillance') ||
+          String(appData?.type || '').toLowerCase().includes('surveillance') ||
+          Boolean(appData?.is_surveillance) ||
+          String(appData?.application_number || '').includes('-SU-') ||
+          String(appData?.category || '').toLowerCase().includes('surveillance') ||
+          targetLogsheet?.audit_type?.toLowerCase().includes('surveillance') ||
+          String(targetLogsheet?.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+          targetLogsheet?.is_surveillance ||
+          String(auditorRecommended || '').toUpperCase().includes('SURVEILLANCE') ||
+          String(existingCert?.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+          String(existingCert?.certificate_number || '').includes('-SU-')
+        );
+
+        const typeCode = isAddOn ? 'AD' : (isSurvApp ? 'SU' : (appData.is_logsheet_only ? 'NE' : normalizeHfaTypeCode(appData.application_type)));
+        const certNum = generateHfaId(compName || 'HFA', typeCode);
+        
         let initialCertType = '';
-        if (queryCertType && ['HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'GSO MEAT', 'GSO NON MEAT', 'COSMETICS', 'SMIIC'].includes(queryCertType)) {
+        if (isSurvApp) {
+          initialCertType = 'SURVEILLANCE LETTER';
+        } else if (queryCertType && ['HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'GSO MEAT', 'GSO NON MEAT', 'COSMETICS', 'SMIIC', 'SURVEILLANCE LETTER'].includes(queryCertType)) {
           initialCertType = queryCertType;
         } else if (auditorRecommended) {
           initialCertType = resolveCertificateType(appData, existingCert, null, targetLogsheet);
@@ -525,14 +546,18 @@ export default function AdminCreateCertificate() {
         }
 
         if (!initialCertType || initialCertType === 'GSO MEAT') {
-          const appCatUpper = String(appData.category || '').toUpperCase();
-          const appScopeUpper = String(appData.scope || '').toUpperCase();
-          const isGsoApp = appCatUpper.includes('GSO') || appScopeUpper.includes('GSO');
-          const isMeatApp = appCatUpper.includes('MEAT') || appScopeUpper.includes('MEAT') || String(appData.food_nature || '').toUpperCase().includes('MEAT') || resolvedCategory.toLowerCase().includes('meat');
-          if (!isGsoApp && isMeatApp) {
-            initialCertType = 'HFA SCHEME MEAT';
-          } else if (!isGsoApp) {
-            initialCertType = 'HFA SCHEME NON MEAT';
+          if (isSurvApp) {
+            initialCertType = 'SURVEILLANCE LETTER';
+          } else {
+            const appCatUpper = String(appData.category || '').toUpperCase();
+            const appScopeUpper = String(appData.scope || '').toUpperCase();
+            const isGsoApp = appCatUpper.includes('GSO') || appScopeUpper.includes('GSO');
+            const isMeatApp = appCatUpper.includes('MEAT') || appScopeUpper.includes('MEAT') || String(appData.food_nature || '').toUpperCase().includes('MEAT') || resolvedCategory.toLowerCase().includes('meat');
+            if (!isGsoApp && isMeatApp) {
+              initialCertType = 'HFA SCHEME MEAT';
+            } else if (!isGsoApp) {
+              initialCertType = 'HFA SCHEME NON MEAT';
+            }
           }
         }
 
@@ -888,8 +913,15 @@ export default function AdminCreateCertificate() {
 
       const certRes = await api.post('/api/certificates', formData, true);
 
-      toast.success('Certificate created successfully! Opening Review Studio...');
+      toast.success('Certificate created successfully! Redirecting to dashboard...');
       const createdCertId = certRes?.certificate?._id || certRes?.certificate?.id || certRes?._id || certRes?.id || certRes?.data?._id || certRes?.data?.id || certRes?.data?.certificate?._id;
+
+      if(createdCertId){
+        setTimeout(()=> {
+          location.href = "/dashboard"
+        }, 800)
+        
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
     } finally {

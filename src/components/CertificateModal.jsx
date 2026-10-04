@@ -32,15 +32,7 @@ export const resolveCertificateType = (loadedApp, existingCert = null, procDetai
   };
 
   const isAddOn = checkAddOn(loadedApp);
-  const isSurv = !isAddOn && (
-    loadedApp?.application_type === 'surveillance' ||
-    loadedApp?.type === 'surveillance' ||
-    Boolean(loadedApp?.is_surveillance) ||
-    String(loadedApp?.application_number || '').includes('-SU-') ||
-    String(loadedApp?.category || '').toLowerCase().includes('surveillance')
-  );
 
-  // 1. Check explicit raw type from certificate, logsheet or application (prioritize reviewer suggested type)
   const candidateTypes = [
     existingCert?.certificate_type,
     targetLogsheet?.suggested_certificate_type,
@@ -67,24 +59,32 @@ export const resolveCertificateType = (loadedApp, existingCert = null, procDetai
     procDetails?.agreement?.scheme
   ].filter(Boolean);
 
+  const isSurv = !isAddOn && Boolean(
+    loadedApp?.application_type === 'surveillance' ||
+    loadedApp?.type === 'surveillance' ||
+    Boolean(loadedApp?.is_surveillance) ||
+    String(loadedApp?.application_number || '').includes('-SU-') ||
+    String(loadedApp?.category || '').toLowerCase().includes('surveillance') ||
+    targetLogsheet?.audit_type?.toLowerCase().includes('surveillance') ||
+    String(targetLogsheet?.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+    targetLogsheet?.is_surveillance ||
+    procDetails?.logsheet?.audit_type?.toLowerCase().includes('surveillance') ||
+    String(procDetails?.logsheet?.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+    String(existingCert?.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+    String(existingCert?.certificate_number || '').includes('-SU-') ||
+    candidateTypes.some(t => typeof t === 'string' && t.toUpperCase().includes('SURVEILLANCE'))
+  );
+
   if (isSurv) {
-    for (const raw of candidateTypes) {
-      if (typeof raw === 'string' && raw.trim()) {
-        const u = raw.toUpperCase().trim();
-        if (u === 'GSO MEAT' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) return 'GSO MEAT';
-        if (u === 'GSO NON MEAT' || (u.includes('GSO') && (u.includes('NON') || u.includes('FOOD')))) return 'GSO NON MEAT';
-        if (u === 'HFA SCHEME MEAT' || (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON'))) return 'HFA SCHEME MEAT';
-        if (u === 'HFA SCHEME NON MEAT' || (u.includes('HFA') && (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')))) return 'HFA SCHEME NON MEAT';
-        if (u === 'COSMETICS' || u.includes('COSMETIC')) return 'COSMETICS';
-        if (u === 'SMIIC' || u.includes('SMIIC')) return 'SMIIC';
-      }
-    }
-    return 'UAE/GSO Halal Surveillance Letter';
+    return 'SURVEILLANCE LETTER';
   }
 
   for (const raw of candidateTypes) {
     if (typeof raw === 'string' && raw.trim()) {
       const u = raw.toUpperCase().trim();
+      if (u === 'SURVEILLANCE LETTER' || u === 'SURVEILLANCE' || u.includes('SURVEILLANCE')) {
+        return 'SURVEILLANCE LETTER';
+      }
       if (u === 'GSO MEAT' || u === 'GSO SCHEME (MEAT)' || u === 'GSO (MEAT)' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) {
         return 'GSO MEAT';
       }
@@ -229,6 +229,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
   };
 
   const isSurveillance = Boolean(
+    certificateForm.certificate_type === 'SURVEILLANCE LETTER' ||
+    String(certificateForm.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
     app?.application_type === 'surveillance' ||
     propApp?.application_type === 'surveillance' ||
     app?.type === 'surveillance' ||
@@ -242,12 +244,17 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     if (!loadedApp) return;
     const activeLogsheet = targetLogsheet || propLogsheet || logsheet || procDetails?.logsheet || null;
     const isAddOn = checkIsAddOn(loadedApp) || checkIsAddOn(propApp);
-    const isSurv = !isAddOn && (
+    const isSurv = !isAddOn && Boolean(
       loadedApp.application_type === 'surveillance' ||
       loadedApp.type === 'surveillance' ||
       Boolean(loadedApp.is_surveillance) ||
       String(loadedApp.application_number || '').includes('-SU-') ||
-      String(loadedApp.category || '').toLowerCase().includes('surveillance')
+      String(loadedApp.category || '').toLowerCase().includes('surveillance') ||
+      activeLogsheet?.audit_type?.toLowerCase().includes('surveillance') ||
+      String(activeLogsheet?.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+      activeLogsheet?.is_surveillance ||
+      String(existingCert?.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+      String(existingCert?.certificate_number || '').includes('-SU-')
     );
     const isRenApp = Boolean(
       String(loadedApp.application_type || '').toLowerCase().includes('renewal') ||
@@ -278,7 +285,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     let matchedSuggested = '';
     if (rawSuggested) {
       const u = String(rawSuggested).toUpperCase().trim();
-      if (u === 'GSO MEAT' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) matchedSuggested = 'GSO MEAT';
+      if (u === 'SURVEILLANCE LETTER' || u === 'SURVEILLANCE' || u.includes('SURVEILLANCE')) matchedSuggested = 'SURVEILLANCE LETTER';
+      else if (u === 'GSO MEAT' || (u.includes('GSO') && u.includes('MEAT') && !u.includes('NON'))) matchedSuggested = 'GSO MEAT';
       else if (u === 'GSO NON MEAT' || (u.includes('GSO') && (u.includes('NON') || u.includes('FOOD')))) matchedSuggested = 'GSO NON MEAT';
       else if (u === 'HFA SCHEME MEAT' || (u.includes('HFA') && u.includes('MEAT') && !u.includes('NON'))) matchedSuggested = 'HFA SCHEME MEAT';
       else if (u === 'HFA SCHEME NON MEAT' || (u.includes('HFA') && (u.includes('NON') || u.includes('FOOD') || u.includes('GENERAL')))) matchedSuggested = 'HFA SCHEME NON MEAT';
@@ -291,9 +299,11 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
     }
 
     // Automatically resolve Certificate Type strictly from application data & reviewer suggestion
-    const resolvedCertType = (matchedSuggested && !isSurv)
-      ? matchedSuggested
-      : resolveCertificateType(loadedApp, existingCert, procDetails, activeLogsheet);
+    const resolvedCertType = isSurv
+      ? 'SURVEILLANCE LETTER'
+      : (matchedSuggested
+        ? matchedSuggested
+        : resolveCertificateType(loadedApp, existingCert, procDetails, activeLogsheet));
 
     const isFour = isFourDateType(resolvedCertType);
     const yearsToAdd = isSurv ? 1 : (isFour ? 3 : 1);
@@ -1325,6 +1335,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                   <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
                   <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
                   <option value="COSMETICS">COSMETICS</option>
+                  <option value="SURVEILLANCE LETTER">SURVEILLANCE LETTER</option>
                   {isSurveillance && (
                     <option value="UAE/GSO Halal Surveillance Letter">UAE/GSO Halal Surveillance Letter</option>
                   )}

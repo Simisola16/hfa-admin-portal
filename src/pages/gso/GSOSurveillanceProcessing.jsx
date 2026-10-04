@@ -608,7 +608,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         <button
           className="btn btn-primary"
           style={{ gap: 8, background: '#0284c7', borderColor: '#0284c7' }}
-          onClick={() => navigate(`/applications/${appId}/issue-certificate`)}
+          onClick={() => navigate(`/applications/${appId}/issue-certificate?cert_type=SURVEILLANCE%20LETTER`)}
         >
           <FileText size={16} /> Surveillance Letter
         </button>
@@ -1002,7 +1002,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             certificate={certificate}
             status={status}
             isSurveillance={true}
-            onIssueCertificate={() => navigate(`/applications/${appId}/issue-certificate`)}
+            onIssueCertificate={() => navigate(`/applications/${appId}/issue-certificate?cert_type=SURVEILLANCE%20LETTER`)}
           />
         </div>
 

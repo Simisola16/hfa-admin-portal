@@ -20,7 +20,8 @@ const CERTIFICATE_TYPES = [
   'GSO MEAT',
   'GSO NON MEAT',
   'COSMETICS',
-  'SMIIC'
+  'SMIIC',
+  'SURVEILLANCE LETTER'
 ];
 
 const PRODUCT_CATEGORIES = [
@@ -91,8 +92,9 @@ export default function SuperAdminDirectCertificate() {
     return generateHfaId(companyName || 'UK', type);
   };
 
-  const initialCertType = queryCertType || 'HFA SCHEME MEAT';
-  const [certNumber, setCertNumber] = useState(generateRandomCertNo());
+  const isQuerySurv = Boolean(queryCertType && queryCertType.toUpperCase().includes('SURVEILLANCE'));
+  const initialCertType = isQuerySurv ? 'SURVEILLANCE LETTER' : (queryCertType || 'HFA SCHEME MEAT');
+  const [certNumber, setCertNumber] = useState(generateRandomCertNo(null, isQuerySurv ? 'SU' : 'NE'));
   const [certType, setCertType] = useState(initialCertType);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentCycleStartDate, setCurrentCycleStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -281,17 +283,39 @@ export default function SuperAdminDirectCertificate() {
             if (l.company_address) setCertCompanyAddress(l.company_address);
             if (l.manufacturing_address) setCertManufacturingFacility(l.manufacturing_address);
             if (l.product_category || l.productCategory) setCertProductCategory(l.product_category || l.productCategory);
-            const scheme = queryCertType || l.suggested_certificate_type || l.certificate_type || l.certificate_standard;
-            if (scheme) {
-              const u = String(scheme).toUpperCase();
-              if (u.includes('MEAT') && !u.includes('NON')) {
-                setCertType(u.includes('GSO') ? 'GSO MEAT' : 'HFA SCHEME MEAT');
-              } else if (u.includes('NON') || u.includes('FOOD')) {
-                setCertType(u.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
-              } else if (u.includes('GSO')) {
-                setCertType('GSO MEAT');
-              } else {
-                setCertType('HFA SCHEME MEAT');
+            const isSurv = Boolean(
+              queryCertType?.toUpperCase().includes('SURVEILLANCE') ||
+              l.audit_type?.toLowerCase().includes('surveillance') ||
+              l.is_surveillance ||
+              String(l.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+              String(l.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+              String(l.certificate_standard || '').toUpperCase().includes('SURVEILLANCE')
+            );
+            if (isSurv) {
+              setCertType('SURVEILLANCE LETTER');
+              applyValidityPreset(1);
+            } else {
+              const scheme = queryCertType || l.suggested_certificate_type || l.certificate_type || l.certificate_standard;
+              if (scheme) {
+                const u = String(scheme).toUpperCase();
+                if (u.includes('SURVEILLANCE')) {
+                  setCertType('SURVEILLANCE LETTER');
+                  applyValidityPreset(1);
+                } else if (u.includes('COSMETIC')) {
+                  setCertType('COSMETICS');
+                  applyValidityPreset(1);
+                } else if (u.includes('SMIIC')) {
+                  setCertType('SMIIC');
+                  applyValidityPreset(3);
+                } else if (u.includes('MEAT') && !u.includes('NON')) {
+                  setCertType(u.includes('GSO') ? 'GSO MEAT' : 'HFA SCHEME MEAT');
+                } else if (u.includes('NON') || u.includes('FOOD')) {
+                  setCertType(u.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+                } else if (u.includes('GSO')) {
+                  setCertType('GSO MEAT');
+                } else {
+                  setCertType('HFA SCHEME MEAT');
+                }
               }
             }
             if (Array.isArray(l.products_list) && l.products_list.length > 0) {
@@ -497,11 +521,28 @@ export default function SuperAdminDirectCertificate() {
             if (list.length > 0) {
               const logsheet = list[0];
               const cat = logsheet.product_category || logsheet.productCategory || '';
-              if (cat) setCertProductCategory(cat);
               const recType = logsheet.suggested_certificate_type || logsheet.certificate_type || logsheet.certificate_standard;
-              if (recType && !queryCertType) {
+              const isSurv = Boolean(
+                queryCertType?.toUpperCase().includes('SURVEILLANCE') ||
+                logsheet.audit_type?.toLowerCase().includes('surveillance') ||
+                logsheet.is_surveillance ||
+                String(recType || '').toUpperCase().includes('SURVEILLANCE')
+              );
+              if (isSurv) {
+                setCertType('SURVEILLANCE LETTER');
+                applyValidityPreset(1);
+              } else if (recType && !queryCertType) {
                 const u = String(recType).toUpperCase();
-                if (u.includes('MEAT') && !u.includes('NON')) {
+                if (u.includes('SURVEILLANCE')) {
+                  setCertType('SURVEILLANCE LETTER');
+                  applyValidityPreset(1);
+                } else if (u.includes('COSMETIC')) {
+                  setCertType('COSMETICS');
+                  applyValidityPreset(1);
+                } else if (u.includes('SMIIC')) {
+                  setCertType('SMIIC');
+                  applyValidityPreset(3);
+                } else if (u.includes('MEAT') && !u.includes('NON')) {
                   setCertType(u.includes('GSO') ? 'GSO MEAT' : 'HFA SCHEME MEAT');
                 } else if (u.includes('NON') || u.includes('FOOD')) {
                   setCertType(u.includes('GSO') ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');

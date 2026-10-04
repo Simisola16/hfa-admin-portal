@@ -27,6 +27,7 @@ export default function AdminCertificates({ defaultTab }) {
   const getApplicationTypeDisplay = (c) => {
     if (c.is_add_on) return 'Addon';
     if (c.certificate_type === 'Extension' || c.is_extension) return 'Extension';
+    if (c.certificate_type === 'SURVEILLANCE LETTER' || String(c.certificate_type || '').toLowerCase().includes('surv')) return 'Surveillance';
     if (c.is_direct_issuance) return 'Direct';
 
     const appType = c.application_id?.application_type || c.application_type;
@@ -766,7 +767,27 @@ export default function AdminCertificates({ defaultTab }) {
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Linked Application</label>
-                  <select className="form-control" value={form.application_id} onChange={e => setForm(f => ({ ...f, application_id: e.target.value }))} required>
+                  <select
+                    className="form-control"
+                    value={form.application_id}
+                    onChange={e => {
+                      const selectedAppId = e.target.value;
+                      const selectedApp = apps.find(a => String(a.id || a._id) === String(selectedAppId));
+                      const isSurvApp = selectedApp && Boolean(
+                        selectedApp.application_type === 'surveillance' ||
+                        selectedApp.type === 'surveillance' ||
+                        selectedApp.is_surveillance ||
+                        String(selectedApp.application_number || '').includes('-SU-') ||
+                        String(selectedApp.category || '').toLowerCase().includes('surveillance')
+                      );
+                      setForm(f => ({
+                        ...f,
+                        application_id: selectedAppId,
+                        certificate_type: isSurvApp ? 'SURVEILLANCE LETTER' : f.certificate_type
+                      }));
+                    }}
+                    required
+                  >
                     <option value="">Select Application</option>
                     {apps.map(a => <option key={a.id || a._id} value={a.id || a._id}>{a.application_number} – {a.profiles?.company_name || a.establishment_name}</option>)}
                   </select>
@@ -774,7 +795,7 @@ export default function AdminCertificates({ defaultTab }) {
                 <div className="form-group">
                   <label className="form-label">Certificate Type <span>*</span></label>
                   <select className="form-control" value={form.certificate_type} onChange={e => setForm(f => ({ ...f, certificate_type: e.target.value }))}>
-                    {['GSO MEAT', 'GSO NON MEAT', 'HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'COSMETICS', 'SMIIC'].map(t => <option key={t} value={t}>{t}</option>)}
+                    {['GSO MEAT', 'GSO NON MEAT', 'HFA SCHEME MEAT', 'HFA SCHEME NON MEAT', 'COSMETICS', 'SMIIC', 'SURVEILLANCE LETTER'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="form-grid">

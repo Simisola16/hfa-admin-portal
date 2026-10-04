@@ -9,6 +9,7 @@ export const CERTIFICATE_OPTIONS = [
   { value: 'GSO NON MEAT', label: 'GSO NON MEAT', desc: 'UAE / GCC GSO 2055-1 Scheme - Non-Meat Food & Dairy' },
   { value: 'COSMETICS', label: 'COSMETICS', desc: 'Halal Cosmetics & Personal Care Scheme' },
   { value: 'SMIIC', label: 'SMIIC', desc: 'OIC / SMIIC International Halal Standard Scheme' },
+  { value: 'SURVEILLANCE LETTER', label: 'SURVEILLANCE LETTER', desc: 'Official Surveillance Audit Outcome Letter' },
 ];
 
 export default function ApplicationSuccessfulModal({

@@ -48,8 +48,7 @@ export default function SuperAdminDirectCertificate() {
   // Role & Privilege Security Check
   const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
-  const isCertificateOfficer = userRoles.includes('certificate_officer');
-  const hasDirectCertPrivilege = isSuperAdmin || isCertificateOfficer || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
+  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
 
   // Tabs: 'create' | 'history'
   const [activeTab, setActiveTab] = useState('create');
@@ -197,7 +196,7 @@ export default function SuperAdminDirectCertificate() {
         certification_start_date: certificationStartDate || issueDate,
         expiry_date: expiryDate,
         product_table_columns: productTableColumns,
-        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
+        products: validProducts
       });
 
       const url = res.previewUrl || res.data?.previewUrl;

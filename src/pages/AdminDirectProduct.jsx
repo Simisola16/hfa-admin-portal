@@ -55,9 +55,7 @@ export default function AdminDirectProduct() {
     ? profile.roles
     : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
-  const isAdminOrStaff = isSuperAdmin || userRoles.some(r =>
-    ['admin', 'scheme_manager', 'certificate_officer', 'food_tech_manager', 'food_tech', 'audit_manager'].includes(r)
-  );
+  const hasDirectPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
 
   // Active Tab: 'manage' | 'create'
   const [activeTab, setActiveTab] = useState('manage');
@@ -538,7 +536,7 @@ export default function AdminDirectProduct() {
     return Array.from(set).sort();
   }, [clients, sites]);
 
-  if (!loadingData && !isAdminOrStaff) {
+  if (!loadingData && !hasDirectPrivilege) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
         <div style={{

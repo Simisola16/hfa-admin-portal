@@ -131,15 +131,15 @@ export default function AdminCreateLogsheet() {
   );
 
   useEffect(() => {
-    if (isSurveillance && form.certificate_type !== 'Surveillance Letter') {
+    if (isSurveillance && !form.certificate_type) {
       setForm(prev => ({
         ...prev,
-        certificate_type: 'Surveillance Letter',
-        certificate_standard: 'Surveillance Letter',
-        suggested_certificate_type: 'Surveillance Letter'
+        certificate_type: prev.certificate_type || 'Surveillance Letter',
+        certificate_standard: prev.certificate_standard || 'Surveillance Letter',
+        suggested_certificate_type: prev.suggested_certificate_type || 'Surveillance Letter'
       }));
     }
-  }, [isSurveillance]);
+  }, [isSurveillance, form.certificate_type]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -625,9 +625,9 @@ export default function AdminCreateLogsheet() {
           setForm(f => ({
             ...f,
             ...logsheetObj,
-            certificate_type: logsheetObj.certificate_type || logsheetObj.suggested_certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || appData?.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
-            certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT'),
-            suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || '',
+            certificate_type: logsheetObj.certificate_type || logsheetObj.suggested_certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
+            certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
+            suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : ''),
             next_surveillance_due_date: logsheetObj.next_surveillance_due_date ? new Date(logsheetObj.next_surveillance_due_date).toISOString().split('T')[0] : (appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : ''),
             site_name: (logsheetObj.site_name != null) ? logsheetObj.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
@@ -706,9 +706,9 @@ export default function AdminCreateLogsheet() {
             contact_email: autoContactEmail,
             nature_of_business: autoNature,
             product_category: autoProductCategory,
-            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
-            certificate_standard: appData?.certificate_type || '',
-            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
+            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
+            certificate_standard: appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
+            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
             issue_date: todayStr,
             expiry_date: oneYearLater,
             current_cycle_start: autoAuditDate || todayStr,
@@ -944,7 +944,8 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    if (!form.certificate_type?.trim()) {
+    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
+    if (!resolvedCertType) {
       toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
       return;
     }
@@ -987,7 +988,8 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleConfirmNextSurveillanceFromLogsheet = async ({ next_surveillance_due_date, admin_name, notes }) => {
-    if (!form.certificate_type?.trim()) {
+    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
+    if (!resolvedCertType) {
       toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
       setShowNextSurvModal(false);
       return;
@@ -1260,10 +1262,16 @@ export default function AdminCreateLogsheet() {
     }
 
     // 3. Validate Tab 3: Certificate Status
-    if (!form.certificate_type?.trim()) {
+    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
+    if (!resolvedCertType) {
       toast.error('Certificate Type / Scheme is required (Tab 3)');
       setActiveTab(3);
       return;
+    }
+    if (!form.certificate_type || form.certificate_type !== resolvedCertType) {
+      form.certificate_type = resolvedCertType;
+      form.certificate_standard = resolvedCertType;
+      form.suggested_certificate_type = resolvedCertType;
     }
     if (isGSO && !form.next_surveillance_due_date) {
       toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
@@ -2271,23 +2279,18 @@ export default function AdminCreateLogsheet() {
                   <select
                     required
                     className="form-control"
-                    value={isSurveillance ? 'Surveillance Letter' : (form.certificate_type || '')}
+                    value={form.certificate_type || form.certificate_standard || form.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : '')}
                     onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
                     style={{ fontWeight: 700, fontSize: 13.5, maxWidth: 340, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1', color: '#0f172a' }}
                   >
-                    {isSurveillance ? (
-                      <option value="Surveillance Letter">Surveillance Letter</option>
-                    ) : (
-                      <>
-                        <option value="">— Select Certificate Type —</option>
-                        <option value="GSO MEAT">GSO MEAT</option>
-                        <option value="GSO NON MEAT">GSO NON MEAT</option>
-                        <option value="HFA SCHEME MEAT">HFA SCHEME MEAT</option>
-                        <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
-                        <option value="COSMETICS">COSMETICS</option>
-                        <option value="SMIIC">SMIIC</option>
-                      </>
-                    )}
+                    <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
+                    <option value="Surveillance Letter">Surveillance Letter (Official Surveillance Confirmation)</option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
+                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
+                    <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
+                    <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
+                    <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics Scheme)</option>
+                    <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
                   </select>
                   {form.certificate_type && (
                     <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0e7490', fontWeight: 700 }}>
@@ -2964,23 +2967,18 @@ export default function AdminCreateLogsheet() {
                   <select
                     required
                     className="form-control"
-                    value={isSurveillance ? 'Surveillance Letter' : (form.certificate_type || form.certificate_standard || '')}
+                    value={form.certificate_type || form.certificate_standard || form.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : '')}
                     onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
                     style={{ fontWeight: 700, fontSize: 13.5, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1' }}
                   >
-                    {isSurveillance ? (
-                      <option value="Surveillance Letter">Surveillance Letter</option>
-                    ) : (
-                      <>
-                        <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
-                        <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
-                        <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
-                        <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
-                        <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
-                        <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics Scheme)</option>
-                        <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
-                      </>
-                    )}
+                    <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
+                    <option value="Surveillance Letter">Surveillance Letter (Official Surveillance Confirmation)</option>
+                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
+                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
+                    <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
+                    <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
+                    <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics Scheme)</option>
+                    <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
                   </select>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
                     💡 <strong>{isSurveillance ? 'Surveillance Document:' : 'Certificate Suggestion:'}</strong> {isSurveillance ? 'Surveillance audits result in an official Surveillance Confirmation Letter rather than a new certificate.' : 'This scheme is saved with the logsheet and suggested to the officer during final certificate issuance.'}

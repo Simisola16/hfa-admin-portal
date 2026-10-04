@@ -1093,14 +1093,14 @@ export default function AdminCreateKFCLogsheet() {
                 {/* Manufacturing Site Address — NOT COMPULSORY */}
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label" style={{ margin: 0 }}>
-                    Manufacturing Site Address
+                    Manufacturing Site Address <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>(Optional)</span>
                   </label>
                   <input
                     type="text"
                     className="form-control"
                     value={form.manufacturing_address || ''}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Manufacturing site address (optional)"
+                    placeholder="Manufacturing site address (Optional)"
                     style={{ fontWeight: 600 }}
                   />
                 </div>

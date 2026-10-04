@@ -487,7 +487,7 @@ export default function AdminDirectLogsheet() {
         logsheet_type: selectedType,
         company_name: compName.trim(),
         company_address: form.company_address || customSiteAddress || '—',
-        manufacturing_address: customManufacturingAddress || customSiteAddress || form.company_address || '—',
+        manufacturing_address: customManufacturingAddress || customSiteAddress || '',
         site_name: customSiteName || 'Main Manufacturing Facility',
         client_id: clientMode === 'existing' ? selectedClient?._id : undefined,
         new_client: clientMode === 'new' ? newClient : undefined,
@@ -1037,7 +1037,7 @@ export default function AdminDirectLogsheet() {
 
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>
-                        Facility Physical Address
+                        Facility Physical Address <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
                       </label>
                       <input
                         type="text"
@@ -1047,7 +1047,7 @@ export default function AdminDirectLogsheet() {
                           setCustomSiteAddress(e.target.value);
                           setCustomManufacturingAddress(e.target.value);
                         }}
-                        placeholder="Factory address where certified operations take place"
+                        placeholder="Factory address where certified operations take place (Optional)"
                         style={{ height: 42, borderRadius: 8 }}
                       />
                     </div>

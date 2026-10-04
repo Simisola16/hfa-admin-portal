@@ -58,6 +58,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const [certificate, setCertificate] = useState(initialData?.certificate || null);
 
   // Modal Visibility States
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);

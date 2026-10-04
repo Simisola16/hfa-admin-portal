@@ -483,14 +483,39 @@ export default function AdminReviewCertificate() {
         fetchedAppData?.application_number?.startsWith('ADD-')
       );
 
+      const isSurvCert = Boolean(
+        c.is_surveillance ||
+        String(c.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+        String(c.certificate_number || '').includes('-SU-') ||
+        c.application_id?.is_surveillance ||
+        String(c.application_id?.application_type || '').toLowerCase().includes('surveillance') ||
+        String(c.application_id?.type || '').toLowerCase().includes('surveillance') ||
+        String(c.application_id?.category || '').toLowerCase().includes('surveillance') ||
+        String(c.application_id?.application_number || '').includes('-SU-') ||
+        fetchedAppData?.is_surveillance ||
+        String(fetchedAppData?.application_type || '').toLowerCase().includes('surveillance') ||
+        String(fetchedAppData?.type || '').toLowerCase().includes('surveillance') ||
+        String(fetchedAppData?.category || '').toLowerCase().includes('surveillance') ||
+        String(fetchedAppData?.application_number || '').includes('-SU-')
+      );
+
       let resolvedCertNo = c.certificate_number || '';
       if (isAddOnCert && resolvedCertNo.includes('-NE-')) {
         resolvedCertNo = resolvedCertNo.replace('-NE-', '-AD-');
+      } else if (isSurvCert && resolvedCertNo.includes('-NE-')) {
+        resolvedCertNo = resolvedCertNo.replace('-NE-', '-SU-');
+      }
+
+      let resolvedCertType = c.certificate_type;
+      if (isSurvCert) {
+        resolvedCertType = 'SURVEILLANCE LETTER';
+      } else if (!resolvedCertType) {
+        resolvedCertType = 'HFA SCHEME NON MEAT';
       }
 
       setForm({
         certificate_number: resolvedCertNo,
-        certificate_type: c.certificate_type || 'HFA SCHEME NON MEAT',
+        certificate_type: resolvedCertType,
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
         company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
@@ -1462,6 +1487,7 @@ export default function AdminReviewCertificate() {
                     <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT</option>
                     <option value="COSMETICS">COSMETICS</option>
                     <option value="SMIIC">SMIIC</option>
+                    <option value="SURVEILLANCE LETTER">SURVEILLANCE LETTER</option>
                   </select>
                 </div>
               </div>

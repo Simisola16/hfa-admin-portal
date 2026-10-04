@@ -300,6 +300,25 @@ export default function AdminLogsheetWaitingCertificate() {
     }
 
     const u = String(raw || '').toUpperCase();
+    
+    const isSurv = Boolean(
+      String(l.audit_type || '').toLowerCase().includes('surveillance') ||
+      l.is_surveillance ||
+      String(l.suggested_certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+      String(l.certificate_standard || '').toUpperCase().includes('SURVEILLANCE') ||
+      String(l.certificate_type || '').toUpperCase().includes('SURVEILLANCE') ||
+      String(app.application_type || '').toLowerCase().includes('surveillance') ||
+      String(app.type || '').toLowerCase().includes('surveillance') ||
+      app.is_surveillance ||
+      String(app.application_number || '').includes('-SU-') ||
+      String(appCat).toLowerCase().includes('surveillance') ||
+      String(u).includes('SURVEILLANCE')
+    );
+
+    if (isSurv) {
+      return { certType: 'SURVEILLANCE LETTER', bg: '#fef3c7', color: '#92400e', border: '#fde68a' };
+    }
+
     let displayType = 'HFA';
     let bg = '#dcfce7';
     let color = '#166534';

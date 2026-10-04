@@ -170,6 +170,19 @@ export default function AdminLogsheetWaitingSignature() {
     }
   };
 
+  const handleApproveKfcLogsheet = async (logsheet) => {
+    if (!logsheet) return;
+    if (!window.confirm(`Approve KFC Logsheet for "${logsheet.company_name}"?\n\nAll 4 committee signatures are complete. This will approve the KFC Logsheet and move it directly to Manage Logsheets. No certificate is required.`)) return;
+    try {
+      await api.put(`/api/application-logsheets/${logsheet._id}/status`, { status: 'Completed', force: true });
+      toast.success('🍗 KFC Logsheet approved successfully! Workflow completed.');
+      fetchLogsheets();
+      navigate('/logsheet/manage');
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to approve KFC logsheet');
+    }
+  };
+
   const handleRestore = (logsheet) => {
     if (!logsheet) return;
     setRestoreModalItem(logsheet);
@@ -278,6 +291,9 @@ export default function AdminLogsheetWaitingSignature() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') {
+      return `/logsheet/kfc/${l._id}`;
+    }
     if (l.source_type === 'extension_application' || l.extension_application_id) {
       const id = l.extension_application_id?._id || l.extension_application_id;
       return `/extension-applications/${id}/logsheet`;
@@ -727,14 +743,47 @@ export default function AdminLogsheetWaitingSignature() {
                         </td>
 
                         <td style={{ padding: '16px 20px', fontSize: 12, fontWeight: 500 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#4f46e5', background: '#f5f3ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #e0e7ff' }}>
-                            <Tag size={11} />
-                            {l.audit_type || 'New'}
-                          </span>
+                          {(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#dc2626', background: '#fef2f2', padding: '3px 9px', borderRadius: 6, border: '1px solid #fecaca', fontWeight: 800 }}>
+                              🍗 KFC Logsheet
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#4f46e5', background: '#f5f3ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #e0e7ff' }}>
+                              <Tag size={11} />
+                              {l.audit_type || 'New'}
+                            </span>
+                          )}
                         </td>
 
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                            {(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') && count === 4 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApproveKfcLogsheet(l);
+                                }}
+                                className="btn btn-sm"
+                                style={{
+                                  background: 'linear-gradient(135deg, #15803d, #16a34a)',
+                                  color: '#fff',
+                                  fontWeight: 800,
+                                  fontSize: 11.5,
+                                  padding: '5px 12px',
+                                  borderRadius: 8,
+                                  border: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                                  cursor: 'pointer'
+                                }}
+                                title="Approve KFC Logsheet (All 4 signatures complete)"
+                              >
+                                <CheckCircle2 size={13} strokeWidth={2.5} />
+                                Approve KFC Logsheet
+                              </button>
+                            )}
                             {l.status === 'Done' || l.status === 'done' ? (
                               <span style={{
                                 padding: '4px 10px',
@@ -859,10 +908,16 @@ export default function AdminLogsheetWaitingSignature() {
                         <span style={{ color: 'var(--text-muted)' }}>Created By: </span>
                         <strong>{getCreatorName(l)}</strong>
                       </div>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f3ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, marginTop: 4 }}>
-                        <Tag size={10} />
-                        {l.audit_type || 'New'} Logsheet
-                      </div>
+                      {(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800, marginTop: 4 }}>
+                          🍗 KFC Logsheet
+                        </div>
+                      ) : (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f3ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, marginTop: 4 }}>
+                          <Tag size={10} />
+                          {l.audit_type || 'New'} Logsheet
+                        </div>
+                      )}
                     </div>
 
                     {/* Progress bar inside card */}
@@ -929,6 +984,17 @@ export default function AdminLogsheetWaitingSignature() {
         badge={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'Done' : (actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature')}
         badgeVariant={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'badge-green' : (actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow')}
         actions={[
+          (actionModalItem?.is_kfc || actionModalItem?.source_type === 'kfc' || actionModalItem?.logsheet_type === 'kfc') && getSignatoryProgress(actionModalItem).count === 4 && {
+            label: 'Approve KFC Logsheet',
+            description: 'All 4 committee signatures complete. Approve KFC Logsheet and move to Manage Logsheets.',
+            icon: CheckCircle2,
+            variant: 'success',
+            onClick: () => {
+              const item = actionModalItem;
+              setActionModalItem(null);
+              if (item) handleApproveKfcLogsheet(item);
+            }
+          },
           {
             label: actionModalItem && hasUserSigned(actionModalItem)
               ? 'View Signed Logsheet'

@@ -197,7 +197,7 @@ export default function SuperAdminDirectCertificate() {
         certification_start_date: certificationStartDate || issueDate,
         expiry_date: expiryDate,
         product_table_columns: productTableColumns,
-        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule' }]
+        products: validProducts
       });
 
       const url = res.previewUrl || res.data?.previewUrl;

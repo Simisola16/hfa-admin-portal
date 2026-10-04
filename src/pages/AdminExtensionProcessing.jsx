@@ -37,6 +37,11 @@ export default function AdminExtensionProcessing() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
+  const handleOpenCertificateStudio = () => {
+    const logId = logsheet?._id ? `?logsheet_id=${logsheet._id}` : '';
+    navigate(`/extension-applications/${id}/issue-certificate${logId}`);
+  };
+
   const handleOpenApproveModal = () => {
     const companyForId = app?.company_name || app?.client_id?.company_name || app?.client_id?.business_name || app?.site_name || 'SM';
     if (!certNumber) {
@@ -410,7 +415,7 @@ export default function AdminExtensionProcessing() {
             {/* Stage 4 Action: Issue Certificate (Only when fully signed) */}
             {isStep4Unlocked && !isApproved && !isRejected && (
               <button
-                onClick={handleOpenApproveModal}
+                onClick={handleOpenCertificateStudio}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   background: '#008744', color: 'white', border: 'none',
@@ -688,6 +693,12 @@ export default function AdminExtensionProcessing() {
                       {logsheet?.status || 'Draft'}
                     </strong>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12.5, marginTop: 6 }}>
+                    <span style={{ color: '#64748b' }}>Recommended Scheme:</span>
+                    <strong style={{ color: '#0e7490' }}>
+                      {logsheet?.suggested_certificate_type || logsheet?.certificate_type || (logsheet?.scheme ? `${logsheet.scheme} SCHEME` : 'HFA SCHEME')}
+                    </strong>
+                  </div>
                 </div>
 
                 <button
@@ -890,7 +901,7 @@ export default function AdminExtensionProcessing() {
                 </div>
 
                 <button
-                  onClick={handleOpenApproveModal}
+                  onClick={handleOpenCertificateStudio}
                   disabled={isRejected}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

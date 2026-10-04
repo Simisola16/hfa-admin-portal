@@ -121,3 +121,13 @@ export function canIssueCertificate(user) {
 export function canSendReviewedCertificate(user) {
   return hasRole(user, 'certificate_officer') || Boolean(user?.can_review_certificate);
 }
+
+/**
+ * 6. KFC LOGSHEET
+ * - Special grant privileged: Superadmin, staff with can_create_kfc_logsheet, or staff with can_sign_logsheet (to review and sign)
+ */
+export function canAccessKfcLogsheet(user) {
+  if (!user) return false;
+  return isSuperAdmin(user) || Boolean(user?.can_create_kfc_logsheet) || Boolean(user?.can_sign_logsheet);
+}
+

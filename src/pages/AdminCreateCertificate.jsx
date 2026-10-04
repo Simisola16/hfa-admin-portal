@@ -1,6 +1,6 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Award, ArrowLeft, RefreshCw, Send, FileText,
   AlertTriangle, Building, Building2, MapPin, Calendar, Package, Plus, Trash2,
@@ -47,6 +47,8 @@ export default function AdminCreateCertificate() {
     : rawQueryCertType;
   const queryLogsheetId = searchParams.get('logsheet_id');
   const navigate = useNavigate();
+  const location = useLocation();
+  const isExtensionRoute = location.pathname.includes('/extension-applications/');
 
   const { user, profile } = useAuth();
   const currentUser = profile || user;
@@ -143,8 +145,54 @@ export default function AdminCreateCertificate() {
           } catch (_) {}
         }
 
+        // 1b. Extension Application (opened from Extension Processing → Approve & Issue)
+        if (isExtensionRoute && appId && appId !== 'undefined' && appId !== 'null') {
+          try {
+            const [extRes, extLogRes] = await Promise.all([
+              api.get(`/api/extension-applications/${appId}`),
+              api.get(`/api/extension-applications/${appId}/logsheet`).catch(() => null)
+            ]);
+            const extData = extRes?.data?.data || extRes?.data;
+            const extLog = extLogRes?.data?.data || extLogRes?.data || (typeof extData?.logsheet_id === 'object' ? extData.logsheet_id : null);
+            if (extData) {
+              const parentCert = extData.parent_certificate || null;
+              const extDays = Number(extLog?.extension_days) || 30;
+              let baseDate = extLog?.certificate_expiry_date
+                ? new Date(extLog.certificate_expiry_date)
+                : (parentCert?.expiry_date ? new Date(parentCert.expiry_date) : new Date());
+              if (isNaN(baseDate.getTime())) baseDate = new Date();
+              const extendedUntil = new Date(baseDate.getTime() + extDays * 24 * 60 * 60 * 1000);
+
+              appData = {
+                _id: extData._id,
+                is_extension: true,
+                extension_application_id: extData._id,
+                extension_days: extDays,
+                extended_until: extendedUntil.toISOString().split('T')[0],
+                application_number: extData.application_number,
+                application_type: 'extension',
+                company_name: extLog?.company_name || extData.company_name,
+                establishment_name: extData.site_name || extData.company_name,
+                establishment_address: parentCert?.company_address || '',
+                manufacturer_address: extLog?.facility_address || parentCert?.manufacturing_address || '',
+                category: extLog?.product_category || parentCert?.product_category || '',
+                scope: extLog?.product_category || parentCert?.scope || '',
+                client_id: extData.client_id,
+                site_id: extData.site_id || parentCert?.site_id,
+                certificate_id: parentCert?._id,
+                suggested_certificate_type: extLog?.suggested_certificate_type || extLog?.recommended_scheme || extLog?.certificate_type || parentCert?.certificate_type || extData.detected_certificate_type,
+                products: Array.isArray(parentCert?.product_details) && parentCert.product_details.length > 0
+                  ? parentCert.product_details
+                  : (Array.isArray(parentCert?.products_covered) ? parentCert.products_covered : [])
+              };
+            }
+          } catch (e) {
+            console.error('Failed to load extension application:', e);
+          }
+        }
+
         // 2. Try fetching as Application or AddOnApplication if appId is present
-        if (appId && appId !== 'undefined' && appId !== 'null' && appId !== 'direct') {
+        if (!appData && !isExtensionRoute && appId && appId !== 'undefined' && appId !== 'null' && appId !== 'direct') {
           try {
             const res = await api.get(`/api/applications/${appId}`);
             appData = res.data?.data || res.data;
@@ -218,7 +266,7 @@ export default function AdminCreateCertificate() {
         // Check if certificate already exists for this application or logsheet
         try {
           const certSearchId = appData.is_logsheet_only ? (targetLogsheet?._id || appId) : appId;
-          if (certSearchId && certSearchId !== 'undefined' && certSearchId !== 'direct') {
+          if (!appData.is_extension && certSearchId && certSearchId !== 'undefined' && certSearchId !== 'direct') {
             const certRes = await api.get(`/api/certificates/application/${certSearchId}`).catch(() => null);
             const existing = certRes?.data || certRes?.data?.data || null;
             if (existing) {
@@ -302,26 +350,25 @@ export default function AdminCreateCertificate() {
         }
 
         let resolvedSite = null;
-        if (siteId && typeof siteId === 'string') {
-          const foundSiteInList = siteList.find(s => String(s._id || s.id) === String(siteId));
+        const targetSiteIdStr = siteId ? (typeof siteId === 'object' ? String(siteId._id || siteId.id || '') : String(siteId)) : '';
+        if (targetSiteIdStr) {
+          const foundSiteInList = siteList.find(s => String(s._id || s.id) === targetSiteIdStr);
           if (foundSiteInList) {
             resolvedSite = foundSiteInList;
-            setSiteData(resolvedSite);
-            setSelectedSiteId(String(siteId));
           } else {
             try {
-              const siteRes = await api.get(`/api/sites/${siteId}`);
+              const siteRes = await api.get(`/api/sites/${targetSiteIdStr}`);
               resolvedSite = siteRes.data?.data || siteRes.data;
-              setSiteData(resolvedSite);
-              setSelectedSiteId(String(siteId));
             } catch (_) {}
           }
         } else if (appData.site_id && typeof appData.site_id === 'object') {
           resolvedSite = appData.site_id;
+        }
+
+        if (resolvedSite) {
           setSiteData(resolvedSite);
-          if (resolvedSite._id || resolvedSite.id) {
-            setSelectedSiteId(String(resolvedSite._id || resolvedSite.id));
-          }
+          const finalSId = String(resolvedSite._id || resolvedSite.id || targetSiteIdStr || '');
+          if (finalSId) setSelectedSiteId(finalSId);
         }
 
         // Fetch Logsheet for reviewer suggestion & product category & registered company address
@@ -329,7 +376,7 @@ export default function AdminCreateCertificate() {
         let detectedLogsheetCompAddr = '';
         let detectedLogsheetMfgAddr = '';
 
-        if (!targetLogsheet && !appData.is_logsheet_only && appId && appId !== 'undefined' && appId !== 'direct') {
+        if (!targetLogsheet && !appData.is_logsheet_only && !appData.is_extension && appId && appId !== 'undefined' && appId !== 'direct') {
           try {
             const logsheetRes = await api.get(`/api/application-logsheets/application/${appId}`).catch(() => null);
             const logsheetData = logsheetRes?.data?.data || logsheetRes?.data;
@@ -387,31 +434,39 @@ export default function AdminCreateCertificate() {
           setLogsheetCategory(detectedLogsheetCat);
         }
 
-        // Fetch Site Products (for add-on applications, must load all site products)
+        // Fetch Site Products (query by site_id first, with client_id fallback)
         let prodList = [];
+        const curSiteId = String(resolvedSite?._id || resolvedSite?.id || siteId?._id || siteId?.id || siteId || '');
+        const curClientId = String(clientIdStr || clientId?._id || clientId?.id || clientId || '');
+
         try {
-          const prodRes = await api.get('/api/products');
-          const allProds = Array.isArray(prodRes) ? prodRes : (prodRes?.data?.data || prodRes?.data || []);
-          if (Array.isArray(allProds)) {
-            const curSiteId = String(resolvedSite?._id || resolvedSite?.id || siteId?._id || siteId || '');
-            const curClientId = String(clientId || '');
-
-            if (curSiteId) {
-              prodList = allProds.filter(p => {
-                const pSiteId = String(p.site_id?._id || p.site_id || '');
-                return pSiteId === curSiteId;
-              });
-            }
-
-            // Fallback for standard (non-addon) apps to client ID if site had no products
-            if (prodList.length === 0 && !isAppAddOn && curClientId) {
-              prodList = allProds.filter(p => {
-                const pClientId = String(p.client_id?._id || p.client_id || '');
-                return pClientId === curClientId;
-              });
+          if (curSiteId) {
+            const prodRes = await api.get(`/api/products?site_id=${curSiteId}&all=true`);
+            const siteProds = Array.isArray(prodRes?.data?.data) ? prodRes.data.data : (Array.isArray(prodRes?.data) ? prodRes.data : (Array.isArray(prodRes) ? prodRes : []));
+            if (Array.isArray(siteProds) && siteProds.length > 0) {
+              prodList = siteProds;
             }
           }
-        } catch (_) {}
+
+          // Fallback to client ID if site query returned 0 products
+          if (prodList.length === 0 && curClientId) {
+            const clientProdRes = await api.get(`/api/products?client_id=${curClientId}&all=true`);
+            const clientProds = Array.isArray(clientProdRes?.data?.data) ? clientProdRes.data.data : (Array.isArray(clientProdRes?.data) ? clientProdRes.data : (Array.isArray(clientProdRes) ? clientProdRes : []));
+            if (Array.isArray(clientProds) && clientProds.length > 0) {
+              if (curSiteId) {
+                const filteredBySite = clientProds.filter(p => {
+                  const pSiteId = typeof p.site_id === 'object' ? (p.site_id?._id || p.site_id?.id) : p.site_id;
+                  return String(pSiteId) === curSiteId;
+                });
+                prodList = filteredBySite.length > 0 ? filteredBySite : clientProds;
+              } else {
+                prodList = clientProds;
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching site products in certificate studio:', err);
+        }
 
         // For add-on apps, if catalog query yielded 0, check the linked certificate's certified_products
         if (isAppAddOn && prodList.length === 0) {
@@ -432,8 +487,8 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        // If no catalog products, use products from targetLogsheet or application form ONLY for non-add-on applications
-        if (!isAppAddOn && prodList.length === 0) {
+        // If no catalog products, use products from targetLogsheet or application form
+        if (prodList.length === 0) {
           const rawProds = (Array.isArray(targetLogsheet?.products_list) && targetLogsheet.products_list.length > 0)
             ? targetLogsheet.products_list
             : (Array.isArray(appData.products) ? appData.products : []);
@@ -531,7 +586,7 @@ export default function AdminCreateCertificate() {
           String(existingCert?.certificate_number || '').includes('-SU-')
         );
 
-        const typeCode = isAddOn ? 'AD' : (isSurvApp ? 'SU' : (appData.is_logsheet_only ? 'NE' : normalizeHfaTypeCode(appData.application_type)));
+        const typeCode = appData.is_extension ? 'EX' : (isAddOn ? 'AD' : (isSurvApp ? 'SU' : (appData.is_logsheet_only ? 'NE' : normalizeHfaTypeCode(appData.application_type))));
         const certNum = generateHfaId(compName || 'HFA', typeCode);
         
         let initialCertType = '';
@@ -567,11 +622,24 @@ export default function AdminCreateCertificate() {
           setSuggestedCertType(initialCertType);
         }
 
+        if (appData.is_extension) {
+          const parentType = String(appData.suggested_certificate_type || '').toUpperCase();
+          if (CERTIFICATE_TYPES.includes(parentType) && parentType !== 'SURVEILLANCE LETTER') {
+            initialCertType = parentType;
+          } else if (initialCertType === 'SURVEILLANCE LETTER') {
+            initialCertType = 'HFA SCHEME MEAT';
+          }
+        }
+
         const isInitGso = initialCertType.includes('GSO') || initialCertType.includes('SMIIC');
         const enforcedYears = isInitGso ? 3 : 1;
         const today = new Date();
-        const expDate = new Date(today);
+        let expDate = new Date(today);
         expDate.setFullYear(expDate.getFullYear() + enforcedYears);
+        if (appData.is_extension && appData.extended_until) {
+          const extDate = new Date(appData.extended_until);
+          if (!isNaN(extDate.getTime())) expDate = extDate;
+        }
 
         setForm(f => ({
           ...f,
@@ -657,7 +725,7 @@ export default function AdminCreateCertificate() {
     const cId = c._id || c.id;
     if (cId) {
       try {
-        const pRes = await api.get(`/api/products?client_id=${cId}`);
+        const pRes = await api.get(`/api/products?client_id=${cId}&all=true`);
         const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : (Array.isArray(pRes) ? pRes : []));
         if (pList.length > 0) {
           const mapped = pList.map((p, idx) => ({
@@ -668,12 +736,19 @@ export default function AdminCreateCertificate() {
             isSelected: true
           }));
           setSiteProducts(mapped);
+          setForm(f => ({
+            ...f,
+            products_covered: mapped.map(p => p.name).filter(Boolean),
+            product_details: mapped
+          }));
+        } else {
+          setSiteProducts([]);
         }
       } catch (_) {}
     }
   };
 
-  const handleSiteChange = (sId) => {
+  const handleSiteChange = async (sId) => {
     setSelectedSiteId(sId);
     const foundSite = availableSites.find(s => String(s._id || s.id) === String(sId));
     if (foundSite) {
@@ -685,6 +760,43 @@ export default function AdminCreateCertificate() {
         manufacturing_address: mfgText,
         company_address: f.company_address || siteAddr
       }));
+
+      // Dynamically fetch and update products for the selected site
+      try {
+        let fetchedList = [];
+        const prodRes = await api.get(`/api/products?site_id=${sId}&all=true`);
+        const siteProds = Array.isArray(prodRes?.data?.data) ? prodRes.data.data : (Array.isArray(prodRes?.data) ? prodRes.data : (Array.isArray(prodRes) ? prodRes : []));
+        if (Array.isArray(siteProds) && siteProds.length > 0) {
+          fetchedList = siteProds;
+        } else {
+          const cId = selectedClient?._id || selectedClient?.id || clientUser?._id || clientUser?.id || app?.client_id?._id || app?.client_id;
+          if (cId) {
+            const clientRes = await api.get(`/api/products?client_id=${cId}&all=true`);
+            const clientProds = Array.isArray(clientRes?.data?.data) ? clientRes.data.data : (Array.isArray(clientRes?.data) ? clientRes.data : (Array.isArray(clientRes) ? clientRes : []));
+            const siteFiltered = clientProds.filter(p => {
+              const pSiteId = typeof p.site_id === 'object' ? (p.site_id?._id || p.site_id?.id) : p.site_id;
+              return String(pSiteId) === String(sId);
+            });
+            fetchedList = siteFiltered.length > 0 ? siteFiltered : clientProds;
+          }
+        }
+
+        const mapped = fetchedList.map((p, idx) => ({
+          _id: p._id || p.id || `site-prod-${idx}`,
+          name: p.name || p.product_name || '',
+          code: p.code || p.product_code || '',
+          category: p.category || form.product_category || 'General Food Products',
+          isSelected: true
+        }));
+        setSiteProducts(mapped);
+        setForm(f => ({
+          ...f,
+          products_covered: mapped.map(p => p.name).filter(Boolean),
+          product_details: mapped
+        }));
+      } catch (err) {
+        console.error('Error fetching products for site:', err);
+      }
     } else {
       setCustomSiteAddress('');
     }
@@ -833,8 +945,8 @@ export default function AdminCreateCertificate() {
         original_cycle_start_date: isEffectiveGso ? (form.original_cycle_start_date || form.issue_date) : form.issue_date,
         certification_start_date: form.certification_start_date || form.issue_date,
         product_table_columns: Number(form.product_table_columns) || (isEffectiveGso ? 2 : 1),
-        products: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }],
-        product_details: validProducts.length > 0 ? validProducts : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }]
+        products: validProducts,
+        product_details: validProducts
       };
 
       const res = await api.post('/api/certificates/preview-live', payload);
@@ -876,22 +988,25 @@ export default function AdminCreateCertificate() {
     setSubmitting(true);
     try {
       const selectedProds = siteProducts.filter(p => p.isSelected);
-      const clientId = selectedClient?._id || selectedClient?.id || clientUser?._id || clientUser?.id || app?.client_id?._id || app?.client_id || app?.profiles?._id || app?.profiles;
-      const siteId = selectedSiteId || siteData?._id || siteData?.id || app?.site_id?._id || app?.site_id;
+      const rawClientId = selectedClient?._id || selectedClient?.id || clientUser?._id || clientUser?.id || app?.client_id?._id || app?.client_id?.id || app?.client_id || app?.profiles?._id || app?.profiles?.id || app?.profiles;
+      const rawSiteId = selectedSiteId || siteData?._id || siteData?.id || app?.site_id?._id || app?.site_id?.id || app?.site_id;
+
+      const finalClientId = rawClientId ? (typeof rawClientId === 'object' ? String(rawClientId._id || rawClientId.id || '') : String(rawClientId)) : '';
+      const finalSiteId = rawSiteId ? (typeof rawSiteId === 'object' ? String(rawSiteId._id || rawSiteId.id || '') : String(rawSiteId)) : '';
 
       const formData = new FormData();
-      if (app?._id && !app?.is_logsheet_only) {
+      if (app?._id && !app?.is_logsheet_only && !app?.is_extension) {
         formData.append('application_id', app._id);
       }
       const effectiveLogsheetId = queryLogsheetId || linkedLogsheet?._id || app?.logsheet_id || (app?.is_logsheet_only ? appId : null);
-      if (effectiveLogsheetId) {
+      if (effectiveLogsheetId && typeof effectiveLogsheetId === 'string' && effectiveLogsheetId !== '[object Object]') {
         formData.append('logsheet_id', effectiveLogsheetId);
       }
       if (app?.is_logsheet_only) {
         formData.append('is_direct_issuance', 'true');
       }
-      if (clientId) formData.append('client_id', clientId);
-      if (siteId) formData.append('site_id', siteId);
+      if (finalClientId && finalClientId !== '[object Object]') formData.append('client_id', finalClientId);
+      if (finalSiteId && finalSiteId !== '[object Object]') formData.append('site_id', finalSiteId);
       formData.append('certificate_number', form.certificate_number);
       formData.append('certificate_type', form.certificate_type);
       formData.append('company_name', form.company_name);
@@ -910,17 +1025,18 @@ export default function AdminCreateCertificate() {
       formData.append('product_details', JSON.stringify(selectedProds));
       if (form.review_notes) formData.append('notes', form.review_notes);
       if (isAddOn) formData.append('is_add_on', 'true');
+      if (app?.is_extension) {
+        formData.append('is_extension', 'true');
+        formData.append('extension_application_id', app._id);
+      }
 
       const certRes = await api.post('/api/certificates', formData, true);
 
-      toast.success('Certificate created successfully! Redirecting to dashboard...');
-      const createdCertId = certRes?.certificate?._id || certRes?.certificate?.id || certRes?._id || certRes?.id || certRes?.data?._id || certRes?.data?.id || certRes?.data?.certificate?._id;
-
-      if(createdCertId){
-        setTimeout(()=> {
-          location.href = "/dashboard"
-        }, 800)
-        
+      if (certRes?.success || certRes?.data || certRes?._id) {
+        toast.success('Certificate created successfully! Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 500);
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
@@ -1031,8 +1147,8 @@ export default function AdminCreateCertificate() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Link to={app?.is_logsheet_only || queryLogsheetId ? '/logsheet/waiting-certificate' : (isAddOn ? `/addon-applications/${appId}/processing` : `/applications/${appId}/processing`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
-              <ArrowLeft size={14} /> {app?.is_logsheet_only || queryLogsheetId ? 'Back to Waiting for Certificate' : 'Back to Application'}
+            <Link to={app?.is_logsheet_only || queryLogsheetId ? '/logsheet/waiting-certificate' : (app?.is_extension ? `/extension-applications/${appId}/processing` : (isAddOn ? `/addon-applications/${appId}/processing` : `/applications/${appId}/processing`))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
+              <ArrowLeft size={14} /> {app?.is_logsheet_only || queryLogsheetId ? 'Back to Waiting for Certificate' : (app?.is_extension ? 'Back to Extension Processing' : 'Back to Application')}
             </Link>
             <span style={{ color: '#cbd5e1' }}>/</span>
             <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 700 }}>Issue Certificate Studio</span>
@@ -1068,7 +1184,7 @@ export default function AdminCreateCertificate() {
           <div style={{ fontSize: 12, color: '#64748b' }}>
             <strong>{app?.is_logsheet_only ? 'Logsheet Ref:' : 'App #:'}</strong> <span style={{ color: '#0f172a', fontWeight: 700 }}>{app?.application_number || '—'}</span>
             <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 1 }}>
-              Type: {app?.is_logsheet_only ? 'Direct Logsheet Certificate' : (app?.application_type ? (app.application_type.charAt(0).toUpperCase() + app.application_type.slice(1)) : (isAddOn ? 'Addon' : 'New'))}
+              Type: {app?.is_logsheet_only ? 'Direct Logsheet Certificate' : (app?.is_extension ? 'Extension' : (app?.application_type ? (app.application_type.charAt(0).toUpperCase() + app.application_type.slice(1)) : (isAddOn ? 'Addon' : 'New')))}
             </div>
           </div>
         </div>
@@ -1786,8 +1902,10 @@ export default function AdminCreateCertificate() {
                   <tbody>
                     {filteredProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                          No products found matching "{productSearch}".
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>
+                          {productSearch.trim()
+                            ? `No products found matching "${productSearch}".`
+                            : 'No products registered for this site yet. You can add products using the "+ Add Custom Product" button above.'}
                         </td>
                       </tr>
                     ) : (

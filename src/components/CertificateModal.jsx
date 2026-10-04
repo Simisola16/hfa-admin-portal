@@ -679,7 +679,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                 code: `PRD-${String(idx + 1).padStart(2, '0')}`,
                 category: 'Halal Certified'
               })).filter(p => p.name)
-            : [{ name: 'Certified Halal Products Schedule', code: 'PRD-01', category: 'Halal Certified' }]);
+            : []);
 
       const isFour = isFourDateType(certificateForm.certificate_type);
 
@@ -697,7 +697,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         current_cycle_start_date: isFour ? certificateForm.current_cycle_start_date : certificateForm.issue_date,
         original_cycle_start_date: isFour ? certificateForm.original_cycle_start_date : certificateForm.issue_date,
         product_table_columns: certificateForm.product_table_columns,
-        products: parsedProducts.length > 0 ? parsedProducts : [{ name: 'Certified Halal Products Schedule' }]
+        products: parsedProducts
       });
 
       const url = res.previewUrl || res.data?.previewUrl;

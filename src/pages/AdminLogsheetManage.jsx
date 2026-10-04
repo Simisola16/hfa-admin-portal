@@ -387,6 +387,9 @@ export default function AdminLogsheetManage() {
   };
 
   const getLogsheetLink = (l) => {
+    if (l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') {
+      return `/logsheet/kfc/${l._id}`;
+    }
     if (l.source_type === 'extension_application' || l.extension_application_id) {
       const id = l.extension_application_id?._id || l.extension_application_id;
       return `/extension-applications/${id}/logsheet`;
@@ -557,9 +560,10 @@ export default function AdminLogsheetManage() {
                 {paginatedLogsheets.map((l, index) => {
                   const compName = l.company_name || 'Client Facility';
                   const siteName = l.site_name || l.application_id?.site_name || l.application_id?.establishment_name || 'Main Facility';
-                  const rawType = l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW');
+                  const isKfc = Boolean(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc');
+                  const rawType = isKfc ? '🍗 KFC LOGSHEET' : (l.source_type === 'extension_application' ? 'EXTENSION' : (l.application_id?.application_type || l.audit_type || 'NEW'));
                   const typeLabel = rawType.toUpperCase();
-                  const categorySubtext = l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General');
+                  const categorySubtext = isKfc ? 'Special Grant – KFC Committee Approved' : (l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General'));
                   const creatorName = getCreatorName(l);
 
                   return (
@@ -585,7 +589,7 @@ export default function AdminLogsheetManage() {
                         {siteName}
                       </td>
                       <td>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 2 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: isKfc ? '#dc2626' : 'var(--primary)', textTransform: 'uppercase', marginBottom: 2 }}>
                           {typeLabel}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

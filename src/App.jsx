@@ -24,6 +24,7 @@ const AdminAgreements = lazy(() => import('./pages/AdminAgreements'));
 const AdminExports = lazy(() => import('./pages/AdminExports'));
 const AdminLogsheets = lazy(() => import('./pages/AdminLogsheets'));
 const AdminCreateLogsheet = lazy(() => import('./pages/AdminCreateLogsheet'));
+const AdminCreateKFCLogsheet = lazy(() => import('./pages/AdminCreateKFCLogsheet'));
 const AdminLogsheetManage = lazy(() => import('./pages/AdminLogsheetManage'));
 const AdminLogsheetWaitingSignature = lazy(() => import('./pages/AdminLogsheetWaitingSignature'));
 const AdminLogsheetWaitingCertificate = lazy(() => import('./pages/AdminLogsheetWaitingCertificate'));
@@ -121,6 +122,8 @@ export default function App() {
             <Route path="/admin/addon-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/logsheets/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/admin/logsheets/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/extension-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
+            <Route path="/admin/extension-applications/:appId/issue-certificate" element={<AdminCreateCertificate />} />
             <Route path="/certificates/create/:appId" element={<AdminCreateCertificate />} />
             <Route path="/certificates" element={<AdminCertificates />} />
             <Route path="/certificates/review" element={<AdminCertificates defaultTab="review" />} />
@@ -143,6 +146,8 @@ export default function App() {
             <Route path="/export" element={<AdminExports />} />
             <Route path="/logsheet/direct" element={<AdminDirectLogsheet />} />
             <Route path="/logsheet/direct/:id" element={<AdminDirectLogsheet />} />
+            <Route path="/logsheet/kfc" element={<AdminCreateKFCLogsheet />} />
+            <Route path="/logsheet/kfc/:id" element={<AdminCreateKFCLogsheet />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />
             <Route path="/logsheet/products" element={<AdminLogsheets />} />
             <Route path="/logsheet/manage" element={<AdminLogsheetManage />} />

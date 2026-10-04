@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getPdfUrl } from '../lib/pdfUtils';
 import {
   ArrowLeft, CheckCircle2, CheckCircle, Clock, Check,
-  Printer, PenTool, AlertTriangle, ShieldCheck, X, Save, Lock, RotateCcw
+  Printer, PenTool, AlertTriangle, ShieldCheck, X, Save, Lock, RotateCcw, Award
 } from 'lucide-react';
 
 export default function AdminExtensionLogsheet() {
@@ -33,7 +33,8 @@ export default function AdminExtensionLogsheet() {
     facility_address: '',
     contact_person: '',
     product_category: '',
-    certificate_type: '',
+    certificate_type: 'HFA SCHEME NON MEAT',
+    suggested_certificate_type: 'HFA SCHEME NON MEAT',
     scheme: 'HFA',
     certificate_expiry_date: '',
     justification: '',
@@ -79,7 +80,7 @@ export default function AdminExtensionLogsheet() {
       const resolvedFacilityAddress = loadedLog?.facility_address || siteAddress || loadedApp?.client_id?.address || loadedApp?.client_id?.company_address || '';
 
       // Auto-extract and resolve Certificate Type & Scheme
-      const rawCertType = loadedLog?.certificate_type || loadedApp?.detected_certificate_type || loadedApp?.certificate_id?.certificate_type || '';
+      const rawCertType = loadedLog?.suggested_certificate_type || loadedLog?.certificate_type || loadedApp?.detected_certificate_type || loadedApp?.certificate_id?.certificate_type || '';
       let detectedScheme = loadedLog?.scheme || loadedApp?.detected_scheme || 'HFA';
       if (rawCertType) {
         const u = rawCertType.toUpperCase();
@@ -90,12 +91,15 @@ export default function AdminExtensionLogsheet() {
         else if (hasHFA) detectedScheme = 'HFA';
       }
 
+      const initialCertType = rawCertType || (detectedScheme === 'GSO' ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+
       setFormData({
         company_name: loadedLog?.company_name || loadedApp?.company_name || loadedApp?.client_id?.company_name || '',
         facility_address: resolvedFacilityAddress,
         contact_person: loadedLog?.contact_person || loadedApp?.contact_person || '',
         product_category: loadedLog?.product_category || '',
-        certificate_type: rawCertType || (detectedScheme === 'GSO' ? 'GSO SCHEME' : detectedScheme === 'Both' ? 'GSO & HFA SCHEME' : 'HFA SCHEME'),
+        certificate_type: initialCertType,
+        suggested_certificate_type: initialCertType,
         scheme: detectedScheme,
         certificate_expiry_date: loadedLog?.certificate_expiry_date ? new Date(loadedLog.certificate_expiry_date).toISOString().split('T')[0] : '',
         justification: loadedLog?.justification || loadedApp?.description || '',
@@ -141,6 +145,24 @@ export default function AdminExtensionLogsheet() {
       ...prev,
       extension_duration_type: type,
       extension_days: days
+    }));
+  };
+
+  const handleRecommendedSchemeChange = (newScheme) => {
+    if (isLocked) return;
+    const u = (newScheme || '').toUpperCase();
+    const hasGSO = u.includes('GSO') || u.includes('UAE') || u.includes('GCC');
+    const hasHFA = u.includes('HFA');
+    let newSchemeCategory = 'HFA';
+    if (hasGSO && hasHFA) newSchemeCategory = 'Both';
+    else if (hasGSO) newSchemeCategory = 'GSO';
+    else if (hasHFA) newSchemeCategory = 'HFA';
+
+    setFormData(prev => ({
+      ...prev,
+      suggested_certificate_type: newScheme,
+      certificate_type: newScheme,
+      scheme: newSchemeCategory
     }));
   };
 
@@ -641,62 +663,101 @@ export default function AdminExtensionLogsheet() {
             />
           </div>
 
-          {/* Certificate Type / Scheme (Auto-detected, Read-Only / Non-Changeable) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', alignItems: 'center', gap: 16 }}>
-            <label style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>Certificate Type / Scheme:</span>
-              <Lock size={14} style={{ color: '#64748b' }} title="Auto-detected from certified facility - cannot be changed" />
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {/* Recommended Scheme / Certificate Type Selection */}
+          <div style={{
+            background: '#f0fdfa',
+            padding: '16px 20px',
+            borderRadius: 12,
+            border: '1.5px solid #99f6e4',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <label style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                <Award size={16} style={{ color: '#0d9488' }} />
+                <span>Recommended Certificate Scheme:</span>
+                <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>* (Required)</span>
+              </label>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: '#0f766e',
+                background: '#ccfbf1', padding: '3px 10px', borderRadius: 20,
+                border: '1px solid #5eead4'
+              }}>
+                Recommended Scheme for Issuer
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <select
+                disabled={isLocked}
+                value={formData.suggested_certificate_type || formData.certificate_type || 'HFA SCHEME NON MEAT'}
+                onChange={(e) => handleRecommendedSchemeChange(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  maxWidth: 380,
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  background: isLocked ? '#f8fafc' : '#ffffff',
+                  borderColor: '#0d9488',
+                  color: '#0f172a',
+                  cursor: isLocked ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food &amp; General Manufacturing)</option>
+                <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat &amp; Poultry Processing)</option>
+                <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
+                <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
+                <option value="COSMETICS">COSMETICS (Personal Care &amp; Cosmetics Scheme)</option>
+                <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
+              </select>
+
+              {/* Dynamic Scheme Indicators (GSO / HFA) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <label style={{
-                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700,
-                  color: (formData.scheme === 'GSO' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8',
-                  cursor: 'not-allowed', opacity: (formData.scheme === 'GSO' || formData.scheme === 'Both') ? 1 : 0.65
+                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
+                  color: (formData.scheme === 'GSO' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8'
                 }}>
                   <input
                     type="checkbox"
-                    disabled={true}
                     checked={formData.scheme === 'GSO' || formData.scheme === 'Both'}
                     readOnly
-                    style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'not-allowed' }}
+                    disabled
+                    style={{ width: 16, height: 16, accentColor: '#008744' }}
                   />
                   GSO
                 </label>
 
                 <label style={{
-                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700,
-                  color: (formData.scheme === 'HFA' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8',
-                  cursor: 'not-allowed', opacity: (formData.scheme === 'HFA' || formData.scheme === 'Both') ? 1 : 0.65
+                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
+                  color: (formData.scheme === 'HFA' || formData.scheme === 'Both') ? '#0f172a' : '#94a3b8'
                 }}>
                   <input
                     type="checkbox"
-                    disabled={true}
                     checked={formData.scheme === 'HFA' || formData.scheme === 'Both'}
                     readOnly
-                    style={{ width: 18, height: 18, accentColor: '#008744', cursor: 'not-allowed' }}
+                    disabled
+                    style={{ width: 16, height: 16, accentColor: '#008744' }}
                   />
                   HFA
                 </label>
               </div>
 
-              {/* Detected Badge */}
+              {/* Selected Scheme badge */}
               <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '6px 12px', borderRadius: 8,
-                background: '#f8fafc', border: '1px solid #cbd5e1',
-                fontSize: 12.5, fontWeight: 700, color: '#1e293b'
+                background: '#ffffff', border: '1px solid #cbd5e1',
+                fontSize: 12, fontWeight: 700, color: '#0f766e'
               }}>
-                <span style={{ color: '#008744', fontSize: 14 }}>●</span>
-                <span>{formData.certificate_type || (formData.scheme === 'GSO' ? 'GSO SCHEME' : formData.scheme === 'Both' ? 'GSO & HFA SCHEME' : 'HFA SCHEME')}</span>
-                <span style={{
-                  fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase',
-                  color: '#475569', background: '#e2e8f0', padding: '2px 6px', borderRadius: 4,
-                  letterSpacing: '0.04em'
-                }}>
-                  Auto-detected (Locked)
-                </span>
+                <CheckCircle2 size={14} style={{ color: '#0d9488' }} />
+                <span>Selected: <strong>{formData.suggested_certificate_type || formData.certificate_type || 'HFA SCHEME NON MEAT'}</strong></span>
               </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>💡</span>
+              <span>This scheme recommendation will automatically populate the <strong>Certificate Studio</strong> when the certificate is issued.</span>
             </div>
           </div>
 

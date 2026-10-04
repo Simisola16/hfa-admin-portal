@@ -77,7 +77,9 @@ export default function AdminExtensionLogsheet() {
         if (!siteAddress && siteObj.address_2) siteAddress = siteObj.address_2;
       }
 
-      const resolvedFacilityAddress = loadedLog?.facility_address || siteAddress || loadedApp?.client_id?.address || loadedApp?.client_id?.company_address || '';
+      const resolvedFacilityAddress = (loadedLog?.facility_address !== undefined && loadedLog?.facility_address !== null)
+        ? loadedLog.facility_address
+        : (siteAddress || '');
 
       // Auto-extract and resolve Certificate Type & Scheme
       const rawCertType = loadedLog?.suggested_certificate_type || loadedLog?.certificate_type || loadedApp?.detected_certificate_type || loadedApp?.certificate_id?.certificate_type || '';
@@ -612,14 +614,14 @@ export default function AdminExtensionLogsheet() {
           {/* Address of certificated facility */}
           <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', alignItems: 'center', gap: 16 }}>
             <label style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-              Address of certificated facility:
+              Address of certificated facility: <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
             </label>
             <input
               type="text"
               disabled={isLocked}
               value={formData.facility_address}
               onChange={(e) => setFormData(f => ({ ...f, facility_address: e.target.value }))}
-              placeholder="Full address of the manufacturing / processing facility"
+              placeholder="Full address of the manufacturing / processing facility (Optional)"
               style={{
                 ...inputStyle,
                 fontWeight: 500

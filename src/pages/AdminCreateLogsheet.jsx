@@ -240,7 +240,7 @@ export default function AdminCreateLogsheet() {
         let autoManufacturingAddress = addonData.manufacturer_address
           || addonSiteAddr
           || addonData.application_id?.manufacturer_address
-          || autoCompanyAddress;
+          || '';
 
         const autoNature = addonData.category || addonData.application_type || 'Add-on Product Certification';
         const autoProductCat = addonData.products?.length > 0 ? addonData.products.map(p => p.name || p.title).filter(Boolean).join(', ') : (addonData.category || 'Add-on Products');
@@ -274,7 +274,7 @@ export default function AdminCreateLogsheet() {
             site_name: (addonLogsheet.site_name && addonLogsheet.site_name.trim()) ? addonLogsheet.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
             company_address: (addonLogsheet.company_address && addonLogsheet.company_address.trim()) ? addonLogsheet.company_address : autoCompanyAddress,
-            manufacturing_address: (addonLogsheet.manufacturing_address && addonLogsheet.manufacturing_address.trim()) ? addonLogsheet.manufacturing_address : autoManufacturingAddress,
+            manufacturing_address: (addonLogsheet.manufacturing_address != null ? addonLogsheet.manufacturing_address : autoManufacturingAddress),
             audit_type: addonLogsheet.audit_type || autoAuditType,
             auditors: addonLogsheet.auditors || autoFTs,
             ncs_close: addonLogsheet.ncs_close || 'N/A - Product Evaluation',
@@ -366,7 +366,7 @@ export default function AdminCreateLogsheet() {
 
         let autoManufacturingAddress = ipSiteAddr
           || ipData.application_id?.manufacturer_address
-          || autoCompanyAddress;
+          || '';
 
         const autoNature = ipData.product?.category || ipData.application_id?.category || 'Initial Product Certification';
         const autoProductCat = ipData.product?.name ? `${ipData.product.name}${ipData.product.code ? ` (${ipData.product.code})` : ''}` : 'Initial Product';
@@ -430,7 +430,7 @@ export default function AdminCreateLogsheet() {
             site_name: (ipLogsheet.site_name && ipLogsheet.site_name.trim()) ? ipLogsheet.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
             company_address: (ipLogsheet.company_address && ipLogsheet.company_address.trim()) ? ipLogsheet.company_address : autoCompanyAddress,
-            manufacturing_address: (ipLogsheet.manufacturing_address && ipLogsheet.manufacturing_address.trim()) ? ipLogsheet.manufacturing_address : autoManufacturingAddress,
+            manufacturing_address: (ipLogsheet.manufacturing_address != null ? ipLogsheet.manufacturing_address : autoManufacturingAddress),
             audit_type: ipLogsheet.audit_type || autoAuditType,
             auditors: ipLogsheet.auditors || autoFTs,
             ncs_close: ipLogsheet.ncs_close || 'N/A - Initial Product Evaluation',
@@ -564,7 +564,6 @@ export default function AdminCreateLogsheet() {
 
         let autoManufacturingAddress = appData?.manufacturer_address
           || siteFullAddr
-          || appData?.establishment_address
           || '';
 
         let autoCompanyAddress = clientFullAddr
@@ -576,10 +575,6 @@ export default function AdminCreateLogsheet() {
           || autoManufacturingAddress
           || siteFullAddr
           || '';
-
-        if (!autoManufacturingAddress) {
-          autoManufacturingAddress = siteFullAddr || autoCompanyAddress || appData?.establishment_address || 'United Kingdom';
-        }
 
         if (!autoCompanyAddress) {
           autoCompanyAddress = autoManufacturingAddress || (autoCompanyName ? `${autoCompanyName}, United Kingdom` : 'United Kingdom');
@@ -1705,8 +1700,8 @@ export default function AdminCreateLogsheet() {
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Manufacturing Site Address</div>
-                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.manufacturing_address || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Manufacturing Site Address <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8', textTransform: 'none' }}>(Optional)</span></div>
+                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.manufacturing_address || '— (Optional)'}</div>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -2515,7 +2510,7 @@ export default function AdminCreateLogsheet() {
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address</label>
+                    <label className="form-label" style={{ margin: 0 }}>Manufacturing Site Address <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>(Optional)</span></label>
                     <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       Pre-filled · Editable
                     </span>
@@ -2525,7 +2520,7 @@ export default function AdminCreateLogsheet() {
                     className="form-control"
                     value={form.manufacturing_address || ''}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Manufacturing site address"
+                    placeholder="Physical facility address where products are manufactured (Optional)"
                     style={{ fontWeight: 600 }}
                   />
                 </div>

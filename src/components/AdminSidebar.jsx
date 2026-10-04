@@ -103,7 +103,7 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
-          { label: 'Manage Product', path: '/products/direct' },
+          { label: 'Manage Product', path: '/products/direct', directCertOnly: true },
         ],
       },
     ],
@@ -292,8 +292,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
 
   const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
   const isSuperAdmin = userRoles.includes('superadmin');
-  const isCertOfficer = userRoles.includes('certificate_officer');
-  const hasDirectCertPrivilege = isSuperAdmin || isCertOfficer || profile?.can_issue_direct_certificate === true;
+  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
   const hasReviewCertPrivilege = isSuperAdmin || profile?.can_review_certificate === true;
   const hasKfcLogsheetPrivilege = isSuperAdmin || profile?.can_create_kfc_logsheet === true || profile?.can_sign_logsheet === true;
 
@@ -305,6 +304,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
     ...section,
     items: section.items.filter(item => {
       if (item.superadminOnly && !isSuperAdmin) return false;
+      if (item.directCertOnly && !hasDirectCertPrivilege) return false;
       if (item.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
       return true;
     }).map(item => {
@@ -313,6 +313,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
         ...item,
         children: item.children.filter(child => {
           if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
+          if (child.directCertOnly && !hasDirectCertPrivilege) return false;
           if (child.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
           if (child.superadminOnly && !isSuperAdmin) return false;
           return true;

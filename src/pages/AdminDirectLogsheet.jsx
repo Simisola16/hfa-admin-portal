@@ -108,6 +108,7 @@ export default function AdminDirectLogsheet() {
     : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
   const isStaff = isSuperAdmin || userRoles.some(r => ['admin', 'scheme_manager', 'certificate_officer', 'food_tech_manager', 'food_tech', 'audit_manager'].includes(r));
+  const hasDirectPrivilege = isSuperAdmin || Boolean(currentUser?.can_issue_direct_certificate || profile?.can_issue_direct_certificate);
   const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
 
   // Active View Tab: 'create' | 'history'
@@ -570,6 +571,23 @@ export default function AdminDirectLogsheet() {
   }, [directHistory, historySearch, historyFilterStatus, historyFilterType]);
 
   const activeTypeObj = LOGSHEET_TYPES.find(t => t.id === selectedType) || LOGSHEET_TYPES[0];
+
+  if (!loadingData && !hasDirectPrivilege) {
+    return (
+      <div style={{ maxWidth: 680, margin: '40px auto', padding: '32px 24px', textAlign: 'center', background: '#fff', borderRadius: 16, border: '1.5px solid #fee2e2', boxShadow: '0 10px 25px -5px rgba(220, 38, 38, 0.1)' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Lock size={32} />
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>Privilege Required</h2>
+        <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+          This studio is restricted to <strong>Superadmin</strong> accounts or authorized staff members who have been granted <strong>Direct Certificate Studio</strong> privilege. Please contact a Superadmin to request access.
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate('/dashboard')} style={{ margin: '0 auto' }}>
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in" style={{ maxWidth: 1380, margin: '0 auto', paddingBottom: 60 }}>

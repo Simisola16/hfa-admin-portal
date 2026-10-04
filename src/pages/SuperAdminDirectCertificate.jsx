@@ -48,8 +48,7 @@ export default function SuperAdminDirectCertificate() {
   // Role & Privilege Security Check
   const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
-  const isCertificateOfficer = userRoles.includes('certificate_officer');
-  const hasDirectCertPrivilege = isSuperAdmin || isCertificateOfficer || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
+  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
 
   // Tabs: 'create' | 'history'
   const [activeTab, setActiveTab] = useState('create');

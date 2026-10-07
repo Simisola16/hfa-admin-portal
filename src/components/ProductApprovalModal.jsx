@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, FileText } from 'lucide-react';
 import ProductApprovalRequestForm from './ProductApprovalRequestForm';
+import { exportProductApprovalPdf } from '../lib/generateProductApprovalPdf';
 
 export default function ProductApprovalModal({ isOpen, onClose, formData, product, company }) {
   if (!isOpen) return null;
@@ -45,11 +46,12 @@ export default function ProductApprovalModal({ isOpen, onClose, formData, produc
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => window.print()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+              className="btn btn-primary btn-sm"
+              onClick={() => exportProductApprovalPdf({ formData, product, company })}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, background: '#0284c7', borderColor: '#0284c7' }}
+              title="Save as professional PDF document"
             >
-              <Printer size={14} /> Print Document
+              <Printer size={14} /> Save as PDF
             </button>
             <button className="modal-close" onClick={onClose} style={{ padding: 6 }}>
               <X size={18} />

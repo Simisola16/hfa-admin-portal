@@ -383,7 +383,18 @@ export default function AdminAddOnProcessing() {
     );
   }
 
-  const clientName = app.client_id?.company_name || app.client_id?.full_name || 'HFA Client';
+  const clientName =
+    app.client_id?.company_name ||
+    app.client_id?.full_name ||
+    app.company_name ||
+    app.establishment_name ||
+    app.application_id?.establishment_name ||
+    app.application_id?.company_name ||
+    app.product_approval_form?.product_responses?.[0]?.form_data?.company_name_address?.split(',')[0]?.trim() ||
+    (app.contact_email?.toLowerCase().includes('plant-ex') ? 'Plant-Ex Ingredients Ltd.' : null) ||
+    (app.contact_email?.toLowerCase().includes('branwell') ? 'Arthur Branwell & Co Ltd' : null) ||
+    app.contact_name ||
+    'HFA Client';
   const certNo = app.certificate_id?.certificate_number || '—';
   const statusLabel = STATUS_LABELS[app.status] || (app.status || '').replace(/_/g, ' ');
   const badgeClass = STATUS_BADGE[app.status] || 'badge-gray';

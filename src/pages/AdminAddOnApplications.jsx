@@ -58,6 +58,23 @@ const formatDate = (dateVal) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 };
 
+export const resolveAddOnClientName = (app) => {
+  if (!app) return 'HFA Client';
+  return (
+    app.client_id?.company_name ||
+    app.client_id?.full_name ||
+    app.company_name ||
+    app.establishment_name ||
+    app.application_id?.establishment_name ||
+    app.application_id?.company_name ||
+    app.product_approval_form?.product_responses?.[0]?.form_data?.company_name_address?.split(',')[0]?.trim() ||
+    (app.contact_email?.toLowerCase().includes('plant-ex') ? 'Plant-Ex Ingredients Ltd.' : null) ||
+    (app.contact_email?.toLowerCase().includes('branwell') ? 'Arthur Branwell & Co Ltd' : null) ||
+    app.contact_name ||
+    'HFA Client'
+  );
+};
+
 export default function AdminAddOnApplications() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -276,9 +293,11 @@ export default function AdminAddOnApplications() {
       if (!search.trim()) return true;
       const s = search.toLowerCase();
       const refNo = (a.application_number || `ADDON-${String(a._id || '').slice(-6).toUpperCase()}`).toLowerCase();
+      const clientNameStr = resolveAddOnClientName(a).toLowerCase();
       const dateStr = formatDate(a.created_at || a.submission_date || a.createdAt).toLowerCase();
       return (
         refNo.includes(s) ||
+        clientNameStr.includes(s) ||
         a.application_number?.toLowerCase().includes(s) ||
         a.client_id?.company_name?.toLowerCase().includes(s) ||
         a.client_id?.full_name?.toLowerCase().includes(s) ||
@@ -516,7 +535,7 @@ export default function AdminAddOnApplications() {
           </div>
         ) : (
           paginatedApps.map(app => {
-            const clientName = app.client_id?.company_name || app.client_id?.full_name || 'Unnamed Client';
+            const clientName = resolveAddOnClientName(app);
             const certNo = app.certificate_id?.certificate_number || null;
             const linkedAppNo = app.application_id?.application_number || null;
             const cfg = STATUS_CONFIG[app.status] || { label: app.status, bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', dot: '#94a3b8' };

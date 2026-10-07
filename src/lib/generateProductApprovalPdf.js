@@ -942,33 +942,32 @@ export async function exportProductApprovalPdf({ formData = {}, product = {}, co
       // Continue with relative image path
     }
 
-    // Render into off-screen container
-    const container = document.createElement('div');
-    container.id = 'hfa-product-approval-pdf-render';
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '800px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.zIndex = '-9999';
-    container.innerHTML = resolvedHtml;
-    document.body.appendChild(container);
+    // Parse the HTML cleanly into an in-memory element structure
+    const parser = new DOMParser();
+    const parsedDoc = parser.parseFromString(resolvedHtml, 'text/html');
 
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready.catch(() => {});
-    }
+    const styleEl = parsedDoc.querySelector('style');
+    const docContainer = parsedDoc.querySelector('.doc-container') || parsedDoc.body;
+
+    const wrapper = document.createElement('div');
+    wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    wrapper.style.backgroundColor = '#ffffff';
+    wrapper.style.color = '#0f172a';
+    wrapper.style.width = '794px';
+    wrapper.style.margin = '0';
+    wrapper.style.padding = '0';
+
+    if (styleEl) wrapper.appendChild(styleEl.cloneNode(true));
+    wrapper.appendChild(docContainer.cloneNode(true));
 
     const opt = {
-      margin: [8, 8, 8, 8],
+      margin: [6, 6, 6, 6],
       filename: safeFileName,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
         scale: 2,
         useCORS: true,
-        logging: false,
-        letterRendering: true,
-        scrollY: 0,
-        windowWidth: 800
+        logging: false
       },
       jsPDF: {
         unit: 'mm',
@@ -978,11 +977,7 @@ export async function exportProductApprovalPdf({ formData = {}, product = {}, co
       pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    await html2pdf().set(opt).from(container).save();
-
-    if (container.parentNode) {
-      container.parentNode.removeChild(container);
-    }
+    await html2pdf().set(opt).from(wrapper).save();
 
     toast.success('Product Approval Form saved as PDF!', { id: toastId });
   } catch (pdfErr) {

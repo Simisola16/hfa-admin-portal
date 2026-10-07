@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   isSuperAdmin, canAcceptOrRejectApp, canSendProposal, canSendAgreement,
   canSendInvoice, canConfirmPayment, canManageAuditDates, canManageNC,
-  canCreateLogsheet, canIssueCertificate, canManageProductForm,
+  canCreateLogsheet, canIssueCertificate, canManageProductForm, canReviewAddOnApp,
 } from '../lib/permissions';
 
 // Shared Admin Modals
@@ -63,6 +63,7 @@ function canHandleItem(item, user) {
     case 'create_init_prod_logsheet':
     case 'manage_init_prod_logsheet':
     case 'review_addon':
+      return canReviewAddOnApp(user);
     case 'enable_addon_form':
     case 'create_addon_logsheet':
     case 'manage_addon_logsheet':
@@ -711,7 +712,7 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             category: 'addons',
             app: { _id: addonId, application_number: addonNum, establishment_name: clientName },
             type: 'review_addon',
-            title: 'New Add-on Application: Assign FT',
+            title: 'New Add-on Application: Review Request',
             tag: 'Add-on Review',
             desc: `Review ${productCount} product addition(s) from ${clientName}`,
             buttonText: 'Review Add-on',

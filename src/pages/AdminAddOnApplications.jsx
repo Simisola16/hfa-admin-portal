@@ -11,7 +11,7 @@ import {
   Tag, ArrowUpRight, Award, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { canIssueCertificate, canAssignFoodTech } from '../lib/permissions';
+import { canIssueCertificate, canAssignFoodTech, canReviewAddOnApp } from '../lib/permissions';
 import Pagination from '../components/Pagination';
 import RestoreModal from '../components/RestoreModal';
 
@@ -134,6 +134,9 @@ export default function AdminAddOnApplications() {
   const closeModal = () => { setActiveApp(null); setActionType(null); };
 
   const handleReview = async () => {
+    if (!canReviewAddOnApp(user)) {
+      return toast.error('Only Food Tech or Food Tech Manager can accept or reject add-on applications.');
+    }
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
     setSubmitting(true);
     try {
@@ -657,6 +660,16 @@ export default function AdminAddOnApplications() {
                             <Award size={13} /> Issue Certificate
                           </button>
                         )}
+                        {/* Review Request Button for FT & FT Manager */}
+                        {canReviewAddOnApp(user) && (app.status === 'submitted' || app.status === 'on_hold') && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openModal(app, 'review')}
+                            style={{ background: '#f59e0b', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 12px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            Review Request
+                          </button>
+                        )}
 
                         {/* Process & Track Details Button */}
                         <button
@@ -814,7 +827,7 @@ export default function AdminAddOnApplications() {
       {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 
       {/* Accept, Hold, Or Reject */}
-      {activeApp && actionType === 'review' && (
+      {activeApp && actionType === 'review' && canReviewAddOnApp(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">

@@ -24,6 +24,7 @@ const pageMeta = {
   '/superadmin/live-monitor':     { title: 'Live Presence & Activity Monitor', sub: 'Real-time online status and login tracking for staff and clients', section: 'Superadmin' },
   '/superadmin/direct-certificate': { title: 'Direct Certificate Studio', sub: 'Instant Superadmin Certificate & Product Issuance', section: 'Superadmin' },
   '/applications':                { title: 'Applications',        sub: 'Manage all applications',        section: 'Applications' },
+  '/applications/accounts':       { title: 'Accounts Applications', sub: 'Applications where the next action is to send invoice or confirm payment', section: 'Applications' },
   '/clients':                     { title: 'Companies',           sub: 'Manage client accounts',         section: 'Applications' },
   '/proposals':                   { title: 'Proposals',           sub: 'Manage client proposals',        section: 'Certification' },
   '/invoices':                    { title: 'Invoices',            sub: 'Manage client invoices',         section: 'Certification' },

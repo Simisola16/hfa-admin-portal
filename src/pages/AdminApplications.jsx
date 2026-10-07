@@ -2,13 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin, RotateCcw } from 'lucide-react';
+import { Search, Eye, X, Calendar, MoreVertical, CheckCircle, Trash2, ExternalLink, FileSearch, Shield, FileText, ChevronRight, Package, UserCheck, Check, Filter, RefreshCw, Settings, Activity, Download, Receipt, AlertCircle, MapPin, RotateCcw, CreditCard } from 'lucide-react';
 import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { STATUS_ORDER, STATUS_LABELS, STATUS_BADGE, getEffectiveApplicationStatus, getApplicationWorkflowInfo } from '../lib/applicationStatuses';
 import ProposalModal from '../components/ProposalModal';
 import AgreementModal from '../components/AgreementModal';
 import CertificateModal from '../components/CertificateModal';
 import AuditManageModal from '../components/AuditManageModal';
+import InvoiceModal from '../components/InvoiceModal';
+import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 import { generateHfaId, normalizeHfaTypeCode } from '../lib/idGenerator';
 import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -91,6 +93,12 @@ export default function AdminApplications() {
   const [existingCertificate, setExistingCertificate] = useState(null);
   const [restoreModalApp, setRestoreModalApp] = useState(null);
 
+  // Accounts state & modals
+  const [invoices, setInvoices] = useState([]);
+  const [accountActionFilter, setAccountActionFilter] = useState('all'); // 'all' | 'send_invoice' | 'confirm_payment'
+  const [accountsInvoiceModal, setAccountsInvoiceModal] = useState({ isOpen: false, app: null, invoiceType: 'initial' });
+  const [accountsPaymentModal, setAccountsPaymentModal] = useState({ isOpen: false, app: null, invoice: null });
+
   const { user, profile } = useAuth();
   const currentUser = profile || user;
   const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
@@ -108,14 +116,17 @@ export default function AdminApplications() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [a, i] = await Promise.all([
+      const [a, i, inv] = await Promise.all([
         api.get('/api/applications').catch(() => ({ data: [] })),
-        api.get('/api/inspectors').catch(() => ({ data: [] }))
+        api.get('/api/inspectors').catch(() => ({ data: [] })),
+        api.get('/api/invoices').catch(() => ({ data: [] }))
       ]);
       const rawApps = Array.isArray(a) ? a : (Array.isArray(a?.data?.data) ? a.data.data : (Array.isArray(a?.data) ? a.data : []));
       const rawInspectors = Array.isArray(i) ? i : (Array.isArray(i?.data?.data) ? i.data.data : (Array.isArray(i?.data) ? i.data : []));
+      const rawInvoices = Array.isArray(inv) ? inv : (Array.isArray(inv?.data?.data) ? inv.data.data : (Array.isArray(inv?.data) ? inv.data : []));
       setApps(rawApps);
       setInspectors(rawInspectors);
+      setInvoices(rawInvoices);
     } catch (err) {
       toast.error('Failed to load data');
     } finally {
@@ -224,7 +235,8 @@ export default function AdminApplications() {
     }
   }, [searchParams, navigate]);
 
-  const typeParam = searchParams.get('type') || (location.pathname.includes('/certified') ? 'certified' : null);
+  const typeParam = searchParams.get('type') || (location.pathname.includes('/certified') ? 'certified' : (location.pathname.includes('/accounts') ? 'accounts' : null));
+  const isAccountsView = typeParam === 'accounts' || location.pathname.includes('/accounts');
   const isProgressView = typeParam === 'inprogress' || typeParam === 'in_progress' || typeParam === 'renewal';
   const subType = searchParams.get('subType') || null;
 
@@ -245,6 +257,127 @@ export default function AdminApplications() {
     const s = t.toLowerCase().trim();
     if (isTypeRenewal(s) || isTypeSurveillance(s)) return false;
     return s === 'new' || s === 'new application' || s === 'standard' || s === 'initial' || s.includes('new');
+  };
+
+  // Helper to determine if an application has an Accounts-actionable next step
+  const getAccountsActionInfo = (app, allInvoices = []) => {
+    if (!app) return null;
+    const appId = String(app._id || app.id || '');
+    const status = String(app.status || '').toLowerCase().trim();
+    const effStatus = String(getEffectiveApplicationStatus(app) || '').toLowerCase().trim();
+
+    const isRenewal = (
+      String(app.application_type || '').toLowerCase().includes('renewal') ||
+      String(app.type || '').toLowerCase().includes('renewal') ||
+      Boolean(app.is_renewal) ||
+      Boolean(app.renewed_certificate_id) ||
+      String(app.application_number || '').includes('-RE-') ||
+      String(app.category || '').toLowerCase().includes('renewal')
+    );
+    const isSurveillance = (
+      String(app.application_type || '').toLowerCase().includes('surveillance') ||
+      String(app.type || '').toLowerCase().includes('surveillance') ||
+      String(app.application_number || '').includes('-SV-') ||
+      String(app.category || '').toLowerCase().includes('surveillance')
+    );
+
+    // Linked invoices
+    const linkedInvoices = (allInvoices || []).filter(inv => {
+      const invAppId = String(inv.application_id?._id || inv.application_id?.id || inv.application_id || '');
+      return invAppId && invAppId === appId;
+    });
+
+    const clientPaidInvoice = linkedInvoices.find(inv =>
+      inv.status === 'client_paid' ||
+      Boolean(inv.proof_url || inv.payment_proof)
+    );
+
+    // 1. Client submitted payment proof -> Confirm Payment
+    if (clientPaidInvoice && clientPaidInvoice.status !== 'paid') {
+      const isFinal = clientPaidInvoice.invoice_type === 'final' || clientPaidInvoice.stage === 'final' || clientPaidInvoice.target_status === 'final_invoice_sent' || status === 'final_invoice_sent';
+      return {
+        type: 'confirm_payment',
+        actionLabel: isFinal ? 'Confirm Final Payment' : 'Confirm Payment',
+        badgeText: 'Payment Proof Submitted',
+        badgeVariant: 'badge-blue',
+        desc: `Client uploaded payment proof (£${Number(clientPaidInvoice.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })})`,
+        invoice: clientPaidInvoice,
+        invoiceType: isFinal ? 'final' : 'initial'
+      };
+    }
+
+    // 2. Initial Invoice Sent stage -> Awaiting initial payment / Confirm Payment
+    if (status === 'invoice_sent' || effStatus === 'invoice_sent') {
+      const inv = linkedInvoices.find(i => i.invoice_type !== 'final' && i.stage !== 'final') || linkedInvoices[0];
+      const hasProof = inv?.status === 'client_paid' || Boolean(inv?.proof_url || inv?.payment_proof);
+      return {
+        type: 'confirm_payment',
+        actionLabel: 'Confirm Payment',
+        badgeText: hasProof ? 'Payment Proof Submitted' : 'Awaiting Payment',
+        badgeVariant: hasProof ? 'badge-blue' : 'badge-purple',
+        desc: inv?.amount ? `Initial invoice sent (£${Number(inv.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })})` : 'Awaiting client payment confirmation',
+        invoice: inv,
+        invoiceType: 'initial'
+      };
+    }
+
+    // 3. Final Invoice Sent stage -> Awaiting final payment / Confirm Final Payment
+    if (status === 'final_invoice_sent' || effStatus === 'final_invoice_sent') {
+      const inv = linkedInvoices.find(i => i.invoice_type === 'final' || i.stage === 'final') || linkedInvoices[0];
+      const hasProof = inv?.status === 'client_paid' || Boolean(inv?.proof_url || inv?.payment_proof);
+      return {
+        type: 'confirm_payment',
+        actionLabel: 'Confirm Final Payment',
+        badgeText: hasProof ? 'Final Payment Proof' : 'Awaiting Final Payment',
+        badgeVariant: hasProof ? 'badge-blue' : 'badge-purple',
+        desc: inv?.amount ? `Final invoice sent (£${Number(inv.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })})` : 'Awaiting client final payment',
+        invoice: inv,
+        invoiceType: 'final'
+      };
+    }
+
+    // 4. Send Initial Invoice
+    // Proposal accepted / approved (New / Standard applications)
+    if (['proposal_approved', 'proposal_accepted'].includes(status) || ['proposal_approved', 'proposal_accepted'].includes(effStatus)) {
+      return {
+        type: 'send_invoice',
+        actionLabel: 'Send Initial Invoice',
+        badgeText: 'Send Initial Invoice',
+        badgeVariant: 'badge-yellow',
+        desc: 'Proposal accepted by client. Ready for initial invoice.',
+        invoiceType: 'initial',
+        isFinal: false
+      };
+    }
+
+    // Renewal / Surveillance approved after logsheet signed
+    if ((isRenewal || isSurveillance) && (['logsheet_signed', 'application_successful'].includes(status) || ['logsheet_signed', 'application_successful'].includes(effStatus))) {
+      return {
+        type: 'send_invoice',
+        actionLabel: isRenewal ? 'Send Renewal Invoice' : 'Send Surveillance Invoice',
+        badgeText: isRenewal ? 'Send Renewal Invoice' : 'Send Surveillance Invoice',
+        badgeVariant: 'badge-yellow',
+        desc: isRenewal ? 'Renewal approved. Ready for renewal fee invoice.' : 'Surveillance approved. Ready for surveillance invoice.',
+        invoiceType: 'initial',
+        isFinal: false
+      };
+    }
+
+    // 5. Send Final Invoice
+    // Agreement finalised / countersigned
+    if (['agreement_finalised', 'agreement_finalized'].includes(status) || ['agreement_finalised', 'agreement_finalized'].includes(effStatus)) {
+      return {
+        type: 'send_invoice',
+        actionLabel: 'Send Final Invoice',
+        badgeText: 'Send Final Invoice',
+        badgeVariant: 'badge-yellow',
+        desc: 'Final agreement completed. Ready for final certification invoice.',
+        invoiceType: 'final',
+        isFinal: true
+      };
+    }
+
+    return null;
   };
 
   // Applications that have status "Application Submitted" only
@@ -424,7 +557,16 @@ export default function AdminApplications() {
   const filtered = safeApps.filter(a => {
     if (!a) return false;
     // 1. View Type Filter
-    if (typeParam === 'new') {
+    if (isAccountsView) {
+      const accountsAction = getAccountsActionInfo(a, invoices);
+      if (!accountsAction) return false;
+      if (accountActionFilter === 'send_invoice' && accountsAction.type !== 'send_invoice') return false;
+      if (accountActionFilter === 'confirm_payment' && accountsAction.type !== 'confirm_payment') return false;
+      // Sub-type filter (New, Renewal, Surveillance)
+      if (subType === 'new' && !isTypeNew(a.application_type)) return false;
+      if (subType === 'renewal' && !isTypeRenewal(a.application_type)) return false;
+      if (subType === 'surveillance' && !isTypeSurveillance(a.application_type)) return false;
+    } else if (typeParam === 'new') {
       // New Applications view: show all applications that the application status is in application submitted only
       if (!isSubmittedOnly(a.status)) return false;
       // Sub-type filter (New, Renewal, Surveillance)
@@ -473,14 +615,22 @@ export default function AdminApplications() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, filterSite, typeParam, subType]);
+  }, [search, filterStatus, filterSite, typeParam, subType, accountActionFilter]);
 
   const paginatedApps = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   // Dynamic counts for the 3 sub-type buttons (New, Renewal, Surveillance)
   const { newCount, renewalCount, surveillanceCount, totalViewCount } = useMemo(() => {
     let baseApps = [];
-    if (typeParam === 'new') {
+    if (isAccountsView) {
+      baseApps = safeApps.filter(a => {
+        const info = getAccountsActionInfo(a, invoices);
+        if (!info) return false;
+        if (accountActionFilter === 'send_invoice') return info.type === 'send_invoice';
+        if (accountActionFilter === 'confirm_payment') return info.type === 'confirm_payment';
+        return true;
+      });
+    } else if (typeParam === 'new') {
       baseApps = safeApps.filter(a => isSubmittedOnly(a?.status));
     } else if (isProgressView) {
       baseApps = safeApps.filter(a => isInProgress(a?.status));
@@ -492,7 +642,17 @@ export default function AdminApplications() {
       surveillanceCount: baseApps.filter(a => isTypeSurveillance(a?.application_type)).length,
       totalViewCount: baseApps.length
     };
-  }, [safeApps, typeParam, isProgressView]);
+  }, [safeApps, typeParam, isProgressView, isAccountsView, invoices, accountActionFilter]);
+
+  // Accounts Action specific counts
+  const { accountsSendInvoiceCount, accountsConfirmPaymentCount, accountsTotalCount } = useMemo(() => {
+    const allAccounts = safeApps.filter(a => Boolean(getAccountsActionInfo(a, invoices)));
+    return {
+      accountsSendInvoiceCount: allAccounts.filter(a => getAccountsActionInfo(a, invoices)?.type === 'send_invoice').length,
+      accountsConfirmPaymentCount: allAccounts.filter(a => getAccountsActionInfo(a, invoices)?.type === 'confirm_payment').length,
+      accountsTotalCount: allAccounts.length
+    };
+  }, [safeApps, invoices]);
 
   const handleSubTypeClick = (clickedType) => {
     setSearchParams(prev => {
@@ -508,6 +668,15 @@ export default function AdminApplications() {
   };
 
   const getPageTitleAndSub = () => {
+    if (isAccountsView) {
+      let subText = 'Applications where the next action is to send invoice or confirm payment';
+      if (accountActionFilter === 'send_invoice') subText = 'Applications awaiting invoice issuance (Initial, Renewal, Surveillance, or Final)';
+      if (accountActionFilter === 'confirm_payment') subText = 'Applications awaiting payment receipt or verification of client payment proof';
+      return {
+        title: 'Accounts Applications',
+        sub: subText
+      };
+    }
     if (typeParam === 'new') {
       let subText = 'Applications with status Application Submitted';
       if (subType === 'new') subText = 'New certification applications with status Application Submitted';
@@ -669,8 +838,122 @@ export default function AdminApplications() {
             <div className="card-subtitle">{pageMeta.sub}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* The 3 Filter Buttons (New, Renewal, Surveillance) for 'new' and 'inprogress' views */}
-            {(typeParam === 'new' || isProgressView) && (
+            {/* Accounts Quick Action Filters */}
+            {isAccountsView && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: '#f8fafc',
+                padding: '3px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                gap: '4px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => { setAccountActionFilter('all'); setPage(1); }}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: accountActionFilter === 'all' ? '#0f766e' : '#ffffff',
+                    color: accountActionFilter === 'all' ? '#ffffff' : '#334155',
+                    boxShadow: accountActionFilter === 'all' ? '0 1px 3px rgba(15,118,110,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: accountActionFilter === 'all' ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Show all actionable Accounts applications"
+                >
+                  <span>All Accounts</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: accountActionFilter === 'all' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: accountActionFilter === 'all' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {accountsTotalCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setAccountActionFilter('send_invoice'); setPage(1); }}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: accountActionFilter === 'send_invoice' ? '#854d0e' : '#ffffff',
+                    color: accountActionFilter === 'send_invoice' ? '#ffffff' : '#334155',
+                    boxShadow: accountActionFilter === 'send_invoice' ? '0 1px 3px rgba(133,77,14,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: accountActionFilter === 'send_invoice' ? '1px solid #854d0e' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Filter to applications where next action is Send Invoice"
+                >
+                  <Receipt size={13} />
+                  <span>Send Invoice</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: accountActionFilter === 'send_invoice' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: accountActionFilter === 'send_invoice' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {accountsSendInvoiceCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setAccountActionFilter('confirm_payment'); setPage(1); }}
+                  style={{
+                    padding: '5px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: accountActionFilter === 'confirm_payment' ? '#16a34a' : '#ffffff',
+                    color: accountActionFilter === 'confirm_payment' ? '#ffffff' : '#334155',
+                    boxShadow: accountActionFilter === 'confirm_payment' ? '0 1px 3px rgba(22,163,74,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                    border: accountActionFilter === 'confirm_payment' ? '1px solid #16a34a' : '1px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Filter to applications where next action is Confirm Payment"
+                >
+                  <CreditCard size={13} />
+                  <span>Confirm Payment</span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: accountActionFilter === 'confirm_payment' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: accountActionFilter === 'confirm_payment' ? '#ffffff' : '#475569',
+                    fontWeight: 800
+                  }}>
+                    {accountsConfirmPaymentCount}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Sub-type buttons (New, Renewal, Surveillance) */}
+            {(typeParam === 'new' || isProgressView || isAccountsView) && (
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -796,10 +1079,13 @@ export default function AdminApplications() {
                 <th>Type &amp; Category</th>
                 <th>Date</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {isAccountsView && <th style={{ minWidth: 180 }}>Accounts Action</th>}
+                <th style={{ textAlign: 'center', minWidth: isAccountsView ? 140 : 80 }}>Actions</th>
               </tr></thead>
               <tbody>
-                {paginatedApps.map((app, index) => (
+                {paginatedApps.map((app, index) => {
+                  const accountsAction = isAccountsView ? getAccountsActionInfo(app, invoices) : null;
+                  return (
                   <tr key={app._id}>
                     <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: 13 }}>
                       {(page - 1) * pageSize + index + 1}
@@ -831,14 +1117,65 @@ export default function AdminApplications() {
                         );
                       })()}
                     </td>
+                    {isAccountsView && (
+                      <td>
+                        {accountsAction ? (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                              <span className={`badge ${accountsAction.badgeVariant}`} style={{ fontSize: 11, fontWeight: 700 }}>
+                                {accountsAction.badgeText}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.25 }}>
+                              {accountsAction.desc}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                    )}
                     <td style={{textAlign:'center', position:'relative'}}>
-                      <ActionTriggerButton
-                        onClick={() => setOpenDropdown(app._id)}
-                        title="Application Actions"
-                      />
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                        {isAccountsView && accountsAction?.type === 'send_invoice' && (
+                          <button
+                            type="button"
+                            className="action-btn action-btn-accounts-inv"
+                            onClick={() => setAccountsInvoiceModal({
+                              isOpen: true,
+                              app,
+                              invoiceType: accountsAction.invoiceType
+                            })}
+                            title={accountsAction.actionLabel}
+                          >
+                            <Receipt size={13} />
+                            <span>Send Invoice</span>
+                          </button>
+                        )}
+                        {isAccountsView && accountsAction?.type === 'confirm_payment' && (
+                          <button
+                            type="button"
+                            className="action-btn action-btn-accounts-pay"
+                            onClick={() => setAccountsPaymentModal({
+                              isOpen: true,
+                              app,
+                              invoice: accountsAction.invoice
+                            })}
+                            title={accountsAction.actionLabel}
+                          >
+                            <CreditCard size={13} />
+                            <span>Confirm Payment</span>
+                          </button>
+                        )}
+                        <ActionTriggerButton
+                          onClick={() => setOpenDropdown(app._id)}
+                          title="Application Actions"
+                        />
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -867,6 +1204,93 @@ export default function AdminApplications() {
         const effStatus = getEffectiveApplicationStatus(app);
         const companyName = app.profiles?.company_name || app.establishment_name || app.company_name || 'Company Facility';
         const isDone = app.status === 'done';
+        const accountsAction = getAccountsActionInfo(app, invoices);
+
+        const actions = [];
+
+        // Direct accounts action if applicable
+        if (accountsAction?.type === 'send_invoice') {
+          actions.push({
+            label: accountsAction.actionLabel,
+            description: accountsAction.desc || 'Issue certification or fee invoice to client',
+            icon: Receipt,
+            variant: 'primary',
+            onClick: () => {
+              setOpenDropdown(null);
+              setAccountsInvoiceModal({
+                isOpen: true,
+                app,
+                invoiceType: accountsAction.invoiceType
+              });
+            }
+          });
+        } else if (accountsAction?.type === 'confirm_payment') {
+          actions.push({
+            label: accountsAction.actionLabel,
+            description: accountsAction.desc || 'Verify and confirm receipt of client payment',
+            icon: CreditCard,
+            variant: 'success',
+            onClick: () => {
+              setOpenDropdown(null);
+              setAccountsPaymentModal({
+                isOpen: true,
+                app,
+                invoice: accountsAction.invoice
+              });
+            }
+          });
+        }
+
+        actions.push({
+          label: 'Application Processing',
+          description: 'Open full application processing workflow & timeline',
+          icon: Settings,
+          variant: 'secondary',
+          onClick: () => {
+            setOpenDropdown(null);
+            navigate(`/applications/${app._id}/processing`);
+          }
+        });
+
+        if (hasChangeStatusPrivilege) {
+          actions.push({
+            label: 'Change Status',
+            description: 'Super Grant: Manually change application status',
+            icon: RefreshCw,
+            variant: 'warning',
+            onClick: () => {
+              setOpenDropdown(null);
+              openChangeStatusModal(app);
+            }
+          });
+        }
+
+        if (hasDonePrivilege && !isDone) {
+          actions.push({
+            label: 'Mark as Done',
+            description: 'Mark this application as completed / Done',
+            icon: CheckCircle,
+            variant: 'success',
+            onClick: () => {
+              setOpenDropdown(null);
+              handleMarkApplicationDone(app._id, companyName);
+            }
+          });
+        }
+
+        if (hasDonePrivilege && isDone) {
+          actions.push({
+            label: 'Restore Application',
+            description: 'Restore this application back to active status',
+            icon: RotateCcw,
+            variant: 'warning',
+            onClick: () => {
+              setOpenDropdown(null);
+              handleRestoreApplication(app, companyName);
+            }
+          });
+        }
+
         return (
           <ActionModal
             isOpen={Boolean(openDropdown)}
@@ -875,48 +1299,7 @@ export default function AdminApplications() {
             subtitle={companyName}
             badge={`Status: ${STATUS_LABELS[effStatus] || effStatus?.replace(/_/g, ' ')}`}
             badgeVariant={STATUS_BADGE[effStatus] || 'badge-blue'}
-            actions={[
-              {
-                label: 'Application Processing',
-                description: 'Open full application processing workflow & timeline',
-                icon: Settings,
-                variant: 'primary',
-                onClick: () => {
-                  setOpenDropdown(null);
-                  navigate(`/applications/${app._id}/processing`);
-                }
-              },
-              hasChangeStatusPrivilege && {
-                label: 'Change Status',
-                description: 'Super Grant: Manually change application status',
-                icon: RefreshCw,
-                variant: 'warning',
-                onClick: () => {
-                  setOpenDropdown(null);
-                  openChangeStatusModal(app);
-                }
-              },
-              hasDonePrivilege && !isDone && {
-                label: 'Mark as Done',
-                description: 'Mark this application as completed / Done',
-                icon: CheckCircle,
-                variant: 'success',
-                onClick: () => {
-                  setOpenDropdown(null);
-                  handleMarkApplicationDone(app._id, companyName);
-                }
-              },
-              hasDonePrivilege && isDone && {
-                label: 'Restore Application',
-                description: 'Restore this application back to active status',
-                icon: RotateCcw,
-                variant: 'warning',
-                onClick: () => {
-                  setOpenDropdown(null);
-                  handleRestoreApplication(app, companyName);
-                }
-              }
-            ].filter(Boolean)}
+            actions={actions}
           />
         );
       })()}
@@ -2477,6 +2860,30 @@ export default function AdminApplications() {
         onConfirm={handleConfirmRestoreApplication}
       />
 
+      {/* Accounts View: Direct Invoice Modal */}
+      <InvoiceModal
+        isOpen={accountsInvoiceModal.isOpen}
+        onClose={() => setAccountsInvoiceModal({ isOpen: false, app: null, invoiceType: 'initial' })}
+        app={accountsInvoiceModal.app}
+        invoiceType={accountsInvoiceModal.invoiceType}
+        onSuccess={() => {
+          setAccountsInvoiceModal({ isOpen: false, app: null, invoiceType: 'initial' });
+          fetchData();
+        }}
+      />
+
+      {/* Accounts View: Direct Confirm Payment Modal */}
+      <ConfirmPaymentModal
+        isOpen={accountsPaymentModal.isOpen}
+        onClose={() => setAccountsPaymentModal({ isOpen: false, app: null, invoice: null })}
+        app={accountsPaymentModal.app}
+        invoice={accountsPaymentModal.invoice}
+        onSuccess={() => {
+          setAccountsPaymentModal({ isOpen: false, app: null, invoice: null });
+          fetchData();
+        }}
+      />
+
       <style>{`
         .action-btn-group {
           display: flex;
@@ -2497,6 +2904,26 @@ export default function AdminApplications() {
           text-decoration: none;
           white-space: nowrap;
           letter-spacing: 0.02em;
+        }
+        .action-btn-accounts-inv {
+          background: #fefce8;
+          color: #854d0e;
+          border-color: #fef08a;
+        }
+        .action-btn-accounts-inv:hover {
+          background: #fef08a;
+          color: #713f12;
+          border-color: #fde047;
+        }
+        .action-btn-accounts-pay {
+          background: #f0fdf4;
+          color: #15803d;
+          border-color: #bbf7d0;
+        }
+        .action-btn-accounts-pay:hover {
+          background: #dcfce7;
+          color: #166534;
+          border-color: #86efac;
         }
         .action-btn-view {
           background: #f1f5f9;

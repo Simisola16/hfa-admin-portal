@@ -81,6 +81,7 @@ export default function App() {
             <Route path="/superadmin/direct-logsheet" element={<AdminDirectLogsheet />} />
             <Route path="/superadmin/direct-product" element={<AdminDirectProduct />} />
             <Route path="/applications" element={<AdminApplications />} />
+            <Route path="/applications/accounts" element={<AdminApplications />} />
             <Route path="/applications/certified" element={<AdminApplications />} />
             <Route path="/surveillance-due-dates" element={<AdminSurveillanceDueDates />} />
             <Route path="/admin/surveillance-due-dates" element={<AdminSurveillanceDueDates />} />

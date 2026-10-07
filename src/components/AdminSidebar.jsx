@@ -37,6 +37,7 @@ const NAV_SECTIONS = [
           { label: 'All Applications',        path: '/applications' },
           { label: 'New Applications',        path: '/applications?type=new' },
           { label: 'In-Progress',             path: '/applications?type=inprogress' },
+          { label: 'Accounts',                path: '/applications?type=accounts' },
           { label: 'Certified Applications',  path: '/applications?type=certified' },
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
           { label: 'Surveillance Due Dates',  path: '/surveillance-due-dates' },
@@ -215,6 +216,9 @@ function isChildActive(childPath, location) {
   }
   if (childPath === '/applications?type=inprogress') {
     return location.pathname === '/applications' && (location.search.includes('type=inprogress') || location.search.includes('type=in_progress') || location.search.includes('type=renewal'));
+  }
+  if (childPath === '/applications?type=accounts' || childPath === '/applications/accounts') {
+    return (location.pathname === '/applications' && location.search.includes('type=accounts')) || location.pathname === '/applications/accounts';
   }
   if (childPath === '/applications?type=certified') {
     return location.pathname === '/applications' && location.search.includes('type=certified');

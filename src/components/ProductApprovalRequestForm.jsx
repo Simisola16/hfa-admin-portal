@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Plus, Trash2, CheckCircle, FileText, AlertTriangle, ShieldCheck, 
-  Download, Upload, Save, Check, RefreshCw, X
+  Download, Upload, Save, Check, RefreshCw, X, Printer
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { exportProductApprovalPdf } from '../lib/generateProductApprovalPdf';
 
 export const INITIAL_PRODUCT_APPROVAL_FORM = {
   // Header
@@ -170,17 +171,47 @@ export default function ProductApprovalRequestForm({
       <div style={{
         background: '#164e63',
         color: '#ffffff',
-        textAlign: 'center',
-        padding: '18px 20px',
+        padding: '16px 20px',
         borderRadius: 8,
-        marginBottom: 20
+        marginBottom: 20,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12
       }}>
-        <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.04em', margin: 0, textTransform: 'uppercase' }}>
-          PRODUCT APPROVAL REQUEST FORM
-        </h2>
-        <div style={{ fontSize: 13, fontWeight: 500, color: '#bae6fd', marginTop: 4 }}>
-          Halal Certification Application Document
+        <div style={{ textAlign: 'left' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.04em', margin: 0, textTransform: 'uppercase' }}>
+            PRODUCT APPROVAL REQUEST FORM
+          </h2>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#bae6fd', marginTop: 4 }}>
+            Halal Certification Application Document
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => exportProductApprovalPdf({ formData: form, product, company })}
+          className="btn btn-sm"
+          style={{
+            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            color: '#ffffff',
+            border: 'none',
+            fontWeight: 800,
+            fontSize: 12.5,
+            padding: '8px 16px',
+            borderRadius: 6,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+            letterSpacing: '0.02em'
+          }}
+          title="Export and Save as high quality PDF document"
+        >
+          <Printer size={15} /> Save as PDF
+        </button>
       </div>
 
       {/* Company Name & Brand Owner Header */}

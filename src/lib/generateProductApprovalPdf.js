@@ -8,7 +8,10 @@
  * and authenticated signatory declaration.
  */
 
-export function exportProductApprovalPdf({ formData = {}, product = {}, company = {} }) {
+import api from './api';
+import toast from 'react-hot-toast';
+
+export async function exportProductApprovalPdf({ formData = {}, product = {}, company = {} }) {
   const form = typeof formData === 'string' ? (() => {
     try { return JSON.parse(formData); } catch (e) { return {}; }
   })() : (formData || {});
@@ -21,6 +24,31 @@ export function exportProductApprovalPdf({ formData = {}, product = {}, company 
   const facilityAddress = form.manufacturing_facility_address || company?.address || '—';
 
   const safeFileName = `HFA_Product_Approval_Form_${(productName || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+  // First priority: Direct file download via high-speed backend Puppeteer PDF generator
+  const toastId = toast.loading('Generating & downloading PDF...');
+  try {
+    const blob = await api.downloadBlob('POST', '/api/products/approval-form/download-pdf', {
+      formData: form,
+      product,
+      company
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = safeFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+
+    toast.success('Product Approval Form downloaded!', { id: toastId });
+    return;
+  } catch (backendErr) {
+    console.warn('Backend PDF generation failed, falling back to local printable view:', backendErr);
+    toast.dismiss(toastId);
+  }
 
   const renderRadio = (val, target, label) => {
     const isChecked = String(val || '').toLowerCase() === String(target).toLowerCase();

@@ -270,6 +270,14 @@ export default function AdminLogsheetManage() {
           subtext: comp || 'Facility'
         });
       }
+      const refNo = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id;
+      if (refNo && String(refNo).toLowerCase().includes(q) && !logsMap.has(String(refNo).toLowerCase())) {
+        logsMap.set(String(refNo).toLowerCase(), {
+          label: String(refNo),
+          type: 'Ref No.',
+          subtext: comp || 'Application Ref'
+        });
+      }
       const logId = l._id;
       if (logId && String(logId).toLowerCase().includes(q) && !logsMap.has(String(logId).toLowerCase())) {
         logsMap.set(String(logId).toLowerCase(), {
@@ -310,31 +318,37 @@ export default function AdminLogsheetManage() {
     }
 
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    
-    if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || 
-        l.legacy_id?.toLowerCase().includes(query) ||
-        l.direct_ref?.toLowerCase().includes(query) ||
-        l.application_number?.toLowerCase().includes(query) ||
-        l.application_id?.application_number?.toLowerCase().includes(query);
+    const query = searchQuery.trim().toLowerCase();
+    const cleanQuery = query.replace(/^#/, '');
+
+    const matchesRef = Boolean(
+      (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.application_number && l.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.direct_ref && l.direct_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.kfc_ref && l.kfc_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.legacy_id && l.legacy_id.toLowerCase().includes(cleanQuery)) ||
+      (l._id && String(l._id).toLowerCase().includes(query))
+    );
+
+    if (searchField === 'ref_no' || searchField === 'id') {
+      return matchesRef;
     }
     if (searchField === 'company_name') {
-      return l.company_name?.toLowerCase().includes(query);
+      return (l.company_name && l.company_name.toLowerCase().includes(query)) || matchesRef;
     }
     if (searchField === 'site_name') {
-      return (l.site_name || l.application_id?.site_name || '').toLowerCase().includes(query);
+      return (l.site_name || l.application_id?.site_name || '').toLowerCase().includes(query) || matchesRef;
     }
     if (searchField === 'created_by') {
-      return getCreatorName(l).toLowerCase().includes(query);
+      return getCreatorName(l).toLowerCase().includes(query) || matchesRef;
     }
     if (searchField === 'status') {
-      return l.status?.toLowerCase().includes(query);
+      return (l.status && l.status.toLowerCase().includes(query)) || matchesRef;
     }
     if (searchField === 'audit_type') {
-      return l.audit_type?.toLowerCase().includes(query);
+      return (l.audit_type && l.audit_type.toLowerCase().includes(query)) || matchesRef;
     }
-    return true;
+    return matchesRef || (l.company_name && l.company_name.toLowerCase().includes(query));
   });
 
   useEffect(() => {
@@ -437,7 +451,7 @@ export default function AdminLogsheetManage() {
             setPage(1);
           }}
           suggestions={searchSuggestions}
-          placeholder={`Search by ${searchField.replace('_', ' ')}...`}
+          placeholder={searchField === 'ref_no' ? 'Search by reference or application no...' : `Search by ${searchField.replace('_', ' ')}...`}
         />
         <select
           className="form-control"
@@ -449,6 +463,7 @@ export default function AdminLogsheetManage() {
           }}
         >
           <option value="company_name">Company Name</option>
+          <option value="ref_no">Ref No. / Application No.</option>
           <option value="site_name">Site Name</option>
           <option value="created_by">Created By</option>
           <option value="id">Logsheet ID</option>
@@ -548,11 +563,11 @@ export default function AdminLogsheetManage() {
                 <tr>
                   <th style={{ width: 50, textAlign: 'center' }}>S/N</th>
                   <th>Company Name</th>
+                  <th>Ref No.</th>
                   <th>Created By</th>
                   <th>Site Name</th>
                   <th>Type &amp; Category</th>
                   <th>Date</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -565,6 +580,7 @@ export default function AdminLogsheetManage() {
                   const typeLabel = rawType.toUpperCase();
                   const categorySubtext = isKfc ? 'Special Grant – KFC Committee Approved' : (l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General'));
                   const creatorName = getCreatorName(l);
+                  const refNumber = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id || '—';
 
                   return (
                     <tr key={l._id}>
@@ -580,6 +596,11 @@ export default function AdminLogsheetManage() {
                         >
                           {compName}
                         </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                          {refNumber}
+                        </span>
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>{creatorName}</div>
@@ -598,11 +619,6 @@ export default function AdminLogsheetManage() {
                       </td>
                       <td style={{ fontSize: 12 }}>
                         {l.created_at ? new Date(l.created_at).toLocaleDateString('en-GB') : '—'}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className={`badge ${getStatusBadgeClass(l.status)}`}>
-                          {l.status}
-                        </span>
                       </td>
                       <td style={{ textAlign: 'center', position: 'relative' }}>
                         <ActionTriggerButton

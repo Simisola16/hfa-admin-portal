@@ -37,7 +37,7 @@ const NAV_SECTIONS = [
           { label: 'All Applications',        path: '/applications' },
           { label: 'New Applications',        path: '/applications?type=new' },
           { label: 'In-Progress',             path: '/applications?type=inprogress' },
-          { label: 'Accounts',                path: '/applications?type=accounts' },
+          { label: 'Accounts',                path: '/applications?type=accounts', accountantOnly: true },
           { label: 'Certified Applications',  path: '/applications?type=certified' },
           { label: 'Surveillance',            path: '/applications?type=surveillance' },
           { label: 'Surveillance Due Dates',  path: '/surveillance-due-dates' },
@@ -294,8 +294,9 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
   /* ── Expanded sub-menu state ── */
   const [expanded, setExpanded] = useState({});
 
-  const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
-  const isSuperAdmin = userRoles.includes('superadmin');
+  const userRoles = (Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : [])).map(r => String(r).toLowerCase().trim());
+  const isSuperAdmin = userRoles.includes('superadmin') || profile?.role === 'superadmin';
+  const isAccountant = isSuperAdmin || userRoles.includes('accountant') || profile?.role === 'accountant';
   const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
   const hasReviewCertPrivilege = isSuperAdmin || profile?.can_review_certificate === true;
   const hasKfcLogsheetPrivilege = isSuperAdmin || profile?.can_create_kfc_logsheet === true || profile?.can_sign_logsheet === true;
@@ -303,6 +304,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
   const visibleSections = NAV_SECTIONS.filter(section => {
     if (section.superadminOnly) return isSuperAdmin;
     if (section.directCertOnly) return hasDirectCertPrivilege;
+    if (section.accountantOnly) return isAccountant;
     return true;
   }).map(section => ({
     ...section,
@@ -310,12 +312,14 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
       if (item.superadminOnly && !isSuperAdmin) return false;
       if (item.directCertOnly && !hasDirectCertPrivilege) return false;
       if (item.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
+      if (item.accountantOnly && !isAccountant) return false;
       return true;
     }).map(item => {
       if (!item.children) return item;
       return {
         ...item,
         children: item.children.filter(child => {
+          if (child.accountantOnly && !isAccountant) return false;
           if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
           if (child.directCertOnly && !hasDirectCertPrivilege) return false;
           if (child.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;

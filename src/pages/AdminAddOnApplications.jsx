@@ -51,6 +51,13 @@ const FLOW_STEPS = [
   'product_form_approved', 'ready_for_certificate', 'completed'
 ];
 
+const formatDate = (dateVal) => {
+  if (!dateVal) return '—';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+};
+
 export default function AdminAddOnApplications() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -264,24 +271,37 @@ export default function AdminAddOnApplications() {
 
       if (!search.trim()) return true;
       const s = search.toLowerCase();
+      const dateStr = formatDate(a.created_at || a.submission_date || a.createdAt).toLowerCase();
       return (
+        a.application_number?.toLowerCase().includes(s) ||
         a.client_id?.company_name?.toLowerCase().includes(s) ||
         a.client_id?.full_name?.toLowerCase().includes(s) ||
         a.certificate_id?.certificate_number?.toLowerCase().includes(s) ||
+        a.application_id?.application_number?.toLowerCase().includes(s) ||
         a.contact_name?.toLowerCase().includes(s) ||
         a.contact_email?.toLowerCase().includes(s) ||
-        (a.products || []).some(p => (p.name || p.new_name)?.toLowerCase().includes(s))
+        dateStr.includes(s) ||
+        (a.products || []).some(p => (p.name || p.new_name || p.code || p.new_code)?.toLowerCase().includes(s))
       );
     });
   }, [baseList, statusFilter, search]);
+
+  // Order strictly according to date descending (newest first)
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.created_at || a.submission_date || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.submission_date || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [filtered]);
 
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter, view]);
 
   const paginatedApps = useMemo(() => {
-    return filtered.slice((page - 1) * pageSize, page * pageSize);
-  }, [filtered, page, pageSize]);
+    return sorted.slice((page - 1) * pageSize, page * pageSize);
+  }, [sorted, page, pageSize]);
 
   const getViewMeta = () => {
     if (view === 'request') return { title: 'Add-on Request Review Queue', subtitle: 'Review new product addition requests submitted by clients (Accept, Put on Hold, or Reject)' };
@@ -514,7 +534,7 @@ export default function AdminAddOnApplications() {
                 <div style={{ padding: '16px 20px' }}>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(220px, 1.6fr) minmax(160px, 1fr) auto',
+                    gridTemplateColumns: 'minmax(220px, 1.3fr) minmax(130px, 0.7fr) minmax(200px, 1.4fr) minmax(140px, 0.8fr) auto',
                     gap: 16,
                     alignItems: 'center'
                   }}>
@@ -532,7 +552,12 @@ export default function AdminAddOnApplications() {
                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>
                           {clientName}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                          {app.application_number && (
+                            <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                              {app.application_number}
+                            </span>
+                          )}
                           {certNo ? (
                             <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                               <FileText size={10} /> {certNo}
@@ -544,10 +569,29 @@ export default function AdminAddOnApplications() {
                           ) : (
                             <span style={{ fontSize: 11, color: '#94a3b8' }}>Pending Cert</span>
                           )}
-                          <span style={{ fontSize: 11, color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                            <Calendar size={10} /> {new Date(app.createdAt).toLocaleDateString('en-GB')}
-                          </span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Date */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
+                        Date
+                      </div>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: '#0f172a',
+                        fontWeight: 700,
+                        fontSize: 12.5,
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        padding: '4px 9px',
+                        borderRadius: 8
+                      }}>
+                        <Calendar size={13} style={{ color: '#0284c7', flexShrink: 0 }} />
+                        <span>{formatDate(app.created_at || app.submission_date || app.createdAt)}</span>
                       </div>
                     </div>
 
@@ -730,6 +774,10 @@ export default function AdminAddOnApplications() {
                             <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{app.contact_name}</div>
                             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.contact_email}</div>
                             {app.contact_phone && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{app.contact_phone}</div>}
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <Calendar size={12} style={{ color: '#0284c7' }} />
+                              Date: <strong style={{ color: '#0f172a' }}>{formatDate(app.created_at || app.submission_date || app.createdAt)}</strong>
+                            </div>
                           </div>
 
                           {app.message && (

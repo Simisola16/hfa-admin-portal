@@ -417,33 +417,39 @@ export default function AdminLogsheetWaitingCertificate() {
 
   const filteredLogsheets = currentList.filter(l => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    
-    if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || 
-        l.legacy_id?.toLowerCase().includes(query) ||
-        l.direct_ref?.toLowerCase().includes(query) ||
-        l.application_number?.toLowerCase().includes(query) ||
-        l.application_id?.application_number?.toLowerCase().includes(query);
+    const query = searchQuery.trim().toLowerCase();
+    const cleanQuery = query.replace(/^#/, '');
+
+    const matchesRef = Boolean(
+      (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.application_number && l.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.direct_ref && l.direct_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.kfc_ref && l.kfc_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.legacy_id && l.legacy_id.toLowerCase().includes(cleanQuery)) ||
+      (l._id && String(l._id).toLowerCase().includes(query))
+    );
+
+    if (searchField === 'ref_no' || searchField === 'id') {
+      return matchesRef;
     }
     if (searchField === 'company_name') {
-      return l.company_name?.toLowerCase().includes(query);
+      return (l.company_name && l.company_name.toLowerCase().includes(query)) || matchesRef;
     }
     if (searchField === 'certificate_type') {
       const { certType } = getCertificateTypeInfo(l);
-      return certType.toLowerCase().includes(query);
+      return certType.toLowerCase().includes(query) || matchesRef;
     }
     if (searchField === 'application_type') {
       const { type } = getApplicationTypeInfo(l);
-      return type.toLowerCase().includes(query);
+      return type.toLowerCase().includes(query) || matchesRef;
     }
     if (searchField === 'contact_person') {
-      return l.contact_person?.toLowerCase().includes(query);
+      return (l.contact_person && l.contact_person.toLowerCase().includes(query)) || matchesRef;
     }
     if (searchField === 'audit_type') {
-      return l.audit_type?.toLowerCase().includes(query);
+      return (l.audit_type && l.audit_type.toLowerCase().includes(query)) || matchesRef;
     }
-    return true;
+    return matchesRef || (l.company_name && l.company_name.toLowerCase().includes(query));
   });
 
   useEffect(() => {
@@ -586,6 +592,7 @@ export default function AdminLogsheetWaitingCertificate() {
                 }}
               >
                 <option value="company_name">Company Name</option>
+                <option value="ref_no">Ref No. / Application No.</option>
                 <option value="id">Logsheet ID</option>
                 <option value="certificate_type">Certificate Type</option>
                 <option value="application_type">Application Type</option>
@@ -597,7 +604,7 @@ export default function AdminLogsheetWaitingCertificate() {
             <div style={{ position: 'relative', flex: 1 }}>
               <input
                 type="text"
-                placeholder={`Search by ${searchField.replace('_', ' ')}...`}
+                placeholder={searchField === 'ref_no' ? 'Search by reference or application no...' : `Search by ${searchField.replace('_', ' ')}...`}
                 className="form-control logsheet-search-input"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -640,13 +647,13 @@ export default function AdminLogsheetWaitingCertificate() {
             <table className="table logsheet-table" style={{ width: '100%', margin: 0, fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'center', width: 50 }}>S/N</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Company &amp; Site</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Certificate Type</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Application Type</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'center', width: 44 }}>S/N</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left' }}>Company &amp; Site</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>Ref No.</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left' }}>Certificate Type</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left' }}>Application Type</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>Date</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -655,13 +662,15 @@ export default function AdminLogsheetWaitingCertificate() {
                   const certInfo = getCertificateTypeInfo(l);
                   const appTypeInfo = getApplicationTypeInfo(l);
                   const AppTypeIcon = appTypeInfo.icon || FileText;
+                  const refNumber = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id || '—';
+                  const rawDate = l.created_at || l.createdAt || l.updated_at || l.date;
 
                   return (
                     <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '14px 16px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 600, color: 'var(--text-muted)' }}>
                         {(page - 1) * pageSize + index + 1}
                       </td>
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>{l.company_name || 'Company Facility'}</div>
                         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                           <MapPin size={11} />
@@ -669,7 +678,13 @@ export default function AdminLogsheetWaitingCertificate() {
                         </div>
                       </td>
 
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
+                          {refNumber}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -690,7 +705,7 @@ export default function AdminLogsheetWaitingCertificate() {
                         </span>
                       </td>
 
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -710,23 +725,11 @@ export default function AdminLogsheetWaitingCertificate() {
                         </span>
                       </td>
 
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        {l.status === 'Done' || l.status === 'done' ? (
-                          <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle size={12} /> Done
-                          </span>
-                        ) : (
-                          <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle2 size={12} /> Waiting For Certificate
-                          </span>
-                        )}
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontSize: 12.5, color: '#475569', whiteSpace: 'nowrap' }}>
+                        {rawDate ? new Date(rawDate).toLocaleDateString('en-GB') : '—'}
                       </td>
 
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 12, color: '#475569' }}>
-                        {(l.created_at || l.createdAt) ? new Date(l.created_at || l.createdAt).toLocaleDateString('en-GB') : '—'}
-                      </td>
-
-                      <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                         <ActionTriggerButton
                           onClick={() => setActionModalLogsheet(l)}
                           title="Logsheet Actions"
@@ -772,13 +775,17 @@ export default function AdminLogsheetWaitingCertificate() {
           ? `/applications/${appId}/issue-certificate?logsheet_id=${l._id}&cert_type=${encodeURIComponent(resolvedType)}`
           : `/applications/${l._id}/issue-certificate?logsheet_id=${l._id}&cert_type=${encodeURIComponent(resolvedType)}`;
 
-        const logsheetUrl = isDirect
+        const logsheetUrl = (l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc')
+          ? `/logsheet/kfc/${l._id}`
+          : isDirect
           ? `/logsheet/direct/${l._id}`
           : isExtension
           ? `/extension-applications/${extId}/logsheet`
           : isAddon
           ? `/addon-applications/${addonId}/logsheet`
-          : `/applications/${appId}/logsheet`;
+          : appId
+          ? `/applications/${appId}/logsheet?logsheet_id=${l._id}`
+          : `/logsheets/${l._id}/view`;
 
         return (
           <ActionModal
@@ -805,6 +812,18 @@ export default function AdminLogsheetWaitingCertificate() {
                 icon: Eye,
                 variant: 'default',
                 onClick: () => navigate(logsheetUrl)
+              },
+              {
+                label: 'Redo Logsheet',
+                description: 'Reset signatures and enter edit mode to make changes',
+                icon: RotateCcw,
+                variant: 'warning',
+                onClick: () => {
+                  if (window.confirm(`Are you sure you want to redo the logsheet for "${l.company_name}"? All existing signatures will be reset so you can edit and submit again.`)) {
+                    const separator = logsheetUrl.includes('?') ? '&' : '?';
+                    navigate(`${logsheetUrl}${separator}redo=1`);
+                  }
+                }
               },
               {
                 label: 'Delete Logsheet',

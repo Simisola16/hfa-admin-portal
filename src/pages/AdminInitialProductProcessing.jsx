@@ -5,7 +5,7 @@ import {
   Building2, FileText, User,
   AlertCircle, Clock, Package, Download, Eye,
   Sparkles, Send, FileSpreadsheet, Plus, X,
-  FileCheck
+  FileCheck, Printer
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import { canAssignFoodTech, canManageProductForm } from '../lib/permissions';
 import ProductApprovalRequestForm from '../components/ProductApprovalRequestForm';
+import { exportProductApprovalPdf } from '../lib/generateProductApprovalPdf';
 import InitialProductTimeline from '../components/InitialProductTimeline';
 
 export default function AdminInitialProductProcessing() {
@@ -1056,9 +1057,36 @@ export default function AdminInitialProductProcessing() {
                   Submitted Form &bull; {app.product?.name}
                 </h3>
               </div>
-              <button onClick={() => setShowFormModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
-                <X size={16} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => exportProductApprovalPdf({
+                    formData: productResp?.form_data || {},
+                    product: app.product,
+                    company: app.client_id
+                  })}
+                  style={{
+                    background: '#0284c7',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 14px',
+                    cursor: 'pointer'
+                  }}
+                  title="Save submitted form as professional PDF document"
+                >
+                  <Printer size={15} /> Save as PDF
+                </button>
+                <button onClick={() => setShowFormModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <div style={{ padding: '24px 28px', overflowY: 'auto', flex: 1, background: '#fafafa' }}>

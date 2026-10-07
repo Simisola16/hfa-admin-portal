@@ -208,9 +208,9 @@ export default function ProductApprovalRequestForm({
             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
             letterSpacing: '0.02em'
           }}
-          title="Export and Save as high quality PDF document"
+          title="Save and download as PDF document"
         >
-          <Printer size={15} /> Save as PDF
+          <Download size={15} /> Save as PDF
         </button>
       </div>
 

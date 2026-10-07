@@ -348,26 +348,31 @@ export default function AdminLogsheetWaitingSignature() {
     }
 
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
+    const cleanQuery = query.replace(/^#/, '');
+
+    const matchesRef = Boolean(
+      (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.application_number && l.application_number.toLowerCase().includes(cleanQuery)) ||
+      (l.direct_ref && l.direct_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.kfc_ref && l.kfc_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.legacy_id && l.legacy_id.toLowerCase().includes(cleanQuery)) ||
+      (l._id && String(l._id).toLowerCase().includes(query))
+    );
     
-    if (searchField === 'id') {
-      return l._id?.toLowerCase().includes(query) || 
-        l.application_number?.toLowerCase().includes(query) ||
-        l.application_id?.application_number?.toLowerCase().includes(query);
+    if (searchField === 'ref_no' || searchField === 'id') {
+      return matchesRef;
     }
     if (searchField === 'company_name') {
-      return l.company_name?.toLowerCase().includes(query);
+      return (l.company_name && l.company_name.toLowerCase().includes(query)) || matchesRef;
     }
     if (searchField === 'created_by') {
       return getCreatorName(l).toLowerCase().includes(query) || (l.created_by?.email || '').toLowerCase().includes(query);
     }
-    if (searchField === 'contact_person') {
-      return l.contact_person?.toLowerCase().includes(query);
-    }
     if (searchField === 'audit_type') {
       return l.audit_type?.toLowerCase().includes(query);
     }
-    return true;
+    return matchesRef || (l.company_name && l.company_name.toLowerCase().includes(query));
   });
 
   useEffect(() => {
@@ -594,8 +599,9 @@ export default function AdminLogsheetWaitingSignature() {
                 style={{ height: 38, fontSize: 12, paddingRight: 24, borderRadius: 8, background: 'white', border: '1px solid #fed7aa' }}
               >
                 <option value="company_name">Company Name</option>
+                <option value="ref_no">Ref No. / Application No.</option>
                 <option value="created_by">Created By</option>
-                <option value="contact_person">Contact Person</option>
+                <option value="id">Logsheet ID</option>
                 <option value="audit_type">Logsheet Type</option>
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
@@ -604,7 +610,7 @@ export default function AdminLogsheetWaitingSignature() {
             <div style={{ position: 'relative', flex: 1 }}>
               <input
                 type="text"
-                placeholder={`Search...`}
+                placeholder={searchField === 'ref_no' ? 'Search by reference or application no...' : `Search by ${searchField.replace('_', ' ')}...`}
                 className="form-control logsheet-search-input"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -633,18 +639,19 @@ export default function AdminLogsheetWaitingSignature() {
           </div>
         ) : (
           <>
-            <div className="desktop-only-table">
+            <div className="desktop-only-table" style={{ width: '100%', overflowX: 'auto' }}>
               <table className="logsheet-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ padding: '14px 12px', width: 50, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>S/N</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created By</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signatory Progress</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Waiting Age</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contact Person</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                    <th style={{ padding: '14px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Action</th>
+                    <th style={{ padding: '10px 8px', width: 44, textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>S/N</th>
+                    <th style={{ padding: '10px 12px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name</th>
+                    <th style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Ref No.</th>
+                    <th style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created By</th>
+                    <th style={{ padding: '10px 12px', minWidth: 150, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signatory Progress</th>
+                    <th style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Waiting Age</th>
+                    <th style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Date</th>
+                    <th style={{ padding: '10px 10px', minWidth: 85, maxWidth: 125, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                    <th style={{ padding: '10px 12px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -653,16 +660,18 @@ export default function AdminLogsheetWaitingSignature() {
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
                     const creatorName = getCreatorName(l);
+                    const refNumber = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id || '—';
+                    const rawDate = l.created_at || l.createdAt || l.updated_at;
 
                     return (
                       <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '16px 12px', textAlign: 'center', width: 50, fontWeight: 600, color: '#94a3b8', fontSize: 13 }}>
+                        <td style={{ padding: '11px 8px', textAlign: 'center', width: 44, fontWeight: 600, color: '#94a3b8', fontSize: 13 }}>
                           {(page - 1) * pageSize + index + 1}
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                        <td style={{ padding: '11px 12px' }}>
                           <Link 
                             to={getLogsheetLink(l)}
-                            style={{ color: '#0f172a', textDecoration: 'none' }}
+                            style={{ color: '#0f172a', textDecoration: 'none', fontSize: 13.5, fontWeight: 700 }}
                           >
                             {l.company_name}
                           </Link>
@@ -672,14 +681,22 @@ export default function AdminLogsheetWaitingSignature() {
                           </div>
                         </td>
 
-                        <td style={{ padding: '16px 20px' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>{creatorName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.created_by?.email || l.contact_email || 'HFA Staff'}</div>
+                        <td style={{ padding: '11px 10px', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
+                            {refNumber}
+                          </span>
                         </td>
 
-                        <td style={{ padding: '16px 20px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+                        <td style={{ padding: '11px 10px' }}>
+                          <div style={{ fontWeight: 600, fontSize: 12.5, color: '#0f172a', whiteSpace: 'nowrap' }}>{creatorName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {l.created_by?.email || l.contact_email || 'HFA Staff'}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '11px 12px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 140, maxWidth: 160 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5 }}>
                               <span style={{ fontWeight: 600, color: count === total ? '#15803d' : '#d97706' }}>
                                 {count} of {total} Signed
                               </span>
@@ -687,7 +704,7 @@ export default function AdminLogsheetWaitingSignature() {
                                 {Math.round((count / total) * 100)}%
                               </span>
                             </div>
-                            <div style={{ height: 6, background: '#e2e8f0', borderRadius: 10, overflow: 'hidden', display: 'flex' }}>
+                            <div style={{ height: 5, background: '#e2e8f0', borderRadius: 10, overflow: 'hidden', display: 'flex' }}>
                               <div 
                                 style={{ 
                                   width: `${(count / total) * 100}%`, 
@@ -697,14 +714,14 @@ export default function AdminLogsheetWaitingSignature() {
                                 }} 
                               />
                             </div>
-                            <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                            <div style={{ display: 'flex', gap: 3, marginTop: 2, flexWrap: 'wrap' }}>
                               {signers.map((s, idx) => (
                                 <span 
                                   key={idx}
                                   title={`${s.role}: ${s.signed ? (s.name ? `Signed by ${s.name}` : 'Signed') : 'Pending'}`}
                                   style={{
-                                    fontSize: 10,
-                                    padding: '1px 6px',
+                                    fontSize: 9.5,
+                                    padding: '1px 5px',
                                     borderRadius: 4,
                                     fontWeight: 600,
                                     background: s.signed ? '#dcfce7' : '#f1f5f9',
@@ -719,43 +736,41 @@ export default function AdminLogsheetWaitingSignature() {
                           </div>
                         </td>
 
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '11px 10px', whiteSpace: 'nowrap' }}>
                           <span style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 5,
-                            padding: '4px 10px',
-                            borderRadius: 20,
-                            fontSize: 12,
+                            gap: 4,
+                            padding: '3px 8px',
+                            borderRadius: 16,
+                            fontSize: 11.5,
                             fontWeight: 500,
                             background: age.isUrgent ? '#fef2f2' : '#f8fafc',
                             color: age.isUrgent ? '#991b1b' : '#475569',
                             border: `1px solid ${age.isUrgent ? '#fca5a5' : '#e2e8f0'}`
                           }}>
-                            {age.isUrgent ? <AlertTriangle size={12} style={{ color: '#dc2626' }} /> : <Clock size={12} style={{ color: '#94a3b8' }} />}
+                            {age.isUrgent ? <AlertTriangle size={11} style={{ color: '#dc2626' }} /> : <Clock size={11} style={{ color: '#94a3b8' }} />}
                             {age.text}
                           </span>
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: 13, color: '#0f172a' }}>
-                          <div style={{ fontWeight: 500 }}>{l.contact_person || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.contact_email}</div>
+                        <td style={{ padding: '11px 10px', fontSize: 12, color: '#475569', whiteSpace: 'nowrap' }}>
+                          {rawDate ? new Date(rawDate).toLocaleDateString('en-GB') : '—'}
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: 12, fontWeight: 500 }}>
+                        <td style={{ padding: '11px 10px', fontSize: 11.5, fontWeight: 500, minWidth: 85, maxWidth: 125 }}>
                           {(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#dc2626', background: '#fef2f2', padding: '3px 9px', borderRadius: 6, border: '1px solid #fecaca', fontWeight: 800 }}>
-                              🍗 KFC Logsheet
+                            <span style={{ display: 'inline-block', color: '#dc2626', background: '#fef2f2', padding: '3px 8px', borderRadius: 6, border: '1px solid #fecaca', fontWeight: 800, fontSize: 11, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'normal', lineHeight: 1.3 }}>
+                              KFC
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#4f46e5', background: '#f5f3ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #e0e7ff' }}>
-                              <Tag size={11} />
+                            <span style={{ display: 'inline-block', color: '#4f46e5', background: '#f5f3ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #e0e7ff', fontSize: 11, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'normal', lineHeight: 1.3 }}>
                               {l.audit_type || 'New'}
                             </span>
                           )}
                         </td>
 
-                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                        <td style={{ padding: '11px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                             {(l.is_kfc || l.source_type === 'kfc' || l.logsheet_type === 'kfc') && count === 4 && (
                               <button
@@ -783,55 +798,6 @@ export default function AdminLogsheetWaitingSignature() {
                                 <CheckCircle2 size={13} strokeWidth={2.5} />
                                 Approve KFC Logsheet
                               </button>
-                            )}
-                            {l.status === 'Done' || l.status === 'done' ? (
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: 8,
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                color: '#15803d',
-                                background: '#f0fdf4',
-                                border: '1px solid #86efac'
-                              }}>
-                                <CheckCircle size={12} />
-                                Done
-                              </span>
-                            ) : userSigned ? (
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: 8,
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                color: '#15803d',
-                                background: '#f0fdf4',
-                                border: '1px solid #86efac'
-                              }}>
-                                <CheckCircle2 size={12} />
-                                Signed
-                              </span>
-                            ) : (
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: 8,
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                color: '#ea580c',
-                                background: '#fff7ed',
-                                border: '1px solid #fed7aa'
-                              }}>
-                                <PenTool size={12} />
-                                Pending
-                              </span>
                             )}
                             <ActionTriggerButton 
                               onClick={() => setActionModalItem(l)} 

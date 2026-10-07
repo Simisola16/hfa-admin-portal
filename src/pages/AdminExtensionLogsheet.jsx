@@ -123,6 +123,13 @@ export default function AdminExtensionLogsheet() {
   });
 
   useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get('redo') === '1' || sp.get('redo') === 'true') {
+      setIsRedoing(true);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps

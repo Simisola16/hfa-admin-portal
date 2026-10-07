@@ -141,6 +141,14 @@ export default function AdminCreateLogsheet() {
     }
   }, [isSurveillance, form.certificate_type]);
 
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get('redo') === '1' || sp.get('redo') === 'true') {
+      setIsRedoing(true);
+      setActiveTab(1);
+    }
+  }, [location.search]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -1416,7 +1424,7 @@ export default function AdminCreateLogsheet() {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {Boolean(currentLogsheet) && !isRedoing && currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Completed' && (
+          {Boolean(currentLogsheet) && !isRedoing && currentLogsheet?.status !== 'Completed' && (
             <button
               type="button"
               className="btn btn-outline btn-sm"
@@ -2258,7 +2266,7 @@ export default function AdminCreateLogsheet() {
               </div>
 
               {/* Inline Certificate Type Selection — shown after signatures, before Application Successful */}
-              {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && !isProductLogsheet && (
+              {(isRedoing || (currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed')) && !isProductLogsheet && (
                 <div
                   style={{
                     marginTop: 20,

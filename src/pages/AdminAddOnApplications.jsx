@@ -123,6 +123,7 @@ export default function AdminAddOnApplications() {
     setCustomFtEmail(app.assigned_ft_custom?.email || '');
     setCustomFtNotes(app.assigned_ft_custom?.notes || '');
   };
+  const openModal = openAction;
 
   const toggleFt = (ftId) => {
     const idStr = String(ftId);
@@ -274,8 +275,10 @@ export default function AdminAddOnApplications() {
 
       if (!search.trim()) return true;
       const s = search.toLowerCase();
+      const refNo = (a.application_number || `ADDON-${String(a._id || '').slice(-6).toUpperCase()}`).toLowerCase();
       const dateStr = formatDate(a.created_at || a.submission_date || a.createdAt).toLowerCase();
       return (
+        refNo.includes(s) ||
         a.application_number?.toLowerCase().includes(s) ||
         a.client_id?.company_name?.toLowerCase().includes(s) ||
         a.client_id?.full_name?.toLowerCase().includes(s) ||
@@ -556,11 +559,9 @@ export default function AdminAddOnApplications() {
                           {clientName}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                          {app.application_number && (
-                            <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                              {app.application_number}
-                            </span>
-                          )}
+                          <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                            {app.application_number || `ADDON-${String(app._id || '').slice(-6).toUpperCase()}`}
+                          </span>
                           {certNo ? (
                             <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                               <FileText size={10} /> {certNo}

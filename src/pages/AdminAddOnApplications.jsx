@@ -11,7 +11,7 @@ import {
   Tag, ArrowUpRight, Award, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { canIssueCertificate, canAssignFoodTech } from '../lib/permissions';
+import { canIssueCertificate, canAssignFoodTech, canReviewAddOnApp } from '../lib/permissions';
 import Pagination from '../components/Pagination';
 import RestoreModal from '../components/RestoreModal';
 
@@ -56,6 +56,23 @@ const formatDate = (dateVal) => {
   const d = new Date(dateVal);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+};
+
+export const resolveAddOnClientName = (app) => {
+  if (!app) return 'HFA Client';
+  return (
+    app.client_id?.company_name ||
+    app.client_id?.full_name ||
+    app.company_name ||
+    app.establishment_name ||
+    app.application_id?.establishment_name ||
+    app.application_id?.company_name ||
+    app.product_approval_form?.product_responses?.[0]?.form_data?.company_name_address?.split(',')[0]?.trim() ||
+    (app.contact_email?.toLowerCase().includes('plant-ex') ? 'Plant-Ex Ingredients Ltd.' : null) ||
+    (app.contact_email?.toLowerCase().includes('branwell') ? 'Arthur Branwell & Co Ltd' : null) ||
+    app.contact_name ||
+    'HFA Client'
+  );
 };
 
 export default function AdminAddOnApplications() {
@@ -123,6 +140,7 @@ export default function AdminAddOnApplications() {
     setCustomFtEmail(app.assigned_ft_custom?.email || '');
     setCustomFtNotes(app.assigned_ft_custom?.notes || '');
   };
+  const openModal = openAction;
 
   const toggleFt = (ftId) => {
     const idStr = String(ftId);
@@ -134,6 +152,9 @@ export default function AdminAddOnApplications() {
   const closeModal = () => { setActiveApp(null); setActionType(null); };
 
   const handleReview = async () => {
+    if (!canReviewAddOnApp(user)) {
+      return toast.error('Only Food Tech or Food Tech Manager can accept or reject add-on applications.');
+    }
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
     setSubmitting(true);
     try {
@@ -271,8 +292,12 @@ export default function AdminAddOnApplications() {
 
       if (!search.trim()) return true;
       const s = search.toLowerCase();
+      const refNo = (a.application_number || `ADDON-${String(a._id || '').slice(-6).toUpperCase()}`).toLowerCase();
+      const clientNameStr = resolveAddOnClientName(a).toLowerCase();
       const dateStr = formatDate(a.created_at || a.submission_date || a.createdAt).toLowerCase();
       return (
+        refNo.includes(s) ||
+        clientNameStr.includes(s) ||
         a.application_number?.toLowerCase().includes(s) ||
         a.client_id?.company_name?.toLowerCase().includes(s) ||
         a.client_id?.full_name?.toLowerCase().includes(s) ||
@@ -510,7 +535,7 @@ export default function AdminAddOnApplications() {
           </div>
         ) : (
           paginatedApps.map(app => {
-            const clientName = app.client_id?.company_name || app.client_id?.full_name || 'Unnamed Client';
+            const clientName = resolveAddOnClientName(app);
             const certNo = app.certificate_id?.certificate_number || null;
             const linkedAppNo = app.application_id?.application_number || null;
             const cfg = STATUS_CONFIG[app.status] || { label: app.status, bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', dot: '#94a3b8' };
@@ -553,11 +578,9 @@ export default function AdminAddOnApplications() {
                           {clientName}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                          {app.application_number && (
-                            <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                              {app.application_number}
-                            </span>
-                          )}
+                          <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                            {app.application_number || `ADDON-${String(app._id || '').slice(-6).toUpperCase()}`}
+                          </span>
                           {certNo ? (
                             <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                               <FileText size={10} /> {certNo}
@@ -655,6 +678,16 @@ export default function AdminAddOnApplications() {
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12, background: '#16a34a', borderColor: '#16a34a', borderRadius: 8, padding: '7px 12px', color: 'white', whiteSpace: 'nowrap', boxShadow: '0 2px 4px rgba(22,163,74,0.25)' }}
                           >
                             <Award size={13} /> Issue Certificate
+                          </button>
+                        )}
+                        {/* Review Request Button for FT & FT Manager */}
+                        {canReviewAddOnApp(user) && (app.status === 'submitted' || app.status === 'on_hold') && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => openModal(app, 'review')}
+                            style={{ background: '#f59e0b', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, padding: '7px 12px', borderRadius: 8, whiteSpace: 'nowrap' }}
+                          >
+                            Review Request
                           </button>
                         )}
 
@@ -814,7 +847,7 @@ export default function AdminAddOnApplications() {
       {/* ═══ MODALS ════════════════════════════════════════════════════════ */}
 
       {/* Accept, Hold, Or Reject */}
-      {activeApp && actionType === 'review' && (
+      {activeApp && actionType === 'review' && canReviewAddOnApp(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">

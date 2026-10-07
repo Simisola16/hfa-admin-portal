@@ -88,10 +88,16 @@ export function canMarkApplicationSuccessful(user) {
 
 /**
  * 4. FOOD TECH MANAGER & FOOD TECH
+ * - Review Add-on Application (Accept / Reject / Put on Hold): Both FT Manager AND Food Tech (+ Superadmin).
+ *   (Scheme Manager CANNOT accept or reject add-on applications)
  * - Assign FT: FT Manager (+ Superadmin) ONLY. (FT CANNOT assign FT)
  * - Enable product form, Mark product form received, Create logsheet in add-on and initial products:
  *   Both FT Manager AND Food Tech (+ Superadmin)
  */
+export function canReviewAddOnApp(user) {
+  return hasRole(user, 'food_tech_manager', 'food_tech');
+}
+
 export function canAssignFoodTech(user) {
   return hasRole(user, 'food_tech_manager');
 }

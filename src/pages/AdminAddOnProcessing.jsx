@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 import { getSocket } from '../lib/socket';
 import {
-  canAcceptOrRejectApp,
+  canReviewAddOnApp,
   canAssignFoodTech,
   canManageProductForm,
   canCreateLogsheet,
@@ -186,8 +186,8 @@ export default function AdminAddOnProcessing() {
 
   // Action handlers
   const handleReview = async () => {
-    if (!canAcceptOrRejectApp(user)) {
-      return toast.error('Only Scheme Manager can accept or reject applications.');
+    if (!canReviewAddOnApp(user)) {
+      return toast.error('Only Food Tech or Food Tech Manager can accept or reject add-on applications.');
     }
     if (decision === 'rejected' && !rejectionReason.trim()) return toast.error('Please enter a rejection reason.');
     setSubmitting(true);
@@ -383,7 +383,18 @@ export default function AdminAddOnProcessing() {
     );
   }
 
-  const clientName = app.client_id?.company_name || app.client_id?.full_name || 'HFA Client';
+  const clientName =
+    app.client_id?.company_name ||
+    app.client_id?.full_name ||
+    app.company_name ||
+    app.establishment_name ||
+    app.application_id?.establishment_name ||
+    app.application_id?.company_name ||
+    app.product_approval_form?.product_responses?.[0]?.form_data?.company_name_address?.split(',')[0]?.trim() ||
+    (app.contact_email?.toLowerCase().includes('plant-ex') ? 'Plant-Ex Ingredients Ltd.' : null) ||
+    (app.contact_email?.toLowerCase().includes('branwell') ? 'Arthur Branwell & Co Ltd' : null) ||
+    app.contact_name ||
+    'HFA Client';
   const certNo = app.certificate_id?.certificate_number || '—';
   const statusLabel = STATUS_LABELS[app.status] || (app.status || '').replace(/_/g, ' ');
   const badgeClass = STATUS_BADGE[app.status] || 'badge-gray';
@@ -471,7 +482,7 @@ export default function AdminAddOnProcessing() {
   // Render Primary Action Buttons
   const renderPrimaryActionButtons = () => {
     if (app.status === 'submitted') {
-      if (canAcceptOrRejectApp(user)) {
+      if (canReviewAddOnApp(user)) {
         return (
           <button className="btn btn-primary" onClick={() => setActionType('review')}>
             <CheckCircle size={16} style={{ marginRight: 6 }} /> Accept Or Reject
@@ -480,7 +491,7 @@ export default function AdminAddOnProcessing() {
       }
       return (
         <span className="badge badge-yellow" style={{ padding: '8px 16px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Clock size={15} /> Awaiting Scheme Manager Decision
+          <Clock size={15} /> Awaiting Food Tech Review
         </span>
       );
     }
@@ -1520,7 +1531,7 @@ export default function AdminAddOnProcessing() {
       {/* ─── ACTION MODALS ────────────────────────────────────────────── */}
 
       {/* 1. Review (Accept Or Reject) Modal */}
-      {actionType === 'review' && canAcceptOrRejectApp(user) && (
+      {actionType === 'review' && canReviewAddOnApp(user) && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">

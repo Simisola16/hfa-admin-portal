@@ -26,7 +26,7 @@ export async function exportProductApprovalPdf({ formData = {}, product = {}, co
   const safeFileName = `HFA_Product_Approval_Form_${(productName || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
   // First priority: Direct file download via high-speed backend Puppeteer PDF generator
-  const toastId = toast.loading('Generating & downloading PDF...');
+  const toastId = toast.loading('Generating & saving PDF...');
   try {
     const blob = await api.downloadBlob('POST', '/api/products/approval-form/download-pdf', {
       formData: form,
@@ -43,11 +43,11 @@ export async function exportProductApprovalPdf({ formData = {}, product = {}, co
     document.body.removeChild(a);
     setTimeout(() => window.URL.revokeObjectURL(url), 2000);
 
-    toast.success('Product Approval Form downloaded!', { id: toastId });
+    toast.success('Product Approval Form saved as PDF!', { id: toastId });
     return;
   } catch (backendErr) {
-    console.warn('Backend PDF generation failed, falling back to local printable view:', backendErr);
-    toast.dismiss(toastId);
+    console.warn('Backend PDF endpoint unavailable, generating PDF in browser:', backendErr);
+    toast.loading('Processing PDF file download...', { id: toastId });
   }
 
   const renderRadio = (val, target, label) => {
@@ -916,65 +916,78 @@ export async function exportProductApprovalPdf({ formData = {}, product = {}, co
 </body>
 </html>`;
 
-  // Trigger professional Print-to-PDF via hidden iframe
+  // Client-Side Direct PDF Download (Zero Print Dialogs)
   try {
-    let iframe = document.getElementById('hfa-paf-pdf-iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'hfa-paf-pdf-iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.style.visibility = 'hidden';
-      document.body.appendChild(iframe);
+    toast.loading('Generating & saving PDF file...', { id: toastId });
+
+    // Dynamic import of html2pdf.js to keep initial bundle light
+    const html2pdfModule = await import('html2pdf.js');
+    const html2pdf = html2pdfModule.default || html2pdfModule;
+
+    // Convert logo image to base64 if possible to guarantee immediate rendering
+    let resolvedHtml = html;
+    try {
+      const logoRes = await fetch('/hfa-logo.png');
+      if (logoRes.ok) {
+        const logoBlob = await logoRes.blob();
+        const logoBase64 = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onloadend = () => res(reader.result);
+          reader.onerror = () => res('/hfa-logo.png');
+          reader.readAsDataURL(logoBlob);
+        });
+        resolvedHtml = resolvedHtml.replace('/hfa-logo.png', logoBase64);
+      }
+    } catch {
+      // Continue with relative image path
     }
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
+    // Render into off-screen container
+    const container = document.createElement('div');
+    container.id = 'hfa-product-approval-pdf-render';
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '800px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.zIndex = '-9999';
+    container.innerHTML = resolvedHtml;
+    document.body.appendChild(container);
 
-    // Set printable document title so the browser defaults the filename to this
-    doc.title = safeFileName;
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready.catch(() => {});
+    }
 
-    const triggerPrint = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (printErr) {
-        console.warn('Iframe print failed, falling back to popup window', printErr);
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-          win.document.title = safeFileName;
-          win.focus();
-          setTimeout(() => win.print(), 350);
-        }
-      }
+    const opt = {
+      margin: [8, 8, 8, 8],
+      filename: safeFileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        letterRendering: true,
+        scrollY: 0,
+        windowWidth: 800
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    if (doc.fonts && doc.fonts.ready) {
-      doc.fonts.ready.then(() => setTimeout(triggerPrint, 150)).catch(() => setTimeout(triggerPrint, 350));
-    } else {
-      setTimeout(triggerPrint, 350);
+    await html2pdf().set(opt).from(container).save();
+
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
     }
 
-  } catch (err) {
-    console.error('Failed to open PDF print preview', err);
-    // Fallback: Open new tab
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-      win.document.title = safeFileName;
-      win.focus();
-      setTimeout(() => win.print(), 350);
-    }
+    toast.success('Product Approval Form saved as PDF!', { id: toastId });
+  } catch (pdfErr) {
+    console.error('Failed to generate PDF document:', pdfErr);
+    toast.error('Could not generate PDF file. Please try again.', { id: toastId });
   }
 }
+

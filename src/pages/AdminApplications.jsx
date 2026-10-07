@@ -101,7 +101,18 @@ export default function AdminApplications() {
 
   const { user, profile } = useAuth();
   const currentUser = profile || user;
-  const isSuperAdmin = currentUser?.role === 'superadmin' || (Array.isArray(currentUser?.roles) && currentUser.roles.includes('superadmin'));
+  const userRoles = useMemo(() => {
+    if (Array.isArray(currentUser?.roles) && currentUser.roles.length > 0) {
+      return currentUser.roles.map(r => String(r).toLowerCase().trim());
+    }
+    if (currentUser?.role) {
+      return [String(currentUser.role).toLowerCase().trim()];
+    }
+    return [];
+  }, [currentUser]);
+
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const isAccountant = isSuperAdmin || userRoles.includes('accountant') || currentUser?.role === 'accountant';
   const hasDonePrivilege = isSuperAdmin || Boolean(currentUser?.can_mark_done);
   const hasChangeStatusPrivilege = isSuperAdmin || Boolean(currentUser?.can_change_application_status);
 
@@ -239,6 +250,14 @@ export default function AdminApplications() {
   const isAccountsView = typeParam === 'accounts' || location.pathname.includes('/accounts');
   const isProgressView = typeParam === 'inprogress' || typeParam === 'in_progress' || typeParam === 'renewal';
   const subType = searchParams.get('subType') || null;
+
+  // Enforce access control: only Accountant users (or Superadmin) can view Accounts applications
+  useEffect(() => {
+    if (isAccountsView && currentUser && !isAccountant) {
+      toast.error('Access restricted: Only Accountant users can view Accounts applications.');
+      navigate('/applications', { replace: true });
+    }
+  }, [isAccountsView, currentUser, isAccountant, navigate]);
 
   const isTypeRenewal = (t) => {
     if (!t) return false;
@@ -558,6 +577,7 @@ export default function AdminApplications() {
     if (!a) return false;
     // 1. View Type Filter
     if (isAccountsView) {
+      if (!isAccountant) return false;
       const accountsAction = getAccountsActionInfo(a, invoices);
       if (!accountsAction) return false;
       if (accountActionFilter === 'send_invoice' && accountsAction.type !== 'send_invoice') return false;
@@ -623,6 +643,9 @@ export default function AdminApplications() {
   const { newCount, renewalCount, surveillanceCount, totalViewCount } = useMemo(() => {
     let baseApps = [];
     if (isAccountsView) {
+      if (!isAccountant) {
+        return { newCount: 0, renewalCount: 0, surveillanceCount: 0, totalViewCount: 0 };
+      }
       baseApps = safeApps.filter(a => {
         const info = getAccountsActionInfo(a, invoices);
         if (!info) return false;
@@ -642,17 +665,18 @@ export default function AdminApplications() {
       surveillanceCount: baseApps.filter(a => isTypeSurveillance(a?.application_type)).length,
       totalViewCount: baseApps.length
     };
-  }, [safeApps, typeParam, isProgressView, isAccountsView, invoices, accountActionFilter]);
+  }, [safeApps, typeParam, isProgressView, isAccountsView, invoices, accountActionFilter, isAccountant]);
 
   // Accounts Action specific counts
   const { accountsSendInvoiceCount, accountsConfirmPaymentCount, accountsTotalCount } = useMemo(() => {
+    if (!isAccountant) return { accountsSendInvoiceCount: 0, accountsConfirmPaymentCount: 0, accountsTotalCount: 0 };
     const allAccounts = safeApps.filter(a => Boolean(getAccountsActionInfo(a, invoices)));
     return {
       accountsSendInvoiceCount: allAccounts.filter(a => getAccountsActionInfo(a, invoices)?.type === 'send_invoice').length,
       accountsConfirmPaymentCount: allAccounts.filter(a => getAccountsActionInfo(a, invoices)?.type === 'confirm_payment').length,
       accountsTotalCount: allAccounts.length
     };
-  }, [safeApps, invoices]);
+  }, [safeApps, invoices, isAccountant]);
 
   const handleSubTypeClick = (clickedType) => {
     setSearchParams(prev => {
@@ -749,8 +773,27 @@ export default function AdminApplications() {
 
   return (
     <div className="page-content">
-
-      <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      {isAccountsView && !isAccountant ? (
+        <div className="card" style={{ padding: '60px 24px', textAlign: 'center', background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', margin: '20px 0' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fef2f2', border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#ef4444' }}>
+            <Shield size={28} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Access Restricted</h2>
+          <p style={{ fontSize: 14, color: '#64748b', maxWidth: 460, margin: '0 auto 24px', lineHeight: 1.5 }}>
+            The Accounts applications view (send invoice and confirm payment) is exclusively accessible to authorized Accountant users.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/applications')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <span>Back to All Applications</span>
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="toolbar" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <SearchWithSuggestions
           value={search}
           onChange={val => {
@@ -1196,6 +1239,8 @@ export default function AdminApplications() {
           itemName="applications"
         />
       </div>
+      </>
+      )}
 
       {/* Action Menu Pop-up Modal */}
       {openDropdown && (() => {

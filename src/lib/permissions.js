@@ -60,6 +60,10 @@ export function canConfirmPayment(user) {
   return hasRole(user, 'accountant');
 }
 
+export function isAccountantUser(user) {
+  return hasRole(user, 'accountant');
+}
+
 /**
  * 3. AUDIT MANAGER & AUDITOR (INSPECTOR)
  * - Assign Auditor: Audit Manager (+ Superadmin) ONLY. (Auditor CANNOT assign auditor)

@@ -421,7 +421,7 @@ export default function AdminLogsheetWaitingCertificate() {
     const query = searchQuery.trim().toLowerCase();
     const cleanQuery = query.replace(/^#/, '');
 
-    const effRef = getLogsheetEffectiveRef(l, l.application_id).toLowerCase();
+    const effRef = getLogsheetEffectiveRef(l).toLowerCase();
     const matchesRef = Boolean(
       effRef.includes(cleanQuery) ||
       (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
@@ -666,7 +666,7 @@ export default function AdminLogsheetWaitingCertificate() {
                   const certInfo = getCertificateTypeInfo(l);
                   const appTypeInfo = getApplicationTypeInfo(l);
                   const AppTypeIcon = appTypeInfo.icon || FileText;
-                  const refNumber = getLogsheetEffectiveRef(l, l.application_id);
+                  const refNumber = getLogsheetEffectiveRef(l);
                   const rawDate = l.created_at || l.createdAt || l.updated_at || l.date;
 
                   return (
@@ -796,7 +796,7 @@ export default function AdminLogsheetWaitingCertificate() {
             isOpen={Boolean(actionModalLogsheet)}
             onClose={() => setActionModalLogsheet(null)}
             title={l.company_name}
-            subtitle={`Ref #${getLogsheetEffectiveRef(l, l.application_id)} · ${getCertificateTypeInfo(l).certType}`}
+            subtitle={`Logsheet #${getLogsheetEffectiveRef(l)} · ${getCertificateTypeInfo(l).certType}`}
             badge={
               <span style={{ fontSize: 11.5, color: l.status === 'Done' || l.status === 'done' ? '#15803d' : '#64748b' }}>
                 Status: {l.status === 'Done' || l.status === 'done' ? 'Done' : 'Waiting for Certificate'} • {getCertificateTypeInfo(l).certType}

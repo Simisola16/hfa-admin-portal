@@ -18,7 +18,7 @@ export default function ResendLogsheetEmailModal({ isOpen, onClose, logsheet, on
 
   if (!isOpen || !logsheet) return null;
 
-  const appRef = getLogsheetEffectiveRef(logsheet, logsheet.application_id);
+  const appRef = getLogsheetEffectiveRef(logsheet);
 
   const handleAddEmail = (emailToAdd) => {
     if (!emailToAdd) return;
@@ -112,7 +112,7 @@ export default function ResendLogsheetEmailModal({ isOpen, onClose, logsheet, on
                 Resend Signatory Email
               </div>
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
-                {logsheet.company_name} &bull; Ref: #{appRef}
+                {logsheet.company_name} &bull; Logsheet #{appRef}
               </div>
             </div>
           </div>

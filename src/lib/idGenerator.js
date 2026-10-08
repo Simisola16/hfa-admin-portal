@@ -115,36 +115,20 @@ export function generateLogsheetNumber(logsheet = {}) {
 
 /**
  * Returns the effective reference for a logsheet:
- * 1. Application reference number if present from application
- * 2. Logsheet number if available
- * 3. Auto-generated logsheet number
+ * Uses logsheet_number only.
  */
-export function getLogsheetEffectiveRef(logsheet = {}, application = null) {
-  const appRef = application?.application_number ||
-                 application?.application_id?.application_number ||
-                 logsheet?.application_id?.application_number ||
-                 logsheet?.addon_application_id?.application_number ||
-                 logsheet?.extension_application_id?.application_number ||
-                 logsheet?.initial_product_application_id?.application_number ||
-                 logsheet?.application_number;
-  if (appRef && String(appRef).trim()) return String(appRef).trim();
-
+export function getLogsheetEffectiveRef(logsheet = {}) {
+  if (logsheet?.logsheet_number && String(logsheet.logsheet_number).trim()) {
+    return String(logsheet.logsheet_number).trim();
+  }
   return generateLogsheetNumber(logsheet);
 }
 
 /**
  * Checks whether the displayed ref is the logsheet's own identifier
- * (as opposed to an application reference)
  */
-export function isLogsheetOwnRef(logsheet = {}, application = null) {
-  const appRef = application?.application_number ||
-                 application?.application_id?.application_number ||
-                 logsheet?.application_id?.application_number ||
-                 logsheet?.addon_application_id?.application_number ||
-                 logsheet?.extension_application_id?.application_number ||
-                 logsheet?.initial_product_application_id?.application_number ||
-                 logsheet?.application_number;
-  return !appRef || !String(appRef).trim();
+export function isLogsheetOwnRef() {
+  return true;
 }
 
 export default generateHfaId;

@@ -271,11 +271,11 @@ export default function AdminLogsheetManage() {
           subtext: comp || 'Facility'
         });
       }
-      const refNo = getLogsheetEffectiveRef(l, l.application_id);
+      const refNo = getLogsheetEffectiveRef(l);
       if (refNo && String(refNo).toLowerCase().includes(q) && !logsMap.has(String(refNo).toLowerCase())) {
         logsMap.set(String(refNo).toLowerCase(), {
           label: String(refNo),
-          type: 'Ref No.',
+          type: 'Logsheet No.',
           subtext: comp || 'Logsheet Reference'
         });
       }
@@ -322,7 +322,7 @@ export default function AdminLogsheetManage() {
     const query = searchQuery.trim().toLowerCase();
     const cleanQuery = query.replace(/^#/, '');
 
-    const effRef = getLogsheetEffectiveRef(l, l.application_id).toLowerCase();
+    const effRef = getLogsheetEffectiveRef(l).toLowerCase();
     const matchesRef = Boolean(
       effRef.includes(cleanQuery) ||
       (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
@@ -584,7 +584,7 @@ export default function AdminLogsheetManage() {
                   const typeLabel = rawType.toUpperCase();
                   const categorySubtext = isKfc ? 'Special Grant – KFC Committee Approved' : (l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General'));
                   const creatorName = getCreatorName(l);
-                  const refNumber = getLogsheetEffectiveRef(l, l.application_id);
+                  const refNumber = getLogsheetEffectiveRef(l);
 
                   return (
                     <tr key={l._id}>

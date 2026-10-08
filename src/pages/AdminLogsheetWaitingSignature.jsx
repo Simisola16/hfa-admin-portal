@@ -352,7 +352,7 @@ export default function AdminLogsheetWaitingSignature() {
     const query = searchQuery.trim().toLowerCase();
     const cleanQuery = query.replace(/^#/, '');
 
-    const effRef = getLogsheetEffectiveRef(l, l.application_id).toLowerCase();
+    const effRef = getLogsheetEffectiveRef(l).toLowerCase();
     const matchesRef = Boolean(
       effRef.includes(cleanQuery) ||
       (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
@@ -664,7 +664,7 @@ export default function AdminLogsheetWaitingSignature() {
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
                     const creatorName = getCreatorName(l);
-                    const refNumber = getLogsheetEffectiveRef(l, l.application_id);
+                    const refNumber = getLogsheetEffectiveRef(l);
                     const rawDate = l.created_at || l.createdAt || l.updated_at;
 
                     return (
@@ -950,7 +950,7 @@ export default function AdminLogsheetWaitingSignature() {
         isOpen={Boolean(actionModalItem)}
         onClose={() => setActionModalItem(null)}
         title={actionModalItem?.company_name || 'Logsheet Actions'}
-        subtitle={`Ref #${getLogsheetEffectiveRef(actionModalItem, actionModalItem?.application_id)} · ${actionModalItem?.audit_type || 'Logsheet'}`}
+        subtitle={`Logsheet #${getLogsheetEffectiveRef(actionModalItem)} · ${actionModalItem?.audit_type || 'Logsheet'}`}
         badge={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'Done' : (actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature')}
         badgeVariant={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'badge-green' : (actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow')}
         actions={[

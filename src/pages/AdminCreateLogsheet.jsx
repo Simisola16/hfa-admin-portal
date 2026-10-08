@@ -1453,10 +1453,7 @@ export default function AdminCreateLogsheet() {
           )}
 
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {isInitialProduct ? 'Initial Product Ref:' : (isLogsheetOwnRef(currentLogsheet || form, application) ? 'Logsheet Ref:' : 'Application Ref:')}{' '}
-            <strong style={{ color: '#0f172a' }}>
-              #{isInitialProduct ? (application?.product?.name || application?.application_number || getLogsheetEffectiveRef(currentLogsheet || form, application)) : getLogsheetEffectiveRef(currentLogsheet || form, application)}
-            </strong>
+            Logsheet Ref: <strong style={{ color: '#0f172a' }}>#{getLogsheetEffectiveRef(currentLogsheet || form)}</strong>
           </div>
         </div>
       </div>
@@ -1636,10 +1633,10 @@ export default function AdminCreateLogsheet() {
 
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                {isInitialProduct ? 'Product Reference' : (isLogsheetOwnRef(currentLogsheet || form, application) ? 'Logsheet Reference' : 'Application Reference')}
+                Logsheet Reference
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
-                #{isInitialProduct ? (application?.product?.name || application?.application_number || getLogsheetEffectiveRef(currentLogsheet || form, application)) : getLogsheetEffectiveRef(currentLogsheet || form, application)}
+                #{getLogsheetEffectiveRef(currentLogsheet || form)}
               </div>
               <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
                 {isProductLogsheet ? 'Evaluation Type:' : 'Audit Type:'} <strong>{form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'New')}</strong>

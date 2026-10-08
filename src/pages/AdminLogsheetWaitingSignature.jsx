@@ -11,6 +11,7 @@ import {
   Search, Trash2, RefreshCw, ChevronDown, 
   MapPin, Tag, Clock, CheckCircle2, Mail, PenTool, AlertTriangle, ArrowRight, RotateCcw, CheckCircle
 } from 'lucide-react';
+import { getLogsheetEffectiveRef } from '../lib/idGenerator';
 
 export default function AdminLogsheetWaitingSignature() {
   const { user, profile } = useAuth();
@@ -351,12 +352,15 @@ export default function AdminLogsheetWaitingSignature() {
     const query = searchQuery.trim().toLowerCase();
     const cleanQuery = query.replace(/^#/, '');
 
+    const effRef = getLogsheetEffectiveRef(l, l.application_id).toLowerCase();
     const matchesRef = Boolean(
+      effRef.includes(cleanQuery) ||
       (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
       (l.application_number && l.application_number.toLowerCase().includes(cleanQuery)) ||
       (l.direct_ref && l.direct_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.logsheet_number && l.logsheet_number.toLowerCase().includes(cleanQuery)) ||
       (l.kfc_ref && l.kfc_ref.toLowerCase().includes(cleanQuery)) ||
-      (l.legacy_id && l.legacy_id.toLowerCase().includes(cleanQuery)) ||
+      (l.legacy_id && String(l.legacy_id).toLowerCase().includes(cleanQuery)) ||
       (l._id && String(l._id).toLowerCase().includes(query))
     );
     
@@ -660,7 +664,7 @@ export default function AdminLogsheetWaitingSignature() {
                     const age = getAgeCue(l.created_at);
                     const userSigned = hasUserSigned(l);
                     const creatorName = getCreatorName(l);
-                    const refNumber = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id || '—';
+                    const refNumber = getLogsheetEffectiveRef(l, l.application_id);
                     const rawDate = l.created_at || l.createdAt || l.updated_at;
 
                     return (
@@ -842,7 +846,7 @@ export default function AdminLogsheetWaitingSignature() {
                           to={getLogsheetLink(l)}
                           style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}
                         >
-                          #{l.application_number || l.application_id?.application_number || l.initial_product_application_id?._id?.slice(-6).toUpperCase() || l.addon_application_id?._id?.slice(-6).toUpperCase() || l._id?.slice(-6).toUpperCase()}
+                          #{getLogsheetEffectiveRef(l, l.application_id)}
                         </Link>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -946,7 +950,7 @@ export default function AdminLogsheetWaitingSignature() {
         isOpen={Boolean(actionModalItem)}
         onClose={() => setActionModalItem(null)}
         title={actionModalItem?.company_name || 'Logsheet Actions'}
-        subtitle={`App #${actionModalItem?.application_number || actionModalItem?.application_id?.application_number || actionModalItem?._id?.slice(-6).toUpperCase()} · ${actionModalItem?.audit_type || 'Logsheet'}`}
+        subtitle={`Ref #${getLogsheetEffectiveRef(actionModalItem, actionModalItem?.application_id)} · ${actionModalItem?.audit_type || 'Logsheet'}`}
         badge={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'Done' : (actionModalItem && hasUserSigned(actionModalItem) ? 'Signed by you' : 'Awaiting Signature')}
         badgeVariant={actionModalItem && (actionModalItem.status === 'Done' || actionModalItem.status === 'done') ? 'badge-green' : (actionModalItem && hasUserSigned(actionModalItem) ? 'badge-green' : 'badge-yellow')}
         actions={[

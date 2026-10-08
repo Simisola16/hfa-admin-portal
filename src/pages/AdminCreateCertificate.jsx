@@ -238,7 +238,7 @@ export default function AdminCreateCertificate() {
             _id: targetLogsheet._id,
             is_logsheet_only: true,
             logsheet_id: targetLogsheet._id,
-            application_number: targetLogsheet.direct_ref || targetLogsheet.legacy_id || `LOG-${String(targetLogsheet._id).slice(-6).toUpperCase()}`,
+            application_number: targetLogsheet.logsheet_number || targetLogsheet.direct_ref || (targetLogsheet.legacy_id ? (String(targetLogsheet.legacy_id).toUpperCase().startsWith('LOG-') ? targetLogsheet.legacy_id : `LOG-${targetLogsheet.legacy_id}`) : `LOG-${String(targetLogsheet._id).slice(-6).toUpperCase()}`),
             application_type: targetLogsheet.certificate_type || 'Halal Certification',
             company_name: targetLogsheet.company_name,
             establishment_name: targetLogsheet.site_name || targetLogsheet.company_name,

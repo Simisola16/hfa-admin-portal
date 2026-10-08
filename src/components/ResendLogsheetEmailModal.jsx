@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Mail, Send, AlertCircle, CheckCircle2, User, Building, Clock, Plus } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
+import { getLogsheetEffectiveRef } from '../lib/idGenerator';
 
 export default function ResendLogsheetEmailModal({ isOpen, onClose, logsheet, onSuccess }) {
   const [emailsInput, setEmailsInput] = useState('');
@@ -17,9 +18,7 @@ export default function ResendLogsheetEmailModal({ isOpen, onClose, logsheet, on
 
   if (!isOpen || !logsheet) return null;
 
-  const appRef = logsheet.application_id?.application_number ||
-    logsheet.addon_application_id?._id?.slice(-6).toUpperCase() ||
-    logsheet._id?.slice(-6).toUpperCase() || 'N/A';
+  const appRef = getLogsheetEffectiveRef(logsheet, logsheet.application_id);
 
   const handleAddEmail = (emailToAdd) => {
     if (!emailToAdd) return;

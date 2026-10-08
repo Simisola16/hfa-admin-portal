@@ -11,6 +11,7 @@ import Pagination from '../components/Pagination';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import useCompanyDirectory from '../lib/useCompanyDirectory';
 import RestoreModal from '../components/RestoreModal';
+import { getLogsheetEffectiveRef } from '../lib/idGenerator';
 
 export default function AdminLogsheetManage() {
   const { companies: directoryCompanies } = useCompanyDirectory();
@@ -270,12 +271,12 @@ export default function AdminLogsheetManage() {
           subtext: comp || 'Facility'
         });
       }
-      const refNo = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id;
+      const refNo = getLogsheetEffectiveRef(l, l.application_id);
       if (refNo && String(refNo).toLowerCase().includes(q) && !logsMap.has(String(refNo).toLowerCase())) {
         logsMap.set(String(refNo).toLowerCase(), {
           label: String(refNo),
           type: 'Ref No.',
-          subtext: comp || 'Application Ref'
+          subtext: comp || 'Logsheet Reference'
         });
       }
       const logId = l._id;
@@ -321,12 +322,15 @@ export default function AdminLogsheetManage() {
     const query = searchQuery.trim().toLowerCase();
     const cleanQuery = query.replace(/^#/, '');
 
+    const effRef = getLogsheetEffectiveRef(l, l.application_id).toLowerCase();
     const matchesRef = Boolean(
+      effRef.includes(cleanQuery) ||
       (l.application_id?.application_number && l.application_id.application_number.toLowerCase().includes(cleanQuery)) ||
       (l.application_number && l.application_number.toLowerCase().includes(cleanQuery)) ||
       (l.direct_ref && l.direct_ref.toLowerCase().includes(cleanQuery)) ||
+      (l.logsheet_number && l.logsheet_number.toLowerCase().includes(cleanQuery)) ||
       (l.kfc_ref && l.kfc_ref.toLowerCase().includes(cleanQuery)) ||
-      (l.legacy_id && l.legacy_id.toLowerCase().includes(cleanQuery)) ||
+      (l.legacy_id && String(l.legacy_id).toLowerCase().includes(cleanQuery)) ||
       (l._id && String(l._id).toLowerCase().includes(query))
     );
 
@@ -580,7 +584,7 @@ export default function AdminLogsheetManage() {
                   const typeLabel = rawType.toUpperCase();
                   const categorySubtext = isKfc ? 'Special Grant – KFC Committee Approved' : (l.application_id?.category ? `Annual Certification – ${l.application_id.category}` : (l.audit_type ? `Annual Certification – ${l.audit_type}` : 'Annual Certification – General'));
                   const creatorName = getCreatorName(l);
-                  const refNumber = l.application_id?.application_number || l.application_number || l.direct_ref || l.kfc_ref || l.legacy_id || '—';
+                  const refNumber = getLogsheetEffectiveRef(l, l.application_id);
 
                   return (
                     <tr key={l._id}>

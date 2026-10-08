@@ -11,6 +11,7 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 import NextSurveillanceDateModal from '../components/NextSurveillanceDateModal';
+import { getLogsheetEffectiveRef, isLogsheetOwnRef } from '../lib/idGenerator';
 
 export default function AdminCreateLogsheet() {
   const { appId, addonId, initialProductId, id } = useParams();
@@ -1452,7 +1453,10 @@ export default function AdminCreateLogsheet() {
           )}
 
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {isInitialProduct ? 'Initial Product Ref:' : 'Application Ref:'} <strong style={{ color: '#0f172a' }}>#{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}</strong>
+            {isInitialProduct ? 'Initial Product Ref:' : (isLogsheetOwnRef(currentLogsheet || form, application) ? 'Logsheet Ref:' : 'Application Ref:')}{' '}
+            <strong style={{ color: '#0f172a' }}>
+              #{isInitialProduct ? (application?.product?.name || application?.application_number || getLogsheetEffectiveRef(currentLogsheet || form, application)) : getLogsheetEffectiveRef(currentLogsheet || form, application)}
+            </strong>
           </div>
         </div>
       </div>
@@ -1631,9 +1635,11 @@ export default function AdminCreateLogsheet() {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{isInitialProduct ? 'Product Reference' : 'Application Reference'}</div>
+              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                {isInitialProduct ? 'Product Reference' : (isLogsheetOwnRef(currentLogsheet || form, application) ? 'Logsheet Reference' : 'Application Reference')}
+              </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
-                #{isInitialProduct ? (application?.product?.name || application?._id?.slice(-6)?.toUpperCase() || 'INITIAL-PRODUCT') : (application?.application_number || 'N/A')}
+                #{isInitialProduct ? (application?.product?.name || application?.application_number || getLogsheetEffectiveRef(currentLogsheet || form, application)) : getLogsheetEffectiveRef(currentLogsheet || form, application)}
               </div>
               <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
                 {isProductLogsheet ? 'Evaluation Type:' : 'Audit Type:'} <strong>{form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'New')}</strong>

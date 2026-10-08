@@ -492,7 +492,7 @@ export default function AdminExtensionLogsheet() {
             Halal Certificate Extension Logsheet
           </h1>
           <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
-            Application Ref: <strong>{app?.application_number || getLogsheetEffectiveRef(logsheet, app)}</strong> • Facility: <strong>{app?.site_name || logsheet?.facility_address || 'Main Facility'}</strong>
+            Logsheet Ref: <strong>#{getLogsheetEffectiveRef(logsheet)}</strong> • Facility: <strong>{app?.site_name || logsheet?.facility_address || 'Main Facility'}</strong>
           </div>
         </div>
 

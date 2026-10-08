@@ -57,6 +57,23 @@ export const api = {
   patch: (path, body, isFormData) => request('PATCH', path, body, isFormData),
   delete: (path) => request('DELETE', path),
 
+  downloadBlob: async (method, path, body) => {
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Request failed with status ${res.status}`);
+    }
+    return res.blob();
+  },
+
   /**
    * Upload a PDF (or image) to Supabase Storage via the backend.
    * @param {File}   file   - The File object from an <input type="file">

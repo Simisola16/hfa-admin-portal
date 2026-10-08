@@ -1079,9 +1079,9 @@ export default function AdminInitialProductProcessing() {
                     padding: '6px 14px',
                     cursor: 'pointer'
                   }}
-                  title="Save submitted form as professional PDF document"
+                  title="Save and download submitted form as PDF document"
                 >
-                  <Printer size={15} /> Save as PDF
+                  <Download size={15} /> Save as PDF
                 </button>
                 <button onClick={() => setShowFormModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
                   <X size={16} />

@@ -8,7 +8,10 @@
  * and authenticated signatory declaration.
  */
 
-export function exportProductApprovalPdf({ formData = {}, product = {}, company = {} }) {
+import api from './api';
+import toast from 'react-hot-toast';
+
+export async function exportProductApprovalPdf({ formData = {}, product = {}, company = {} }) {
   const form = typeof formData === 'string' ? (() => {
     try { return JSON.parse(formData); } catch (e) { return {}; }
   })() : (formData || {});
@@ -21,6 +24,31 @@ export function exportProductApprovalPdf({ formData = {}, product = {}, company 
   const facilityAddress = form.manufacturing_facility_address || company?.address || '—';
 
   const safeFileName = `HFA_Product_Approval_Form_${(productName || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+  // First priority: Direct file download via high-speed backend Puppeteer PDF generator
+  const toastId = toast.loading('Generating & saving PDF...');
+  try {
+    const blob = await api.downloadBlob('POST', '/api/products/approval-form/download-pdf', {
+      formData: form,
+      product,
+      company
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = safeFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+
+    toast.success('Product Approval Form saved as PDF!', { id: toastId });
+    return;
+  } catch (backendErr) {
+    console.warn('Backend PDF endpoint unavailable, generating PDF in browser:', backendErr);
+    toast.loading('Processing PDF file download...', { id: toastId });
+  }
 
   const renderRadio = (val, target, label) => {
     const isChecked = String(val || '').toLowerCase() === String(target).toLowerCase();
@@ -888,65 +916,73 @@ export function exportProductApprovalPdf({ formData = {}, product = {}, company 
 </body>
 </html>`;
 
-  // Trigger professional Print-to-PDF via hidden iframe
+  // Client-Side Direct PDF Download (Zero Print Dialogs)
   try {
-    let iframe = document.getElementById('hfa-paf-pdf-iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'hfa-paf-pdf-iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.style.visibility = 'hidden';
-      document.body.appendChild(iframe);
+    toast.loading('Generating & saving PDF file...', { id: toastId });
+
+    // Dynamic import of html2pdf.js to keep initial bundle light
+    const html2pdfModule = await import('html2pdf.js');
+    const html2pdf = html2pdfModule.default || html2pdfModule;
+
+    // Convert logo image to base64 if possible to guarantee immediate rendering
+    let resolvedHtml = html;
+    try {
+      const logoRes = await fetch('/hfa-logo.png');
+      if (logoRes.ok) {
+        const logoBlob = await logoRes.blob();
+        const logoBase64 = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onloadend = () => res(reader.result);
+          reader.onerror = () => res('/hfa-logo.png');
+          reader.readAsDataURL(logoBlob);
+        });
+        resolvedHtml = resolvedHtml.replace('/hfa-logo.png', logoBase64);
+      }
+    } catch {
+      // Continue with relative image path
     }
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
+    // Parse the HTML cleanly into an in-memory element structure
+    const parser = new DOMParser();
+    const parsedDoc = parser.parseFromString(resolvedHtml, 'text/html');
 
-    // Set printable document title so the browser defaults the filename to this
-    doc.title = safeFileName;
+    const styleEl = parsedDoc.querySelector('style');
+    const docContainer = parsedDoc.querySelector('.doc-container') || parsedDoc.body;
 
-    const triggerPrint = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (printErr) {
-        console.warn('Iframe print failed, falling back to popup window', printErr);
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-          win.document.title = safeFileName;
-          win.focus();
-          setTimeout(() => win.print(), 350);
-        }
-      }
+    const wrapper = document.createElement('div');
+    wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    wrapper.style.backgroundColor = '#ffffff';
+    wrapper.style.color = '#0f172a';
+    wrapper.style.width = '794px';
+    wrapper.style.margin = '0';
+    wrapper.style.padding = '0';
+
+    if (styleEl) wrapper.appendChild(styleEl.cloneNode(true));
+    wrapper.appendChild(docContainer.cloneNode(true));
+
+    const opt = {
+      margin: [6, 6, 6, 6],
+      filename: safeFileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    if (doc.fonts && doc.fonts.ready) {
-      doc.fonts.ready.then(() => setTimeout(triggerPrint, 150)).catch(() => setTimeout(triggerPrint, 350));
-    } else {
-      setTimeout(triggerPrint, 350);
-    }
+    await html2pdf().set(opt).from(wrapper).save();
 
-  } catch (err) {
-    console.error('Failed to open PDF print preview', err);
-    // Fallback: Open new tab
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-      win.document.title = safeFileName;
-      win.focus();
-      setTimeout(() => win.print(), 350);
-    }
+    toast.success('Product Approval Form saved as PDF!', { id: toastId });
+  } catch (pdfErr) {
+    console.error('Failed to generate PDF document:', pdfErr);
+    toast.error('Could not generate PDF file. Please try again.', { id: toastId });
   }
 }
+

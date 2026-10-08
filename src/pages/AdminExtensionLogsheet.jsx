@@ -8,6 +8,7 @@ import {
   ArrowLeft, CheckCircle2, CheckCircle, Clock, Check,
   Printer, PenTool, AlertTriangle, ShieldCheck, X, Save, Lock, RotateCcw, Award
 } from 'lucide-react';
+import { getLogsheetEffectiveRef } from '../lib/idGenerator';
 
 export default function AdminExtensionLogsheet() {
   const { id } = useParams();
@@ -491,7 +492,7 @@ export default function AdminExtensionLogsheet() {
             Halal Certificate Extension Logsheet
           </h1>
           <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
-            Application Ref: <strong>{app?.application_number}</strong> • Facility: <strong>{app?.site_name}</strong>
+            Application Ref: <strong>{app?.application_number || getLogsheetEffectiveRef(logsheet, app)}</strong> • Facility: <strong>{app?.site_name || logsheet?.facility_address || 'Main Facility'}</strong>
           </div>
         </div>
 

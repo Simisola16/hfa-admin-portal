@@ -561,6 +561,7 @@ export default function AdminDirectLogsheet() {
       const q = historySearch.toLowerCase();
       return (
         (l.direct_ref && l.direct_ref.toLowerCase().includes(q)) ||
+        (l.logsheet_number && l.logsheet_number.toLowerCase().includes(q)) ||
         (l.company_name && l.company_name.toLowerCase().includes(q)) ||
         (l.existing_certificate_number && l.existing_certificate_number.toLowerCase().includes(q)) ||
         (l.contact_person && l.contact_person.toLowerCase().includes(q)) ||
@@ -1648,7 +1649,7 @@ export default function AdminDirectLogsheet() {
                         <tr key={l._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '14px 20px' }}>
                             <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: 13.5 }}>
-                              #{l.direct_ref || l._id?.slice(-6).toUpperCase()}
+                              #{l.direct_ref || l.logsheet_number || (l._id ? `LOG-${String(l._id).slice(-6).toUpperCase()}` : 'DIRECT')}
                             </div>
                             <span style={{
                               display: 'inline-flex',
@@ -1779,7 +1780,7 @@ export default function AdminDirectLogsheet() {
                 <FileText size={20} style={{ color: 'var(--primary)' }} />
                 <div>
                   <h3 className="modal-title" style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>
-                    Official Halal Decision Sheet — #{inspectLogsheet.direct_ref || inspectLogsheet._id?.slice(-6).toUpperCase()}
+                    Official Halal Decision Sheet — #{inspectLogsheet.direct_ref || inspectLogsheet.logsheet_number || (inspectLogsheet._id ? `LOG-${String(inspectLogsheet._id).slice(-6).toUpperCase()}` : 'DIRECT')}
                   </h3>
                   <div style={{ fontSize: 12, color: '#64748b' }}>
                     Type: {(LOGSHEET_TYPES.find(t => t.id === (inspectLogsheet.logsheet_type || 'application')) || LOGSHEET_TYPES[0]).title}
@@ -1801,13 +1802,13 @@ export default function AdminDirectLogsheet() {
 
             <div className="modal-body" style={{ padding: 28, display: 'grid', gap: 20, color: '#0f172a' }}>
               {/* Official Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottom: '2px solid #047857' }}>
+              <div style={{ display: 'flex', borderBottom: '2px solid #047857', paddingBottom: 16, justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 900, color: '#047857' }}>HALAL FOOD AUTHORITY (HFA)</div>
                   <div style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Official Certification &amp; Technical Decision Record</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>REF: #{inspectLogsheet.direct_ref}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>REF: #{inspectLogsheet.direct_ref || inspectLogsheet.logsheet_number || (inspectLogsheet._id ? `LOG-${String(inspectLogsheet._id).slice(-6).toUpperCase()}` : 'DIRECT')}</div>
                   <div style={{ fontSize: 11, color: '#64748b' }}>Standard: {inspectLogsheet.certificate_standard}</div>
                 </div>
               </div>
@@ -1932,7 +1933,7 @@ export default function AdminDirectLogsheet() {
             <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 14 }}>
               <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13 }}>
                 <div style={{ fontWeight: 800, color: '#0f172a' }}>{reviewSignModal.company_name}</div>
-                <div style={{ fontSize: 11.5, color: '#64748b' }}>Logsheet Ref: #{reviewSignModal.direct_ref}</div>
+                <div style={{ fontSize: 11.5, color: '#64748b' }}>Logsheet Ref: #{reviewSignModal.direct_ref || reviewSignModal.logsheet_number || (reviewSignModal._id ? `LOG-${String(reviewSignModal._id).slice(-6).toUpperCase()}` : 'DIRECT')}</div>
               </div>
 
               <div>

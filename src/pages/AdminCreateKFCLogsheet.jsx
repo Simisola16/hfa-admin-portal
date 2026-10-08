@@ -546,9 +546,9 @@ export default function AdminCreateKFCLogsheet() {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Logsheet Type</div>
+              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Logsheet Ref</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
-                KFC Logsheet
+                #{currentLogsheet?.direct_ref || currentLogsheet?.logsheet_number || form.direct_ref || form.logsheet_number || (form._id ? `KFC-${String(form._id).slice(-6).toUpperCase()}` : 'KFC')}
               </div>
               <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
                 Evaluation Type: <strong>{form.audit_type || 'KFC Logsheet'}</strong>

@@ -59,21 +59,25 @@ export default function AdminCertificates({ defaultTab }) {
     expiring: 0,
     expired: 0
   });
-  const [activeTab, setActiveTab] = useState((defaultTab === 'review' && canReviewCertificate) ? 'review' : 'certs'); // 'review' | 'certs'
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const urlStatus = (searchParams.get('status') || searchParams.get('filter') || '').toLowerCase().trim();
+  const isUrlReview = defaultTab === 'review' || location.pathname.endsWith('/review') || urlStatus === 'under_review' || urlStatus === 'review' || urlStatus === 'pending';
+
+  const [activeTab, setActiveTab] = useState(isUrlReview ? 'review' : 'certs'); // 'review' | 'certs'
   const [showModal, setShowModal] = useState(false);
   const [viewingCert, setViewingCert] = useState(null);
   const [actionModalCert, setActionModalCert] = useState(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState(isUrlReview ? 'under_review' : urlStatus);
   const [filterSite, setFilterSite] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [submitting, setSubmitting] = useState(false);
   const [apps, setApps] = useState([]);
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
 
   // Debounce search typing to prevent excessive API requests
   useEffect(() => {
@@ -85,24 +89,19 @@ export default function AdminCertificates({ defaultTab }) {
 
   useEffect(() => {
     const statusParam = (searchParams.get('status') || searchParams.get('filter') || '').toLowerCase().trim();
-    const isReviewRoute = location.pathname.endsWith('/review') || defaultTab === 'review';
+    const isReview = defaultTab === 'review' || location.pathname.endsWith('/review') || statusParam === 'under_review' || statusParam === 'review' || statusParam === 'pending';
 
-    if (statusParam === 'under_review' || statusParam === 'review') {
+    if (isReview) {
       setActiveTab('review');
       setFilterStatus('under_review');
     } else if (statusParam) {
       setActiveTab('certs');
       setFilterStatus(statusParam);
     } else {
-      if (isReviewRoute && canReviewCertificate) {
-        setActiveTab('review');
-        setFilterStatus('under_review');
-      } else {
-        setActiveTab('certs');
-        setFilterStatus('');
-      }
+      setActiveTab('certs');
+      setFilterStatus('');
     }
-  }, [location.pathname, searchParams, canReviewCertificate, defaultTab]);
+  }, [location.pathname, searchParams, defaultTab]);
   
   const [form, setForm] = useState({ 
     client_id: '', 
@@ -116,9 +115,21 @@ export default function AdminCertificates({ defaultTab }) {
   const fetchAllData = async (opts = {}) => {
     setLoading(true);
     try {
+      const statusParam = (searchParams.get('status') || searchParams.get('filter') || '').toLowerCase().trim();
+      const currentTab = opts.tab !== undefined ? opts.tab : activeTab;
+      const isReviewExpected = currentTab === 'review' || statusParam === 'under_review' || statusParam === 'review' || statusParam === 'pending' || defaultTab === 'review' || location.pathname.endsWith('/review');
+
+      let currentStatus;
+      if (opts.status !== undefined) {
+        currentStatus = opts.status;
+      } else if (isReviewExpected) {
+        currentStatus = 'under_review';
+      } else {
+        currentStatus = filterStatus || statusParam;
+      }
+
       const currentPage = opts.page ?? page;
       const currentLimit = opts.limit ?? pageSize;
-      const currentStatus = opts.status !== undefined ? opts.status : (activeTab === 'review' ? 'under_review' : filterStatus);
       const currentSearch = opts.search !== undefined ? opts.search : debouncedSearch;
       const currentSite = opts.site !== undefined ? opts.site : filterSite;
 
@@ -167,10 +178,12 @@ export default function AdminCertificates({ defaultTab }) {
 
   // Re-fetch from server when page, pageSize, or any filters change
   useEffect(() => {
+    const isRev = activeTab === 'review' || filterStatus === 'under_review';
     fetchAllData({
       page,
       limit: pageSize,
-      status: activeTab === 'review' ? 'under_review' : filterStatus,
+      tab: activeTab,
+      status: isRev ? 'under_review' : filterStatus,
       search: debouncedSearch,
       site: filterSite
     });
@@ -611,6 +624,7 @@ export default function AdminCertificates({ defaultTab }) {
             <option value="active">Active</option>
             <option value="expiring">Expiring Soon (within 90d / 3 months)</option>
             <option value="expired">Expired</option>
+            <option value="inactive">Inactive</option>
             <option value="outdated">Outdated</option>
           </select>
         )}
@@ -714,13 +728,13 @@ export default function AdminCertificates({ defaultTab }) {
                             isReview ? 'badge-orange' :
                             effectiveStatus === 'active' ? 'badge-green' :
                             effectiveStatus === 'renewed' ? 'badge-blue' :
-                            effectiveStatus === 'outdated' || effectiveStatus === 'superseded' ? 'badge-gray' :
+                            effectiveStatus === 'outdated' || effectiveStatus === 'superseded' || effectiveStatus === 'inactive' ? 'badge-gray' :
                             effectiveStatus === 'revoked' ? 'badge-red' :
                             'badge-gray'
                           }`} style={{ textTransform: 'capitalize' }}>
                             {isReview ? '⏳ Under Review' :
                              effectiveStatus === 'outdated' ? 'Outdated' :
-                             effectiveStatus === 'superseded' ? 'Superseded' :
+                             effectiveStatus === 'superseded' || effectiveStatus === 'inactive' ? 'Inactive' :
                              effectiveStatus === 'renewed' ? 'Renewed' :
                              effectiveStatus === 'active' ? 'Active' :
                              effectiveStatus === 'expired' ? 'Expired' :
@@ -729,7 +743,60 @@ export default function AdminCertificates({ defaultTab }) {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            {isReview && canReviewCertificate && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                style={{
+                                  fontSize: 11.5,
+                                  padding: '4px 9px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/certificates/${c.id || c._id}/review`);
+                                }}
+                                title="Open Certificate Review & QA"
+                              >
+                                <ShieldCheck size={13} /> Review Certificate
+                              </button>
+                            )}
+                            {['inactive', 'superseded'].includes((effectiveStatus || '').toLowerCase()) && (
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                style={{
+                                  background: '#ecfdf5',
+                                  color: '#047857',
+                                  border: '1px solid #a7f3d0',
+                                  fontWeight: 700,
+                                  fontSize: 11.5,
+                                  padding: '4px 9px',
+                                  borderRadius: 6,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4
+                                }}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await api.put(`/api/certificates/${c.id || c._id}/activate`);
+                                    toast.success(`Certificate #${c.certificate_number} activated successfully.`);
+                                    fetchAllData();
+                                  } catch (err) {
+                                    toast.error(err.response?.data?.error || err.message || 'Failed to activate certificate.');
+                                  }
+                                }}
+                                title="Activate this certificate"
+                              >
+                                <CheckCircle size={12} /> Activate
+                              </button>
+                            )}
                             <ActionTriggerButton 
                               onClick={() => setActionModalCert(c)}
                               title="Certificate Actions"
@@ -843,6 +910,8 @@ export default function AdminCertificates({ defaultTab }) {
             ? 'Under Review'
             : actionModalCert?.status === 'active'
             ? 'Active Certificate'
+            : actionModalCert?.status === 'inactive' || actionModalCert?.status === 'superseded'
+            ? 'Inactive Certificate'
             : (actionModalCert?.status || 'Certificate')
         }
         badgeVariant={
@@ -868,6 +937,16 @@ export default function AdminCertificates({ defaultTab }) {
               }
             }
           },
+          ...(canReviewCertificate && (actionModalCert?.status === 'under_review' || actionModalCert?.status === 'draft') ? [{
+            label: 'Review Certificate',
+            icon: ShieldCheck,
+            variant: 'primary',
+            onClick: () => {
+              if (actionModalCert) {
+                navigate(`/certificates/${actionModalCert.id || actionModalCert._id}/review`);
+              }
+            }
+          }] : []),
           ...(canReviewCertificate ? [{
             label: 'Edit Certificate',
             icon: Edit3,
@@ -908,6 +987,38 @@ export default function AdminCertificates({ defaultTab }) {
             variant: 'default',
             href: getPdfUrl(actionModalCert.certificate_url),
             target: '_blank'
+          }] : []),
+          ...((['inactive', 'superseded', 'outdated', 'expired', 'revoked'].includes((actionModalCert?.status || '').toLowerCase())) ? [{
+            label: 'Activate Certificate',
+            icon: CheckCircle,
+            variant: 'primary',
+            onClick: async () => {
+              const certId = actionModalCert?.id || actionModalCert?._id;
+              setActionModalCert(null);
+              try {
+                await api.put(`/api/certificates/${certId}/activate`);
+                toast.success(`Certificate #${actionModalCert.certificate_number} activated successfully.`);
+                fetchAllData();
+              } catch (err) {
+                toast.error(err.response?.data?.error || err.message || 'Failed to activate certificate.');
+              }
+            }
+          }] : []),
+          ...(actionModalCert?.status === 'active' ? [{
+            label: 'Set as Inactive',
+            icon: X,
+            variant: 'default',
+            onClick: async () => {
+              const certId = actionModalCert?.id || actionModalCert?._id;
+              setActionModalCert(null);
+              try {
+                await api.put(`/api/certificates/${certId}/deactivate`);
+                toast.success(`Certificate #${actionModalCert.certificate_number} marked as inactive.`);
+                fetchAllData();
+              } catch (err) {
+                toast.error(err.response?.data?.error || err.message || 'Failed to deactivate certificate.');
+              }
+            }
           }] : []),
           ...(actionModalCert?.status === 'active' ? [{
             label: 'Revoke Certificate',

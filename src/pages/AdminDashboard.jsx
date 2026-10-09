@@ -30,6 +30,8 @@ const STATUS_META = {
   certificate_issued: { label: 'Cert Issued', color: '#15803d', bg: '#dcfce7' },
   final_invoice_paid: { label: 'Invoice Paid', color: '#15803d', bg: '#dcfce7' },
   agreement_signed: { label: 'Agreement Signed', color: '#0e7490', bg: '#cffafe' },
+  inactive: { label: 'Inactive', color: '#64748b', bg: '#f1f5f9' },
+  superseded: { label: 'Inactive', color: '#64748b', bg: '#f1f5f9' },
 };
 
 function StatusBadge({ status, type }) {
@@ -435,19 +437,19 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Pending Box */}
+              {/* Pending Review Box */}
               <div
-                onClick={() => navigate('/certificates?status=pending')}
+                onClick={() => navigate('/certificates?status=under_review')}
                 style={{ background: '#fef8e0', borderRadius: 12, padding: '16px 12px', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.15s ease' }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                title="View Pending Certificates"
+                title="View Certificates Awaiting Review"
               >
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309' }}>
                   {pendingCertsCount}
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', marginTop: 2 }}>
-                  Pending
+                  Pending Review
                 </div>
               </div>
 

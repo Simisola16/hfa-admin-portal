@@ -743,60 +743,7 @@ export default function AdminCertificates({ defaultTab }) {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                            {isReview && canReviewCertificate && (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-primary"
-                                style={{
-                                  fontSize: 11.5,
-                                  padding: '4px 9px',
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/certificates/${c.id || c._id}/review`);
-                                }}
-                                title="Open Certificate Review & QA"
-                              >
-                                <ShieldCheck size={13} /> Review Certificate
-                              </button>
-                            )}
-                            {['inactive', 'superseded'].includes((effectiveStatus || '').toLowerCase()) && (
-                              <button
-                                type="button"
-                                className="btn btn-sm"
-                                style={{
-                                  background: '#ecfdf5',
-                                  color: '#047857',
-                                  border: '1px solid #a7f3d0',
-                                  fontWeight: 700,
-                                  fontSize: 11.5,
-                                  padding: '4px 9px',
-                                  borderRadius: 6,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4
-                                }}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    await api.put(`/api/certificates/${c.id || c._id}/activate`);
-                                    toast.success(`Certificate #${c.certificate_number} activated successfully.`);
-                                    fetchAllData();
-                                  } catch (err) {
-                                    toast.error(err.response?.data?.error || err.message || 'Failed to activate certificate.');
-                                  }
-                                }}
-                                title="Activate this certificate"
-                              >
-                                <CheckCircle size={12} /> Activate
-                              </button>
-                            )}
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                             <ActionTriggerButton 
                               onClick={() => setActionModalCert(c)}
                               title="Certificate Actions"
@@ -1005,7 +952,7 @@ export default function AdminCertificates({ defaultTab }) {
             }
           }] : []),
           ...(actionModalCert?.status === 'active' ? [{
-            label: 'Set as Inactive',
+            label: 'Deactivate Certificate',
             icon: X,
             variant: 'default',
             onClick: async () => {

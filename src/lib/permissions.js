@@ -47,21 +47,26 @@ export function canSendAgreement(user) {
 }
 
 /**
- * 2. ACCOUNTANT
- * - Accountant (+ Superadmin) is the ONLY one who sees:
+ * 2. ACCOUNTANT & ADMINISTRATOR (INVOICES & PAYMENTS)
+ * - Accountant and Administrator (+ Superadmin) can access:
+ *   - The Invoices page
  *   - Send Invoice (Initial & Final)
  *   - Confirm Payment
  */
+export function canAccessInvoices(user) {
+  return hasRole(user, 'accountant', 'admin');
+}
+
 export function canSendInvoice(user) {
-  return hasRole(user, 'accountant');
+  return hasRole(user, 'accountant', 'admin');
 }
 
 export function canConfirmPayment(user) {
-  return hasRole(user, 'accountant');
+  return hasRole(user, 'accountant', 'admin');
 }
 
 export function isAccountantUser(user) {
-  return hasRole(user, 'accountant');
+  return hasRole(user, 'accountant', 'admin');
 }
 
 /**

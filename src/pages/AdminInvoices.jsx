@@ -1,17 +1,20 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { Plus, X, FileBarChart, Eye, Download, Check, CheckCircle2, Receipt, ExternalLink, RefreshCw, Search, Shield } from 'lucide-react';
 import ConfirmPaymentModal from '../components/ConfirmPaymentModal';
 import ActionModal, { ActionTriggerButton } from '../components/ActionModal';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
-import { canSendInvoice, canConfirmPayment } from '../lib/permissions';
+import { canSendInvoice, canConfirmPayment, canAccessInvoices } from '../lib/permissions';
 
 export default function AdminInvoices() {
-  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, loading: authLoading } = useAuth();
   const currentUser = profile || user;
+  const hasAccess = canAccessInvoices(currentUser);
 
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
@@ -39,12 +42,22 @@ export default function AdminInvoices() {
       .catch(() => toast.error('Failed to load invoices'))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { fetch(); }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!currentUser) return;
+    if (!hasAccess) {
+      toast.error('Access restricted: Only Accountant and Administrator can access the Invoices page.');
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    fetch();
+  }, [hasAccess, currentUser, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSendInvoice(currentUser)) {
-      return toast.error('Only Accountant can create or send invoices.');
+      return toast.error('Only Accountant and Administrator can create or send invoices.');
     }
     setSubmitting(true);
     try{ await api.post('/api/invoices',form); toast.success('Invoice created'); setShowModal(false); fetch(); }
@@ -66,7 +79,7 @@ export default function AdminInvoices() {
 
   const handleOneClickConfirm = async (inv) => {
     if (!canConfirmPayment(currentUser)) {
-      return toast.error('Only Accountant can confirm client payments.');
+      return toast.error('Only Accountant and Administrator can confirm client payments.');
     }
     const invId = inv._id || inv.id;
     if (!invId) return;
@@ -98,6 +111,29 @@ export default function AdminInvoices() {
   });
 
   const paginatedList = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  if (authLoading) {
+    return (
+      <div className="loading-overlay" style={{ height: '60vh' }}>
+        <div className="spinner" style={{ width: 34, height: 34 }} />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 16, margin: 24, border: '1px solid #fee2e2' }}>
+        <Shield size={48} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>Access Restricted</h2>
+        <p style={{ color: '#64748b', fontSize: 14, maxWidth: 460, margin: '0 auto 20px' }}>
+          The Invoices page is strictly restricted to Accountant and Administrator personnel.
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

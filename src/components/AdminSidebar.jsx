@@ -51,7 +51,7 @@ const NAV_SECTIONS = [
     label: 'CERTIFICATION',
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
-      { icon: FileBarChart, label: 'Invoices',    path: '/invoices' },
+      { icon: FileBarChart, label: 'Invoices',    path: '/invoices', invoiceAccessOnly: true },
       {
         icon: Calendar, label: 'Audits', path: '/audits',
         children: [
@@ -296,7 +296,9 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
 
   const userRoles = (Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : [])).map(r => String(r).toLowerCase().trim());
   const isSuperAdmin = userRoles.includes('superadmin') || profile?.role === 'superadmin';
+  const isAdmin = isSuperAdmin || userRoles.includes('admin') || profile?.role === 'admin';
   const isAccountant = isSuperAdmin || userRoles.includes('accountant') || profile?.role === 'accountant';
+  const hasInvoicePrivilege = isAccountant || isAdmin;
   const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
   const hasReviewCertPrivilege = isSuperAdmin || profile?.can_review_certificate === true;
   const hasKfcLogsheetPrivilege = isSuperAdmin || profile?.can_create_kfc_logsheet === true || profile?.can_sign_logsheet === true;
@@ -313,6 +315,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
       if (item.directCertOnly && !hasDirectCertPrivilege) return false;
       if (item.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
       if (item.accountantOnly && !isAccountant) return false;
+      if (item.invoiceAccessOnly && !hasInvoicePrivilege) return false;
       return true;
     }).map(item => {
       if (!item.children) return item;
@@ -320,6 +323,7 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
         ...item,
         children: item.children.filter(child => {
           if (child.accountantOnly && !isAccountant) return false;
+          if (child.invoiceAccessOnly && !hasInvoicePrivilege) return false;
           if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
           if (child.directCertOnly && !hasDirectCertPrivilege) return false;
           if (child.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;

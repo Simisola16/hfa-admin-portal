@@ -99,10 +99,10 @@ export default function AdminCreateLogsheet() {
   ).toLowerCase().trim().replace(/[-\s]/g, '_');
 
   const hasRemoveProductItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('remove'));
-  const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('change'));
+  const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('change') || String(p.type || '').toLowerCase().includes('supplier') || String(p.type || '').toLowerCase().includes('manufacturer'));
 
   const isRemoveProduct = rawAddonType === 'remove_product' || rawAddonType === 'remove' || hasRemoveProductItem || appNum.includes('-RP-') || appNum.includes('-RM-');
-  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change' || hasChangeIngredientItem || appNum.includes('-CI-');
+  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change_supplier' || rawAddonType === 'change_supplier_manufacturer' || rawAddonType === 'change' || hasChangeIngredientItem || appNum.includes('-CI-') || appNum.includes('-CS-');
   const canManageProducts = canManageAddOnProducts(user);
 
   // Form State declared before any derived variables that reference form

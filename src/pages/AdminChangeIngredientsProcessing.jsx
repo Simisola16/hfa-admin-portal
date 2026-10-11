@@ -285,6 +285,8 @@ export default function AdminChangeIngredientsProcessing() {
 
   const currentIdx = ORDER.indexOf(app.status);
   const productsList = app.products || [];
+  const isSupplier = app.addon_type === 'change_supplier';
+  const flowSteps = FLOW_STEPS.map(s => s.id === 'completed' ? { ...s, label: isSupplier ? 'Supplier Accepted' : 'Ingredients Accepted' } : s);
 
   const historyMap = {};
   (app.statusHistory || []).forEach(entry => {
@@ -367,7 +369,7 @@ export default function AdminChangeIngredientsProcessing() {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8b5cf6', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Layers size={13} /> Change Ingredients Processing Workflow
+            <Layers size={13} /> {isSupplier ? 'Change Supplier/Manufacturer Processing Workflow' : 'Change Ingredients Processing Workflow'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
@@ -401,12 +403,12 @@ export default function AdminChangeIngredientsProcessing() {
             Current Workflow Stage
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {app.status === 'submitted' && 'Change ingredients request submitted. Review the formulation details and accept or reject.'}
+            {app.status === 'submitted' && (isSupplier ? 'Change supplier/manufacturer request submitted. Review the details and accept or reject.' : 'Change ingredients request submitted. Review the formulation details and accept or reject.')}
             {app.status === 'accepted' && 'Application accepted. Assign Food Technology specialists to handle technical formulation review.'}
             {app.status === 'ft_assigned' && `Assigned FT: ${ftNames || 'Inspector'}. Review specifications or request additional compliance documents from the client.`}
             {app.status === 'all_forms_received' && 'All formulation documents verified and confirmed! You can now proceed to create the Committee Logsheet.'}
             {['logsheet_created', 'waiting_sharia_signature'].includes(app.status) && 'Committee Logsheet created. Shariah and Technical signatories are reviewing the ingredient changes.'}
-            {app.status === 'completed' && 'Ingredients changes accepted and approved by Committee. Request completed successfully (no certificate change required).'}
+            {app.status === 'completed' && (isSupplier ? 'Supplier/manufacturer changes accepted and approved by Committee. Request completed successfully (no certificate change required).' : 'Ingredients changes accepted and approved by Committee. Request completed successfully (no certificate change required).')}
             {app.status === 'rejected' && (app.rejection_reason ? `Application Rejected: ${app.rejection_reason}` : 'Application rejected.')}
           </div>
         </div>
@@ -487,7 +489,7 @@ export default function AdminChangeIngredientsProcessing() {
           {/* Completed Badge */}
           {app.status === 'completed' && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-              <CheckCircle2 size={16} /> Ingredients Accepted
+              <CheckCircle2 size={16} /> {isSupplier ? 'Supplier/Manufacturer Accepted' : 'Ingredients Accepted'}
             </div>
           )}
         </div>
@@ -508,10 +510,10 @@ export default function AdminChangeIngredientsProcessing() {
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-                    Products with Modified Ingredients ({productsList.length})
+                    {isSupplier ? `Products with Modified Supplier/Manufacturer (${productsList.length})` : `Products with Modified Ingredients (${productsList.length})`}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Formulation updates submitted for Halal compliance review
+                    {isSupplier ? 'Supplier & manufacturer updates submitted for Halal compliance review' : 'Formulation updates submitted for Halal compliance review'}
                   </div>
                 </div>
               </div>
@@ -683,11 +685,11 @@ export default function AdminChangeIngredientsProcessing() {
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
               <div style={{ padding: '8px 0' }}>
-                {FLOW_STEPS.map((step, idx) => {
+                {flowSteps.map((step, idx) => {
                   const stepIdx = ORDER.indexOf(step.id);
                   const isDone = currentIdx > stepIdx || app.status === 'completed';
                   const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
-                  const isLast = idx === FLOW_STEPS.length - 1;
+                  const isLast = idx === flowSteps.length - 1;
                   const histEntry = historyMap[step.id];
                   const stepDate = getStepTimestamp(step.id, isDone);
                   const actor = getActorName(histEntry, step.id);

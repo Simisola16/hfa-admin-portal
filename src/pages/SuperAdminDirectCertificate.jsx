@@ -289,13 +289,13 @@ export default function SuperAdminDirectCertificate() {
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (hasDirectCertPrivilege) {
       fetchInitialData();
       if (activeTab === 'history') {
         fetchHistory();
       }
     }
-  }, [isSuperAdmin, activeTab]);
+  }, [hasDirectCertPrivilege, activeTab]);
 
   // Load logsheet details if queryLogsheetId is passed
   useEffect(() => {
@@ -394,13 +394,41 @@ export default function SuperAdminDirectCertificate() {
     return Array.from(map.values()).slice(0, 25);
   }, [clients, serverClients, clientSearchQuery]);
 
+  // Fetch sites specifically for selected client to ensure all sites are immediately available
+  useEffect(() => {
+    if (selectedClient?._id || selectedClient?.id) {
+      const cId = selectedClient._id || selectedClient.id;
+      api.get('/api/sites', { params: { client_id: cId } })
+        .then(res => {
+          const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          if (list.length > 0) {
+            setSites(prev => {
+              const existingIds = new Set(prev.map(s => String(s._id || s.id)));
+              const newSites = list.filter(s => !existingIds.has(String(s._id || s.id)));
+              return [...prev, ...newSites];
+            });
+            if (list.length === 1 && !selectedSiteId) {
+              const onlySite = list[0];
+              const sId = onlySite._id || onlySite.id;
+              setSelectedSiteId(sId);
+              const siteAddr = formatSiteAddress(onlySite);
+              setCustomSiteAddress(siteAddr);
+              setCertCompanyAddress(siteAddr);
+              setCertManufacturingFacility(onlySite.name ? `${onlySite.name}, ${siteAddr}` : siteAddr);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [selectedClient]);
+
   // Sites belonging to selected client
   const clientSites = useMemo(() => {
     if (!selectedClient) return [];
-    const clientId = selectedClient._id || selectedClient.id;
+    const clientId = String(selectedClient._id || selectedClient.id);
     return sites.filter(s => {
-      const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
-      return String(sClientId) === String(clientId);
+      const sClientId = s.raw_client_id || (s.client_id ? (typeof s.client_id === 'object' ? (s.client_id._id || s.client_id.id) : s.client_id) : null);
+      return String(sClientId) === clientId;
     });
   }, [sites, selectedClient]);
 
@@ -1045,7 +1073,7 @@ export default function SuperAdminDirectCertificate() {
                   fontSize: 10.5, fontWeight: 800, padding: '2px 8px',
                   borderRadius: 6, textTransform: 'uppercase', letterSpacing: 0.5
                 }}>
-                  👑 Superadmin Console
+                  ⭐ Special Privilege
                 </span>
                 <span style={{ fontSize: 12, color: '#bbf7d0', fontWeight: 600 }}>• Instant Issuance Bypass Mode</span>
               </div>
@@ -1188,9 +1216,10 @@ export default function SuperAdminDirectCertificate() {
                               setClientSearchQuery(c.company_name || c.full_name || '');
                               setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
                               setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                              const cId = String(c._id || c.id);
                               const clientMatchedSites = sites.filter(s => {
-                                const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
-                                return String(sClientId) === String(c._id || c.id);
+                                const sClientId = s.raw_client_id || (s.client_id ? (typeof s.client_id === 'object' ? (s.client_id._id || s.client_id.id) : s.client_id) : null);
+                                return String(sClientId) === cId;
                               });
                               if (clientMatchedSites.length === 1) {
                                 const onlySite = clientMatchedSites[0];

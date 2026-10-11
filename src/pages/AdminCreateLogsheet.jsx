@@ -77,20 +77,29 @@ export default function AdminCreateLogsheet() {
   const [initialProductCode, setInitialProductCode] = useState('');
   const [savingProductDetails, setSavingProductDetails] = useState(false);
 
+  const appNum = String(
+    application?.application_number ||
+    currentLogsheet?.application_number ||
+    application?.addon_application_id?.application_number ||
+    currentLogsheet?.addon_application_id?.application_number ||
+    ''
+  ).toUpperCase();
+
   const rawAddonType = String(
     application?.addon_type ||
     application?.action_type ||
     currentLogsheet?.addon_type ||
     currentLogsheet?.addon_application_id?.addon_type ||
     currentLogsheet?.addon_application_id?.action_type ||
+    (appNum.includes('-RP-') || appNum.includes('-RM-') ? 'remove_product' : (appNum.includes('-CI-') ? 'change_ingredients' : '')) ||
     ''
   ).toLowerCase().trim().replace(/[-\s]/g, '_');
 
   const hasRemoveProductItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('remove'));
   const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('change'));
 
-  const isRemoveProduct = rawAddonType === 'remove_product' || rawAddonType === 'remove' || hasRemoveProductItem;
-  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change' || hasChangeIngredientItem;
+  const isRemoveProduct = rawAddonType === 'remove_product' || rawAddonType === 'remove' || hasRemoveProductItem || appNum.includes('-RP-') || appNum.includes('-RM-');
+  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change' || hasChangeIngredientItem || appNum.includes('-CI-');
   const canManageProducts = canManageAddOnProducts(user);
 
   // Form State declared before any derived variables that reference form

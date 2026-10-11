@@ -34,9 +34,9 @@ export default function AdminExtensionLogsheet() {
     facility_address: '',
     contact_person: '',
     product_category: '',
-    certificate_type: 'HFA SCHEME NON MEAT',
-    suggested_certificate_type: 'HFA SCHEME NON MEAT',
-    scheme: 'HFA',
+    certificate_type: '',
+    suggested_certificate_type: '',
+    scheme: '',
     certificate_expiry_date: '',
     justification: '',
     extension_duration_type: '30_days', // '30_days' | 'more_than_30_days'
@@ -83,8 +83,8 @@ export default function AdminExtensionLogsheet() {
         : (siteAddress || '');
 
       // Auto-extract and resolve Certificate Type & Scheme
-      const rawCertType = loadedLog?.suggested_certificate_type || loadedLog?.certificate_type || loadedApp?.detected_certificate_type || loadedApp?.certificate_id?.certificate_type || '';
-      let detectedScheme = loadedLog?.scheme || loadedApp?.detected_scheme || 'HFA';
+      const rawCertType = loadedLog?.suggested_certificate_type || loadedLog?.certificate_type || '';
+      let detectedScheme = loadedLog?.scheme || '';
       if (rawCertType) {
         const u = rawCertType.toUpperCase();
         const hasGSO = u.includes('GSO') || u.includes('UAE') || u.includes('GCC');
@@ -94,7 +94,7 @@ export default function AdminExtensionLogsheet() {
         else if (hasHFA) detectedScheme = 'HFA';
       }
 
-      const initialCertType = rawCertType || (detectedScheme === 'GSO' ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT');
+      const initialCertType = rawCertType || '';
 
       setFormData({
         company_name: loadedLog?.company_name || loadedApp?.company_name || loadedApp?.client_id?.company_name || '',
@@ -177,10 +177,19 @@ export default function AdminExtensionLogsheet() {
   };
 
   const handleSave = async (submitForSig = false) => {
+    const chosenCertType = (formData.suggested_certificate_type || formData.certificate_type || '').trim();
+    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+    if (submitForSig && (!chosenCertType || INVALID_SCHEMES.includes(chosenCertType.toLowerCase()))) {
+      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         ...formData,
+        certificate_type: chosenCertType,
+        suggested_certificate_type: chosenCertType,
+        recommended_scheme: chosenCertType,
         submit_for_signature: submitForSig,
         clear_signatures: isRedoing || false,
         is_redo: isRedoing || false
@@ -701,7 +710,7 @@ export default function AdminExtensionLogsheet() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <select
                 disabled={isLocked}
-                value={formData.suggested_certificate_type || formData.certificate_type || 'HFA SCHEME NON MEAT'}
+                value={formData.suggested_certificate_type || formData.certificate_type || ''}
                 onChange={(e) => handleRecommendedSchemeChange(e.target.value)}
                 style={{
                   ...inputStyle,
@@ -709,11 +718,12 @@ export default function AdminExtensionLogsheet() {
                   fontWeight: 700,
                   fontSize: 13.5,
                   background: isLocked ? '#f8fafc' : '#ffffff',
-                  borderColor: '#0d9488',
+                  borderColor: (formData.suggested_certificate_type || formData.certificate_type) ? '#0d9488' : '#cbd5e1',
                   color: '#0f172a',
                   cursor: isLocked ? 'not-allowed' : 'pointer'
                 }}
               >
+                <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
                 <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food &amp; General Manufacturing)</option>
                 <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat &amp; Poultry Processing)</option>
                 <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
@@ -754,15 +764,17 @@ export default function AdminExtensionLogsheet() {
               </div>
 
               {/* Selected Scheme badge */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 8,
-                background: '#ffffff', border: '1px solid #cbd5e1',
-                fontSize: 12, fontWeight: 700, color: '#0f766e'
-              }}>
-                <CheckCircle2 size={14} style={{ color: '#0d9488' }} />
-                <span>Selected: <strong>{formData.suggested_certificate_type || formData.certificate_type || 'HFA SCHEME NON MEAT'}</strong></span>
-              </div>
+              {(formData.suggested_certificate_type || formData.certificate_type) && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 8,
+                  background: '#ffffff', border: '1px solid #cbd5e1',
+                  fontSize: 12, fontWeight: 700, color: '#0f766e'
+                }}>
+                  <CheckCircle2 size={14} style={{ color: '#0d9488' }} />
+                  <span>Selected: <strong>{formData.suggested_certificate_type || formData.certificate_type}</strong></span>
+                </div>
+              )}
             </div>
 
             <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>

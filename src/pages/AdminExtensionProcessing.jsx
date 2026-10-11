@@ -148,16 +148,16 @@ export default function AdminExtensionProcessing() {
 
   const currentStage = getStageIndex();
 
-  // ─── Stage 1 Action: Approve Extension Request ───
+  // ─── Stage 1 Action: Accept Extension Request ───
   const handleApproveRequest = async () => {
     setApprovingRequest(true);
     try {
       await api.post(`/api/extension-applications/${id}/approve-request`);
-      toast.success('Extension Form request approved! Step 2 (Create Logsheet) is now unlocked.');
+      toast.success('Extension Form request accepted! Step 2 (Create Logsheet) is now unlocked.');
       fetchDetails(true);
     } catch (err) {
-      console.error('Approve request error:', err);
-      toast.error(err.response?.data?.error || err.message || 'Failed to approve extension request.');
+      console.error('Accept request error:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept extension request.');
     } finally {
       setApprovingRequest(false);
     }
@@ -176,12 +176,12 @@ export default function AdminExtensionProcessing() {
         certificate_number: certNumber,
         notes: adminNotes
       });
-      toast.success('Extension Certificate approved and issued successfully!');
+      toast.success('Extension Certificate accepted and issued successfully!');
       setShowApproveModal(false);
       fetchDetails(true);
     } catch (err) {
       console.error('Approval error:', err);
-      toast.error(err.response?.data?.error || err.message || 'Failed to approve extension certificate.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept extension certificate.');
     } finally {
       setApproving(false);
     }
@@ -377,7 +377,7 @@ export default function AdminExtensionProcessing() {
                     boxShadow: '0 2px 6px rgba(0,135,68,0.3)'
                   }}
                 >
-                  <CheckCircle size={16} /> {approvingRequest ? 'Approving...' : 'Approve Extension Request'}
+                  <CheckCircle size={16} /> {approvingRequest ? 'Accepting...' : 'Accept Extension Request'}
                 </button>
               </>
             )}
@@ -423,7 +423,7 @@ export default function AdminExtensionProcessing() {
                   boxShadow: '0 2px 6px rgba(0,135,68,0.3)'
                 }}
               >
-                <Award size={16} /> Approve &amp; Issue Extension Certificate
+                <Award size={16} /> Accept &amp; Issue Extension Certificate
               </button>
             )}
 
@@ -432,7 +432,7 @@ export default function AdminExtensionProcessing() {
                 background: '#059669', color: 'white', padding: '9px 18px', borderRadius: 10,
                 display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13.5
               }}>
-                <CheckCircle size={16} /> Extension Approved
+                <CheckCircle size={16} /> Extension Accepted
               </div>
             )}
           </div>
@@ -520,7 +520,7 @@ export default function AdminExtensionProcessing() {
                 ) : isRejected ? (
                   <><XCircle size={12} /> Rejected</>
                 ) : (
-                  <><CheckCircle size={12} /> Request Approved</>
+                  <><CheckCircle size={12} /> Request Accepted</>
                 )}
               </span>
             </div>
@@ -573,7 +573,7 @@ export default function AdminExtensionProcessing() {
                         Review Decision: Extension Form Request
                       </div>
                       <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#64748b' }}>
-                        Approving the request will accept the justification and unlock Step 2 to configure the Extension Logsheet.
+                        Accepting the request will accept the justification and unlock Step 2 to configure the Extension Logsheet.
                       </p>
                     </div>
 
@@ -600,7 +600,7 @@ export default function AdminExtensionProcessing() {
                           boxShadow: '0 2px 6px rgba(0,135,68,0.25)'
                         }}
                       >
-                        <CheckCircle size={14} /> {approvingRequest ? 'Approving...' : 'Approve Request'}
+                        <CheckCircle size={14} /> {approvingRequest ? 'Accepting...' : 'Accept Request'}
                       </button>
                     </div>
                   </div>
@@ -614,7 +614,7 @@ export default function AdminExtensionProcessing() {
                 }}>
                   <CheckCircle size={16} color="#059669" />
                   <span style={{ fontSize: 12.5, color: '#065f46', fontWeight: 600 }}>
-                    Extension Request Approved by Admin • Stage 2 (Create Logsheet) is unlocked.
+                    Extension Request Accepted by Admin • Stage 2 (Create Logsheet) is unlocked.
                   </span>
                 </div>
               )}
@@ -1216,8 +1216,8 @@ export default function AdminExtensionProcessing() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between'
             }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Approve Extension Certificate</h3>
-                <p style={{ margin: '3px 0 0', fontSize: 12, opacity: 0.9 }}>Issue and approve Halal validity extension</p>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Accept Extension Certificate</h3>
+                <p style={{ margin: '3px 0 0', fontSize: 12, opacity: 0.9 }}>Issue and accept Halal validity extension</p>
               </div>
               <button
                 onClick={() => setShowApproveModal(false)}

@@ -596,9 +596,9 @@ export default function AdminAudits() {
                         ) : a.status === 'dates_proposed' ? (
                           <div>
                             <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: '#fffbeb', padding: '2px 7px', borderRadius: 6, border: '1px solid #fde68a' }}>
-                              3 Dates Proposed
+                              {a.proposed_dates?.length === 1 ? 'Date Proposed' : (a.proposed_dates?.length > 1 ? `${a.proposed_dates.length} Dates Proposed` : 'Date Proposed')}
                             </span>
-                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>Awaiting client choice</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>Awaiting client confirmation</div>
                           </div>
                         ) : a.status === 'dates_accepted' ? (
                           <div>

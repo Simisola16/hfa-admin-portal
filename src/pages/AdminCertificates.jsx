@@ -19,8 +19,8 @@ export default function AdminCertificates({ defaultTab }) {
   const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
     ? currentUser.roles
     : (currentUser?.role ? [currentUser.role] : []);
-  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
   const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
+  const canActivateDeactivateCertificate = isSuperAdmin || Boolean(currentUser?.can_activate_deactivate_certificate);
 
   const navigate = useNavigate();
 
@@ -935,7 +935,7 @@ export default function AdminCertificates({ defaultTab }) {
             href: getPdfUrl(actionModalCert.certificate_url),
             target: '_blank'
           }] : []),
-          ...((['inactive', 'superseded', 'outdated', 'expired', 'revoked'].includes((actionModalCert?.status || '').toLowerCase())) ? [{
+          ...(canActivateDeactivateCertificate && !isCertExpired(actionModalCert) && ['inactive', 'superseded', 'outdated', 'revoked'].includes((actionModalCert?.status || '').toLowerCase()) ? [{
             label: 'Activate Certificate',
             icon: CheckCircle,
             variant: 'primary',
@@ -951,7 +951,7 @@ export default function AdminCertificates({ defaultTab }) {
               }
             }
           }] : []),
-          ...(actionModalCert?.status === 'active' ? [{
+          ...(canActivateDeactivateCertificate && !isCertExpired(actionModalCert) && actionModalCert?.status === 'active' ? [{
             label: 'Deactivate Certificate',
             icon: X,
             variant: 'default',

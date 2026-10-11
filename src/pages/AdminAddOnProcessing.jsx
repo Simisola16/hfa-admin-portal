@@ -126,6 +126,14 @@ export default function AdminAddOnProcessing() {
         api.get(`/api/certificates/application/${addonId}`).catch(() => ({ data: null }))
       ]);
       const fetchedApp = appRes.data?.data || appRes.data;
+      if (fetchedApp?.addon_type === 'remove_product') {
+        navigate(`/addon-applications/${addonId}/processing-remove`, { replace: true });
+        return;
+      }
+      if (fetchedApp?.addon_type === 'change_ingredients') {
+        navigate(`/addon-applications/${addonId}/processing-ingredients`, { replace: true });
+        return;
+      }
       setApp(fetchedApp);
       setCertificate(certRes?.data?.data || certRes?.data || (typeof fetchedApp?.certificate_id === 'object' ? fetchedApp.certificate_id : null));
 

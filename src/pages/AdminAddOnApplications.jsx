@@ -694,7 +694,15 @@ export default function AdminAddOnApplications() {
                         {/* Process & Track Details Button */}
                         <button
                           className="btn btn-ghost btn-sm"
-                          onClick={() => navigate(`/addon-applications/${app._id}/processing`)}
+                          onClick={() => {
+                            if (app.addon_type === 'remove_product') {
+                              navigate(`/addon-applications/${app._id}/processing-remove`);
+                            } else if (app.addon_type === 'change_ingredients') {
+                              navigate(`/addon-applications/${app._id}/processing-ingredients`);
+                            } else {
+                              navigate(`/addon-applications/${app._id}/processing`);
+                            }
+                          }}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 12px', color: '#334155', whiteSpace: 'nowrap' }}
                         >
                           Track <ArrowUpRight size={13} />

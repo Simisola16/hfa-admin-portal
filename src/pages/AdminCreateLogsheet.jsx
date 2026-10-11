@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import {
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare,
   Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck,
-  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Package, Lock, RotateCcw
+  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Package, Lock, RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
@@ -62,6 +63,10 @@ export default function AdminCreateLogsheet() {
   const [initialProductName, setInitialProductName] = useState('');
   const [initialProductCode, setInitialProductCode] = useState('');
   const [savingProductDetails, setSavingProductDetails] = useState(false);
+
+  const effectiveAddonType = application?.addon_type || currentLogsheet?.addon_application_id?.addon_type || (isAddon ? application?.addon_type : null);
+  const isRemoveProduct = effectiveAddonType === 'remove_product';
+  const isChangeIngredients = effectiveAddonType === 'change_ingredients';
 
   // Form State declared before any derived variables that reference form
   const [form, setForm] = useState({
@@ -1044,16 +1049,80 @@ export default function AdminCreateLogsheet() {
     setShowApproveProductsModal(true);
   };
 
+  const handleAcceptIngredients = async () => {
+    if (totalSignedCount < 3) {
+      toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
+      return;
+    }
+    const isConfirmed = window.confirm(
+      'Are you sure you want to accept the modified ingredients? This will complete the application without generating a new certificate.'
+    );
+    if (!isConfirmed) return;
+
+    setIsFinalizing(true);
+    try {
+      const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+      if (!targetAddonId) throw new Error('Add-on application ID not found.');
+
+      // Finalize logsheet sign-off
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        finalizeSignOff: true
+      }).catch(() => {});
+
+      await api.put(`/api/add-on-applications/${targetAddonId}/accept-ingredients`);
+      toast.success('🎉 Ingredients accepted! Add-on application completed.');
+      navigate(`/addon-applications/${targetAddonId}/processing-ingredients`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept ingredients');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
   const handleSendHighlightedProductsToClient = async () => {
     const productsList = isInitialProduct
       ? (application?.product ? [application.product] : [])
       : (application?.products || clientProducts || []);
     if (productsList.length > 0 && selectedApproveProducts.length === 0) {
-      toast.error('Please select at least one product to approve.');
+      toast.error(isRemoveProduct ? 'Please select at least one product to remove.' : 'Please select at least one product to approve.');
       return;
     }
 
     const countToApprove = selectedApproveProducts.length > 0 ? selectedApproveProducts.length : productsList.length;
+
+    if (isRemoveProduct) {
+      const isConfirmed = window.confirm(
+        `Are you sure you want to remove the selected ${countToApprove} product(s) from the client's active Halal certification?`
+      );
+      if (!isConfirmed) return;
+
+      setIsFinalizing(true);
+      try {
+        const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+        const toRemove = selectedApproveProducts.map(idx => productsList[idx]).filter(Boolean);
+
+        // 1. Finalize logsheet sign-off
+        await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+          finalizeSignOff: true,
+          approved_products: toRemove
+        }).catch(() => {});
+
+        // 2. Remove products from DB and certificate
+        await api.put(`/api/add-on-applications/${targetAddonId}/remove-products`, {
+          selected_products: toRemove
+        });
+
+        toast.success(`🎉 ${toRemove.length} product(s) removed successfully! Ready for updated certificate.`);
+        setShowApproveProductsModal(false);
+        navigate(`/addon-applications/${targetAddonId}/processing-remove`);
+      } catch (err) {
+        toast.error(err.response?.data?.error || err.message || 'Failed to remove products');
+      } finally {
+        setIsFinalizing(false);
+      }
+      return;
+    }
+
     const isConfirmed = window.confirm(
       isInitialProduct
         ? 'Are you sure you want to approve this Initial Product and send for facility audit?'
@@ -2334,14 +2403,60 @@ export default function AdminCreateLogsheet() {
                     </div>
                     <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
                       {totalSignedCount >= 3
-                        ? ((isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
+                        ? (isRemoveProduct
+                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Remove Product" to finalize removal and ready the certificate.`
+                            : isChangeIngredients
+                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Ingredients Accepted" to complete review.`
+                            : (isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
                             ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to complete review and approve product for client.`
                             : `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`)
                         : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
                     </div>
                   </div>
 
-                  {(isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
+                  {isChangeIngredients ? (
+                    <button
+                      onClick={handleAcceptIngredients}
+                      disabled={isFinalizing || totalSignedCount < 3}
+                      className="btn btn-primary"
+                      style={{
+                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : '#cbd5e1',
+                        borderColor: totalSignedCount >= 3 ? '#7c3aed' : '#cbd5e1',
+                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        fontWeight: 800,
+                        padding: '10px 22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        borderRadius: 10,
+                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(124, 58, 237, 0.25)' : 'none',
+                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Ingredients Accepted</>}
+                    </button>
+                  ) : isRemoveProduct ? (
+                    <button
+                      onClick={openApproveProductsModal}
+                      disabled={isFinalizing || totalSignedCount < 3}
+                      className="btn btn-primary"
+                      style={{
+                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : '#cbd5e1',
+                        borderColor: totalSignedCount >= 3 ? '#dc2626' : '#cbd5e1',
+                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        fontWeight: 800,
+                        padding: '10px 22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        borderRadius: 10,
+                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(220, 38, 38, 0.25)' : 'none',
+                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      {isFinalizing ? <span className="spinner-white" /> : <><Trash2 size={16} strokeWidth={2.5} /> Remove Product</>}
+                    </button>
+                  ) : (isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
                     <button
                       onClick={openApproveProductsModal}
                       disabled={isFinalizing || totalSignedCount < 3}
@@ -3307,12 +3422,12 @@ export default function AdminCreateLogsheet() {
             {/* Modal Header */}
             <div style={{ padding: '20px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Package size={20} style={{ color: '#16a34a' }} />
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: isRemoveProduct ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isRemoveProduct ? '#fecaca' : '#bbf7d0'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isRemoveProduct ? <Trash2 size={20} style={{ color: '#dc2626' }} /> : <Package size={20} style={{ color: '#16a34a' }} />}
                 </div>
                 <div>
                   <div className="modal-title" style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
-                    {isInitialProduct ? 'Initial Product Approved' : 'Approve Add-on Products'}
+                    {isRemoveProduct ? 'Remove Products from Halal Certification' : (isInitialProduct ? 'Initial Product Approved' : 'Approve Add-on Products')}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                     {isInitialProduct
@@ -3329,10 +3444,12 @@ export default function AdminCreateLogsheet() {
             {/* Modal Body */}
             <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, background: '#fafafa' }}>
               {/* Guidance Notice */}
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
-                <div style={{ fontSize: 13, color: '#166534' }}>
-                  {isInitialProduct
+              <div style={{ background: isRemoveProduct ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isRemoveProduct ? '#fecaca' : '#bbf7d0'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                {isRemoveProduct ? <AlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} /> : <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />}
+                <div style={{ fontSize: 13, color: isRemoveProduct ? '#991b1b' : '#166534' }}>
+                  {isRemoveProduct
+                    ? 'Confirm the products to be removed from the active Halal certification. Highlighted products will be permanently removed from the client dashboard and database, and the certificate will be queued for updating.'
+                    : isInitialProduct
                     ? 'Confirm committee approval for this Initial Product. Once approved and sent for audit, the Initial Product status will be marked as Initial Product Approved and the main facility application will unlock audit scheduling.'
                     : 'Select the verified products to approve. Highlighted products will be pushed to the client dashboard and approved for certification.'}
                 </div>
@@ -3349,7 +3466,7 @@ export default function AdminCreateLogsheet() {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Products to Approve ({selectedApproveProducts.length} of {productsList.length} highlighted)
+                        {isRemoveProduct ? `Products to Remove (${selectedApproveProducts.length} of ${productsList.length} highlighted)` : `Products to Approve (${selectedApproveProducts.length} of ${productsList.length} highlighted)`}
                       </span>
                       <button
                         type="button"
@@ -3361,7 +3478,7 @@ export default function AdminCreateLogsheet() {
                             setSelectedApproveProducts(productsList.map((_, i) => i));
                           }
                         }}
-                        style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', padding: '2px 8px' }}
+                        style={{ fontSize: 12, fontWeight: 700, color: isRemoveProduct ? '#dc2626' : 'var(--primary)', padding: '2px 8px' }}
                       >
                         {allSelected ? 'Deselect All' : 'Select All Products'}
                       </button>
@@ -3392,11 +3509,11 @@ export default function AdminCreateLogsheet() {
                               gap: 14,
                               padding: '14px 16px',
                               borderRadius: 12,
-                              border: `2px solid ${isSelected ? '#16a34a' : '#e2e8f0'}`,
-                              background: isSelected ? '#f0fdf4' : '#fff',
+                              border: `2px solid ${isSelected ? (isRemoveProduct ? '#dc2626' : '#16a34a') : '#e2e8f0'}`,
+                              background: isSelected ? (isRemoveProduct ? '#fef2f2' : '#f0fdf4') : '#fff',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
-                              boxShadow: isSelected ? '0 2px 8px rgba(22, 163, 74, 0.12)' : 'none'
+                              boxShadow: isSelected ? (isRemoveProduct ? '0 2px 8px rgba(220, 38, 38, 0.12)' : '0 2px 8px rgba(22, 163, 74, 0.12)') : 'none'
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
@@ -3404,14 +3521,14 @@ export default function AdminCreateLogsheet() {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {}} // Handled by parent onClick
-                                style={{ width: 18, height: 18, accentColor: '#16a34a', cursor: 'pointer', flexShrink: 0 }}
+                                style={{ width: 18, height: 18, accentColor: isRemoveProduct ? '#dc2626' : '#16a34a', cursor: 'pointer', flexShrink: 0 }}
                               />
                               <div
                                 style={{
                                   width: 32,
                                   height: 32,
                                   borderRadius: 8,
-                                  background: isSelected ? '#16a34a' : '#f1f5f9',
+                                  background: isSelected ? (isRemoveProduct ? '#dc2626' : '#16a34a') : '#f1f5f9',
                                   color: isSelected ? '#fff' : '#475569',
                                   display: 'flex',
                                   alignItems: 'center',
@@ -3490,8 +3607,8 @@ export default function AdminCreateLogsheet() {
                 disabled={isFinalizing || selectedApproveProducts.length === 0}
                 className="btn btn-primary"
                 style={{
-                  background: 'linear-gradient(135deg, #15803d, #16a34a)',
-                  borderColor: '#15803d',
+                  background: isRemoveProduct ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : 'linear-gradient(135deg, #15803d, #16a34a)',
+                  borderColor: isRemoveProduct ? '#dc2626' : '#15803d',
                   color: '#fff',
                   fontWeight: 800,
                   padding: '10px 22px',
@@ -3499,18 +3616,18 @@ export default function AdminCreateLogsheet() {
                   alignItems: 'center',
                   gap: 8,
                   borderRadius: 10,
-                  boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                  boxShadow: isRemoveProduct ? '0 4px 12px rgba(220, 38, 38, 0.25)' : '0 4px 12px rgba(22, 163, 74, 0.25)',
                   opacity: (isFinalizing || selectedApproveProducts.length === 0) ? 0.6 : 1
                 }}
               >
                 {isFinalizing ? (
                   <>
-                    <span className="spinner-white" /> {isInitialProduct ? 'Sending for Audit...' : 'Sending to Client Dashboard...'}
+                    <span className="spinner-white" /> {isRemoveProduct ? 'Removing Products...' : (isInitialProduct ? 'Sending for Audit...' : 'Sending to Client Dashboard...')}
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={16} strokeWidth={2.5} />
-                    {isInitialProduct ? 'Send for Audit' : 'Send highlighted products to client dashboard'}
+                    {isRemoveProduct ? <Trash2 size={16} strokeWidth={2.5} /> : <CheckCircle2 size={16} strokeWidth={2.5} />}
+                    {isRemoveProduct ? 'Confirm Remove Selected Products' : (isInitialProduct ? 'Send for Audit' : 'Send highlighted products to client dashboard')}
                   </>
                 )}
               </button>

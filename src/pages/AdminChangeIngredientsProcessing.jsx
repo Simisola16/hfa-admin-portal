@@ -363,7 +363,7 @@ export default function AdminChangeIngredientsProcessing() {
       {/* ─── Top Header Section ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/addon-applications')}>
-          <ArrowLeft size={16} /> Back to Add-on Applications
+          <ArrowLeft size={16} /> Back
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8b5cf6', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -554,7 +554,7 @@ export default function AdminChangeIngredientsProcessing() {
               {app.ingredients_accepted_at && (
                 <div style={{ marginTop: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: 6 }}>
-                    ✓ Ingredients Officially Accepted by Committee
+                    ✓ Ingredients Officially Accepted
                   </div>
                   <div style={{ fontSize: 12.5, color: '#14532d' }}>
                     Ingredient changes accepted on {new Date(app.ingredients_accepted_at).toLocaleDateString('en-GB')}. The product formulation is confirmed compliant. No new certificate issuance required.

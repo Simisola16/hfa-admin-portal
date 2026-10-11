@@ -65,9 +65,20 @@ export default function AdminCreateLogsheet() {
   const [initialProductCode, setInitialProductCode] = useState('');
   const [savingProductDetails, setSavingProductDetails] = useState(false);
 
-  const effectiveAddonType = application?.addon_type || application?.action_type || currentLogsheet?.addon_application_id?.addon_type || currentLogsheet?.addon_application_id?.action_type || (isAddon ? (application?.addon_type || application?.action_type) : null);
-  const isRemoveProduct = effectiveAddonType === 'remove_product';
-  const isChangeIngredients = effectiveAddonType === 'change_ingredients';
+  const rawAddonType = String(
+    application?.addon_type ||
+    application?.action_type ||
+    currentLogsheet?.addon_type ||
+    currentLogsheet?.addon_application_id?.addon_type ||
+    currentLogsheet?.addon_application_id?.action_type ||
+    ''
+  ).toLowerCase().trim().replace(/[-\s]/g, '_');
+
+  const hasRemoveProductItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('remove'));
+  const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('change'));
+
+  const isRemoveProduct = rawAddonType === 'remove_product' || rawAddonType === 'remove' || hasRemoveProductItem;
+  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change' || hasChangeIngredientItem;
   const canManageProducts = canManageAddOnProducts(user);
 
   // Form State declared before any derived variables that reference form
@@ -169,7 +180,15 @@ export default function AdminCreateLogsheet() {
           const logDoc = logRes.data?.data || logRes.data;
           if (logDoc && logDoc._id) {
             setCurrentLogsheet(logDoc);
-            if (logDoc.application_id && typeof logDoc.application_id === 'object') {
+            if (logDoc.addon_application_id && typeof logDoc.addon_application_id === 'object') {
+              setApplication(logDoc.addon_application_id);
+            } else if (logDoc.addon_application_id && typeof logDoc.addon_application_id === 'string') {
+              try {
+                const aoRes = await api.get(`/api/add-on-applications/${logDoc.addon_application_id}`);
+                const aoData = aoRes.data?.data || aoRes.data;
+                if (aoData) setApplication(aoData);
+              } catch (_) {}
+            } else if (logDoc.application_id && typeof logDoc.application_id === 'object') {
               setApplication(logDoc.application_id);
             }
             setForm(f => ({
@@ -1997,22 +2016,113 @@ export default function AdminCreateLogsheet() {
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <FileText size={16} style={{ color: '#047857' }} />
-                {isProductLogsheet ? '6. Filled Product Approval Request Forms & Declarations' : '6. Attached Audit Reports'}
+                {isRemoveProduct
+                  ? '6. Products Requested for Removal'
+                  : isChangeIngredients
+                  ? '6. Products with Formulation / Ingredient Changes'
+                  : isProductLogsheet
+                  ? '6. Filled Product Approval Request Forms & Declarations'
+                  : '6. Attached Audit Reports'}
               </h4>
 
               {isProductLogsheet ? (
                 <div>
                   <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 14 }}>
-                    Official client-submitted 3-page Halal Certification Product Approval Request Forms with full ingredient declarations, porcine segregation checks, and technical sign-offs:
+                    {isRemoveProduct
+                      ? 'Products requested to be removed from the active Halal certification upon Committee sign-off:'
+                      : isChangeIngredients
+                      ? 'Products undergoing formulation or ingredient changes for Committee technical verification:'
+                      : 'Official client-submitted 3-page Halal Certification Product Approval Request Forms with full ingredient declarations, porcine segregation checks, and technical sign-offs:'}
                   </div>
 
                   <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                    {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                    {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || currentLogsheet?.products_list || form?.products_list || [])).map((p, pIdx) => {
                       const resp = isInitialProduct
                         ? (application?.product_approval_form?.product_response || {})
                         : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
                       const isSaved = resp?.is_saved || Boolean(resp?.response_url) || (resp?.form_data && Object.keys(resp.form_data).length > 0);
                       const formData = resp?.form_data || {};
+                      const displayName = isInitialProduct ? (initialProductName || p.name) : p.name;
+                      const displayCode = isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code;
+
+                      const isThisRemove = isRemoveProduct || String(p.type || '').toLowerCase().includes('remove');
+                      const isThisChange = isChangeIngredients || String(p.type || '').toLowerCase().includes('change');
+
+                      if (isThisRemove || isThisChange) {
+                        return (
+                          <div
+                            key={pIdx}
+                            style={{
+                              background: isRemoveProduct ? '#fef2f2' : '#f5f3ff',
+                              border: `1.5px solid ${isRemoveProduct ? '#fecaca' : '#ddd6fe'}`,
+                              borderRadius: 10,
+                              padding: '14px 18px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: 12
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div style={{
+                                width: 34, height: 34, borderRadius: 8,
+                                background: isRemoveProduct ? '#fee2e2' : '#ede9fe',
+                                color: isRemoveProduct ? '#dc2626' : '#7c3aed',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 800, fontSize: 13
+                              }}>
+                                #{pIdx + 1}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                                  {displayName} {displayCode ? `(${displayCode})` : ''}
+                                </div>
+                                <div style={{ fontSize: 12, color: isRemoveProduct ? '#dc2626' : '#6d28d9', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                                  {isRemoveProduct ? (
+                                    <>
+                                      <Trash2 size={13} />
+                                      <span>Action: Remove from Halal Certificate</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw size={13} />
+                                      <span>Action: Ingredient / Formulation Modification</span>
+                                    </>
+                                  )}
+                                </div>
+                                {p.notes && (
+                                  <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 3 }}>
+                                    <strong>Notes:</strong> {p.notes}
+                                  </div>
+                                )}
+                                {p.ingredient_changes && (
+                                  <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 3 }}>
+                                    <strong>Changes:</strong> {p.ingredient_changes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                              <span className={`badge ${isRemoveProduct ? 'badge-red' : 'badge-purple'}`} style={{ fontSize: 11, fontWeight: 700 }}>
+                                {isRemoveProduct ? 'To Be Removed' : 'Ingredient Changes'}
+                              </span>
+                              {p.file_url && (
+                                <a
+                                  href={getPdfUrl(p.file_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-outline btn-sm"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                                >
+                                  <Download size={13} /> Supporting Doc
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
 
                       return (
                         <div
@@ -2041,7 +2151,7 @@ export default function AdminCreateLogsheet() {
                             </div>
                             <div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                                {isInitialProduct ? (initialProductName || p.name) : p.name} {(isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code) ? `(${isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code})` : ''}
+                                {displayName} {displayCode ? `(${displayCode})` : ''}
                               </div>
                               <div style={{ fontSize: 11.5, color: isSaved ? '#15803d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                 {isSaved ? (
@@ -2070,8 +2180,6 @@ export default function AdminCreateLogsheet() {
                                 fontWeight: 700
                               }}
                               onClick={() => {
-                                const displayName = isInitialProduct ? (initialProductName || p.name) : p.name;
-                                const displayCode = isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code;
                                 setViewProductModal({
                                   isOpen: true,
                                   formData: formData && Object.keys(formData).length > 0 ? formData : {
@@ -2856,18 +2964,22 @@ export default function AdminCreateLogsheet() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', margin: 0 }}>
-                          Client Product Approval Request Forms &amp; Specifications
+                          {isRemoveProduct ? 'Products Requested for Removal' : isChangeIngredients ? 'Products with Ingredient Changes' : 'Client Product Approval Request Forms & Specifications'}
                         </label>
                         <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700 }}>
-                          {isInitialProduct ? '1 PRODUCT IN INITIAL EVALUATION' : `${application?.products?.length || 0} PRODUCTS IN ADD-ON`}
+                          {isInitialProduct ? '1 PRODUCT IN INITIAL EVALUATION' : (isRemoveProduct ? `${application?.products?.length || 0} PRODUCTS TO REMOVE` : (isChangeIngredients ? `${application?.products?.length || 0} PRODUCTS WITH INGREDIENT CHANGES` : `${application?.products?.length || 0} PRODUCTS IN ADD-ON`))}
                         </span>
                       </div>
                       <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
-                        Official 3-page Halal Certification Product Approval Request Forms submitted by the client (Ingredients, Porcine Segregation, Processing Aids, Ethanol, Packaging specs &amp; Signatures).
+                        {isRemoveProduct
+                          ? 'Products requested to be removed from the active Halal certification upon Committee sign-off.'
+                          : isChangeIngredients
+                          ? 'Products undergoing formulation or ingredient changes for Committee technical verification.'
+                          : 'Official 3-page Halal Certification Product Approval Request Forms submitted by the client (Ingredients, Porcine Segregation, Processing Aids, Ethanol, Packaging specs & Signatures).'}
                       </div>
 
                       <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-                        {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                        {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || currentLogsheet?.products_list || form?.products_list || [])).map((p, pIdx) => {
                           const resp = isInitialProduct
                             ? (application?.product_approval_form?.product_response || {})
                             : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
@@ -2875,6 +2987,34 @@ export default function AdminCreateLogsheet() {
                           const formData = resp?.form_data || {};
                           const displayName = isInitialProduct ? (initialProductName || p.name) : p.name;
                           const displayCode = isInitialProduct ? (initialProductCode !== undefined ? initialProductCode : p.code) : p.code;
+
+                          const isThisRemove = isRemoveProduct || String(p.type || '').toLowerCase().includes('remove');
+                          const isThisChange = isChangeIngredients || String(p.type || '').toLowerCase().includes('change');
+
+                          if (isThisRemove || isThisChange) {
+                            return (
+                              <div key={pIdx} style={{ background: isRemoveProduct ? '#fef2f2' : '#f5f3ff', border: `1.5px solid ${isRemoveProduct ? '#fecaca' : '#ddd6fe'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <div style={{ width: 28, height: 28, borderRadius: 6, background: isRemoveProduct ? '#fee2e2' : '#ede9fe', color: isRemoveProduct ? '#dc2626' : '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>
+                                    #{pIdx + 1}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                                      {displayName} {displayCode ? `(${displayCode})` : ''}
+                                    </div>
+                                    <div style={{ fontSize: 11.5, color: isRemoveProduct ? '#dc2626' : '#6d28d9', fontWeight: 600 }}>
+                                      {isRemoveProduct ? 'Action: Remove Product from Halal Certificate' : 'Action: Ingredient / Formulation Modification'}
+                                    </div>
+                                    {p.notes && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Notes: {p.notes}</div>}
+                                    {p.ingredient_changes && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Changes: {p.ingredient_changes}</div>}
+                                  </div>
+                                </div>
+                                <span className={`badge ${isRemoveProduct ? 'badge-red' : 'badge-purple'}`} style={{ fontSize: 11, fontWeight: 700 }}>
+                                  {isRemoveProduct ? 'To Be Removed' : 'Ingredient Changes'}
+                                </span>
+                              </div>
+                            );
+                          }
 
                           return (
                             <div key={pIdx} style={{ background: '#fff', border: `1.5px solid ${isSaved ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -3597,38 +3737,52 @@ export default function AdminCreateLogsheet() {
                                   <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
                                     {p.type || 'Initial product'}
                                   </span>
-                                  {isSaved ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#16a34a', fontWeight: 600 }}>
-                                      <CheckCircle2 size={12} /> Form Signed
+                                  {!(isRemoveProduct || isChangeIngredients) && (
+                                    isSaved ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#16a34a', fontWeight: 600 }}>
+                                        <CheckCircle2 size={12} /> Form Signed
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94a3b8' }}>Awaiting Signatory</span>
+                                    )
+                                  )}
+                                  {isRemoveProduct && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#dc2626', fontWeight: 600 }}>
+                                      <Trash2 size={12} /> Marked for Removal
                                     </span>
-                                  ) : (
-                                    <span style={{ color: '#94a3b8' }}>Awaiting Signatory</span>
+                                  )}
+                                  {isChangeIngredients && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#7c3aed', fontWeight: 600 }}>
+                                      <CheckCircle2 size={12} /> Formulation Update
+                                    </span>
                                   )}
                                 </div>
                               </div>
                             </div>
 
-                            {/* View Filled Form Link */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewProductModal({
-                                  isOpen: true,
-                                  formData: formData && Object.keys(formData).length > 0 ? formData : {
-                                    product_name: p.name,
-                                    product_code: p.code,
-                                    company_name_address: form.company_name
-                                  },
-                                  product: p,
-                                  company: application?.client_id
-                                });
-                              }}
-                              style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', padding: '4px 8px', flexShrink: 0 }}
-                            >
-                              <Eye size={13} style={{ marginRight: 4 }} /> View Form
-                            </button>
+                            {/* View Filled Form Link (Add-product / Initial product only) */}
+                            {!(isRemoveProduct || isChangeIngredients) && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewProductModal({
+                                    isOpen: true,
+                                    formData: formData && Object.keys(formData).length > 0 ? formData : {
+                                      product_name: p.name,
+                                      product_code: p.code,
+                                      company_name_address: form.company_name
+                                    },
+                                    product: p,
+                                    company: application?.client_id
+                                  });
+                                }}
+                                style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', padding: '4px 8px', flexShrink: 0 }}
+                              >
+                                <Eye size={13} style={{ marginRight: 4 }} /> View Form
+                              </button>
+                            )}
                           </div>
                         );
                       })}

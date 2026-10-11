@@ -368,7 +368,7 @@ export default function AdminRemoveProductProcessing() {
       {/* ─── Top Header Section ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/addon-applications')}>
-          <ArrowLeft size={16} /> Back to Add-on Applications
+          <ArrowLeft size={16} /> Back
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#dc2626', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>

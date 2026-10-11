@@ -108,6 +108,7 @@ export default function SuperAdminDirectCertificate() {
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
 
   const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT' || certType === 'SMIIC' || (certType && (certType.includes('GSO') || certType.includes('SMIIC')));
+  const isSurvLetter = certType === 'SURVEILLANCE LETTER' || String(certType || '').toUpperCase().includes('SURVEILLANCE');
 
   // Product Table Column Format (1 = Name Only, 2 = Code + Desc, 3 = Code + Desc + Category)
   const [productTableColumns, setProductTableColumns] = useState(2);
@@ -191,12 +192,13 @@ export default function SuperAdminDirectCertificate() {
         scope: certProductCategory || '',
         product_category: certProductCategory || '',
         issue_date: issueDate,
+        audit_date: certificationStartDate || issueDate,
         current_cycle_start_date: isGso ? currentCycleStartDate : issueDate,
         original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,
         certification_start_date: certificationStartDate || issueDate,
         expiry_date: expiryDate,
         product_table_columns: productTableColumns,
-        products: validProducts
+        products: isSurvLetter ? [] : validProducts
       });
 
       const url = res.previewUrl || res.data?.previewUrl;
@@ -842,7 +844,7 @@ export default function SuperAdminDirectCertificate() {
       }
     }
 
-    if (validProducts.length === 0) {
+    if (!isSurvLetter && validProducts.length === 0) {
       return toast.error('Please specify at least one product name to certify.');
     }
 
@@ -885,6 +887,7 @@ export default function SuperAdminDirectCertificate() {
       formData.append('certificate_type', certType);
       formData.append('issue_date', issueDate);
       formData.append('expiry_date', expiryDate);
+      formData.append('audit_date', certificationStartDate || issueDate);
       formData.append('current_cycle_start_date', isGso ? (currentCycleStartDate || issueDate) : issueDate);
       formData.append('original_cycle_start_date', isGso ? (originalCycleStartDate || issueDate) : issueDate);
       formData.append('certification_start_date', !isGso ? (certificationStartDate || issueDate) : issueDate);
@@ -892,7 +895,7 @@ export default function SuperAdminDirectCertificate() {
       formData.append('notes', notes);
 
       // Products JSON
-      formData.append('products', JSON.stringify(validProducts));
+      formData.append('products', JSON.stringify(isSurvLetter ? [] : validProducts));
       formData.append('product_table_columns', productTableColumns);
 
       // Options — certificate PDF is always auto-generated
@@ -1549,10 +1552,12 @@ export default function SuperAdminDirectCertificate() {
                         />
                       </div>
 
-                      {/* Certification Start Date */}
+                      {/* Certification Start Date / Audit Date */}
                       <div className="form-group">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <label className="form-label">Certification Start Date</label>
+                          <label className="form-label">
+                            {isSurvLetter ? 'Audit Date' : 'Certification Start Date'} {isSurvLetter && <span>*</span>}
+                          </label>
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
@@ -1567,6 +1572,7 @@ export default function SuperAdminDirectCertificate() {
                           className="form-control"
                           value={certificationStartDate}
                           onChange={e => setCertificationStartDate(e.target.value)}
+                          required={isSurvLetter}
                         />
                       </div>
                     </>
@@ -1575,6 +1581,7 @@ export default function SuperAdminDirectCertificate() {
               </div>
 
               {/* CARD 3: Multi-Product Certification Builder */}
+              {!isSurvLetter && (
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2043,6 +2050,7 @@ export default function SuperAdminDirectCertificate() {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
 

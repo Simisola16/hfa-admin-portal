@@ -4,7 +4,7 @@ import { Calendar, Users, Lock, AlertCircle, CheckCircle, FileText, AlertTriangl
 import { useAuth } from '../context/AuthContext';
 import { canManageAuditDates } from '../lib/permissions';
 
-export default function AuditCard({ audits, status, app, initialProduct, isInitialProductApproved = true, isFastTrack = false, onManage }) {
+export default function AuditCard({ audits, status, app, initialProduct, isInitialProductApproved = true, isFastTrack = false, isSurveillance: propIsSurv = false, onManage }) {
   const { user } = useAuth();
   const canManage = canManageAuditDates(user);
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
@@ -60,8 +60,9 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
   const catLower = String(app?.category || '').toLowerCase();
   const typeLower = String(app?.application_type || '').toLowerCase();
   const schemeLower = String(app?.scheme || '').toLowerCase();
+  const isSurveillance = propIsSurv || app?.is_surveillance || (app?.surveillance_year && app?.surveillance_year > 0) || typeLower.includes('surv') || catLower.includes('surv') || schemeLower.includes('surv');
   const isGso = catLower.includes('gso') || catLower.includes('uae') || typeLower.includes('gso') || schemeLower.includes('gso');
-  const isDualStage = isGso || app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const isDualStage = !isSurveillance && (isGso || app?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE');
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];
   const stage2 = audits?.find(a => a.stage === 2);
 

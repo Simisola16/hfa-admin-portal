@@ -14,13 +14,13 @@ import {
 } from 'lucide-react';
 
 const CERTIFICATE_STANDARDS = [
-  'GSO MEAT',
-  'GSO NON MEAT',
-  'HFA SCHEME MEAT',
+  'Surveillance Letter',
   'HFA SCHEME NON MEAT',
+  'HFA SCHEME MEAT',
+  'GSO NON MEAT',
+  'GSO MEAT',
   'COSMETICS',
-  'SMIIC',
-  'SURVEILLANCE LETTER'
+  'SMIIC'
 ];
 
 const AUDIT_TYPE_OPTIONS = [
@@ -48,8 +48,8 @@ const NATURE_OF_BUSINESS_PRESETS = [
 const LOGSHEET_TYPES = [
   {
     id: 'application',
-    title: 'Application Logsheet',
-    shortTitle: 'Application',
+    title: 'Normal Logsheet',
+    shortTitle: 'Normal Logsheet',
     subtitle: 'Standard Halal Certification & Annual Renewal',
     icon: FileText,
     badge: 'Full Certification',
@@ -160,7 +160,9 @@ export default function AdminDirectLogsheet() {
 
   const [form, setForm] = useState({
     logsheet_type: 'application',
-    certificate_standard: 'GSO MEAT',
+    certificate_standard: '',
+    certificate_type: '',
+    suggested_certificate_type: '',
     scope: 'Halal Food Certification & Processing Operations',
     nature_of_business: NATURE_OF_BUSINESS_PRESETS[0],
     product_category: 'General Food Products',
@@ -444,6 +446,16 @@ export default function AdminDirectLogsheet() {
     setSubmitting(true);
 
     try {
+      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+      const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+      if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+        toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+        setSubmitting(false);
+        setCreateStep(1);
+        return;
+      }
+
+      // Products schedule is optional
       const validProducts = products.filter(p => p.name && p.name.trim()).map((p, idx) => ({
         name: p.name.trim(),
         code: p.code?.trim() || `PRD-${String(idx + 1).padStart(2, '0')}`,
@@ -454,13 +466,6 @@ export default function AdminDirectLogsheet() {
         e_numbers: p.e_numbers || '',
         halal_status: p.halal_status || 'Halal Certified'
       }));
-
-      if (validProducts.length === 0 && selectedType !== 'extension') {
-        toast.error('Please enter at least one product name in the products schedule.');
-        setSubmitting(false);
-        setCreateStep(1);
-        return;
-      }
 
       const compName = clientMode === 'existing'
         ? (selectedClient?.company_name || form.company_name)
@@ -485,6 +490,9 @@ export default function AdminDirectLogsheet() {
       const payload = {
         ...form,
         logsheet_type: selectedType,
+        certificate_standard: resolvedCertType,
+        certificate_type: resolvedCertType,
+        suggested_certificate_type: resolvedCertType,
         company_name: compName.trim(),
         company_address: form.company_address || customSiteAddress || '—',
         manufacturing_address: customManufacturingAddress || customSiteAddress || '',
@@ -504,11 +512,12 @@ export default function AdminDirectLogsheet() {
 
       toast.success(res.data?.message || 'Direct Logsheet created successfully!');
       
-      // Refresh direct history and switch to history view
-      await fetchHistory();
-      setActiveTab('history');
+      // Navigate directly to authentic full logsheet if created
       if (created?._id) {
-        setInspectLogsheet(created);
+        navigate(`/logsheet/direct/${created._id}`);
+      } else {
+        await fetchHistory();
+        setActiveTab('history');
       }
 
       // Reset step
@@ -615,7 +624,7 @@ export default function AdminDirectLogsheet() {
             Direct Halal Logsheet Studio
           </h1>
           <p style={{ fontSize: 13.5, color: '#d1fae5', margin: 0, lineHeight: 1.5 }}>
-            Create and process official Decision Logsheets directly across all 4 certification modules: <strong>Application</strong>, <strong>Initial Product</strong>, <strong>Add-on</strong>, and <strong>Extension</strong>.
+            Create and process official Decision Logsheets directly across all 4 certification modules: <strong>Normal Logsheet</strong>, <strong>Initial Product</strong>, <strong>Add-on</strong>, and <strong>Extension</strong>.
           </p>
         </div>
 
@@ -998,10 +1007,12 @@ export default function AdminDirectLogsheet() {
                       </label>
                       <select
                         className="form-control"
-                        value={form.certificate_standard}
-                        onChange={e => setForm(f => ({ ...f, certificate_standard: e.target.value }))}
+                        value={form.certificate_standard || form.certificate_type || ''}
+                        onChange={e => setForm(f => ({ ...f, certificate_standard: e.target.value, certificate_type: e.target.value, suggested_certificate_type: e.target.value }))}
                         style={{ height: 42, borderRadius: 8, fontWeight: 700 }}
+                        required
                       >
+                        <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
                         {CERTIFICATE_STANDARDS.map(s => (
                           <option key={s} value={s}>{s}</option>
                         ))}
@@ -1112,7 +1123,6 @@ export default function AdminDirectLogsheet() {
                                     onChange={e => updateProductRow(p.id, 'name', e.target.value)}
                                     placeholder="e.g. Whole Frozen Halal Chicken 1200g"
                                     style={{ height: 36, fontSize: 13, fontWeight: 600 }}
-                                    required={idx === 0 && selectedType !== 'extension'}
                                   />
                                 </td>
                                 <td style={{ padding: '8px 14px', width: 180 }}>
@@ -1706,17 +1716,17 @@ export default function AdminDirectLogsheet() {
                               <button
                                 type="button"
                                 className="btn btn-ghost btn-sm"
-                                onClick={() => setInspectLogsheet(l)}
+                                onClick={() => navigate(`/logsheet/direct/${l._id}`)}
                                 style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, color: '#2563eb' }}
                               >
-                                <Eye size={13} style={{ marginRight: 4 }} /> View &amp; Print
+                                <Eye size={13} style={{ marginRight: 4 }} /> Open Full Logsheet
                               </button>
 
                               {signedCount < 4 && hasSignaturePrivilege && (
                                 <button
                                   type="button"
                                   className="btn btn-primary btn-sm"
-                                  onClick={() => setReviewSignModal(l)}
+                                  onClick={() => navigate(`/logsheet/direct/${l._id}`)}
                                   style={{ borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700 }}
                                 >
                                   <PenTool size={13} style={{ marginRight: 4 }} /> Sign

@@ -482,53 +482,6 @@ export default function AdminChangeSupplierProcessing() {
         </div>
       </div>
 
-      {/* ─── Workflow Step Progression Bar ─── */}
-      <div style={{
-        background: 'white', borderRadius: 16, border: '1px solid var(--border)',
-        padding: '20px 24px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-          {FLOW_STEPS.map((step, idx) => {
-            const stepIdx = ORDER.indexOf(step.id);
-            const isCompleted = currentIdx > stepIdx || app.status === 'completed';
-            const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
-
-            return (
-              <React.Fragment key={step.id}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, minWidth: 80, textAlign: 'center' }}>
-                  <div style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    background: isCompleted ? '#16a34a' : isCurrent ? '#d97706' : '#f1f5f9',
-                    color: (isCompleted || isCurrent) ? 'white' : '#94a3b8',
-                    border: `2px solid ${isCompleted ? '#16a34a' : isCurrent ? '#f59e0b' : '#cbd5e1'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 800, fontSize: 13,
-                    boxShadow: isCurrent ? '0 0 0 4px #fef3c7' : 'none'
-                  }}>
-                    {isCompleted ? <Check size={16} strokeWidth={3} /> : idx + 1}
-                  </div>
-                  <div style={{
-                    fontSize: 11, fontWeight: isCurrent ? 800 : 600,
-                    color: isCompleted ? '#16a34a' : isCurrent ? '#b45309' : '#64748b',
-                    marginTop: 6, maxWidth: 95
-                  }}>
-                    {step.label}
-                  </div>
-                </div>
-
-                {idx < FLOW_STEPS.length - 1 && (
-                  <div style={{
-                    flex: 1, height: 3,
-                    background: currentIdx > stepIdx ? '#16a34a' : '#e2e8f0',
-                    margin: '0 4px', marginBottom: 20, zIndex: 1
-                  }} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ─── Main Content Layout ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
 

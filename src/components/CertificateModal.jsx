@@ -593,6 +593,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       company_address: companyAddress,
       manufacturing_address: manufacturingAddress,
       scope,
+      audit_date: activeLogsheet?.audit_date
+        ? new Date(activeLogsheet.audit_date).toISOString().split('T')[0]
+        : (loadedApp.audit_date ? new Date(loadedApp.audit_date).toISOString().split('T')[0] : resolvedIssueDate),
       issue_date: resolvedIssueDate,
       expiry_date: resolvedExpiryDate,
       current_cycle_start_date: resolvedCurrentCycle,
@@ -942,9 +945,23 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
       }
     }
 
-    if (isSurveillance && !certificateForm.file) {
-      toast.error('Please upload the official Surveillance Letter PDF document.');
-      return;
+    if (isSurveillance) {
+      if (!certificateForm.audit_date) {
+        toast.error('Audit Date is required.');
+        return;
+      }
+      if (!certificateForm.issue_date) {
+        toast.error('Issue Date is required.');
+        return;
+      }
+      if (!certificateForm.expiry_date) {
+        toast.error('Expiry Date is required.');
+        return;
+      }
+      if (!certificateForm.file) {
+        toast.error('Please upload the official Surveillance Letter PDF document.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -955,8 +972,9 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         try {
           const formData = new FormData();
           formData.append('letter_number', certificateForm.certificate_number);
-          formData.append('issue_date', certificateForm.issue_date);
           formData.append('audit_date', certificateForm.audit_date || certificateForm.certification_start_date || certificateForm.issue_date);
+          formData.append('issue_date', certificateForm.issue_date);
+          formData.append('expiry_date', certificateForm.expiry_date);
           formData.append('next_due_date', certificateForm.expiry_date);
           if (certificateForm.file) {
             formData.append('letter_file', certificateForm.file);
@@ -1404,37 +1422,40 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
 
               {/* 4. Dates Section */}
               {isSurveillance ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
-                      Letter Date <span style={{ color: '#dc2626' }}>*</span>
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={certificateForm.issue_date}
-                      onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))}
-                    />
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
                       Audit Date <span style={{ color: '#dc2626' }}>*</span>
                     </label>
                     <input
                       type="date"
+                      required
                       className="form-control"
-                      value={certificateForm.audit_date || certificateForm.certification_start_date || certificateForm.issue_date}
+                      value={certificateForm.audit_date || certificateForm.certification_start_date || ''}
                       onChange={e => setCertificateForm(f => ({ ...f, audit_date: e.target.value, certification_start_date: e.target.value }))}
                     />
                   </div>
-                  <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
-                      Next Audit Due Date <span style={{ color: '#dc2626' }}>*</span>
+                      Issue Date <span style={{ color: '#dc2626' }}>*</span>
                     </label>
                     <input
                       type="date"
+                      required
                       className="form-control"
-                      value={certificateForm.expiry_date}
+                      value={certificateForm.issue_date || ''}
+                      onChange={e => setCertificateForm(f => ({ ...f, issue_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
+                      Expiry Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={certificateForm.expiry_date || ''}
                       onChange={e => setCertificateForm(f => ({ ...f, expiry_date: e.target.value }))}
                     />
                   </div>

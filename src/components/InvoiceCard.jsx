@@ -1,11 +1,14 @@
 import { getPdfUrl } from '../lib/pdfUtils';
-import React from 'react';
-import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
+import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canSendInvoice, canConfirmPayment } from '../lib/permissions';
 
 export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment, onSendInvoice }) {
   const { user } = useAuth();
+  const [reminding, setReminding] = useState(false);
   const canSend = canSendInvoice(user);
   const canConfirm = canConfirmPayment(user);
   const normStatus = (status || app?.status || '').toLowerCase().replace(/ /g, '_');
@@ -205,6 +208,30 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {canSend && !isPaid && (
+            <button
+              onClick={async () => {
+                const invId = invoice?._id || invoice?.id;
+                if (!invId) return;
+                setReminding(true);
+                try {
+                  const res = await api.post(`/api/invoices/${invId}/remind`);
+                  toast.success(res.data?.message || 'Payment reminder sent to client!');
+                } catch (err) {
+                  toast.error(err.response?.data?.error || err.message || 'Failed to send reminder');
+                } finally {
+                  setReminding(false);
+                }
+              }}
+              disabled={reminding}
+              className="btn btn-ghost btn-sm"
+              style={{ border: '1px solid #fde68a', background: '#fffbeb', color: '#b45309', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              title="Send payment reminder to client"
+            >
+              <Bell size={13} style={{ color: '#d97706' }} />
+              {reminding ? 'Reminding...' : 'Remind Client'}
+            </button>
+          )}
           {canSend && onSendInvoice && !isPaid && (
             <button onClick={onSendInvoice} className="btn btn-ghost btn-sm" style={{ border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
               Resend Invoice
@@ -218,6 +245,12 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
         </div>
       </div>
       <div style={{ padding: '20px 24px' }}>
+        {isFastTrack && !isPaid && (
+          <div style={{ marginBottom: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14 }}>ℹ️</span>
+            <span><strong>Existing HFA Client:</strong> Application continues processing normally and is not blocked while payment is pending.</span>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isPaid ? '#166534' : 'var(--text-muted)', marginBottom: 4 }}>Title</div>

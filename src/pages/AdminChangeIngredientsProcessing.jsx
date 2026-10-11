@@ -449,7 +449,14 @@ export default function AdminChangeIngredientsProcessing() {
                   {productsList.map((p, idx) => (
                     <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '12px 14px', color: '#94a3b8', fontWeight: 700 }}>#{idx + 1}</td>
-                      <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>{p.name || p.original_name}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
+                        <div>{p.name || p.original_name}</div>
+                        {p.description && (
+                          <div style={{ fontSize: 12, fontWeight: 500, color: '#0369a1', marginTop: 4, background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: 6, display: 'inline-block' }}>
+                            Notes: {p.description}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 14px', color: '#64748b' }}><code>{p.code || '—'}</code></td>
                       <td style={{ padding: '12px 14px' }}>
                         <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>

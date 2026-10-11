@@ -479,6 +479,13 @@ export default function AdminChangeSupplierProcessing() {
               <FileText size={15} /> View Committee Logsheet
             </button>
           )}
+
+          {/* Completed Badge */}
+          {app.status === 'completed' && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+              <CheckCircle2 size={16} /> Supplier / Manufacturer Accepted
+            </div>
+          )}
         </div>
       </div>
 

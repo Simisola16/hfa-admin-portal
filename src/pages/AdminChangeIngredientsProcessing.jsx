@@ -492,7 +492,7 @@ export default function AdminChangeIngredientsProcessing() {
           {/* Completed Badge */}
           {app.status === 'completed' && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-              <CheckCircle2 size={16} /> {isSupplier ? 'Supplier/Manufacturer Accepted' : 'Ingredients Accepted'}
+              <CheckCircle2 size={16} /> Ingredients Accepted
             </div>
           )}
         </div>

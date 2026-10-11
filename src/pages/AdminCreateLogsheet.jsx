@@ -114,8 +114,8 @@ export default function AdminCreateLogsheet() {
 
     // Extension Specific Fields
     existing_certificate_number: '',
-    extension_duration_type: '30_days',
-    extension_days: 30,
+    extension_duration_type: '',
+    extension_days: '',
     extension_reason: '',
     extended_expiry_date: '',
 
@@ -173,13 +173,32 @@ export default function AdminCreateLogsheet() {
   const isDirectCreation = isDirectLogsheetRoute && !directLogsheetId && !currentLogsheet?._id;
 
   const effectiveLogsheetType = currentLogsheet
-    ? (currentLogsheet.logsheet_type === 'initial_product' ? 'product' : (currentLogsheet.logsheet_type || (currentLogsheet.certificate_type === 'Surveillance Letter' ? 'surveillance' : (currentLogsheet.extension_duration_type ? 'extension' : (currentLogsheet.product_name ? 'product' : 'normal')))))
+    ? (currentLogsheet.logsheet_type === 'initial_product' || currentLogsheet.logsheet_type === 'addon_application'
+        ? 'product'
+        : (currentLogsheet.logsheet_type === 'surveillance' || currentLogsheet.certificate_type === 'Surveillance Letter'
+            ? 'surveillance'
+            : (currentLogsheet.logsheet_type === 'extension' || (currentLogsheet.audit_type?.toLowerCase().includes('extension') && !currentLogsheet.logsheet_type)
+                ? 'extension'
+                : 'normal')))
     : directLogsheetType;
 
-  // Extension Duration and Signatory calculation (strictly 30 Days [1 sig] vs More than 30 Days [4 sigs])
-  const isDirectExtension = isDirectCreation && directLogsheetType === 'extension';
-  const isExtensionLogsheet = isDirectExtension || effectiveLogsheetType === 'extension' || Boolean(currentLogsheet?.extension_duration_type);
-  const is30DaysExtension = isExtensionLogsheet && (form.extension_duration_type === '30_days' || Number(form.extension_days) <= 30);
+  // STRICT SIGNATORY RULES:
+  // Normal Logsheet: ALWAYS 4 signatures (Mufti, CEO, Manager, Mufti 2)
+  // Product Logsheet: ALWAYS 4 signatures
+  // Surveillance Logsheet: ALWAYS 4 signatures
+  // Extension Logsheet:
+  //   - Exactly 30 Days Extension: 1 signature (CEO / Authorized Officer)
+  //   - More than 30 Days Extension: 4 signatures (Mufti, CEO, Manager, Mufti 2)
+  const isExtensionLogsheet = Boolean(
+    (isDirectCreation && directLogsheetType === 'extension') ||
+    (!isDirectCreation && (effectiveLogsheetType === 'extension' || currentLogsheet?.logsheet_type === 'extension')) ||
+    (currentLogsheet && currentLogsheet.logsheet_type === 'extension')
+  );
+
+  const is30DaysExtension = Boolean(
+    isExtensionLogsheet &&
+    (form.extension_duration_type === '30_days' || (Number(form.extension_days) === 30 && form.extension_duration_type !== 'more_than_30_days'))
+  );
 
   const signatories = is30DaysExtension ? [
     {
@@ -261,6 +280,10 @@ export default function AdminCreateLogsheet() {
       setForm(prev => ({
         ...prev,
         audit_type: 'New',
+        extension_duration_type: '',
+        extension_days: '',
+        extended_expiry_date: '',
+        existing_certificate_number: '',
         certificate_type: prev.certificate_type === 'Surveillance Letter' ? '' : prev.certificate_type,
         suggested_certificate_type: prev.suggested_certificate_type === 'Surveillance Letter' ? '' : prev.suggested_certificate_type,
         certificate_standard: prev.certificate_standard === 'Surveillance Letter' ? '' : prev.certificate_standard,
@@ -466,10 +489,14 @@ export default function AdminCreateLogsheet() {
               setApplication(logDoc.application_id);
             }
             if (logDoc.logsheet_type) {
-              setDirectLogsheetType(logDoc.logsheet_type === 'initial_product' ? 'product' : logDoc.logsheet_type);
+              setDirectLogsheetType(
+                logDoc.logsheet_type === 'initial_product' || logDoc.logsheet_type === 'addon_application'
+                  ? 'product'
+                  : (logDoc.logsheet_type === 'application' ? 'normal' : logDoc.logsheet_type)
+              );
             } else if (logDoc.certificate_type === 'Surveillance Letter') {
               setDirectLogsheetType('surveillance');
-            } else if (logDoc.extension_duration_type) {
+            } else if (logDoc.audit_type?.toLowerCase().includes('extension')) {
               setDirectLogsheetType('extension');
             } else if (logDoc.product_name) {
               setDirectLogsheetType('product');
@@ -529,9 +556,9 @@ export default function AdminCreateLogsheet() {
           ncs_close: 'No NCs Flagged',
           reviewed_by: user?.full_name || 'HFA Lead Auditor',
           reviewer_name: user?.full_name || 'HFA Lead Auditor',
-          extension_duration_type: '30_days',
-          extension_days: 30,
-          extended_expiry_date: thirtyDaysLater
+          extension_duration_type: directLogsheetType === 'extension' ? '30_days' : '',
+          extension_days: directLogsheetType === 'extension' ? 30 : '',
+          extended_expiry_date: directLogsheetType === 'extension' ? thirtyDaysLater : ''
         }));
 
         try {
@@ -1971,9 +1998,19 @@ export default function AdminCreateLogsheet() {
         const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
         void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat; void _ipId; void _aoId; void _srcType;
 
+        const payloadToSave = {
+          ...cleanForm
+        };
+        if (directLogsheetType !== 'extension') {
+          delete payloadToSave.extension_duration_type;
+          delete payloadToSave.extension_days;
+          delete payloadToSave.extended_expiry_date;
+          delete payloadToSave.existing_certificate_number;
+        }
+
         if (logId) {
           await api.put(`/api/application-logsheets/${logId}`, {
-            ...cleanForm,
+            ...payloadToSave,
             ...redoPayload
           });
           if (isRedoing) {
@@ -1999,7 +2036,7 @@ export default function AdminCreateLogsheet() {
             : (form.certificate_type || form.suggested_certificate_type || form.certificate_standard || 'Surveillance Letter');
 
           const createRes = await api.post('/api/application-logsheets/direct', {
-            ...cleanForm,
+            ...payloadToSave,
             source_type: 'direct',
             logsheet_type: effectiveBackendType,
             product_sub_type: form.product_sub_type || 'initial',

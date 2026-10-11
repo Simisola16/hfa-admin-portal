@@ -112,10 +112,12 @@ export function canAssignFoodTech(user) {
 }
 
 export function canManageProductForm(user) {
+  if (user?.can_manage_products || user?.can_manage_direct_products) return true;
   return hasRole(user, 'food_tech_manager', 'food_tech');
 }
 
 export function canManageAddOnProducts(user) {
+  if (user?.can_manage_products || user?.can_manage_direct_products) return true;
   return hasRole(user, 'food_tech_manager', 'food_tech', 'admin');
 }
 

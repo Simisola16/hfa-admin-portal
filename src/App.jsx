@@ -78,7 +78,7 @@ export default function App() {
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/superadmin/live-monitor" element={<SuperAdminLiveMonitor />} />
             <Route path="/superadmin/direct-certificate" element={<SuperAdminDirectCertificate />} />
-            <Route path="/superadmin/direct-logsheet" element={<AdminDirectLogsheet />} />
+            <Route path="/superadmin/direct-logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/superadmin/direct-product" element={<AdminDirectProduct />} />
             <Route path="/applications" element={<AdminApplications />} />
             <Route path="/applications/accounts" element={<AdminApplications />} />
@@ -145,7 +145,7 @@ export default function App() {
             <Route path="/agreements" element={<AdminAgreements />} />
             <Route path="/exports" element={<AdminExports />} />
             <Route path="/export" element={<AdminExports />} />
-            <Route path="/logsheet/direct" element={<AdminDirectLogsheet />} />
+            <Route path="/logsheet/direct" element={<AdminCreateLogsheet />} />
             <Route path="/logsheet/direct/:id" element={<AdminCreateLogsheet />} />
             <Route path="/logsheet/kfc" element={<AdminCreateKFCLogsheet />} />
             <Route path="/logsheet/kfc/:id" element={<AdminCreateKFCLogsheet />} />

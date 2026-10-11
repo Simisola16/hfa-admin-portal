@@ -2535,7 +2535,7 @@ export default function AdminApplications() {
                           {existingAudit.status === 'dates_proposed' && existingAudit.proposed_dates?.length > 0 && (
                             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: 20, borderRadius: 12 }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <Calendar size={14} /> Proposed Audit Dates (Awaiting Client Selection)
+                                <Calendar size={14} /> Proposed Audit Date (Awaiting Client Confirmation)
                               </div>
                               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                                 {existingAudit.proposed_dates.map((d, i) => (

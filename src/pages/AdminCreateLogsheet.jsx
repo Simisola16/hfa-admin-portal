@@ -99,10 +99,12 @@ export default function AdminCreateLogsheet() {
   ).toLowerCase().trim().replace(/[-\s]/g, '_');
 
   const hasRemoveProductItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('remove'));
-  const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('change') || String(p.type || '').toLowerCase().includes('supplier') || String(p.type || '').toLowerCase().includes('manufacturer'));
+  const hasChangeSupplierItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('supplier') || String(p.type || '').toLowerCase().includes('manufacturer'));
+  const hasChangeIngredientItem = Array.isArray(application?.products) && application.products.some(p => String(p.type || '').toLowerCase().includes('ingredient') || (String(p.type || '').toLowerCase().includes('change') && !String(p.type || '').toLowerCase().includes('supplier') && !String(p.type || '').toLowerCase().includes('manufacturer')));
 
   const isRemoveProduct = rawAddonType === 'remove_product' || rawAddonType === 'remove' || hasRemoveProductItem || appNum.includes('-RP-') || appNum.includes('-RM-');
-  const isChangeIngredients = rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change_supplier' || rawAddonType === 'change_supplier_manufacturer' || rawAddonType === 'change' || hasChangeIngredientItem || appNum.includes('-CI-') || appNum.includes('-CS-');
+  const isChangeSupplier = rawAddonType === 'change_supplier' || rawAddonType === 'change_supplier_manufacturer' || hasChangeSupplierItem || appNum.includes('-CS-');
+  const isChangeIngredients = !isChangeSupplier && (rawAddonType === 'change_ingredients' || rawAddonType === 'change_ingredient' || rawAddonType === 'change' || hasChangeIngredientItem || appNum.includes('-CI-'));
   const canManageProducts = canManageAddOnProducts(user);
 
   // Form State declared before any derived variables that reference form
@@ -1496,6 +1498,42 @@ export default function AdminCreateLogsheet() {
       navigate(`/addon-applications/${targetAddonId}/processing-ingredients`);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to accept ingredients');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleAcceptSupplier = async () => {
+    if (!canManageProducts) {
+      toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can accept modified suppliers/manufacturers.');
+      return;
+    }
+    if (totalSignedCount < 3) {
+      toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
+      return;
+    }
+    const isConfirmed = window.confirm(
+      'Are you sure you want to accept the modified supplier/manufacturer? This will complete the application without generating a new certificate.'
+    );
+    if (!isConfirmed) return;
+
+    setIsFinalizing(true);
+    try {
+      const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
+      if (!targetAddonId) throw new Error('Add-on application ID not found.');
+
+      // 1. Accept supplier in AddOnApplication FIRST
+      await api.put(`/api/add-on-applications/${targetAddonId}/accept-supplier`);
+
+      // 2. Finalize logsheet sign-off only after successful acceptance
+      await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
+        finalizeSignOff: true
+      }).catch(() => {});
+
+      toast.success('🎉 Supplier / Manufacturer change accepted! Add-on application completed.');
+      navigate(`/addon-applications/${targetAddonId}/processing-supplier`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept supplier change');
     } finally {
       setIsFinalizing(false);
     }
@@ -3303,6 +3341,8 @@ export default function AdminCreateLogsheet() {
                             ? '1 of 1 CEO / Authorized Officer signature collected. Click "Application Successful" to complete sign-off.'
                             : isRemoveProduct
                             ? `${totalSignedCount} of 4 committee signatures collected. Click "Remove Product" to finalize removal and ready the certificate.`
+                            : isChangeSupplier
+                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Supplier Accepted" to complete review.`
                             : isChangeIngredients
                             ? `${totalSignedCount} of 4 committee signatures collected. Click "Ingredients Accepted" to complete review.`
                             : ((isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
@@ -3314,7 +3354,36 @@ export default function AdminCreateLogsheet() {
                     </div>
                   </div>
 
-                  {isChangeIngredients ? (
+                  {isChangeSupplier ? (
+                    <button
+                      onClick={() => {
+                        if (!canManageProducts) {
+                          toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can accept modified suppliers/manufacturers.');
+                          return;
+                        }
+                        handleAcceptSupplier();
+                      }}
+                      disabled={isFinalizing || !thresholdMet || !canManageProducts}
+                      title={!canManageProducts ? 'Only Food Tech, Food Tech Manager, or Admin can accept modified suppliers/manufacturers' : ''}
+                      className="btn btn-primary"
+                      style={{
+                        background: (thresholdMet && canManageProducts) ? 'linear-gradient(135deg, #d97706, #b45309)' : '#cbd5e1',
+                        borderColor: (thresholdMet && canManageProducts) ? '#d97706' : '#cbd5e1',
+                        color: (thresholdMet && canManageProducts) ? '#fff' : '#64748b',
+                        fontWeight: 800,
+                        padding: '10px 22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        borderRadius: 10,
+                        boxShadow: (thresholdMet && canManageProducts) ? '0 4px 12px rgba(217, 119, 6, 0.25)' : 'none',
+                        cursor: (thresholdMet && canManageProducts) ? 'pointer' : 'not-allowed',
+                        opacity: !canManageProducts ? 0.6 : 1
+                      }}
+                    >
+                      {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Supplier / Manufacturer Accepted</>}
+                    </button>
+                  ) : isChangeIngredients ? (
                     <button
                       onClick={() => {
                         if (!canManageProducts) {

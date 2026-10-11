@@ -115,6 +115,10 @@ export function canManageProductForm(user) {
   return hasRole(user, 'food_tech_manager', 'food_tech');
 }
 
+export function canManageAddOnProducts(user) {
+  return hasRole(user, 'food_tech_manager', 'food_tech', 'admin');
+}
+
 /**
  * LOGSHEET CREATION
  * - Allowed for Audit Team (Audit Manager, Auditor) and Food Tech Team (FT Manager, FT) (+ Superadmin)

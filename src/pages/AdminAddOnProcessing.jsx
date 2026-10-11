@@ -90,8 +90,9 @@ export default function AdminAddOnProcessing() {
   const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
 
   const toggleFt = (ftId) => {
+    const idStr = String(ftId);
     setSelectedFtIds(prev =>
-      prev.includes(ftId) ? prev.filter(id => id !== ftId) : [...prev, ftId]
+      prev.map(String).includes(idStr) ? prev.filter(id => String(id) !== idStr) : [...prev, idStr]
     );
   };
 
@@ -126,13 +127,27 @@ export default function AdminAddOnProcessing() {
         api.get(`/api/certificates/application/${addonId}`).catch(() => ({ data: null }))
       ]);
       const fetchedApp = appRes.data?.data || appRes.data;
+      if (fetchedApp?.addon_type === 'remove_product') {
+        navigate(`/addon-applications/${addonId}/processing-remove`, { replace: true });
+        return;
+      }
+      if (fetchedApp?.addon_type === 'change_ingredients') {
+        navigate(`/addon-applications/${addonId}/processing-ingredients`, { replace: true });
+        return;
+      }
       setApp(fetchedApp);
       setCertificate(certRes?.data?.data || certRes?.data || (typeof fetchedApp?.certificate_id === 'object' ? fetchedApp.certificate_id : null));
 
       if (isManagerOrAdmin) {
-        const usersRes = await api.get('/api/users');
-        const ft = (usersRes.data || []).filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech'))));
-        setFtUsers(ft);
+        const usersRes = await api.get('/api/users?category=staff&all=true').catch(() => ({ data: [] }));
+        const rawUsers = Array.isArray(usersRes.data)
+          ? usersRes.data
+          : (Array.isArray(usersRes.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
+        const ft = rawUsers.filter(u => u && (
+          u.role === 'food_tech' || u.role === 'food_tech_manager' ||
+          (Array.isArray(u.roles) && (u.roles.includes('food_tech') || u.roles.includes('food_tech_manager')))
+        ));
+        setFtUsers(ft.length > 0 ? ft : rawUsers);
       }
     } catch (err) {
       toast.error('Failed to load add-on application details.');
@@ -377,7 +392,7 @@ export default function AdminAddOnProcessing() {
         <AlertCircle size={48} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Add-on Application Not Found</h2>
         <button className="btn btn-outline" style={{ marginTop: 16 }} onClick={() => navigate('/addon-applications')}>
-          <ArrowLeft size={16} /> Back to Add-on Applications
+          <ArrowLeft size={16} /> Back
         </button>
       </div>
     );
@@ -439,6 +454,12 @@ export default function AdminAddOnProcessing() {
   };
 
   const getActorName = (entry, stepKey) => {
+    if (entry?.changedByName) {
+      const roleStr = entry.changedByRole
+        ? ` (${entry.changedByRole.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+        : '';
+      return `${entry.changedByName}${roleStr}`;
+    }
     if (entry?.changedBy) {
       if (typeof entry.changedBy === 'object') {
         const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.username || entry.changedBy.email;
@@ -724,10 +745,10 @@ export default function AdminAddOnProcessing() {
 
       {/* ─── Main 2-Column Grid (1fr 380px) ─── */}
       <div className="processing-layout-grid" style={{ gap: 24, alignItems: 'start' }}>
-        
+
         {/* ── LEFT COLUMN: Core Content Cards Stack ── */}
         <div style={{ display: 'grid', gap: 20 }}>
-          
+
           {/* Card 1: Requested Products Table */}
           <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -816,251 +837,251 @@ export default function AdminAddOnProcessing() {
 
           {/* Card 2: Product Approval Form Management */}
           {!['logsheet_created', 'logsheet_signed', 'payment_received', 'ready_for_certificate', 'completed'].includes(app.status) && (
-          <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FileText size={18} style={{ color: '#7c3aed' }} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-                    Product Approval Form Management
+            <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={18} style={{ color: '#7c3aed' }} />
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Specifications, ingredient breakdowns & submission records
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {canManageProductForm(user) && app.status === 'ft_assigned' && (
-                  <button
-                    className="btn btn-primary btn-sm"
-                    style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
-                    disabled={submitting}
-                    onClick={handleRequestProductApprovalForm}
-                  >
-                    Request for Product Approval Form
-                  </button>
-                )}
-
-                {app.status === 'product_approval_form_enabled' && (() => {
-                  const isClientSubmitted = !!app.product_approval_form?.submitted_at;
-
-                  if (!isClientSubmitted) {
-                    const respondedCount = (app.product_approval_form?.product_responses || []).filter(r => r.is_saved).length;
-                    const totalCount = app.products?.length || 0;
-                    return (
-                      <span className="badge badge-orange" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
-                        <Clock size={12} /> Awaiting Client Submission ({respondedCount} of {totalCount} filled)
-                      </span>
-                    );
-                  }
-
-                  if (!canManageProductForm(user)) {
-                    return (
-                      <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Clock size={12} /> Form Submitted by Client (Awaiting FT Review)
-                      </span>
-                    );
-                  }
-
-                  return (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          background: '#ea580c',
-                          borderColor: '#ea580c',
-                          color: 'white',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6
-                        }}
-                        onClick={() => {
-                          setMoreInfoMessage(app.product_approval_form?.form_text || '');
-                          setMoreInfoFile(null);
-                          setActionType('request_more_info');
-                        }}
-                      >
-                        <HelpCircle size={14} /> Request for More Information
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          background: '#0d9488',
-                          borderColor: '#0d9488',
-                          color: 'white',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6
-                        }}
-                        disabled={submitting}
-                        onClick={handleConfirmFormReceived}
-                      >
-                        <CheckCircle size={14} /> Product Form Received
-                      </button>
-                    </>
-                  );
-                })()}
-
-                {canManageProductForm(user) && ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    style={{
-                      background: '#ea580c',
-                      borderColor: '#ea580c',
-                      color: 'white',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6
-                    }}
-                    onClick={() => {
-                      setMoreInfoMessage(app.product_approval_form?.form_text || '');
-                      setMoreInfoFile(null);
-                      setActionType('request_more_info');
-                    }}
-                  >
-                    <HelpCircle size={14} /> Request for More Information
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div style={{ padding: '20px 24px' }}>
-              {/* Form template download / instructions */}
-              <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.04em' }}>
-                  Admin Form Document / Instructions
-                </div>
-                {app.product_approval_form?.form_file_url && (
-                  <a href={getPdfUrl(app.product_approval_form.form_file_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, background: 'white' }}>
-                    <FileText size={14} /> Download Admin Form PDF
-                  </a>
-                )}
-                {app.product_approval_form?.form_text ? (
-                  <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap' }}>
-                    {app.product_approval_form.form_text}
-                  </div>
-                ) : !app.product_approval_form?.form_file_url && (
-                  <div style={{ fontSize: 13, color: '#94a3b8' }}>Product Approval Form has not been enabled yet.</div>
-                )}
-              </div>
-
-              {/* Client Reply to Requested Information & Documents */}
-              {(app.product_approval_form?.client_reply_text || app.product_approval_form?.client_reply_file_url) && (
-                <div style={{ marginBottom: 20, background: '#f0fdf4', padding: 18, borderRadius: 12, border: '1.5px solid #86efac' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CheckCircle2 size={15} color="#16a34a" /> Client Reply &amp; Uploaded Supporting Documents
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+                      Product Approval Form Management
                     </div>
-                    {app.product_approval_form?.client_replied_at && (
-                      <span style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>
-                        Replied on {new Date(app.product_approval_form.client_replied_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                  </div>
-                  {app.product_approval_form?.client_reply_text && (
-                    <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, color: '#1e293b', whiteSpace: 'pre-wrap', marginBottom: app.product_approval_form?.client_reply_file_url ? 10 : 0 }}>
-                      {app.product_approval_form.client_reply_text}
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      Specifications, ingredient breakdowns & submission records
                     </div>
-                  )}
-                  {app.product_approval_form?.client_reply_file_url && (
-                    <a
-                      href={getPdfUrl(app.product_approval_form.client_reply_file_url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-sm"
-                      style={{ background: '#15803d', borderColor: '#15803d', color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {canManageProductForm(user) && app.status === 'ft_assigned' && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+                      disabled={submitting}
+                      onClick={handleRequestProductApprovalForm}
                     >
-                      <Download size={14} /> Download Client Uploaded Document
-                    </a>
+                      Request for Product Approval Form
+                    </button>
                   )}
-                </div>
-              )}
 
-              {/* Client Responses summary */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Client Responses Per Product
-                  </div>
-                  {(() => {
-                    const prods = app.products || [];
-                    const resps = app.product_approval_form?.product_responses || [];
-                    const saved = prods.filter((_, idx) => resps.some(r => r.product_index === idx && r.is_saved)).length;
+                  {app.status === 'product_approval_form_enabled' && (() => {
+                    const isClientSubmitted = !!app.product_approval_form?.submitted_at;
+
+                    if (!isClientSubmitted) {
+                      const respondedCount = (app.product_approval_form?.product_responses || []).filter(r => r.is_saved).length;
+                      const totalCount = app.products?.length || 0;
+                      return (
+                        <span className="badge badge-orange" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+                          <Clock size={12} /> Awaiting Client Submission ({respondedCount} of {totalCount} filled)
+                        </span>
+                      );
+                    }
+
+                    if (!canManageProductForm(user)) {
+                      return (
+                        <span className="badge badge-teal" style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={12} /> Form Submitted by Client (Awaiting FT Review)
+                        </span>
+                      );
+                    }
+
                     return (
-                      <span className={`badge ${saved === prods.length && prods.length > 0 ? 'badge-green' : 'badge-purple'}`} style={{ fontSize: 11, fontWeight: 700 }}>
-                        {saved} of {prods.length} PRODUCTS RESPONDED
-                      </span>
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            background: '#ea580c',
+                            borderColor: '#ea580c',
+                            color: 'white',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                          onClick={() => {
+                            setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                            setMoreInfoFile(null);
+                            setActionType('request_more_info');
+                          }}
+                        >
+                          <HelpCircle size={14} /> Request for More Information
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            background: '#0d9488',
+                            borderColor: '#0d9488',
+                            color: 'white',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                          disabled={submitting}
+                          onClick={handleConfirmFormReceived}
+                        >
+                          <CheckCircle size={14} /> Product Form Received
+                        </button>
+                      </>
                     );
                   })()}
+
+                  {canManageProductForm(user) && ['all_forms_received', 'logsheet_created', 'waiting_sharia_signature'].includes(app.status) && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{
+                        background: '#ea580c',
+                        borderColor: '#ea580c',
+                        color: 'white',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                      onClick={() => {
+                        setMoreInfoMessage(app.product_approval_form?.form_text || '');
+                        setMoreInfoFile(null);
+                        setActionType('request_more_info');
+                      }}
+                    >
+                      <HelpCircle size={14} /> Request for More Information
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding: '20px 24px' }}>
+                {/* Form template download / instructions */}
+                <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.04em' }}>
+                    Admin Form Document / Instructions
+                  </div>
+                  {app.product_approval_form?.form_file_url && (
+                    <a href={getPdfUrl(app.product_approval_form.form_file_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, background: 'white' }}>
+                      <FileText size={14} /> Download Admin Form PDF
+                    </a>
+                  )}
+                  {app.product_approval_form?.form_text ? (
+                    <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, color: '#334155', whiteSpace: 'pre-wrap' }}>
+                      {app.product_approval_form.form_text}
+                    </div>
+                  ) : !app.product_approval_form?.form_file_url && (
+                    <div style={{ fontSize: 13, color: '#94a3b8' }}>Product Approval Form has not been enabled yet.</div>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(app.products || []).map((p, idx) => {
-                    const resp = (app.product_approval_form?.product_responses || []).find(r => r.product_index === idx);
-                    const isSaved = resp?.is_saved;
+                {/* Client Reply to Requested Information & Documents */}
+                {(app.product_approval_form?.client_reply_text || app.product_approval_form?.client_reply_file_url) && (
+                  <div style={{ marginBottom: 20, background: '#f0fdf4', padding: 18, borderRadius: 12, border: '1.5px solid #86efac' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CheckCircle2 size={15} color="#16a34a" /> Client Reply &amp; Uploaded Supporting Documents
+                      </div>
+                      {app.product_approval_form?.client_replied_at && (
+                        <span style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>
+                          Replied on {new Date(app.product_approval_form.client_replied_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    {app.product_approval_form?.client_reply_text && (
+                      <div style={{ background: 'white', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, color: '#1e293b', whiteSpace: 'pre-wrap', marginBottom: app.product_approval_form?.client_reply_file_url ? 10 : 0 }}>
+                        {app.product_approval_form.client_reply_text}
+                      </div>
+                    )}
+                    {app.product_approval_form?.client_reply_file_url && (
+                      <a
+                        href={getPdfUrl(app.product_approval_form.client_reply_file_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-sm"
+                        style={{ background: '#15803d', borderColor: '#15803d', color: 'white', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Download size={14} /> Download Client Uploaded Document
+                      </a>
+                    )}
+                  </div>
+                )}
 
-                    return (
-                      <div key={idx} style={{ padding: 14, borderRadius: 10, background: isSaved ? '#f0fdf4' : '#fafbfc', border: isSaved ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                            Product #{idx + 1}: {p.name} {p.code ? `(${p.code})` : ''}
-                          </div>
-                          {isSaved ? (
-                            <span className="badge badge-green" style={{ fontSize: 10, fontWeight: 700 }}>
-                              <Check size={11} style={{ marginRight: 2 }} /> RESPONDED
-                            </span>
-                          ) : (
-                            <span className="badge badge-gray" style={{ fontSize: 10, fontWeight: 700 }}>
-                              AWAITING RESPONSE
-                            </span>
-                          )}
-                        </div>
+                {/* Client Responses summary */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Client Responses Per Product
+                    </div>
+                    {(() => {
+                      const prods = app.products || [];
+                      const resps = app.product_approval_form?.product_responses || [];
+                      const saved = prods.filter((_, idx) => resps.some(r => r.product_index === idx && r.is_saved)).length;
+                      return (
+                        <span className={`badge ${saved === prods.length && prods.length > 0 ? 'badge-green' : 'badge-purple'}`} style={{ fontSize: 11, fontWeight: 700 }}>
+                          {saved} of {prods.length} PRODUCTS RESPONDED
+                        </span>
+                      );
+                    })()}
+                  </div>
 
-                        {isSaved ? (
-                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              style={{ background: '#164e63', borderColor: '#164e63', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 11.5 }}
-                              onClick={() => setViewProductModal({
-                                isOpen: true,
-                                formData: resp.form_data && Object.keys(resp.form_data).length > 0 ? resp.form_data : {
-                                  product_name: p.name,
-                                  product_code: p.code,
-                                  company_name_address: app.client_id?.company_name
-                                },
-                                product: p,
-                                company: app.client_id
-                              })}
-                            >
-                              <Eye size={13} /> View Filled Product Approval Form
-                            </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {(app.products || []).map((p, idx) => {
+                      const resp = (app.product_approval_form?.product_responses || []).find(r => r.product_index === idx);
+                      const isSaved = resp?.is_saved;
 
-                            {resp.response_url && (
-                              <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', fontSize: 11.5 }}>
-                                <Download size={13} /> Attached PDF
-                              </a>
+                      return (
+                        <div key={idx} style={{ padding: 14, borderRadius: 10, background: isSaved ? '#f0fdf4' : '#fafbfc', border: isSaved ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                              Product #{idx + 1}: {p.name} {p.code ? `(${p.code})` : ''}
+                            </div>
+                            {isSaved ? (
+                              <span className="badge badge-green" style={{ fontSize: 10, fontWeight: 700 }}>
+                                <Check size={11} style={{ marginRight: 2 }} /> RESPONDED
+                              </span>
+                            ) : (
+                              <span className="badge badge-gray" style={{ fontSize: 10, fontWeight: 700 }}>
+                                AWAITING RESPONSE
+                              </span>
                             )}
                           </div>
-                        ) : (
-                          <div style={{ fontSize: 12, color: '#94a3b8' }}>Client has not submitted specifications for this product yet.</div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                          {isSaved ? (
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#164e63', borderColor: '#164e63', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 11.5 }}
+                                onClick={() => setViewProductModal({
+                                  isOpen: true,
+                                  formData: resp.form_data && Object.keys(resp.form_data).length > 0 ? resp.form_data : {
+                                    product_name: p.name,
+                                    product_code: p.code,
+                                    company_name_address: app.client_id?.company_name
+                                  },
+                                  product: p,
+                                  company: app.client_id
+                                })}
+                              >
+                                <Eye size={13} /> View Filled Product Approval Form
+                              </button>
+
+                              {resp.response_url && (
+                                <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', fontSize: 11.5 }}>
+                                  <Download size={13} /> Attached PDF
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, color: '#94a3b8' }}>Client has not submitted specifications for this product yet.</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           )}
 
           {/* Card 3: Halal Logsheet Review */}
@@ -1278,7 +1299,7 @@ export default function AdminAddOnProcessing() {
 
         {/* ── RIGHT COLUMN: Sidebar (Timeline & Company Info) ── */}
         <div>
-          
+
           {/* Stepper Timeline Card matching ApplicationProcessing.jsx */}
           <div className="card" style={{ marginBottom: 20 }}>
             <div className="card-header">
@@ -1500,8 +1521,8 @@ export default function AdminAddOnProcessing() {
                     const customName = typeof app.assigned_ft_custom?.name === 'string'
                       ? app.assigned_ft_custom.name
                       : typeof app.assigned_ft_details === 'string'
-                      ? app.assigned_ft_details
-                      : (app.assigned_ft_details?.name || app.assigned_ft_details?.full_name || 'FT Specialist');
+                        ? app.assigned_ft_details
+                        : (app.assigned_ft_details?.name || app.assigned_ft_details?.full_name || 'FT Specialist');
                     return (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#15803d', fontSize: 12 }}>
@@ -1601,7 +1622,7 @@ export default function AdminAddOnProcessing() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                     {ftUsers.map(ft => {
-                      const isSelected = selectedFtIds.includes(ft._id);
+                      const isSelected = selectedFtIds.map(String).includes(String(ft._id));
                       return (
                         <label key={ft._id} style={{
                           display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',

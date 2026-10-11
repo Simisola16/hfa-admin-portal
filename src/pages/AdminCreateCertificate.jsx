@@ -434,6 +434,27 @@ export default function AdminCreateCertificate() {
           setLogsheetCategory(detectedLogsheetCat);
         }
 
+        // Determine if this is a Remove Product Add-On Application
+        const isRemoveProductApp = Boolean(
+          appData?.addon_type === 'remove_product' ||
+          appData?.action_type === 'remove_product' ||
+          targetLogsheet?.addon_type === 'remove_product' ||
+          String(targetLogsheet?.audit_type || '').toLowerCase().includes('remove') ||
+          String(targetLogsheet?.suggested_certificate_type || '').toLowerCase().includes('remove')
+        );
+
+        // Collect all removed product names and codes to permanently exclude
+        const removedProductEntries = [
+          ...(Array.isArray(appData?.removed_products_history) ? appData.removed_products_history : []),
+          ...(isRemoveProductApp && Array.isArray(appData?.products) ? appData.products : [])
+        ];
+        const removedNamesSet = new Set(
+          removedProductEntries.map(p => (typeof p === 'object' ? (p.name || p.original_name) : p)?.trim().toLowerCase()).filter(Boolean)
+        );
+        const removedCodesSet = new Set(
+          removedProductEntries.map(p => (typeof p === 'object' ? p.code : null)?.trim().toLowerCase()).filter(Boolean)
+        );
+
         // Fetch Site Products (query by site_id first, with client_id fallback)
         let prodList = [];
         const curSiteId = String(resolvedSite?._id || resolvedSite?.id || siteId?._id || siteId?.id || siteId || '');
@@ -468,7 +489,18 @@ export default function AdminCreateCertificate() {
           console.error('Error fetching site products in certificate studio:', err);
         }
 
-        // For add-on apps, if catalog query yielded 0, check the linked certificate's certified_products
+        // Filter catalog products: strip inactive/rejected and any removed products
+        prodList = prodList.filter(p => {
+          const st = String(p.status || '').toLowerCase();
+          if (st === 'inactive' || st === 'rejected' || st === 'deleted') return false;
+          const pName = String(p.name || p.product_name || '').trim().toLowerCase();
+          const pCode = String(p.code || p.product_code || '').trim().toLowerCase();
+          if (removedNamesSet.has(pName)) return false;
+          if (pCode && removedCodesSet.has(pCode)) return false;
+          return true;
+        });
+
+        // For add-on apps, if catalog query yielded 0, derive from parent certificate minus removed products
         if (isAppAddOn && prodList.length === 0) {
           if (!parentCertData && appData.certificate_id) {
             try {
@@ -477,31 +509,64 @@ export default function AdminCreateCertificate() {
               parentCertData = certRes.data?.data || certRes.data;
             } catch (_) {}
           }
-          if (Array.isArray(parentCertData?.certified_products) && parentCertData.certified_products.length > 0) {
-            prodList = parentCertData.certified_products.map((p, idx) => ({
-              _id: p._id || `cert-prod-${idx}`,
-              name: p.name || p.product_name || `Product ${idx + 1}`,
-              code: p.code || p.product_code || `PRD-${idx + 1}`,
-              category: p.category || 'General Food Products'
-            }));
+          if (parentCertData) {
+            const rawDetails = Array.isArray(parentCertData.product_details) && parentCertData.product_details.length > 0
+              ? parentCertData.product_details
+              : (Array.isArray(parentCertData.certified_products) && parentCertData.certified_products.length > 0
+                ? parentCertData.certified_products
+                : (Array.isArray(parentCertData.products_covered) ? parentCertData.products_covered.map(name => ({ name })) : []));
+
+            const validRemaining = rawDetails.filter(p => {
+              const pName = String(p.name || p.product_name || '').trim().toLowerCase();
+              const pCode = String(p.code || p.product_code || '').trim().toLowerCase();
+              if (removedNamesSet.has(pName)) return false;
+              if (pCode && removedCodesSet.has(pCode)) return false;
+              return true;
+            });
+
+            if (validRemaining.length > 0) {
+              prodList = validRemaining.map((p, idx) => ({
+                _id: p._id || `cert-prod-${idx}`,
+                name: p.name || p.product_name || `Product ${idx + 1}`,
+                code: p.code || p.product_code || `PRD-${idx + 1}`,
+                category: p.category || parentCertData.product_category || 'General Food Products'
+              }));
+            }
           }
         }
 
-        // If no catalog products, use products from targetLogsheet or application form
-        if (prodList.length === 0) {
+        // If no catalog products, use products from targetLogsheet or application form (NEVER fall back to appData.products for remove-product)
+        if (prodList.length === 0 && !isRemoveProductApp) {
           const rawProds = (Array.isArray(targetLogsheet?.products_list) && targetLogsheet.products_list.length > 0)
             ? targetLogsheet.products_list
             : (Array.isArray(appData.products) ? appData.products : []);
 
           if (rawProds.length > 0) {
-            prodList = rawProds.map((p, idx) => ({
-              _id: `log-prod-${idx}`,
-              name: typeof p === 'string' ? p : (p.name || p.product_name || p.title || `Product ${idx + 1}`),
-              code: typeof p === 'object' && p.code ? p.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
-              category: (typeof p === 'object' && p.category) ? p.category : (detectedLogsheetCat || 'General Food Products')
-            }));
+            prodList = rawProds
+              .filter(p => {
+                const pName = String(typeof p === 'string' ? p : (p.name || p.product_name || p.title || '')).trim().toLowerCase();
+                const pCode = String(typeof p === 'object' && p.code ? p.code : '').trim().toLowerCase();
+                if (removedNamesSet.has(pName)) return false;
+                if (pCode && removedCodesSet.has(pCode)) return false;
+                return true;
+              })
+              .map((p, idx) => ({
+                _id: `log-prod-${idx}`,
+                name: typeof p === 'string' ? p : (p.name || p.product_name || p.title || `Product ${idx + 1}`),
+                code: typeof p === 'object' && p.code ? p.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+                category: (typeof p === 'object' && p.category) ? p.category : (detectedLogsheetCat || 'General Food Products')
+              }));
           }
         }
+
+        // Final safety scrub: ensure no removed product ever passes through
+        prodList = prodList.filter(p => {
+          const pName = String(p.name || p.product_name || '').trim().toLowerCase();
+          const pCode = String(p.code || p.product_code || '').trim().toLowerCase();
+          if (removedNamesSet.has(pName)) return false;
+          if (pCode && removedCodesSet.has(pCode)) return false;
+          return true;
+        });
 
         const scheduledProds = prodList.map((p, idx) => ({
           _id: p._id || p.id || `sched-prod-${idx}`,
@@ -727,8 +792,9 @@ export default function AdminCreateCertificate() {
       try {
         const pRes = await api.get(`/api/products?client_id=${cId}&all=true`);
         const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : (Array.isArray(pRes) ? pRes : []));
-        if (pList.length > 0) {
-          const mapped = pList.map((p, idx) => ({
+        const activeProds = pList.filter(p => !['inactive', 'rejected', 'deleted'].includes(String(p.status || '').toLowerCase()));
+        if (activeProds.length > 0) {
+          const mapped = activeProds.map((p, idx) => ({
             _id: p._id || p.id || `client-prod-${idx}`,
             name: p.name || p.product_name || '',
             code: p.code || p.product_code || '',
@@ -781,7 +847,8 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        const mapped = fetchedList.map((p, idx) => ({
+        const validSiteProds = fetchedList.filter(p => !['inactive', 'rejected', 'deleted'].includes(String(p.status || '').toLowerCase()));
+        const mapped = validSiteProds.map((p, idx) => ({
           _id: p._id || p.id || `site-prod-${idx}`,
           name: p.name || p.product_name || '',
           code: p.code || p.product_code || '',

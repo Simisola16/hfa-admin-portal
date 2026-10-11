@@ -1930,6 +1930,7 @@ export default function AdminCreateLogsheet() {
 
     setSubmitting(true);
     try {
+      const targetAppId = appId || application?._id || application?.id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
       // Bug fix: only clear signatures when actually in redo mode, not just because a logsheet exists
       const isRedoingSave = isRedoing;
       const redoPayload = isRedoingSave ? {
@@ -2062,7 +2063,6 @@ export default function AdminCreateLogsheet() {
           navigate(`/logsheet/direct/${createdDoc?._id || ''}`);
         }
       } else {
-        const targetAppId = appId || application?._id || application?.id;
         // Strip internal/relational fields before posting
         const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
         void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat; void _ipId; void _aoId; void _srcType;

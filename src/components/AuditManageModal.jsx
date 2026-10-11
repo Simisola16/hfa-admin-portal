@@ -33,7 +33,7 @@ export default function AuditManageModal({
   const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [appData, setAppData] = useState(typeof app === 'object' && app !== null ? app : null);
   const [auditForm, setAuditForm] = useState({
-    dates: ['', '', ''],
+    dates: [''],
     auditors: [],
     stage2Auditors: [],
     finalized_date: ''
@@ -251,36 +251,28 @@ export default function AuditManageModal({
       return;
     }
 
+    const proposedDate = auditForm.dates?.[0] ? String(auditForm.dates[0]).trim() : '';
+
     // Stage 2 dates are optional for GSO/UAE dual-stage — allow skipping
-    if (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d)) {
-      toast('Stage 2 dates skipped — you can propose them later from this modal.', { icon: '💡' });
+    if (isDualStage && activeStage === 2 && !proposedDate) {
+      toast('Stage 2 scheduling skipped — you can propose the date later from this modal.', { icon: '💡' });
       onClose();
       return;
     }
-    if (auditForm.dates.some(d => !d)) {
+    if (!proposedDate) {
       toast.error(activeStage === 2
-        ? 'Please enter all 3 proposed dates for Stage 2, or leave all blank to skip and schedule later.'
-        : 'Please enter all 3 proposed dates.');
+        ? 'Please enter the proposed audit date for Stage 2, or leave blank to skip and schedule later.'
+        : 'Please enter the proposed audit date.');
       return;
     }
 
     // Validation 1: Prevent past dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const hasPastDate = auditForm.dates.some(d => {
-      const dateObj = new Date(d);
-      dateObj.setHours(0, 0, 0, 0);
-      return dateObj < today;
-    });
-    if (hasPastDate) {
-      toast.error('Proposed audit dates cannot be in the past. Please select future dates.');
-      return;
-    }
-
-    // Validation 2: Ensure 3 unique/distinct dates
-    const uniqueDates = new Set(auditForm.dates.map(d => String(d).trim()));
-    if (uniqueDates.size !== 3) {
-      toast.error('Please select 3 distinct and different dates. You cannot choose the same date twice.');
+    const dateObj = new Date(proposedDate);
+    dateObj.setHours(0, 0, 0, 0);
+    if (isNaN(dateObj.getTime()) || dateObj < today) {
+      toast.error('Proposed audit date cannot be in the past. Please select a future date.');
       return;
     }
 
@@ -292,21 +284,22 @@ export default function AuditManageModal({
       const res = await api.post('/api/audits/propose-dates', {
         application_id: targetAppId,
         client_id: targetClientId,
-        dates: auditForm.dates,
+        dates: [proposedDate],
         stage: activeStage
       });
-      toast.success('3 Dates proposed to client successfully!');
+      toast.success('Audit date proposed to client successfully!');
       if (typeof onSuccess === 'function') onSuccess();
       if (typeof onClose === 'function') onClose();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to propose dates');
+      toast.error(err.response?.data?.error || err.message || 'Failed to propose date');
     } finally {
       setAuditSubmitting(false);
     }
   };
 
   const handleFinalizeDate = async () => {
-    if (!auditForm.finalized_date) {
+    const finalDate = auditForm.finalized_date || (existingAudit?.selected_dates?.length === 1 ? existingAudit.selected_dates[0] : null);
+    if (!finalDate) {
       toast.error('Please select a date to finalize.');
       return;
     }
@@ -318,7 +311,7 @@ export default function AuditManageModal({
       const res = await api.post('/api/audits/finalize-date', {
         audit_id: currentAuditId,
         application_id: targetAppId,
-        finalized_date: auditForm.finalized_date
+        finalized_date: finalDate
       });
 
       const serverAudit = res.data?.data || res.data || {};
@@ -557,27 +550,23 @@ export default function AuditManageModal({
               )}
 
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
-                Propose 3 possible audit dates to the client. They will select 2 dates from their portal.
-                {activeStage === 2 && <span style={{ display: 'block', marginTop: 6, color: '#6366f1', fontWeight: 600 }}>💡 Stage 2 dates are optional — you can propose them now or after Stage 1 completes.</span>}
+                Propose an audit date to the client. The client will confirm this date or provide an alternative availability note if unavailable.
+                {activeStage === 2 && <span style={{ display: 'block', marginTop: 6, color: '#6366f1', fontWeight: 600 }}>💡 Stage 2 date is optional — you can propose it now or after Stage 1 completes.</span>}
               </p>
               <div style={{ display: 'grid', gap: 12, marginBottom: 24, opacity: isProposeBlockedByGsoInitial ? 0.6 : 1, pointerEvents: isProposeBlockedByGsoInitial ? 'none' : 'auto' }}>
-                {Array(3).fill(null).map((_, i) => (
-                  <div key={i} className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Proposed Date Option {i + 1} <span>*</span></label>
-                    <input
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
-                      className="form-control"
-                      value={auditForm.dates[i]}
-                      disabled={isProposeBlockedByGsoInitial}
-                      onChange={e => {
-                        const newDates = [...auditForm.dates];
-                        newDates[i] = e.target.value;
-                        setAuditForm({ ...auditForm, dates: newDates });
-                      }}
-                    />
-                  </div>
-                ))}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Proposed Audit Date <span>*</span></label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    className="form-control"
+                    value={auditForm.dates[0] || ''}
+                    disabled={isProposeBlockedByGsoInitial}
+                    onChange={e => {
+                      setAuditForm({ ...auditForm, dates: [e.target.value] });
+                    }}
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 {isDualStage && activeStage === 2 && (
@@ -585,7 +574,7 @@ export default function AuditManageModal({
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
-                      toast('Stage 2 scheduling skipped — propose dates later when ready.', { icon: '💡' });
+                      toast('Stage 2 scheduling skipped — propose date later when ready.', { icon: '💡' });
                       onClose();
                     }}
                     disabled={auditSubmitting}
@@ -601,7 +590,7 @@ export default function AuditManageModal({
                   onClick={handleProposeDates}
                   title={isProposeBlockedByGsoInitial ? 'Initial Product must be approved first for UAE/GSO applications' : ''}
                 >
-                  {auditSubmitting ? 'Submitting...' : (isDualStage && activeStage === 2 && auditForm.dates.every(d => !d) ? 'Skip & Close' : 'Propose Dates')}
+                  {auditSubmitting ? 'Submitting...' : (isDualStage && activeStage === 2 && !auditForm.dates[0] ? 'Skip & Close' : 'Propose Audit Date')}
                 </button>
               </div>
             </div>
@@ -613,7 +602,15 @@ export default function AuditManageModal({
               <Calendar size={48} style={{ color: '#94a3b8', margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: 16, color: '#334155', marginBottom: 8, fontWeight: 700 }}>Waiting for Client</h3>
               <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                You have proposed 3 dates. The client must select exactly 2 preferred dates from their portal to continue.
+                {existingAudit.proposed_dates?.[0] ? (
+                  <>
+                    You proposed audit date: <strong style={{ color: '#0f172a' }}>{new Date(existingAudit.proposed_dates[0]).toDateString()}</strong>.
+                    <br />
+                    The client must confirm their availability or provide an alternative availability note from their portal to continue.
+                  </>
+                ) : (
+                  'You have proposed an audit date. The client must confirm their availability or submit alternative dates from their portal to continue.'
+                )}
               </p>
             </div>
           )}
@@ -622,12 +619,16 @@ export default function AuditManageModal({
           {existingAudit?.status === 'dates_accepted' && (
             <div>
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 8, fontWeight: 700 }}>✓ Client Selected Dates</h4>
-                <p style={{ fontSize: 13, color: '#15803d', marginBottom: 12 }}>Please select the final audit date from the two dates selected by the client.</p>
+                <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 8, fontWeight: 700 }}>✓ Client Confirmed Audit Date</h4>
+                <p style={{ fontSize: 13, color: '#15803d', marginBottom: 12 }}>
+                  {existingAudit.selected_dates?.length === 1
+                    ? 'The client confirmed the proposed audit date. Confirm to finalize and proceed to auditor assignment.'
+                    : 'Please select the final audit date from the dates selected by the client.'}
+                </p>
                 <div style={{ display: 'grid', gap: 12 }}>
                   {existingAudit.selected_dates?.map((d, i) => (
-                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px', border: '1px solid #bbf7d0', borderRadius: '8px', background: auditForm.finalized_date === d ? '#dcfce7' : '#fff' }}>
-                      <input type="radio" name="finalized_date" value={d} onChange={e => setAuditForm({...auditForm, finalized_date: e.target.value})} checked={auditForm.finalized_date === d} style={{ width: 16, height: 16 }} />
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px', border: '1px solid #bbf7d0', borderRadius: '8px', background: (auditForm.finalized_date === d || existingAudit.selected_dates?.length === 1) ? '#dcfce7' : '#fff' }}>
+                      <input type="radio" name="finalized_date" value={d} onChange={e => setAuditForm({...auditForm, finalized_date: e.target.value})} checked={auditForm.finalized_date === d || existingAudit.selected_dates?.length === 1} style={{ width: 16, height: 16 }} />
                       <span style={{ fontSize: '14px', color: '#166534', fontWeight: 700 }}>{new Date(d).toDateString()}</span>
                     </label>
                   ))}

@@ -24,7 +24,7 @@ export default function AdminCreateLogsheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const isDirectLogsheetRoute = window.location.pathname.startsWith('/logsheets/');
+  const isDirectLogsheetRoute = window.location.pathname.startsWith('/logsheets/') || window.location.pathname.startsWith('/logsheet/direct/');
   const queryLogsheetId = new URLSearchParams(location.search).get('logsheet_id');
   const directLogsheetId = isDirectLogsheetRoute ? id : queryLogsheetId;
 
@@ -74,8 +74,8 @@ export default function AdminCreateLogsheet() {
     docs_satisfactory: '', pork_free_statement: '', reviewed_by: '',
     reviewer_name: '', review_date: '',
 
-    certificate_type: 'HFA SCHEME NON MEAT', certificate_standard: 'HFA SCHEME NON MEAT',
-    suggested_certificate_type: 'HFA SCHEME NON MEAT',
+    certificate_type: '', certificate_standard: '',
+    suggested_certificate_type: '',
     annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
     new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
 
@@ -131,16 +131,7 @@ export default function AdminCreateLogsheet() {
     isSurveillance
   );
 
-  useEffect(() => {
-    if (isSurveillance && !form.certificate_type) {
-      setForm(prev => ({
-        ...prev,
-        certificate_type: prev.certificate_type || 'Surveillance Letter',
-        certificate_standard: prev.certificate_standard || 'Surveillance Letter',
-        suggested_certificate_type: prev.suggested_certificate_type || 'Surveillance Letter'
-      }));
-    }
-  }, [isSurveillance, form.certificate_type]);
+  // Deliberate selection required: do not auto-default to Surveillance Letter or other schemes
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
@@ -168,8 +159,8 @@ export default function AdminCreateLogsheet() {
             setForm(f => ({
               ...f,
               ...logDoc,
-              certificate_type: logDoc.certificate_type || logDoc.suggested_certificate_type || logDoc.certificate_standard || 'HFA SCHEME NON MEAT',
-              certificate_standard: logDoc.certificate_standard || logDoc.certificate_type || 'HFA SCHEME NON MEAT',
+              certificate_type: logDoc.certificate_type || logDoc.suggested_certificate_type || logDoc.certificate_standard || '',
+              certificate_standard: logDoc.certificate_standard || logDoc.certificate_type || '',
               suggested_certificate_type: logDoc.suggested_certificate_type || logDoc.certificate_type || '',
               next_surveillance_due_date: logDoc.next_surveillance_due_date ? new Date(logDoc.next_surveillance_due_date).toISOString().split('T')[0] : '',
               confirmed: false
@@ -634,9 +625,9 @@ export default function AdminCreateLogsheet() {
           setForm(f => ({
             ...f,
             ...logsheetObj,
-            certificate_type: logsheetObj.certificate_type || logsheetObj.suggested_certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
-            certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
-            suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : ''),
+            certificate_type: logsheetObj.certificate_type || logsheetObj.suggested_certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || appData?.certificate_type || '',
+            certificate_standard: logsheetObj.certificate_standard || logsheetObj.certificate_type || '',
+            suggested_certificate_type: logsheetObj.suggested_certificate_type || logsheetObj.certificate_type || logsheetObj.certificate_standard || appData?.suggested_certificate_type || '',
             next_surveillance_due_date: logsheetObj.next_surveillance_due_date ? new Date(logsheetObj.next_surveillance_due_date).toISOString().split('T')[0] : (appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : ''),
             site_name: (logsheetObj.site_name != null) ? logsheetObj.site_name : autoSiteName,
             company_name: (resolvedCompanyName && resolvedCompanyName.trim()) ? resolvedCompanyName : autoCompanyName,
@@ -715,9 +706,9 @@ export default function AdminCreateLogsheet() {
             contact_email: autoContactEmail,
             nature_of_business: autoNature,
             product_category: autoProductCategory,
-            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
-            certificate_standard: appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
-            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || (isSurveillance ? 'Surveillance Letter' : (isGSO ? 'GSO NON MEAT' : 'HFA SCHEME NON MEAT')),
+            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
+            certificate_standard: appData?.certificate_type || '',
+            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
             issue_date: todayStr,
             expiry_date: oneYearLater,
             current_cycle_start: autoAuditDate || todayStr,
@@ -953,9 +944,11 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
-    if (!resolvedCertType) {
-      toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
+    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+    const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+    if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+      setActiveTab(3);
       return;
     }
 
@@ -987,7 +980,7 @@ export default function AdminCreateLogsheet() {
       } else if (targetAppId) {
         navigate(`/applications/${targetAppId}/processing`);
       } else {
-        navigate('/applications');
+        navigate('/logsheet/direct');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
@@ -997,10 +990,12 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleConfirmNextSurveillanceFromLogsheet = async ({ next_surveillance_due_date, admin_name, notes }) => {
-    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
-    if (!resolvedCertType) {
-      toast.error('⚠️ A Certificate Type / Scheme must be selected before marking the application as Successful.');
+    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+    const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+    if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
       setShowNextSurvModal(false);
+      setActiveTab(3);
       return;
     }
     setIsFinalizing(true);
@@ -1022,7 +1017,7 @@ export default function AdminCreateLogsheet() {
       if (targetAppId) {
         navigate(`/applications/${targetAppId}/processing`);
       } else {
-        navigate('/applications');
+        navigate('/logsheet/direct');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to finalize application');
@@ -1114,7 +1109,7 @@ export default function AdminCreateLogsheet() {
         if (targetAppId) {
           navigate(`/applications/${targetAppId}/processing`);
         } else {
-          navigate('/applications');
+          navigate('/logsheet/direct');
         }
       }
     } catch (err) {
@@ -1271,9 +1266,10 @@ export default function AdminCreateLogsheet() {
     }
 
     // 3. Validate Tab 3: Certificate Status
-    const resolvedCertType = form.certificate_type?.trim() || form.certificate_standard?.trim() || form.suggested_certificate_type?.trim() || (isSurveillance ? 'Surveillance Letter' : '');
-    if (!resolvedCertType) {
-      toast.error('Certificate Type / Scheme is required (Tab 3)');
+    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+    const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+    if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
       setActiveTab(3);
       return;
     }
@@ -1329,8 +1325,10 @@ export default function AdminCreateLogsheet() {
       } : {};
 
       if (isInitialProduct) {
+        const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, ...cleanForm } = form;
+        void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat;
         await api.post(`/api/initial-products/${resolvedInitialProductId}/create-logsheet`, {
-          ...form,
+          ...cleanForm,
           ...redoPayload,
           product_name: initialProductName.trim(),
           product_code: initialProductCode.trim(),
@@ -1350,8 +1348,10 @@ export default function AdminCreateLogsheet() {
         }
       } else if (isAddon) {
         // For add-on applications — use the dedicated add-on logsheet route
+        const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, ...cleanForm } = form;
+        void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat;
         await api.post(`/api/add-on-applications/${addonId}/create-logsheet`, {
-          ...form,
+          ...cleanForm,
           ...redoPayload,
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
@@ -1367,11 +1367,28 @@ export default function AdminCreateLogsheet() {
           toast.success('Logsheet created for add-on application!');
           navigate('/addon-applications');
         }
+      } else if (isDirectLogsheetRoute || (!targetAppId && currentLogsheet?._id)) {
+        const logId = directLogsheetId || currentLogsheet?._id;
+        const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
+        void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat; void _ipId; void _aoId; void _srcType;
+        await api.put(`/api/application-logsheets/${logId}`, {
+          ...cleanForm,
+          ...redoPayload
+        });
+        if (isRedoing) {
+          toast.success('Direct Logsheet updated successfully! All previous signatures cleared.');
+          setIsRedoing(false);
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await fetchData();
+        } else {
+          toast.success('Direct Logsheet updated successfully!');
+          navigate('/logsheet/direct');
+        }
       } else {
         const targetAppId = appId || application?._id || application?.id;
         // Strip internal/relational fields before posting
-        const { _id: _fId, id: _fIntId, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
-        void _fId; void _fIntId; void _ipId; void _aoId; void _srcType;
+        const { _id: _fId, id: _fIntId, __v: _fV, createdAt: _fCa, updatedAt: _fUa, created_at: _fCat, updated_at: _fUat, initial_product_application_id: _ipId, addon_application_id: _aoId, source_type: _srcType, ...cleanForm } = form;
+        void _fId; void _fIntId; void _fV; void _fCa; void _fUa; void _fCat; void _fUat; void _ipId; void _aoId; void _srcType;
         const postRes = await api.post('/api/application-logsheets', {
           ...cleanForm,
           ...redoPayload,
@@ -1420,8 +1437,8 @@ export default function AdminCreateLogsheet() {
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
       {/* Navigation Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => isInitialProduct ? navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`) : navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-          <ChevronLeft size={16} /> {isInitialProduct ? 'Back to Initial Product' : 'Back'}
+        <button className="btn btn-ghost btn-sm" onClick={() => isInitialProduct ? navigate(`/admin/initial-products/${resolvedInitialProductId}/processing`) : (isDirectLogsheetRoute ? navigate('/logsheet/direct') : navigate(-1))} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+          <ChevronLeft size={16} /> {isInitialProduct ? 'Back to Initial Product' : (isDirectLogsheetRoute ? 'Back to Direct Studio' : 'Back')}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1913,7 +1930,7 @@ export default function AdminCreateLogsheet() {
                   </div>
 
                   <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                    {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                    {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products && application.products.length > 0 ? application.products : (currentLogsheet?.products_list || []))).map((p, pIdx) => {
                       const resp = isInitialProduct
                         ? (application?.product_approval_form?.product_response || {})
                         : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
@@ -2290,7 +2307,7 @@ export default function AdminCreateLogsheet() {
                   <select
                     required
                     className="form-control"
-                    value={form.certificate_type || form.certificate_standard || form.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : '')}
+                    value={form.certificate_type || form.suggested_certificate_type || form.certificate_standard || ''}
                     onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
                     style={{ fontWeight: 700, fontSize: 13.5, maxWidth: 340, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1', color: '#0f172a' }}
                   >
@@ -2703,7 +2720,7 @@ export default function AdminCreateLogsheet() {
                       </div>
 
                       <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-                        {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products || [])).map((p, pIdx) => {
+                        {(isInitialProduct ? (application?.product ? [application.product] : []) : (application?.products && application.products.length > 0 ? application.products : (currentLogsheet?.products_list || []))).map((p, pIdx) => {
                           const resp = isInitialProduct
                             ? (application?.product_approval_form?.product_response || {})
                             : (application?.product_approval_form?.product_responses || []).find(r => r.product_index === pIdx);
@@ -2978,7 +2995,7 @@ export default function AdminCreateLogsheet() {
                   <select
                     required
                     className="form-control"
-                    value={form.certificate_type || form.certificate_standard || form.suggested_certificate_type || (isSurveillance ? 'Surveillance Letter' : '')}
+                    value={form.certificate_type || form.suggested_certificate_type || form.certificate_standard || ''}
                     onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
                     style={{ fontWeight: 700, fontSize: 13.5, background: form.certificate_type ? '#f0fdfa' : '#fff', borderColor: form.certificate_type ? '#0e7490' : '#cbd5e1' }}
                   >

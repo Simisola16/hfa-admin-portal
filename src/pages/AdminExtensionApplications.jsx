@@ -17,7 +17,7 @@ const STATUS_CONFIG = {
   under_review: { label: 'Under Review', bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
   logsheet_created: { label: 'Logsheet Created', bg: '#e0f2fe', color: '#075985', border: '#bae6fd', dot: '#0ea5e9' },
   waiting_signature: { label: 'Waiting for Signature', bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', dot: '#f97316' },
-  extension_approved: { label: 'Certificate Approved', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
+  extension_approved: { label: 'Certificate Accepted', bg: '#dcfce7', color: '#166534', border: '#bbf7d0', dot: '#16a34a' },
   rejected: { label: 'Rejected', bg: '#fee2e2', color: '#991b1b', border: '#fecaca', dot: '#ef4444' }
 };
 
@@ -132,7 +132,7 @@ export default function AdminExtensionApplications() {
           { label: 'Total Extension Requests', value: totalApps, color: '#2563eb', bg: '#eff6ff' },
           { label: 'Form Received / Review', value: receivedCount, color: '#d97706', bg: '#fef3c7' },
           { label: 'Waiting for Signature', value: waitingSigCount, color: '#ea580c', bg: '#ffedd5' },
-          { label: 'Certificates Approved', value: approvedCount, color: '#008744', bg: '#ecfdf5' },
+          { label: 'Certificates Accepted', value: approvedCount, color: '#008744', bg: '#ecfdf5' },
         ].map(card => (
           <div
             key={card.label}
@@ -174,7 +174,7 @@ export default function AdminExtensionApplications() {
             { id: 'all', label: 'All Requests' },
             { id: 'received', label: 'Received' },
             { id: 'waiting_signature', label: 'Waiting Signature' },
-            { id: 'extension_approved', label: 'Approved' },
+            { id: 'extension_approved', label: 'Accepted' },
             { id: 'rejected', label: 'Rejected' },
           ].map(tab => (
             <button

@@ -146,7 +146,7 @@ export default function App() {
             <Route path="/exports" element={<AdminExports />} />
             <Route path="/export" element={<AdminExports />} />
             <Route path="/logsheet/direct" element={<AdminDirectLogsheet />} />
-            <Route path="/logsheet/direct/:id" element={<AdminDirectLogsheet />} />
+            <Route path="/logsheet/direct/:id" element={<AdminCreateLogsheet />} />
             <Route path="/logsheet/kfc" element={<AdminCreateKFCLogsheet />} />
             <Route path="/logsheet/kfc/:id" element={<AdminCreateKFCLogsheet />} />
             <Route path="/logsheet/accounts" element={<AdminLogsheets />} />

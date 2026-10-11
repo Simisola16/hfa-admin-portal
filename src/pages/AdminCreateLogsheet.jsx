@@ -326,6 +326,58 @@ export default function AdminCreateLogsheet() {
     ];
   };
 
+  const resolveSiteDisplayAddress = (site, client = null, fallbackAddress = '') => {
+    const isPlaceholder = (val) => {
+      if (!val || typeof val !== 'string') return true;
+      const lower = val.trim().toLowerCase();
+      return lower === '' || lower === 'address on file' || lower === 'on file' || lower === 'n/a' || lower === 'undefined';
+    };
+
+    const companyAddr = (client?.address || client?.registered_address || client?.head_office_address || fallbackAddress || '').trim();
+
+    if (!site) return isPlaceholder(companyAddr) ? '' : companyAddr;
+
+    // 1. If explicit address string is valid and not placeholder
+    if (!isPlaceholder(site.address)) {
+      return site.address.trim();
+    }
+
+    // 2. Gather specific site address components
+    const street1 = !isPlaceholder(site.address_1) ? site.address_1.trim() : '';
+    const street2 = !isPlaceholder(site.address_2) ? site.address_2.trim() : '';
+    const city = !isPlaceholder(site.city) ? site.city.trim() : '';
+    const state = !isPlaceholder(site.state) ? site.state.trim() : '';
+    const postcode = !isPlaceholder(site.postcode) ? site.postcode.trim() : '';
+    const country = !isPlaceholder(site.country) ? site.country.trim() : '';
+
+    // If street1 is a real street address:
+    if (street1) {
+      return [street1, street2, city, state, postcode, country].filter(Boolean).join(', ');
+    }
+
+    // If site has a valid head office address:
+    if (!isPlaceholder(site.head_office_address)) {
+      return site.head_office_address.trim();
+    }
+
+    // If street1 was placeholder or empty (like "Address on file" in legacy db), but we have company address:
+    if (!isPlaceholder(companyAddr)) {
+      const cityPostal = [city, postcode].filter(Boolean).join(' ');
+      if (cityPostal && !companyAddr.toLowerCase().includes(city.toLowerCase())) {
+        return `${companyAddr}, ${cityPostal}`;
+      }
+      return companyAddr;
+    }
+
+    // If no company address, construct from whatever parts exist (city, postcode, country):
+    const remainingParts = [street2, city, state, postcode, country].filter(Boolean);
+    if (remainingParts.length > 0) {
+      return remainingParts.join(', ');
+    }
+
+    return '';
+  };
+
   const handleDirectClientSelect = (clientId) => {
     setSelectedDirectClientId(clientId);
     if (!clientId) {
@@ -343,6 +395,7 @@ export default function AdminCreateLogsheet() {
     );
     setAvailableCompanySites(clientSites);
     const firstSite = clientSites[0];
+    const companyAddress = client.address || client.registered_address || client.head_office_address || '';
 
     setForm(prev => ({
       ...prev,
@@ -350,9 +403,9 @@ export default function AdminCreateLogsheet() {
       company_name: companyName || prev.company_name,
       contact_person: client.full_name || prev.contact_person,
       contact_email: client.email || prev.contact_email,
-      company_address: client.address || client.registered_address || client.head_office_address || prev.company_address,
+      company_address: companyAddress || prev.company_address,
       site_name: firstSite?.name || firstSite?.site_name || prev.site_name || 'Main Manufacturing Site',
-      manufacturing_address: firstSite?.address || firstSite?.head_office_address || firstSite?.address_1 || prev.manufacturing_address,
+      manufacturing_address: resolveSiteDisplayAddress(firstSite, client, companyAddress || prev.company_address),
       site_id: firstSite?._id || prev.site_id
     }));
   };
@@ -362,11 +415,13 @@ export default function AdminCreateLogsheet() {
     const site = directSites.find(s => s._id === siteId || s.id === siteId);
     if (!site) return;
 
+    const matchedClient = directClients.find(c => String(c._id) === String(site.client_id?._id || site.client_id));
+
     setForm(prev => ({
       ...prev,
       site_id: site._id,
       site_name: site.name || site.site_name || prev.site_name,
-      manufacturing_address: site.address || site.head_office_address || site.address_1 || prev.manufacturing_address
+      manufacturing_address: resolveSiteDisplayAddress(site, matchedClient, prev.company_address)
     }));
   };
 
@@ -3473,9 +3528,14 @@ export default function AdminCreateLogsheet() {
                             style={{ fontSize: 13, fontWeight: 600, background: '#fff' }}
                           >
                             <option value="">-- Choose Registered Site --</option>
-                            {availableCompanySites.map(s => (
-                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}</option>
-                            ))}
+                            {availableCompanySites.map(s => {
+                              const sAddr = resolveSiteDisplayAddress(s, null, form.company_address);
+                              return (
+                                <option key={s._id} value={s._id}>
+                                  {s.name || s.site_name || 'Main Site'}{sAddr ? ` (${sAddr})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <input
@@ -3893,9 +3953,14 @@ export default function AdminCreateLogsheet() {
                             style={{ fontWeight: 700, fontSize: 13, background: '#fff', borderColor: form.site_id ? '#f59e0b' : '#cbd5e1' }}
                           >
                             <option value="">-- Select Registered Site --</option>
-                            {availableCompanySites.map(s => (
-                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}</option>
-                            ))}
+                            {availableCompanySites.map(s => {
+                              const sAddr = resolveSiteDisplayAddress(s, null, form.company_address);
+                              return (
+                                <option key={s._id} value={s._id}>
+                                  {s.name || s.site_name || 'Main Site'}{sAddr ? ` (${sAddr})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>
@@ -4430,9 +4495,14 @@ export default function AdminCreateLogsheet() {
                             style={{ fontWeight: 700, fontSize: 13, background: '#fff', borderColor: form.site_id ? '#6366f1' : '#cbd5e1' }}
                           >
                             <option value="">-- Select Registered Site --</option>
-                            {availableCompanySites.map(s => (
-                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}</option>
-                            ))}
+                            {availableCompanySites.map(s => {
+                              const sAddr = resolveSiteDisplayAddress(s, null, form.company_address);
+                              return (
+                                <option key={s._id} value={s._id}>
+                                  {s.name || s.site_name || 'Main Site'}{sAddr ? ` (${sAddr})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>
@@ -4611,20 +4681,6 @@ export default function AdminCreateLogsheet() {
                             onChange={e => setForm({ ...form, product_code: e.target.value, product_category: `${form.product_name || 'Product'}${e.target.value ? ` (${e.target.value})` : ''}` })}
                             placeholder="e.g. PRD-1029"
                           />
-                        </div>
-
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                          <label className="form-label">Initial Approval Stage</label>
-                          <select
-                            className="form-control"
-                            value={form.initial_approval_stage || 'Stage 1 - Desk Review'}
-                            onChange={e => setForm({ ...form, initial_approval_stage: e.target.value })}
-                            style={{ fontWeight: 600 }}
-                          >
-                            <option value="Stage 1 - Desk Review">Stage 1 - Desk Review &amp; Formulation Audit</option>
-                            <option value="Stage 2 - Verification">Stage 2 - Supplier Verification &amp; Laboratory Assessment</option>
-                            <option value="Stage 3 - Approved">Stage 3 - Approved for Committee Sign-off</option>
-                          </select>
                         </div>
                       </>
                     ) : (
@@ -5038,11 +5094,14 @@ export default function AdminCreateLogsheet() {
                             }}
                           >
                             <option value="">-- Select Registered Site --</option>
-                            {availableCompanySites.map(s => (
-                              <option key={s._id} value={s._id}>
-                                {s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}
-                              </option>
-                            ))}
+                            {availableCompanySites.map(s => {
+                              const sAddr = resolveSiteDisplayAddress(s, null, form.company_address);
+                              return (
+                                <option key={s._id} value={s._id}>
+                                  {s.name || s.site_name || 'Main Site'}{sAddr ? ` (${sAddr})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>

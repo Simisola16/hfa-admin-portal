@@ -956,6 +956,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           const formData = new FormData();
           formData.append('letter_number', certificateForm.certificate_number);
           formData.append('issue_date', certificateForm.issue_date);
+          formData.append('audit_date', certificateForm.audit_date || certificateForm.certification_start_date || certificateForm.issue_date);
           formData.append('next_due_date', certificateForm.expiry_date);
           if (certificateForm.file) {
             formData.append('letter_file', certificateForm.file);
@@ -1416,6 +1417,17 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
+                      Audit Date <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={certificateForm.audit_date || certificateForm.certification_start_date || certificateForm.issue_date}
+                      onChange={e => setCertificateForm(f => ({ ...f, audit_date: e.target.value, certification_start_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
                     <label className="form-label" style={{ fontWeight: 800, fontSize: 12 }}>
                       Next Audit Due Date <span style={{ color: '#dc2626' }}>*</span>
                     </label>

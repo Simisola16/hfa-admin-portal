@@ -524,7 +524,8 @@ export default function AdminReviewCertificate() {
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         current_cycle_start_date: c.current_cycle_start_date ? new Date(c.current_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         original_cycle_start_date: c.original_cycle_start_date ? new Date(c.original_cycle_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-        certification_start_date: c.certification_start_date ? new Date(c.certification_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        certification_start_date: c.certification_start_date ? new Date(c.certification_start_date).toISOString().split('T')[0] : (c.audit_date ? new Date(c.audit_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])),
+        audit_date: c.audit_date ? new Date(c.audit_date).toISOString().split('T')[0] : (c.certification_start_date ? new Date(c.certification_start_date).toISOString().split('T')[0] : (c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])),
         expiry_date: c.expiry_date ? new Date(c.expiry_date).toISOString().split('T')[0] : '',
         products_covered: finalProductsCovered,
         product_details: resolvedDetails,
@@ -772,6 +773,7 @@ export default function AdminReviewCertificate() {
     }
     setSaving(true);
     try {
+      const isSaveSurv = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
       const payload = {
         certificate_number: form.certificate_number,
         certificate_type: form.certificate_type,
@@ -781,12 +783,13 @@ export default function AdminReviewCertificate() {
         scope: form.product_category || form.scope,
         product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
+        audit_date: form.audit_date || form.certification_start_date || form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: form.products_covered,
-        product_details: form.product_details,
+        products_covered: isSaveSurv ? [] : form.products_covered,
+        product_details: isSaveSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes
       };
@@ -814,6 +817,7 @@ export default function AdminReviewCertificate() {
       // First save current inputs
       await handleSave(true);
 
+      const isRegenSurv = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
       const res = await api.post(`/api/certificates/${certId}/regenerate`, {
         certificate_number: form.certificate_number,
         certificate_type: form.certificate_type,
@@ -823,12 +827,13 @@ export default function AdminReviewCertificate() {
         scope: form.product_category || form.scope,
         product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
+        audit_date: form.audit_date || form.certification_start_date || form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: form.products_covered,
-        product_details: form.product_details,
+        products_covered: isRegenSurv ? [] : form.products_covered,
+        product_details: isRegenSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2
       });
 
@@ -907,6 +912,7 @@ export default function AdminReviewCertificate() {
     }
     setApproving(true);
     try {
+      const isApproveSurv = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
       const payload = {
         certificate_number: form.certificate_number,
         certificate_type: form.certificate_type,
@@ -916,12 +922,13 @@ export default function AdminReviewCertificate() {
         scope: form.product_category || form.scope,
         product_category: form.product_category || form.scope,
         issue_date: form.issue_date,
+        audit_date: form.audit_date || form.certification_start_date || form.issue_date,
         current_cycle_start_date: form.current_cycle_start_date,
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: form.products_covered,
-        product_details: form.product_details,
+        products_covered: isApproveSurv ? [] : form.products_covered,
+        product_details: isApproveSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes
       };
@@ -1013,6 +1020,7 @@ export default function AdminReviewCertificate() {
 
   const isUnderReview = cert?.status === 'under_review' || cert?.status === 'draft';
   const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || form.certificate_type === 'SMIIC' || (form.certificate_type && (form.certificate_type.includes('GSO') || form.certificate_type.includes('SMIIC')));
+  const isSurvLetter = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
   const rawPdfUrl = getPdfUrl(cert?.certificate_url);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
 
@@ -1610,12 +1618,24 @@ export default function AdminReviewCertificate() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                        {isSurvLetter ? 'Audit Date' : 'Certification Start Date'} {isSurvLetter && <span style={{ color: '#dc2626' }}>*</span>}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, certification_start_date: f.issue_date, audit_date: f.issue_date }))}
+                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Match Issue Date
+                      </button>
+                    </div>
                     <input
                       type="date"
+                      required={isSurvLetter}
                       className="form-control"
-                      value={form.certification_start_date || form.issue_date}
-                      onChange={e => setForm({ ...form, certification_start_date: e.target.value })}
+                      value={form.audit_date || form.certification_start_date || form.issue_date}
+                      onChange={e => setForm(f => ({ ...f, certification_start_date: e.target.value, audit_date: e.target.value }))}
                     />
                   </div>
                 </div>
@@ -1624,6 +1644,7 @@ export default function AdminReviewCertificate() {
           </div>
 
           {/* Card 3: Certified Products Schedule */}
+          {!isSurvLetter && (
           <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2025,6 +2046,7 @@ export default function AdminReviewCertificate() {
               )}
             </div>
           </div>
+          )}
 
 
 

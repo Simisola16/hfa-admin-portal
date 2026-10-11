@@ -182,6 +182,19 @@ export default function AdminCreateLogsheet() {
                 : 'normal')))
     : directLogsheetType;
 
+  const isSurveillanceLogsheet = Boolean(
+    (isDirectCreation && directLogsheetType === 'surveillance') ||
+    (!isDirectCreation && (
+      isSurveillance ||
+      effectiveLogsheetType === 'surveillance' ||
+      currentLogsheet?.logsheet_type === 'surveillance' ||
+      currentLogsheet?.certificate_type === 'Surveillance Letter' ||
+      String(application?.application_type || '').toLowerCase().includes('surveillance') ||
+      String(application?.category || '').toLowerCase().includes('surveillance') ||
+      Boolean(application?.is_surveillance)
+    ))
+  );
+
   // STRICT SIGNATORY RULES:
   // Normal Logsheet: ALWAYS 4 signatures (Mufti, CEO, Manager, Mufti 2)
   // Product Logsheet: ALWAYS 4 signatures
@@ -321,13 +334,13 @@ export default function AdminCreateLogsheet() {
   };
 
   const getAvailableTabs = () => {
+    if (isSurveillanceLogsheet) {
+      return [
+        { id: 1, label: '1. Company Details', icon: Building },
+        { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+      ];
+    }
     if (isDirectCreation) {
-      if (directLogsheetType === 'surveillance') {
-        return [
-          { id: 1, label: '1. Company Details', icon: Building },
-          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
-        ];
-      }
       if (directLogsheetType === 'extension') {
         return [
           { id: 1, label: '1. Facility & Extension Details', icon: Building },
@@ -1098,6 +1111,13 @@ export default function AdminCreateLogsheet() {
 
           const existingReports = appData?.audit_reports?.map(r => ({ name: r.name || 'Audit_Report.pdf', url: r.url, uploaded_at: r.uploaded_at })) || [];
 
+          const isAppSurv = Boolean(
+            String(appData?.application_type || '').toLowerCase().includes('surveillance') ||
+            String(appData?.category || '').toLowerCase().includes('surveillance') ||
+            appData?.is_surveillance ||
+            appData?.application_number?.includes('-SU-')
+          );
+
           setForm(f => ({
             ...f,
             site_name: autoSiteName,
@@ -1108,23 +1128,23 @@ export default function AdminCreateLogsheet() {
             contact_email: autoContactEmail,
             nature_of_business: autoNature,
             product_category: autoProductCategory,
-            certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
-            certificate_standard: appData?.certificate_type || '',
-            suggested_certificate_type: appData?.suggested_certificate_type || appData?.certificate_type || '',
+            certificate_type: isAppSurv ? 'Surveillance Letter' : (appData?.suggested_certificate_type || appData?.certificate_type || ''),
+            certificate_standard: isAppSurv ? 'Surveillance Letter' : (appData?.certificate_type || ''),
+            suggested_certificate_type: isAppSurv ? 'Surveillance Letter' : (appData?.suggested_certificate_type || appData?.certificate_type || ''),
             issue_date: todayStr,
             expiry_date: oneYearLater,
             current_cycle_start: autoAuditDate || todayStr,
             original_cycle_start: appData?.created_at ? new Date(appData.created_at).toISOString().split('T')[0] : todayStr,
             next_surveillance_due_date: appData?.next_surveillance_due_date ? new Date(appData.next_surveillance_due_date).toISOString().split('T')[0] : '',
 
-            audit_type: autoAuditType,
+            audit_type: isAppSurv ? 'Surveillance' : autoAuditType,
             audit_date: autoAuditDate || todayStr,
             auditors: autoAuditors || (user?.full_name ? `${user.full_name}` : ''),
-            ncs_close: autoNcsClose,
-            docs_satisfactory: 'Satisfactory - all documentation verified',
-            pork_free_statement: 'Confirmed - signed pork-free declaration in place',
-            reviewed_by: user?.full_name || '',
-            reviewer_name: user?.full_name || '',
+            ncs_close: isAppSurv ? 'No NCs Flagged' : autoNcsClose,
+            docs_satisfactory: isAppSurv ? 'Satisfactory' : 'Satisfactory - all documentation verified',
+            pork_free_statement: isAppSurv ? 'Verified Compliant' : 'Confirmed - signed pork-free declaration in place',
+            reviewed_by: user?.full_name || 'HFA Lead Auditor',
+            reviewer_name: user?.full_name || 'HFA Lead Auditor',
             review_date: todayStr,
 
             annual_certificate: 'Yes',
@@ -1654,7 +1674,7 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    if (isDirectCreation && directLogsheetType === 'surveillance') {
+    if (isSurveillanceLogsheet) {
       // Surveillance Letter Validation (matching screenshot: 1. Company Details, 2. Comment / Reason)
       if (!form.company_name?.trim()) {
         toast.error('Company Name is required (1. Company Details)');
@@ -2070,6 +2090,11 @@ export default function AdminCreateLogsheet() {
           ...cleanForm,
           ...redoPayload,
           source_type: 'application',
+          logsheet_type: isSurveillanceLogsheet ? 'surveillance' : (cleanForm.logsheet_type || 'application'),
+          audit_type: isSurveillanceLogsheet ? 'Surveillance' : (cleanForm.audit_type || 'New'),
+          certificate_type: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.certificate_type || ''),
+          suggested_certificate_type: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.suggested_certificate_type || ''),
+          certificate_standard: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.certificate_standard || ''),
           document_urls: form.document_urls || [],
           audit_reports: form.audit_reports || form.document_urls || [],
           application_id: targetAppId,
@@ -2086,18 +2111,19 @@ export default function AdminCreateLogsheet() {
         const savedLogsheetId = postRes.data?.data?._id || postRes.data?._id;
         if (savedLogsheetId) {
           await api.put(`/api/applications/${targetAppId}`, {
-            logsheet_id: savedLogsheetId
+            logsheet_id: savedLogsheetId,
+            ...(isSurveillanceLogsheet ? { certificate_type: 'Surveillance Letter', suggested_certificate_type: 'Surveillance Letter' } : {})
           }).catch(() => {});
         }
 
         if (isRedoing) {
-          toast.success('LogSheet updated successfully! All previous signatures cleared.');
+          toast.success(isSurveillanceLogsheet ? 'Surveillance Logsheet updated successfully! All previous signatures cleared.' : 'LogSheet updated successfully! All previous signatures cleared.');
           setIsRedoing(false);
           // Small delay to ensure server write is committed before re-fetching
           await new Promise(resolve => setTimeout(resolve, 400));
           await fetchData();
         } else {
-          toast.success('LogSheet saved and status updated successfully!');
+          toast.success(isSurveillanceLogsheet ? 'Surveillance Logsheet saved and status updated successfully!' : 'LogSheet saved and status updated successfully!');
           navigate(`/applications/${targetAppId}/processing`);
         }
       }
@@ -3477,7 +3503,7 @@ export default function AdminCreateLogsheet() {
             )}
 
             {activeTab === 1 && (
-              isDirectCreation && directLogsheetType === 'surveillance' ? (
+              isSurveillanceLogsheet ? (
                 /* SURVEILLANCE LOGSHEET TAB 1 (matching official layout in user screenshot) */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {/* Top Context Row with Searchable Company & Site Picker */}
@@ -5629,7 +5655,7 @@ export default function AdminCreateLogsheet() {
           )}
 
             {activeTab === 2 && (
-              isDirectCreation && directLogsheetType !== 'normal' ? (
+              (isSurveillanceLogsheet || (isDirectCreation && directLogsheetType !== 'normal')) ? (
                 /* TAB 2: COMMENT / REASON FOR DIRECT SPECIALIZED LOGSHEETS */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -5638,11 +5664,11 @@ export default function AdminCreateLogsheet() {
                         2. Comment / Reason
                       </h3>
                       <span style={{ fontSize: 12, background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
-                        {directLogsheetType === 'surveillance' ? 'Surveillance Decision Record' : directLogsheetType === 'extension' ? 'Extension Decision Record' : 'Product Evaluation Record'}
+                        {isSurveillanceLogsheet ? 'Surveillance Decision Record' : directLogsheetType === 'extension' ? 'Extension Decision Record' : 'Product Evaluation Record'}
                       </span>
                     </div>
                     <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 16px 0', lineHeight: 1.5 }}>
-                      {directLogsheetType === 'surveillance'
+                      {isSurveillanceLogsheet
                         ? 'Provide official review committee comments, surveillance audit verification details, and rationale for issuing the Surveillance Letter.'
                         : directLogsheetType === 'extension'
                         ? 'Provide justification, operational conditions, and committee rationale for extending halal certificate validity.'
@@ -5659,7 +5685,7 @@ export default function AdminCreateLogsheet() {
                         rows={8}
                         style={{ fontSize: 14, padding: 14, lineHeight: 1.6 }}
                         placeholder={
-                          directLogsheetType === 'surveillance'
+                          isSurveillanceLogsheet
                             ? 'Enter committee findings, audit observations, and confirmation notes for Surveillance Letter issuance...'
                             : directLogsheetType === 'extension'
                             ? 'Enter official reasons and risk assessment for granting certificate extension...'
@@ -5771,7 +5797,7 @@ export default function AdminCreateLogsheet() {
               )
             )}
 
-            {activeTab === 3 && (!isDirectCreation || directLogsheetType === 'normal') && (
+            {activeTab === 3 && (!isDirectCreation || directLogsheetType === 'normal') && !isSurveillanceLogsheet && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Certificate Type / Scheme Selection */}
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #cbd5e1' }}>
@@ -5842,7 +5868,7 @@ export default function AdminCreateLogsheet() {
               </div>
             )}
 
-            {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal') && (
+            {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal') && !isSurveillanceLogsheet && (
               <div className="form-group">
                 <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
                 <textarea
@@ -5899,7 +5925,7 @@ export default function AdminCreateLogsheet() {
                     cursor: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 'not-allowed' : 'pointer',
                     background: isRedoing
                       ? '#b45309'
-                      : directLogsheetType === 'surveillance'
+                      : isSurveillanceLogsheet
                       ? 'linear-gradient(135deg, #0d9488 0%, #059669 100%)'
                       : directLogsheetType === 'extension'
                       ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
@@ -5908,7 +5934,7 @@ export default function AdminCreateLogsheet() {
                       : undefined,
                     borderColor: isRedoing
                       ? '#b45309'
-                      : directLogsheetType === 'surveillance'
+                      : isSurveillanceLogsheet
                       ? '#0d9488'
                       : directLogsheetType === 'extension'
                       ? '#d97706'
@@ -5921,7 +5947,7 @@ export default function AdminCreateLogsheet() {
                     ? (isRedoing ? 'Saving & Resetting Signatures...' : 'Saving Record...')
                     : (isRedoing
                       ? 'Save & Update Logsheet'
-                      : isDirectCreation && directLogsheetType === 'surveillance'
+                      : isSurveillanceLogsheet
                       ? 'Create Surveillance Letter'
                       : isDirectCreation && directLogsheetType === 'extension'
                       ? 'Create Extension Logsheet'

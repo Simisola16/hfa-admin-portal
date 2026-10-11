@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import {
   UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare,
   Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck,
-  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Package, Lock, RotateCcw
+  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Package, Lock, RotateCcw,
+  Search
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +34,9 @@ export default function AdminCreateLogsheet() {
   const [directClients, setDirectClients] = useState([]);
   const [directSites, setDirectSites] = useState([]);
   const [selectedDirectClientId, setSelectedDirectClientId] = useState('');
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+  const [availableCompanySites, setAvailableCompanySites] = useState([]);
   const [directLogsheetType, setDirectLogsheetType] = useState(() => {
     const sp = new URLSearchParams(location.search);
     const t = sp.get('type')?.toLowerCase();
@@ -99,8 +103,10 @@ export default function AdminCreateLogsheet() {
     extended_expiry_date: '',
 
     // Product Specific Fields
+    product_sub_type: 'initial', // 'initial' | 'addon'
     product_name: '',
     product_code: '',
+    products_list: [],
     raw_materials_approved: 'Yes',
     cross_contamination_risk: 'None',
     formulation_checked: 'Yes',
@@ -111,18 +117,6 @@ export default function AdminCreateLogsheet() {
   });
 
   const [uploadingReport, setUploadingReport] = useState(false);
-
-  // Signatory calculations (hoisted so all handlers have access)
-  const signatories = [
-    { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
-    { roleKey: 'Ceo', label: 'CEO / Executive Signatory', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
-    { roleKey: 'Manager', label: 'Manager / Technical Signatory', signature: currentLogsheet?.manager_signature, name: currentLogsheet?.manager_sign_name, date: currentLogsheet?.manager_sign_date },
-    { roleKey: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', signature: currentLogsheet?.mufti2_signature, name: currentLogsheet?.mufti2_sign_name, date: currentLogsheet?.mufti2_sign_date },
-  ];
-
-  const totalSignedCount = signatories.filter(s => !!s.signature).length;
-  const isFullySigned = totalSignedCount === 4 || currentLogsheet?.status === 'Signed' || currentLogsheet?.status === 'Completed';
-  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
 
   const userSignature = signatures.find(s =>
     (s.user_id && (s.user_id === user?.id || s.user_id === user?._id)) ||
@@ -165,6 +159,31 @@ export default function AdminCreateLogsheet() {
     ? (currentLogsheet.logsheet_type === 'initial_product' ? 'product' : (currentLogsheet.logsheet_type || (currentLogsheet.certificate_type === 'Surveillance Letter' ? 'surveillance' : (currentLogsheet.extension_duration_type ? 'extension' : (currentLogsheet.product_name ? 'product' : 'normal')))))
     : directLogsheetType;
 
+  // Extension Duration and Signatory calculation (strictly 30 Days [1 sig] vs More than 30 Days [4 sigs])
+  const isDirectExtension = isDirectCreation && directLogsheetType === 'extension';
+  const isExtensionLogsheet = isDirectExtension || effectiveLogsheetType === 'extension' || Boolean(currentLogsheet?.extension_duration_type);
+  const is30DaysExtension = isExtensionLogsheet && (form.extension_duration_type === '30_days' || Number(form.extension_days) <= 30);
+
+  const signatories = is30DaysExtension ? [
+    {
+      roleKey: 'Ceo',
+      label: 'Authorized Officer / CEO Signature (30-Day Extension)',
+      btnRole: 'CEO / Authorized Officer',
+      signature: currentLogsheet?.single_signature || currentLogsheet?.ceo_signature,
+      name: currentLogsheet?.single_sign_name || currentLogsheet?.ceo_sign_name,
+      date: currentLogsheet?.single_sign_date || currentLogsheet?.ceo_sign_date
+    }
+  ] : [
+    { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', btnRole: 'Mufti', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
+    { roleKey: 'Ceo', label: 'CEO / Executive Signatory', btnRole: 'CEO', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
+    { roleKey: 'Manager', label: 'Manager / Technical Signatory', btnRole: 'Manager', signature: currentLogsheet?.manager_signature, name: currentLogsheet?.manager_sign_name, date: currentLogsheet?.manager_sign_date },
+    { roleKey: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', btnRole: 'Mufti 2', signature: currentLogsheet?.mufti2_signature, name: currentLogsheet?.mufti2_sign_name, date: currentLogsheet?.mufti2_sign_date },
+  ];
+
+  const totalSignedCount = signatories.filter(s => !!s.signature).length;
+  const isFullySigned = totalSignedCount === signatories.length || currentLogsheet?.status === 'Signed' || currentLogsheet?.status === 'Completed';
+  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
+
   const handleSwitchDirectType = (typeId) => {
     setDirectLogsheetType(typeId);
     setActiveTab(1);
@@ -204,9 +223,11 @@ export default function AdminCreateLogsheet() {
         review_date: todayStr
       }));
     } else if (typeId === 'product') {
+      const subType = form.product_sub_type || 'initial';
       setForm(prev => ({
         ...prev,
-        audit_type: 'Initial Product Evaluation',
+        product_sub_type: subType,
+        audit_type: subType === 'addon' ? 'Add-on Products Certification' : 'Initial Product Evaluation',
         raw_materials_approved: 'Yes',
         cross_contamination_risk: 'None',
         formulation_checked: 'Yes',
@@ -216,7 +237,8 @@ export default function AdminCreateLogsheet() {
         reviewed_by: user?.full_name || 'HFA Food Technologist',
         reviewer_name: user?.full_name || 'HFA Food Technologist',
         status_date: todayStr,
-        review_date: todayStr
+        review_date: todayStr,
+        comment: prev.comment || (subType === 'addon' ? 'Recommended for add-on product certification endorsement.' : 'Recommended for initial product approval endorsement.')
       }));
     } else {
       setForm(prev => ({
@@ -242,16 +264,18 @@ export default function AdminCreateLogsheet() {
     }
   };
 
-  const handleExtensionDurationChange = (durationType, days = 30) => {
+  const handleExtensionDurationChange = (durationType, customDays = null) => {
     const baseDate = form.expiry_date ? new Date(form.expiry_date) : new Date();
-    const targetDays = durationType === '30_days' ? 30 : durationType === '60_days' ? 60 : durationType === '90_days' ? 90 : durationType === '180_days' ? 180 : days;
-    const newDate = new Date(baseDate.getTime() + targetDays * 24 * 60 * 60 * 1000);
+    const days = durationType === '30_days'
+      ? 30
+      : (customDays !== null ? (parseInt(customDays, 10) || 60) : (form.extension_days > 30 ? form.extension_days : 60));
+    const newDate = new Date(baseDate.getTime() + (days || 30) * 24 * 60 * 60 * 1000);
     const newDateStr = newDate.toISOString().split('T')[0];
 
     setForm(prev => ({
       ...prev,
-      extension_duration_type: durationType,
-      extension_days: targetDays,
+      extension_duration_type: durationType, // '30_days' | 'more_than_30_days'
+      extension_days: days,
       extended_expiry_date: newDateStr
     }));
   };
@@ -287,27 +311,56 @@ export default function AdminCreateLogsheet() {
 
   const handleDirectClientSelect = (clientId) => {
     setSelectedDirectClientId(clientId);
-    if (!clientId) return;
+    if (!clientId) {
+      setAvailableCompanySites([]);
+      return;
+    }
     const client = directClients.find(c => c._id === clientId || c.id === clientId);
     if (!client) return;
 
+    const companyName = client.company_name || client.full_name || '';
+    setCompanySearchQuery(companyName);
+
     const clientSites = directSites.filter(s =>
-      (s.client_id?._id || s.client_id) === client._id
+      String(s.client_id?._id || s.client_id) === String(client._id)
     );
+    setAvailableCompanySites(clientSites);
     const firstSite = clientSites[0];
 
     setForm(prev => ({
       ...prev,
       client_id: client._id,
-      company_name: client.company_name || client.full_name || prev.company_name,
+      company_name: companyName || prev.company_name,
       contact_person: client.full_name || prev.contact_person,
       contact_email: client.email || prev.contact_email,
-      company_address: client.address || client.registered_address || prev.company_address,
+      company_address: client.address || client.registered_address || client.head_office_address || prev.company_address,
       site_name: firstSite?.name || firstSite?.site_name || prev.site_name || 'Main Manufacturing Site',
-      manufacturing_address: firstSite?.address || prev.manufacturing_address,
+      manufacturing_address: firstSite?.address || firstSite?.head_office_address || firstSite?.address_1 || prev.manufacturing_address,
       site_id: firstSite?._id || prev.site_id
     }));
   };
+
+  const handleDirectSiteSelect = (siteId) => {
+    if (!siteId) return;
+    const site = directSites.find(s => s._id === siteId || s.id === siteId);
+    if (!site) return;
+
+    setForm(prev => ({
+      ...prev,
+      site_id: site._id,
+      site_name: site.name || site.site_name || prev.site_name,
+      manufacturing_address: site.address || site.head_office_address || site.address_1 || prev.manufacturing_address
+    }));
+  };
+
+  const filteredClients = directClients.filter(c => {
+    if (!companySearchQuery || companySearchQuery.trim() === '') return true;
+    const q = companySearchQuery.toLowerCase();
+    const cName = (c.company_name || '').toLowerCase();
+    const fName = (c.full_name || '').toLowerCase();
+    const email = (c.email || '').toLowerCase();
+    return cName.includes(q) || fName.includes(q) || email.includes(q);
+  }).slice(0, 10);
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
@@ -1112,19 +1165,23 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    const unsignedRoles = [
-      { key: 'Mufti', isSigned: !!currentLogsheet?.mufti_signature },
-      { key: 'Ceo', isSigned: !!currentLogsheet?.ceo_signature },
-      { key: 'Manager', isSigned: !!currentLogsheet?.manager_signature },
-      { key: 'Mufti2', isSigned: !!currentLogsheet?.mufti2_signature },
-    ].filter(r => !r.isSigned && (!isMuftiUser || (r.key === 'Mufti' || r.key === 'Mufti2'))).map(r => r.key);
-
-    if (roleToPreselect && unsignedRoles.includes(roleToPreselect)) {
-      setSigRole(roleToPreselect);
-    } else if (unsignedRoles.length > 0) {
-      setSigRole(unsignedRoles[0]);
+    if (is30DaysExtension) {
+      setSigRole('Ceo');
     } else {
-      setSigRole('');
+      const unsignedRoles = [
+        { key: 'Mufti', isSigned: !!currentLogsheet?.mufti_signature },
+        { key: 'Ceo', isSigned: !!currentLogsheet?.ceo_signature },
+        { key: 'Manager', isSigned: !!currentLogsheet?.manager_signature },
+        { key: 'Mufti2', isSigned: !!currentLogsheet?.mufti2_signature },
+      ].filter(r => !r.isSigned && (!isMuftiUser || (r.key === 'Mufti' || r.key === 'Mufti2'))).map(r => r.key);
+
+      if (roleToPreselect && unsignedRoles.includes(roleToPreselect)) {
+        setSigRole(roleToPreselect);
+      } else if (unsignedRoles.length > 0) {
+        setSigRole(unsignedRoles[0]);
+      } else {
+        setSigRole('');
+      }
     }
     setModalConfirmed(false);
     setShowSignModal(true);
@@ -1181,8 +1238,11 @@ export default function AdminCreateLogsheet() {
 
 
   const handleFinalizeApplicationSuccessful = async () => {
-    if (totalSignedCount < 3) {
-      toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
+    const requiredSigs = is30DaysExtension ? 1 : 3;
+    if (totalSignedCount < requiredSigs) {
+      toast.error(is30DaysExtension
+        ? 'Requires 1 Authorized Officer / CEO signature for 30-Day Extension.'
+        : `Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
       return;
     }
 
@@ -1526,7 +1586,7 @@ export default function AdminCreateLogsheet() {
         setActiveTab(2);
         return;
       }
-      form.audit_type = 'Initial Product Evaluation';
+      form.audit_type = form.product_sub_type === 'addon' ? 'Add-on Products Certification' : 'Initial Product Evaluation';
     } else {
       // Normal Logsheet Validation (Tabs 1, 2, 3, 4)
       // 1. Validate Tab 1: Company & Site Details
@@ -1764,7 +1824,7 @@ export default function AdminCreateLogsheet() {
             : (isDirectCreation && directLogsheetType === 'extension')
               ? 'extension'
               : (isDirectCreation && directLogsheetType === 'product')
-                ? 'initial_product'
+                ? (form.product_sub_type === 'addon' ? 'addon_application' : 'initial_product')
                 : 'application';
 
           const effectiveCertType = (isDirectCreation && directLogsheetType === 'surveillance')
@@ -1775,6 +1835,8 @@ export default function AdminCreateLogsheet() {
             ...cleanForm,
             source_type: 'direct',
             logsheet_type: effectiveBackendType,
+            product_sub_type: form.product_sub_type || 'initial',
+            products_list: form.products_list || [],
             certificate_type: effectiveCertType,
             certificate_standard: effectiveCertType,
             suggested_certificate_type: effectiveCertType,
@@ -1790,7 +1852,7 @@ export default function AdminCreateLogsheet() {
             : (directLogsheetType === 'extension'
                 ? 'Extension Logsheet created successfully!'
                 : (directLogsheetType === 'product'
-                    ? 'Product Logsheet created successfully!'
+                    ? (form.product_sub_type === 'addon' ? 'Add-on Product Logsheet created successfully!' : 'Initial Product Logsheet created successfully!')
                     : 'Normal Logsheet created successfully!'));
           toast.success(toastMsg);
           navigate(`/logsheet/direct/${createdDoc?._id || ''}`);
@@ -2912,14 +2974,16 @@ export default function AdminCreateLogsheet() {
               )}
 
               {/* Mark as Done Action Block */}
-              {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && (
+              {currentLogsheet?.status !== 'Waiting For Certificate' && currentLogsheet?.status !== 'Signed' && currentLogsheet?.status !== 'Completed' && (() => {
+                const thresholdMet = is30DaysExtension ? totalSignedCount >= 1 : totalSignedCount >= 3;
+                return (
                 <div
                   style={{
                     marginTop: 24,
                     padding: 16,
-                    background: totalSignedCount >= 3 ? '#f0fdf4' : '#fffbeb',
+                    background: thresholdMet ? '#f0fdf4' : '#fffbeb',
                     borderRadius: 10,
-                    border: `1.5px solid ${totalSignedCount >= 3 ? '#bbf7d0' : '#fde68a'}`,
+                    border: `1.5px solid ${thresholdMet ? '#bbf7d0' : '#fde68a'}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -2928,35 +2992,39 @@ export default function AdminCreateLogsheet() {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: totalSignedCount >= 3 ? '#14532d' : '#92400e' }}>
-                      {totalSignedCount >= 3 ? 'Committee Review & Signatures Ready' : 'Signature Threshold Pending'}
+                    <div style={{ fontSize: 13, fontWeight: 800, color: thresholdMet ? '#14532d' : '#92400e' }}>
+                      {thresholdMet ? 'Committee Review & Signatures Ready' : 'Signature Threshold Pending'}
                     </div>
-                    <div style={{ fontSize: 12, color: totalSignedCount >= 3 ? '#166534' : '#b45309', marginTop: 2 }}>
-                      {totalSignedCount >= 3
-                        ? ((isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
-                            ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to complete review and approve product for client.`
-                            : `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`)
-                        : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`}
+                    <div style={{ fontSize: 12, color: thresholdMet ? '#166534' : '#b45309', marginTop: 2 }}>
+                      {thresholdMet
+                        ? (is30DaysExtension
+                            ? '1 of 1 CEO / Authorized Officer signature collected. Click "Application Successful" to complete sign-off.'
+                            : ((isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon'))
+                                ? `${totalSignedCount} of 4 committee signatures collected. Click "Approve Product" to complete review and approve product for client.`
+                                : `${totalSignedCount} of 4 committee signatures collected. Click "Application Successful" to complete committee sign-off and advance application.`))
+                        : (is30DaysExtension
+                            ? 'Requires 1 Authorized Officer / CEO signature for 30-Day Extension.'
+                            : `Requires at least 3 of 4 signatures — currently ${totalSignedCount}/4 signed.`)}
                     </div>
                   </div>
 
                   {(isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
                     <button
                       onClick={openApproveProductsModal}
-                      disabled={isFinalizing || totalSignedCount < 3}
+                      disabled={isFinalizing || !thresholdMet}
                       className="btn btn-primary"
                       style={{
-                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
-                        borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
-                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        background: thresholdMet ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                        borderColor: thresholdMet ? '#15803d' : '#cbd5e1',
+                        color: thresholdMet ? '#fff' : '#64748b',
                         fontWeight: 800,
                         padding: '10px 22px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
                         borderRadius: 10,
-                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
-                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                        boxShadow: thresholdMet ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+                        cursor: thresholdMet ? 'pointer' : 'not-allowed'
                       }}
                     >
                       {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> {isInitialProduct ? 'Approve Initial Product' : 'Approve Product'}</>}
@@ -2964,27 +3032,28 @@ export default function AdminCreateLogsheet() {
                   ) : (
                     <button
                       onClick={handleFinalizeApplicationSuccessful}
-                      disabled={isFinalizing || totalSignedCount < 3}
+                      disabled={isFinalizing || !thresholdMet}
                       className="btn btn-primary"
                       style={{
-                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
-                        borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
-                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        background: thresholdMet ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                        borderColor: thresholdMet ? '#15803d' : '#cbd5e1',
+                        color: thresholdMet ? '#fff' : '#64748b',
                         fontWeight: 800,
                         padding: '10px 22px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
                         borderRadius: 10,
-                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
-                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                        boxShadow: thresholdMet ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+                        cursor: thresholdMet ? 'pointer' : 'not-allowed'
                       }}
                     >
                       {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Application Successful</>}
                     </button>
                   )}
                 </div>
-              )}
+              );
+              })()}
             </div>
           </div>
         ) : (
@@ -3048,47 +3117,105 @@ export default function AdminCreateLogsheet() {
               isDirectCreation && directLogsheetType === 'surveillance' ? (
                 /* SURVEILLANCE LOGSHEET TAB 1 (matching official layout in user screenshot) */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                  {/* Top Context Row */}
+                  {/* Top Context Row with Searchable Company & Site Picker */}
                   <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                      {/* Searchable Company Name */}
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', margin: 0 }}>Company:</label>
+                          {selectedDirectClientId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDirectClientId('');
+                                setCompanySearchQuery('');
+                                setAvailableCompanySites([]);
+                                setForm(prev => ({ ...prev, company_name: '', client_id: '', site_name: '', manufacturing_address: '' }));
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={companySearchQuery || form.company_name || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCompanySearchQuery(val);
+                              setForm(prev => ({ ...prev, company_name: val }));
+                              setShowCompanySuggestions(true);
+                            }}
+                            onFocus={() => setShowCompanySuggestions(true)}
+                            placeholder="Type to search company..."
+                            style={{ paddingLeft: 30, fontSize: 13, fontWeight: 600, background: '#fff' }}
+                          />
+                          <Search size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        </div>
+
+                        {showCompanySuggestions && (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60,
+                            background: '#ffffff', borderRadius: 8, border: '1.5px solid #0284c7',
+                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)', maxHeight: 220, overflowY: 'auto', marginTop: 4
+                          }}>
+                            {filteredClients.length > 0 ? (
+                              filteredClients.map(client => (
+                                <div
+                                  key={client._id}
+                                  onMouseDown={e => {
+                                    e.preventDefault();
+                                    handleDirectClientSelect(client._id);
+                                    setShowCompanySuggestions(false);
+                                  }}
+                                  style={{
+                                    padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                    background: selectedDirectClientId === client._id ? '#f0f9ff' : '#fff'
+                                  }}
+                                >
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{client.company_name || client.full_name}</div>
+                                  <div style={{ fontSize: 11.5, color: '#64748b' }}>{client.email || 'No email'}</div>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>No matching registered clients found.</div>
+                            )}
+                            <div onMouseDown={e => { e.preventDefault(); setShowCompanySuggestions(false); }} style={{ padding: '4px 10px', background: '#f8fafc', fontSize: 11, textAlign: 'right', cursor: 'pointer', color: '#64748b' }}>Close ✕</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Site Selection */}
                       <div>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Company:</label>
-                        {directClients.length > 0 ? (
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                          Site Name: {availableCompanySites.length > 0 && <span style={{ color: '#0284c7' }}>({availableCompanySites.length})</span>}
+                        </label>
+                        {availableCompanySites.length > 0 ? (
                           <select
                             className="form-control"
-                            value={selectedDirectClientId}
-                            onChange={e => handleDirectClientSelect(e.target.value)}
+                            value={form.site_id || ''}
+                            onChange={e => handleDirectSiteSelect(e.target.value)}
                             style={{ fontSize: 13, fontWeight: 600, background: '#fff' }}
                           >
-                            <option value="">-- Select Client or type below --</option>
-                            {directClients.map(c => (
-                              <option key={c._id} value={c._id}>
-                                {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
-                              </option>
+                            <option value="">-- Choose Registered Site --</option>
+                            {availableCompanySites.map(s => (
+                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}</option>
                             ))}
                           </select>
                         ) : (
                           <input
                             type="text"
                             className="form-control"
-                            value={form.company_name || ''}
-                            onChange={e => setForm({ ...form, company_name: e.target.value })}
-                            placeholder="Company Name"
+                            value={form.site_name || ''}
+                            onChange={e => setForm({ ...form, site_name: e.target.value })}
+                            placeholder="Site Name"
                             style={{ fontSize: 13, fontWeight: 600 }}
                           />
                         )}
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Site Name :</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={form.site_name || ''}
-                          onChange={e => setForm({ ...form, site_name: e.target.value })}
-                          placeholder="Site Name"
-                          style={{ fontSize: 13, fontWeight: 600 }}
-                        />
                       </div>
 
                       <div>
@@ -3333,193 +3460,510 @@ export default function AdminCreateLogsheet() {
                   </div>
                 </div>
               ) : isDirectCreation && directLogsheetType === 'extension' ? (
-                /* EXTENSION LOGSHEET TAB 1 (1. Facility & Extension Details) */
+                /* EXTENSION LOGSHEET TAB 1 (Matches AdminExtensionLogsheet from Application) */
                 <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 13.5, color: '#92400e', fontWeight: 800 }}>
-                          Extension Logsheet · Direct Generation
-                        </div>
-                        <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
-                          Select registered client to auto-fill facility details, or enter extension specifications below.
-                        </div>
+                  {/* Searchable Direct Company & Site Picker */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                    border: '1.5px solid #fde68a',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    gridColumn: '1 / -1',
+                    marginBottom: 4,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Clock size={17} style={{ color: '#b45309' }} />
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e' }}>
+                          Extension Logsheet · Search Company &amp; Choose Site
+                        </span>
+                        <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 12, fontWeight: 700, border: '1px solid #fde68a' }}>
+                          Direct Generation
+                        </span>
                       </div>
-                      <div style={{ minWidth: 260 }}>
-                        <select
-                          className="form-control"
-                          value={selectedDirectClientId}
-                          onChange={e => handleDirectClientSelect(e.target.value)}
-                          style={{ fontSize: 12.5, fontWeight: 600, background: '#fff', borderColor: '#f59e0b' }}
+                      {selectedDirectClientId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDirectClientId('');
+                            setCompanySearchQuery('');
+                            setAvailableCompanySites([]);
+                            setForm(prev => ({
+                              ...prev,
+                              client_id: '',
+                              company_name: '',
+                              site_name: '',
+                              manufacturing_address: '',
+                              company_address: '',
+                              contact_person: '',
+                              contact_email: ''
+                            }));
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
-                          <option value="">-- Select Registered Client (Optional) --</option>
-                          {directClients.map(c => (
-                            <option key={c._id} value={c._id}>
-                              {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
-                            </option>
-                          ))}
-                        </select>
+                          <X size={13} /> Clear Selection
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: availableCompanySites.length > 0 ? '1.2fr 1fr' : '1fr', gap: 16 }}>
+                      {/* Searchable Company Input */}
+                      <div style={{ position: 'relative' }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'block', marginBottom: 4 }}>
+                          Type Company Name to Search:
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={companySearchQuery || form.company_name || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCompanySearchQuery(val);
+                              setForm(prev => ({ ...prev, company_name: val }));
+                              setShowCompanySuggestions(true);
+                            }}
+                            onFocus={() => setShowCompanySuggestions(true)}
+                            placeholder="Start typing company name to search..."
+                            style={{
+                              paddingLeft: 34,
+                              fontWeight: 700,
+                              fontSize: 13.5,
+                              background: '#fff',
+                              borderColor: selectedDirectClientId ? '#f59e0b' : '#cbd5e1'
+                            }}
+                          />
+                          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                          {companySearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompanySearchQuery('');
+                                setForm(prev => ({ ...prev, company_name: '' }));
+                                setSelectedDirectClientId('');
+                                setAvailableCompanySites([]);
+                              }}
+                              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Floating Suggestions */}
+                        {showCompanySuggestions && (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60,
+                            background: '#ffffff', borderRadius: 8, border: '1.5px solid #f59e0b',
+                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)', maxHeight: 240, overflowY: 'auto', marginTop: 4
+                          }}>
+                            {filteredClients.length > 0 ? (
+                              filteredClients.map(client => {
+                                const clientSitesCount = directSites.filter(s => String(s.client_id?._id || s.client_id) === String(client._id)).length;
+                                const isSelected = selectedDirectClientId === client._id;
+                                return (
+                                  <div
+                                    key={client._id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleDirectClientSelect(client._id);
+                                      setShowCompanySuggestions(false);
+                                    }}
+                                    style={{
+                                      padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                      background: isSelected ? '#fffbeb' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#fffbeb'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isSelected ? '#fffbeb' : '#ffffff'}
+                                  >
+                                    <div>
+                                      <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>{client.company_name || client.full_name}</div>
+                                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                                        {client.full_name && client.full_name !== client.company_name ? `${client.full_name} • ` : ''}{client.email || 'No email'}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      {clientSitesCount > 0 && (
+                                        <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                                          {clientSitesCount} {clientSitesCount === 1 ? 'Site' : 'Sites'}
+                                        </span>
+                                      )}
+                                      {isSelected && <Check size={16} color="#d97706" strokeWidth={3} />}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>
+                                No matching registered client. You can type company details directly below.
+                              </div>
+                            )}
+                            <div
+                              onMouseDown={(e) => { e.preventDefault(); setShowCompanySuggestions(false); }}
+                              style={{ padding: '6px 14px', background: '#f8fafc', fontSize: 11.5, fontWeight: 600, color: '#64748b', textAlign: 'right', borderTop: '1px solid #e2e8f0', cursor: 'pointer' }}
+                            >
+                              Close ✕
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Choose Site for Selected Company */}
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'block', marginBottom: 4 }}>
+                          Choose Site: {availableCompanySites.length > 0 && <span style={{ color: '#b45309' }}>({availableCompanySites.length} registered)</span>}
+                        </label>
+                        {availableCompanySites.length > 0 ? (
+                          <select
+                            className="form-control"
+                            value={form.site_id || ''}
+                            onChange={e => handleDirectSiteSelect(e.target.value)}
+                            style={{ fontWeight: 700, fontSize: 13, background: '#fff', borderColor: form.site_id ? '#f59e0b' : '#cbd5e1' }}
+                          >
+                            <option value="">-- Select Registered Site --</option>
+                            {availableCompanySites.map(s => (
+                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>
+                            {selectedDirectClientId ? 'No registered sites for this client. Enter site name below.' : 'Search company above to select its sites.'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* Header Banner - Matches AdminExtensionLogsheet */}
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: 14, marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#008744', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                      HALAL FOOD AUTHORITY
+                    </div>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '4px 0 0', textTransform: 'uppercase' }}>
+                      Halal Certificate Extension Logsheet
+                    </h2>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                      Direct Facility Extension Decision Record
+                    </div>
+                  </div>
+
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Company Name: <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
                       required
                       type="text"
                       className="form-control"
                       value={form.company_name || ''}
                       onChange={e => setForm({ ...form, company_name: e.target.value })}
-                      placeholder="Company Name"
-                      style={{ fontWeight: 700 }}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Site / Facility Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.site_name || ''}
-                      onChange={e => setForm({ ...form, site_name: e.target.value })}
-                      placeholder="Manufacturing Site Name"
-                      style={{ fontWeight: 600 }}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Existing Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.existing_certificate_number || ''}
-                      onChange={e => setForm({ ...form, existing_certificate_number: e.target.value })}
-                      placeholder="e.g. HFA/UK/2025/104"
+                      placeholder="e.g. British Foods Ltd"
                       style={{ fontWeight: 700 }}
                     />
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Company Registered Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label">
+                      Address of certificated facility: <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
+                    </label>
                     <input
-                      required
                       type="text"
                       className="form-control"
-                      value={form.company_address || ''}
-                      onChange={e => setForm({ ...form, company_address: e.target.value })}
-                      placeholder="Company Address"
+                      value={form.manufacturing_address || form.facility_address || ''}
+                      onChange={e => setForm({ ...form, manufacturing_address: e.target.value, facility_address: e.target.value })}
+                      placeholder="Full address of the manufacturing / processing facility (Optional)"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label">Contact Person of the company: <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
                       required
                       type="text"
                       className="form-control"
                       value={form.contact_person || ''}
                       onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                      placeholder="Full name of representative"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label className="form-label">Contact E-mail: <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
                       required
                       type="email"
                       className="form-control"
                       value={form.contact_email || ''}
                       onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                      placeholder="representative@company.com"
                     />
                   </div>
 
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label" style={{ fontWeight: 700 }}>Recommended Certificate Scheme / Standard <span style={{ color: '#dc2626' }}>*</span></label>
-                    <select
+                  <div className="form-group">
+                    <label className="form-label">Product category: <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
                       required
+                      type="text"
                       className="form-control"
-                      value={form.certificate_type || form.suggested_certificate_type || ''}
-                      onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
-                      style={{ fontWeight: 600 }}
-                    >
-                      <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
-                      <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
-                      <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
-                      <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme)</option>
-                      <option value="GSO MEAT">GSO MEAT (UAE / GCC Meat Scheme)</option>
-                      <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics)</option>
-                      <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
-                    </select>
+                      value={form.product_category || ''}
+                      onChange={e => setForm({ ...form, product_category: e.target.value })}
+                      placeholder="e.g. Meat & Poultry / Confectionery / Flavours"
+                    />
                   </div>
 
-                  {/* Extension Duration selector */}
-                  <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                    <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', marginBottom: 10 }}>
-                      Extension Duration <span style={{ color: '#dc2626' }}>*</span>
+                  <div className="form-group">
+                    <label className="form-label">Existing Certificate Number (if any):</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={form.existing_certificate_number || ''}
+                      onChange={e => setForm({ ...form, existing_certificate_number: e.target.value })}
+                      placeholder="e.g. HFA/UK/2025/104"
+                      style={{ fontWeight: 600 }}
+                    />
+                  </div>
+
+                  {/* Recommended Certificate Scheme / Standard with dynamic GSO & HFA indicators */}
+                  <div style={{
+                    gridColumn: '1 / -1',
+                    background: '#f0fdfa',
+                    padding: '16px 20px',
+                    borderRadius: 12,
+                    border: '1.5px solid #99f6e4',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                      <label style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                        <Award size={16} style={{ color: '#0d9488' }} />
+                        <span>Recommended Certificate Scheme:</span>
+                        <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>* (Required)</span>
+                      </label>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, color: '#0f766e',
+                        background: '#ccfbf1', padding: '3px 10px', borderRadius: 20,
+                        border: '1px solid #5eead4'
+                      }}>
+                        Recommended Scheme for Issuer
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                      <select
+                        required
+                        className="form-control"
+                        value={form.suggested_certificate_type || form.certificate_type || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          let detectedScheme = '';
+                          const u = val.toUpperCase();
+                          if (u.includes('GSO') && u.includes('HFA')) detectedScheme = 'Both';
+                          else if (u.includes('GSO') || u.includes('UAE') || u.includes('GCC')) detectedScheme = 'GSO';
+                          else if (u.includes('HFA')) detectedScheme = 'HFA';
+                          setForm(prev => ({
+                            ...prev,
+                            certificate_type: val,
+                            suggested_certificate_type: val,
+                            certificate_standard: val,
+                            scheme: detectedScheme
+                          }));
+                        }}
+                        style={{
+                          maxWidth: 380,
+                          fontWeight: 700,
+                          fontSize: 13.5,
+                          background: '#ffffff',
+                          borderColor: (form.suggested_certificate_type || form.certificate_type) ? '#0d9488' : '#cbd5e1'
+                        }}
+                      >
+                        <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
+                        <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food &amp; General Manufacturing)</option>
+                        <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat &amp; Poultry Processing)</option>
+                        <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
+                        <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
+                        <option value="COSMETICS">COSMETICS (Personal Care &amp; Cosmetics Scheme)</option>
+                        <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
+                      </select>
+
+                      {/* Dynamic Scheme Indicators */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <label style={{
+                          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
+                          color: (form.scheme === 'GSO' || form.scheme === 'Both' || (form.certificate_type || '').includes('GSO')) ? '#0f172a' : '#94a3b8'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={form.scheme === 'GSO' || form.scheme === 'Both' || (form.certificate_type || '').includes('GSO')}
+                            readOnly
+                            style={{ width: 16, height: 16, accentColor: '#008744' }}
+                          />
+                          GSO
+                        </label>
+                        <label style={{
+                          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
+                          color: (form.scheme === 'HFA' || form.scheme === 'Both' || (form.certificate_type || '').includes('HFA')) ? '#0f172a' : '#94a3b8'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={form.scheme === 'HFA' || form.scheme === 'Both' || (form.certificate_type || '').includes('HFA')}
+                            readOnly
+                            style={{ width: 16, height: 16, accentColor: '#008744' }}
+                          />
+                          HFA
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Certificate Expiry Date */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Certificate expiry date: <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="date"
+                      className="form-control"
+                      value={form.expiry_date?.split('T')[0] || ''}
+                      onChange={e => {
+                        const newExp = e.target.value;
+                        setForm(f => {
+                          const baseDate = newExp ? new Date(newExp) : new Date();
+                          const days = f.extension_days || 30;
+                          const extDate = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                          return { ...f, expiry_date: newExp, extended_expiry_date: extDate };
+                        });
+                      }}
+                      style={{ maxWidth: 260 }}
+                    />
+                  </div>
+
+                  {/* Justification for extension */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>
+                      Justification for extension: <span style={{ color: '#dc2626' }}>*</span>
                     </label>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {[
-                        { type: '30_days', days: 30, label: '30 Days Extension' },
-                        { type: '60_days', days: 60, label: '60 Days Extension' },
-                        { type: '90_days', days: 90, label: '90 Days Extension' },
-                        { type: '120_days', days: 120, label: '120 Days Extension' },
-                        { type: '180_days', days: 180, label: '180 Days (6 Months)' }
-                      ].map(dur => (
+                    <textarea
+                      required
+                      rows={5}
+                      className="form-control"
+                      value={form.extension_reason || form.comment || ''}
+                      onChange={e => setForm({ ...form, extension_reason: e.target.value, comment: e.target.value })}
+                      placeholder="State the detailed operational, technical, or auditing justification for granting the certificate extension..."
+                      style={{ fontSize: 13.5, lineHeight: 1.6 }}
+                    />
+                  </div>
+
+                  {/* Extension Duration Toggle - Strictly 30 Days and More than 30 Days */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1.5px dashed #cbd5e1',
+                    borderRadius: 12,
+                    padding: '18px 22px',
+                    gridColumn: '1 / -1'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a' }}>
+                          Extension required for:
+                        </span>
+                        {form.extension_duration_type === 'more_than_30_days' ? (
+                          <input
+                            type="number"
+                            min="31"
+                            max="365"
+                            value={form.extension_days || 60}
+                            onChange={e => handleExtensionDurationChange('more_than_30_days', e.target.value)}
+                            style={{
+                              width: 90, padding: '6px 10px', borderRadius: 6,
+                              border: '2px solid #2563eb',
+                              backgroundColor: '#ffffff',
+                              fontSize: 15, fontWeight: 800,
+                              textAlign: 'center', color: '#2563eb'
+                            }}
+                          />
+                        ) : (
+                          <span style={{
+                            display: 'inline-block',
+                            width: 60, padding: '6px 10px', borderRadius: 6,
+                            background: '#ecfdf5', border: '1.5px solid #008744',
+                            fontSize: 15, fontWeight: 800, textAlign: 'center', color: '#008744'
+                          }}>
+                            30
+                          </span>
+                        )}
+                        <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a' }}>
+                          days
+                        </span>
+                      </div>
+
+                      {/* Only 30 Days and More than 30 Days buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <button
-                          key={dur.type}
                           type="button"
-                          onClick={() => handleExtensionDurationChange(dur.type, dur.days)}
+                          onClick={() => handleExtensionDurationChange('30_days')}
                           style={{
-                            padding: '8px 16px',
-                            borderRadius: 8,
-                            fontSize: 12.5,
-                            fontWeight: 700,
+                            padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                            border: form.extension_duration_type === '30_days' ? '2px solid #008744' : '1px solid #cbd5e1',
+                            background: form.extension_duration_type === '30_days' ? '#ecfdf5' : '#ffffff',
+                            color: form.extension_duration_type === '30_days' ? '#008744' : '#64748b',
                             cursor: 'pointer',
-                            border: `2px solid ${form.extension_duration_type === dur.type ? '#d97706' : '#cbd5e1'}`,
-                            background: form.extension_duration_type === dur.type ? '#fef3c7' : '#fff',
-                            color: form.extension_duration_type === dur.type ? '#92400e' : '#475569'
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            boxShadow: form.extension_duration_type === '30_days' ? '0 2px 8px rgba(0,135,68,0.15)' : 'none'
                           }}
                         >
-                          {dur.label}
+                          ✓ 30 Days Extension (1 Signature)
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => handleExtensionDurationChange('more_than_30_days', form.extension_days > 30 ? form.extension_days : 60)}
+                          style={{
+                            padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                            border: form.extension_duration_type === 'more_than_30_days' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: form.extension_duration_type === 'more_than_30_days' ? '#eff6ff' : '#ffffff',
+                            color: form.extension_duration_type === 'more_than_30_days' ? '#2563eb' : '#64748b',
+                            cursor: 'pointer',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            boxShadow: form.extension_duration_type === 'more_than_30_days' ? '0 2px 8px rgba(37,99,235,0.15)' : 'none'
+                          }}
+                        >
+                          ✓ more than 30 Days Extension (4 Signatures)
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 14, paddingTop: 14, borderTop: '1px solid #e2e8f0' }}>
                       <div>
-                        <label className="form-label" style={{ fontSize: 12 }}>Current Certificate Expiry:</label>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', display: 'block', marginBottom: 4 }}>
+                          Current Certificate Expiry Date:
+                        </label>
                         <input
                           type="date"
                           className="form-control"
                           value={form.expiry_date?.split('T')[0] || ''}
-                          onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                          onChange={e => {
+                            const newExp = e.target.value;
+                            setForm(f => {
+                              const baseDate = newExp ? new Date(newExp) : new Date();
+                              const days = f.extension_days || 30;
+                              const extDate = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                              return { ...f, expiry_date: newExp, extended_expiry_date: extDate };
+                            });
+                          }}
+                          style={{ fontSize: 13 }}
                         />
                       </div>
                       <div>
-                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>Extended Expiry Date:</label>
+                        <label style={{ fontSize: 12, fontWeight: 800, color: '#0f766e', display: 'block', marginBottom: 4 }}>
+                          Extended Expiry Date (Auto-calculated):
+                        </label>
                         <input
                           type="date"
                           className="form-control"
                           value={form.extended_expiry_date?.split('T')[0] || ''}
                           onChange={e => setForm({ ...form, extended_expiry_date: e.target.value })}
-                          style={{ fontWeight: 800, background: '#fffbeb', borderColor: '#fde68a', color: '#92400e' }}
+                          style={{ fontWeight: 800, background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e', fontSize: 13.5 }}
                         />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Reason for Extension Request <span style={{ color: '#dc2626' }}>*</span></label>
-                    <textarea
-                      required
-                      rows={3}
-                      className="form-control"
-                      value={form.extension_reason || ''}
-                      onChange={e => setForm({ ...form, extension_reason: e.target.value })}
-                      placeholder="e.g. Facility audit rescheduled / Audit window extended pending site inspection"
-                    />
                   </div>
 
                   {/* Document upload */}
@@ -3555,217 +3999,785 @@ export default function AdminCreateLogsheet() {
                   </div>
                 </div>
               ) : isDirectCreation && directLogsheetType === 'product' ? (
-                /* PRODUCT LOGSHEET TAB 1 (1. Product Evaluation) */
-                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ background: '#eef2ff', border: '1.5px solid #c7d2fe', borderRadius: 10, padding: '14px 18px', gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 13.5, color: '#3730a3', fontWeight: 800 }}>
-                          Product Logsheet · Direct Generation
-                        </div>
-                        <div style={{ fontSize: 12, color: '#4338ca', marginTop: 2 }}>
-                          Select registered client to link, and enter product formulation details for evaluation.
-                        </div>
+                /* PRODUCT LOGSHEET TAB 1 (Initial Product & Add-on Evaluation) */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Searchable Direct Company & Site Picker Banner */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)',
+                    border: '1.5px solid #a5b4fc',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Package size={17} style={{ color: '#4338ca' }} />
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#3730a3' }}>
+                          Product Logsheet · Search Company &amp; Choose Site
+                        </span>
+                        <span style={{ fontSize: 11, background: '#c7d2fe', color: '#312e81', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>
+                          Direct Generation
+                        </span>
                       </div>
-                      <div style={{ minWidth: 260 }}>
-                        <select
-                          className="form-control"
-                          value={selectedDirectClientId}
-                          onChange={e => handleDirectClientSelect(e.target.value)}
-                          style={{ fontSize: 12.5, fontWeight: 600, background: '#fff', borderColor: '#818cf8' }}
+                      {selectedDirectClientId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDirectClientId('');
+                            setCompanySearchQuery('');
+                            setAvailableCompanySites([]);
+                            setForm(prev => ({
+                              ...prev,
+                              client_id: '',
+                              company_name: '',
+                              site_name: '',
+                              manufacturing_address: '',
+                              company_address: '',
+                              contact_person: '',
+                              contact_email: ''
+                            }));
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
-                          <option value="">-- Select Registered Client (Optional) --</option>
-                          {directClients.map(c => (
-                            <option key={c._id} value={c._id}>
-                              {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
-                            </option>
-                          ))}
-                        </select>
+                          <X size={13} /> Clear Selection
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: availableCompanySites.length > 0 ? '1.2fr 1fr' : '1fr', gap: 16 }}>
+                      {/* Searchable Company Name */}
+                      <div style={{ position: 'relative' }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#3730a3', display: 'block', marginBottom: 4 }}>
+                          Type Company Name to Search:
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={companySearchQuery || form.company_name || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCompanySearchQuery(val);
+                              setForm(prev => ({ ...prev, company_name: val }));
+                              setShowCompanySuggestions(true);
+                            }}
+                            onFocus={() => setShowCompanySuggestions(true)}
+                            placeholder="Start typing company name to search..."
+                            style={{
+                              paddingLeft: 34,
+                              fontWeight: 700,
+                              fontSize: 13.5,
+                              background: '#fff',
+                              borderColor: selectedDirectClientId ? '#6366f1' : '#cbd5e1'
+                            }}
+                          />
+                          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#818cf8' }} />
+                          {companySearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompanySearchQuery('');
+                                setForm(prev => ({ ...prev, company_name: '' }));
+                                setSelectedDirectClientId('');
+                                setAvailableCompanySites([]);
+                              }}
+                              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Floating Suggestions */}
+                        {showCompanySuggestions && (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60,
+                            background: '#ffffff', borderRadius: 8, border: '1.5px solid #6366f1',
+                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)', maxHeight: 240, overflowY: 'auto', marginTop: 4
+                          }}>
+                            {filteredClients.length > 0 ? (
+                              filteredClients.map(client => {
+                                const clientSitesCount = directSites.filter(s => String(s.client_id?._id || s.client_id) === String(client._id)).length;
+                                const isSelected = selectedDirectClientId === client._id;
+                                return (
+                                  <div
+                                    key={client._id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleDirectClientSelect(client._id);
+                                      setShowCompanySuggestions(false);
+                                    }}
+                                    style={{
+                                      padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                      background: isSelected ? '#eef2ff' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#eef2ff'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isSelected ? '#eef2ff' : '#ffffff'}
+                                  >
+                                    <div>
+                                      <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>{client.company_name || client.full_name}</div>
+                                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                                        {client.full_name && client.full_name !== client.company_name ? `${client.full_name} • ` : ''}{client.email || 'No email'}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      {clientSitesCount > 0 && (
+                                        <span style={{ fontSize: 11, background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                                          {clientSitesCount} {clientSitesCount === 1 ? 'Site' : 'Sites'}
+                                        </span>
+                                      )}
+                                      {isSelected && <Check size={16} color="#4f46e5" strokeWidth={3} />}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>
+                                No matching registered client. You can type company details directly below.
+                              </div>
+                            )}
+                            <div
+                              onMouseDown={(e) => { e.preventDefault(); setShowCompanySuggestions(false); }}
+                              style={{ padding: '6px 14px', background: '#f8fafc', fontSize: 11.5, fontWeight: 600, color: '#64748b', textAlign: 'right', borderTop: '1px solid #e2e8f0', cursor: 'pointer' }}
+                            >
+                              Close ✕
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Choose Site for Selected Company */}
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#3730a3', display: 'block', marginBottom: 4 }}>
+                          Choose Site: {availableCompanySites.length > 0 && <span style={{ color: '#4338ca' }}>({availableCompanySites.length} registered)</span>}
+                        </label>
+                        {availableCompanySites.length > 0 ? (
+                          <select
+                            className="form-control"
+                            value={form.site_id || ''}
+                            onChange={e => handleDirectSiteSelect(e.target.value)}
+                            style={{ fontWeight: 700, fontSize: 13, background: '#fff', borderColor: form.site_id ? '#6366f1' : '#cbd5e1' }}
+                          >
+                            <option value="">-- Select Registered Site --</option>
+                            {availableCompanySites.map(s => (
+                              <option key={s._id} value={s._id}>{s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>
+                            {selectedDirectClientId ? 'No registered sites for this client. Enter site name below.' : 'Search company above to select its sites.'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.company_name || ''}
-                      onChange={e => setForm({ ...form, company_name: e.target.value })}
-                      style={{ fontWeight: 700 }}
-                    />
+                  {/* Sub-type Selection: Initial Product vs Add-on Product */}
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 12
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+                        Product Evaluation Category
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                        Select whether this logsheet is for an <strong>Initial Product Evaluation</strong> or an <strong>Add-on Products Certification</strong>.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({
+                            ...prev,
+                            product_sub_type: 'initial',
+                            audit_type: 'Initial Product Evaluation',
+                            comment: prev.comment || 'Recommended for initial product approval endorsement.'
+                          }));
+                        }}
+                        style={{
+                          padding: '9px 18px',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          border: form.product_sub_type === 'initial' ? '2px solid #059669' : '1px solid #cbd5e1',
+                          background: form.product_sub_type === 'initial' ? '#ecfdf5' : '#ffffff',
+                          color: form.product_sub_type === 'initial' ? '#059669' : '#64748b',
+                          boxShadow: form.product_sub_type === 'initial' ? '0 2px 8px rgba(5,150,105,0.15)' : 'none'
+                        }}
+                      >
+                        <CheckCircle2 size={15} /> Initial Product Evaluation
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({
+                            ...prev,
+                            product_sub_type: 'addon',
+                            audit_type: 'Add-on Products Certification',
+                            comment: prev.comment || 'Recommended for add-on product certification endorsement.'
+                          }));
+                        }}
+                        style={{
+                          padding: '9px 18px',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          border: form.product_sub_type === 'addon' ? '2px solid #7c3aed' : '1px solid #cbd5e1',
+                          background: form.product_sub_type === 'addon' ? '#f5f3ff' : '#ffffff',
+                          color: form.product_sub_type === 'addon' ? '#7c3aed' : '#64748b',
+                          boxShadow: form.product_sub_type === 'addon' ? '0 2px 8px rgba(124,58,237,0.15)' : 'none'
+                        }}
+                      >
+                        <Package size={15} /> Add-on Products Certification
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Manufacturing Site Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.site_name || ''}
-                      onChange={e => setForm({ ...form, site_name: e.target.value })}
-                    />
-                  </div>
+                  {/* FORM GRID */}
+                  <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div className="form-group">
+                      <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.company_name || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setForm({ ...form, company_name: val });
+                          setCompanySearchQuery(val);
+                        }}
+                        style={{ fontWeight: 700 }}
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Product Name <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.product_name || ''}
-                      onChange={e => setForm({ ...form, product_name: e.target.value, product_category: `${e.target.value}${form.product_code ? ` (${form.product_code})` : ''}` })}
-                      placeholder="e.g. Halal Vanilla Extract"
-                      style={{ fontWeight: 800 }}
-                    />
-                  </div>
+                    <div className="form-group">
+                      <label className="form-label">Manufacturing Site Name <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.site_name || ''}
+                        onChange={e => setForm({ ...form, site_name: e.target.value })}
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Product Code / SKU</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={form.product_code || ''}
-                      onChange={e => setForm({ ...form, product_code: e.target.value, product_category: `${form.product_name || 'Product'}${e.target.value ? ` (${e.target.value})` : ''}` })}
-                      placeholder="e.g. PRD-1029"
-                    />
-                  </div>
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label className="form-label">Manufacturing Site Address <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>(Optional)</span></label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={form.manufacturing_address || ''}
+                        onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
+                        placeholder="Full facility address"
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="text"
-                      className="form-control"
-                      value={form.contact_person || ''}
-                      onChange={e => setForm({ ...form, contact_person: e.target.value })}
-                    />
-                  </div>
+                    <div className="form-group">
+                      <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.contact_person || ''}
+                        onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
-                    <input
-                      required
-                      type="email"
-                      className="form-control"
-                      value={form.contact_email || ''}
-                      onChange={e => setForm({ ...form, contact_email: e.target.value })}
-                    />
-                  </div>
+                    <div className="form-group">
+                      <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="email"
+                        className="form-control"
+                        value={form.contact_email || ''}
+                        onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Raw Materials Verified &amp; Approved?</label>
-                    <select
-                      className="form-control"
-                      value={form.raw_materials_approved || 'Yes'}
-                      onChange={e => setForm({ ...form, raw_materials_approved: e.target.value })}
-                    >
-                      <option value="Yes">Yes - All raw materials verified</option>
-                      <option value="Pending">Pending supplier halal certificates</option>
-                      <option value="No">No - NC flagged</option>
-                    </select>
-                  </div>
+                    {/* INITIAL PRODUCT EVALUATION FIELDS */}
+                    {form.product_sub_type !== 'addon' ? (
+                      <>
+                        <div className="form-group">
+                          <label className="form-label">Product Name <span style={{ color: '#dc2626' }}>*</span></label>
+                          <input
+                            required
+                            type="text"
+                            className="form-control"
+                            value={form.product_name || ''}
+                            onChange={e => setForm({ ...form, product_name: e.target.value, product_category: `${e.target.value}${form.product_code ? ` (${form.product_code})` : ''}` })}
+                            placeholder="e.g. Halal Vanilla Extract"
+                            style={{ fontWeight: 800 }}
+                          />
+                        </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Cross-Contamination Risk</label>
-                    <select
-                      className="form-control"
-                      value={form.cross_contamination_risk || 'None'}
-                      onChange={e => setForm({ ...form, cross_contamination_risk: e.target.value })}
-                    >
-                      <option value="None">None (Dedicated halal equipment)</option>
-                      <option value="Low">Low (Documented CIP cleaning validation)</option>
-                      <option value="Medium">Medium (Shared production line)</option>
-                      <option value="High">High (Porcine/alcohol on site)</option>
-                    </select>
-                  </div>
+                        <div className="form-group">
+                          <label className="form-label">Product Code / SKU</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.product_code || ''}
+                            onChange={e => setForm({ ...form, product_code: e.target.value, product_category: `${form.product_name || 'Product'}${e.target.value ? ` (${e.target.value})` : ''}` })}
+                            placeholder="e.g. PRD-1029"
+                          />
+                        </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Formulation Checked?</label>
-                    <select
-                      className="form-control"
-                      value={form.formulation_checked || 'Yes'}
-                      onChange={e => setForm({ ...form, formulation_checked: e.target.value })}
-                    >
-                      <option value="Yes">Yes - Recipe checked by Food Technologist</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Laboratory Testing Required?</label>
-                    <select
-                      className="form-control"
-                      value={form.lab_test_required || 'No'}
-                      onChange={e => setForm({ ...form, lab_test_required: e.target.value })}
-                    >
-                      <option value="No">No - Desk review sufficient</option>
-                      <option value="Yes">Yes - DNA / Ethanol testing requested</option>
-                    </select>
-                  </div>
-
-                  {/* Document upload */}
-                  <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                    <label className="form-label" style={{ fontWeight: 700, margin: 0, marginBottom: 8 }}>
-                      Attach Product Specifications / Ingredient Statements
-                    </label>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#4f46e5', fontWeight: 700, cursor: 'pointer', background: '#fff', border: '1px dashed #cbd5e1', padding: '8px 16px', borderRadius: 8 }}>
-                      <UploadCloud size={15} /> {uploadingReport ? 'Uploading...' : '+ Upload Specifications & Statements'}
-                      <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
-                    </label>
-                    {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-                        {form.document_urls.map((doc, idx) => (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{doc.name}</span>
-                            <button type="button" onClick={() => handleRemoveDocument(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><X size={14} /></button>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label className="form-label">Initial Approval Stage</label>
+                          <select
+                            className="form-control"
+                            value={form.initial_approval_stage || 'Stage 1 - Desk Review'}
+                            onChange={e => setForm({ ...form, initial_approval_stage: e.target.value })}
+                            style={{ fontWeight: 600 }}
+                          >
+                            <option value="Stage 1 - Desk Review">Stage 1 - Desk Review &amp; Formulation Audit</option>
+                            <option value="Stage 2 - Verification">Stage 2 - Supplier Verification &amp; Laboratory Assessment</option>
+                            <option value="Stage 3 - Approved">Stage 3 - Approved for Committee Sign-off</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : (
+                      /* ADD-ON PRODUCTS SCHEDULE */
+                      <div className="form-group" style={{ gridColumn: '1 / -1', background: '#faf5ff', padding: 18, borderRadius: 10, border: '1.5px solid #e9d5ff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#6b21a8' }}>
+                              Add-on Products Schedule ({Array.isArray(form.products_list) ? form.products_list.length : 0} items)
+                            </div>
+                            <div style={{ fontSize: 12, color: '#7e22ce' }}>
+                              Add the product formulations requested for add-on certificate inclusion.
+                            </div>
                           </div>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const curr = Array.isArray(form.products_list) ? [...form.products_list] : [];
+                              curr.push({ name: '', code: '', category: '' });
+                              setForm(prev => ({
+                                ...prev,
+                                products_list: curr,
+                                product_category: curr.map(p => p.name).filter(Boolean).join(', ') || prev.product_category
+                              }));
+                            }}
+                            className="btn btn-sm btn-primary"
+                            style={{ background: '#7e22ce', borderColor: '#7e22ce', fontSize: 12, fontWeight: 700 }}
+                          >
+                            + Add Product to Schedule
+                          </button>
+                        </div>
+
+                        {/* Primary / Lead Product Input */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#581c87' }}>Lead / Main Product Name <span style={{ color: '#dc2626' }}>*</span></label>
+                            <input
+                              required
+                              type="text"
+                              className="form-control"
+                              value={form.product_name || ''}
+                              onChange={e => setForm({ ...form, product_name: e.target.value, product_category: `${e.target.value}${form.product_code ? ` (${form.product_code})` : ''}` })}
+                              placeholder="e.g. Premium Chocolate Spread"
+                              style={{ fontWeight: 800 }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#581c87' }}>Product Code / SKU</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={form.product_code || ''}
+                              onChange={e => setForm({ ...form, product_code: e.target.value, product_category: `${form.product_name || 'Product'}${e.target.value ? ` (${e.target.value})` : ''}` })}
+                              placeholder="e.g. ADD-701"
+                            />
+                          </div>
+                        </div>
+
+                        {/* List of Additional Scheduled Products */}
+                        {Array.isArray(form.products_list) && form.products_list.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                            {form.products_list.map((item, idx) => (
+                              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10, alignItems: 'center', background: '#ffffff', padding: '10px 12px', borderRadius: 8, border: '1px solid #d8b4fe' }}>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={item.name || ''}
+                                  onChange={e => {
+                                    const nextList = [...form.products_list];
+                                    nextList[idx] = { ...nextList[idx], name: e.target.value };
+                                    setForm(prev => ({
+                                      ...prev,
+                                      products_list: nextList,
+                                      product_category: nextList.map(p => p.name).filter(Boolean).join(', ')
+                                    }));
+                                  }}
+                                  placeholder={`Product #${idx + 1} Name`}
+                                  style={{ fontSize: 12.5, fontWeight: 600 }}
+                                />
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={item.code || ''}
+                                  onChange={e => {
+                                    const nextList = [...form.products_list];
+                                    nextList[idx] = { ...nextList[idx], code: e.target.value };
+                                    setForm(prev => ({ ...prev, products_list: nextList }));
+                                  }}
+                                  placeholder="SKU / Code"
+                                  style={{ fontSize: 12.5 }}
+                                />
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={item.category || ''}
+                                  onChange={e => {
+                                    const nextList = [...form.products_list];
+                                    nextList[idx] = { ...nextList[idx], category: e.target.value };
+                                    setForm(prev => ({ ...prev, products_list: nextList }));
+                                  }}
+                                  placeholder="Category / Notes"
+                                  style={{ fontSize: 12.5 }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextList = form.products_list.filter((_, i) => i !== idx);
+                                    setForm(prev => ({ ...prev, products_list: nextList }));
+                                  }}
+                                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 4 }}
+                                >
+                                  <X size={15} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
 
-                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: 10 }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => setActiveTab(2)}
-                      style={{ background: 'linear-gradient(135deg, #4f46e5, #4338ca)', borderColor: '#4f46e5', fontWeight: 700 }}
-                    >
-                      Continue to Comment / Reason <ArrowRight size={15} />
-                    </button>
+                    <div className="form-group">
+                      <label className="form-label">Raw Materials Verified &amp; Approved?</label>
+                      <select
+                        className="form-control"
+                        value={form.raw_materials_approved || 'Yes'}
+                        onChange={e => setForm({ ...form, raw_materials_approved: e.target.value })}
+                      >
+                        <option value="Yes">Yes - All raw materials verified</option>
+                        <option value="Pending">Pending supplier halal certificates</option>
+                        <option value="No">No - NC flagged</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Cross-Contamination Risk</label>
+                      <select
+                        className="form-control"
+                        value={form.cross_contamination_risk || 'None'}
+                        onChange={e => setForm({ ...form, cross_contamination_risk: e.target.value })}
+                      >
+                        <option value="None">None (Dedicated halal equipment)</option>
+                        <option value="Low">Low (Documented CIP cleaning validation)</option>
+                        <option value="Medium">Medium (Shared production line)</option>
+                        <option value="High">High (Porcine/alcohol on site)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Formulation Checked?</label>
+                      <select
+                        className="form-control"
+                        value={form.formulation_checked || 'Yes'}
+                        onChange={e => setForm({ ...form, formulation_checked: e.target.value })}
+                      >
+                        <option value="Yes">Yes - Recipe checked by Food Technologist</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Laboratory Testing Required?</label>
+                      <select
+                        className="form-control"
+                        value={form.lab_test_required || 'No'}
+                        onChange={e => setForm({ ...form, lab_test_required: e.target.value })}
+                      >
+                        <option value="No">No - Desk review sufficient</option>
+                        <option value="Yes">Yes - DNA / Ethanol testing requested</option>
+                      </select>
+                    </div>
+
+                    {/* Document upload */}
+                    <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                      <label className="form-label" style={{ fontWeight: 700, margin: 0, marginBottom: 8 }}>
+                        Attach Product Specifications / Ingredient Statements &amp; Halal Declarations
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#4f46e5', fontWeight: 700, cursor: 'pointer', background: '#fff', border: '1px dashed #cbd5e1', padding: '8px 16px', borderRadius: 8 }}>
+                        <UploadCloud size={15} /> {uploadingReport ? 'Uploading...' : '+ Upload Specifications & Statements'}
+                        <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                      </label>
+                      {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                          {form.document_urls.map((doc, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{doc.name}</span>
+                              <button type="button" onClick={() => handleRemoveDocument(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><X size={14} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: 10 }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => setActiveTab(2)}
+                        style={{ background: 'linear-gradient(135deg, #4f46e5, #4338ca)', borderColor: '#4f46e5', fontWeight: 700 }}
+                      >
+                        Continue to Comment / Reason <ArrowRight size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 /* NORMAL LOGSHEET TAB 1 (Standard 4-Tab Workflow) */
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {/* Auto-populated Indicator Banner / Direct Selection Banner */}
+                {/* Auto-populated Indicator Banner / Searchable Direct Company & Site Picker */}
                 {isDirectCreation ? (
-                  <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 18px', gridColumn: '1 / -1', marginBottom: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 13.5, color: '#166534', fontWeight: 800 }}>
-                          Normal Logsheet · Direct Generation
-                        </div>
-                        <div style={{ fontSize: 12, color: '#15803d', marginTop: 2 }}>
-                          Select an existing registered client to auto-fill details, or type in the company details directly below.
-                        </div>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                    border: '1.5px solid #86efac',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    gridColumn: '1 / -1',
+                    marginBottom: 4,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Building size={17} style={{ color: '#166534' }} />
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>
+                          Normal Logsheet · Search Company &amp; Choose Site
+                        </span>
+                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>
+                          Direct Creation
+                        </span>
                       </div>
-                      <div style={{ minWidth: 260 }}>
-                        <select
-                          className="form-control"
-                          value={selectedDirectClientId}
-                          onChange={e => handleDirectClientSelect(e.target.value)}
-                          style={{ fontSize: 12.5, fontWeight: 600, background: '#fff', borderColor: '#86efac' }}
+                      {selectedDirectClientId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDirectClientId('');
+                            setCompanySearchQuery('');
+                            setAvailableCompanySites([]);
+                            setForm(prev => ({
+                              ...prev,
+                              client_id: '',
+                              company_name: '',
+                              site_name: '',
+                              manufacturing_address: '',
+                              company_address: '',
+                              contact_person: '',
+                              contact_email: ''
+                            }));
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#dc2626',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
                         >
-                          <option value="">-- Select Registered Client (Optional) --</option>
-                          {directClients.map(c => (
-                            <option key={c._id} value={c._id}>
-                              {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
-                            </option>
-                          ))}
-                        </select>
+                          <X size={13} /> Clear Selection
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: availableCompanySites.length > 0 ? '1.2fr 1fr' : '1fr', gap: 16 }}>
+                      {/* Searchable Company Name */}
+                      <div style={{ position: 'relative' }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+                          Type Company Name to Search:
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={companySearchQuery || form.company_name || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCompanySearchQuery(val);
+                              setForm(prev => ({ ...prev, company_name: val }));
+                              setShowCompanySuggestions(true);
+                            }}
+                            onFocus={() => setShowCompanySuggestions(true)}
+                            placeholder="Start typing company name to search..."
+                            style={{
+                              paddingLeft: 34,
+                              fontWeight: 700,
+                              fontSize: 13.5,
+                              background: '#fff',
+                              borderColor: selectedDirectClientId ? '#16a34a' : '#cbd5e1'
+                            }}
+                          />
+                          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                          {companySearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompanySearchQuery('');
+                                setForm(prev => ({ ...prev, company_name: '' }));
+                                setSelectedDirectClientId('');
+                                setAvailableCompanySites([]);
+                              }}
+                              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Floating Suggestions */}
+                        {showCompanySuggestions && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              zIndex: 60,
+                              background: '#ffffff',
+                              borderRadius: 8,
+                              border: '1.5px solid #16a34a',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+                              maxHeight: 240,
+                              overflowY: 'auto',
+                              marginTop: 4
+                            }}
+                          >
+                            {filteredClients.length > 0 ? (
+                              filteredClients.map(client => {
+                                const clientSitesCount = directSites.filter(s => String(s.client_id?._id || s.client_id) === String(client._id)).length;
+                                const isSelected = selectedDirectClientId === client._id;
+                                return (
+                                  <div
+                                    key={client._id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleDirectClientSelect(client._id);
+                                      setShowCompanySuggestions(false);
+                                    }}
+                                    style={{
+                                      padding: '10px 14px',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px solid #f1f5f9',
+                                      background: isSelected ? '#f0fdf4' : '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isSelected ? '#f0fdf4' : '#ffffff'}
+                                  >
+                                    <div>
+                                      <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
+                                        {client.company_name || client.full_name}
+                                      </div>
+                                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                                        {client.full_name && client.full_name !== client.company_name ? `${client.full_name} • ` : ''}{client.email || 'No email'}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      {clientSitesCount > 0 && (
+                                        <span style={{ fontSize: 11, background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                                          {clientSitesCount} {clientSitesCount === 1 ? 'Site' : 'Sites'}
+                                        </span>
+                                      )}
+                                      {isSelected && <Check size={16} color="#16a34a" strokeWidth={3} />}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>
+                                No matching registered client. You can type company details directly.
+                              </div>
+                            )}
+                            <div
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setShowCompanySuggestions(false);
+                              }}
+                              style={{
+                                padding: '6px 14px',
+                                background: '#f8fafc',
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                color: '#64748b',
+                                textAlign: 'right',
+                                borderTop: '1px solid #e2e8f0',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Close ✕
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Choose Site for Selected Company */}
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+                          Choose Site: {availableCompanySites.length > 0 && <span style={{ color: '#16a34a' }}>({availableCompanySites.length} registered)</span>}
+                        </label>
+                        {availableCompanySites.length > 0 ? (
+                          <select
+                            className="form-control"
+                            value={form.site_id || ''}
+                            onChange={e => handleDirectSiteSelect(e.target.value)}
+                            style={{
+                              fontWeight: 700,
+                              fontSize: 13,
+                              background: '#fff',
+                              borderColor: form.site_id ? '#16a34a' : '#cbd5e1'
+                            }}
+                          >
+                            <option value="">-- Select Registered Site --</option>
+                            {availableCompanySites.map(s => (
+                              <option key={s._id} value={s._id}>
+                                {s.name || s.site_name || 'Main Site'}{s.address ? ` (${s.address})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div style={{ fontSize: 12.5, color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', padding: '9px 12px', borderRadius: 7 }}>
+                            {selectedDirectClientId ? 'No registered sites for this client. Enter site name below.' : 'Search company above to select from its sites.'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3807,7 +4819,17 @@ export default function AdminCreateLogsheet() {
                     type="text"
                     className="form-control"
                     value={form.company_name || ''}
-                    onChange={e => setForm({ ...form, company_name: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm({ ...form, company_name: val });
+                      if (isDirectCreation) {
+                        setCompanySearchQuery(val);
+                        setShowCompanySuggestions(true);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (isDirectCreation) setShowCompanySuggestions(true);
+                    }}
                     style={{ fontWeight: 700 }}
                   />
                 </div>

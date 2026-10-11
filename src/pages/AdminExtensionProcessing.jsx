@@ -520,7 +520,7 @@ export default function AdminExtensionProcessing() {
                 ) : isRejected ? (
                   <><XCircle size={12} /> Rejected</>
                 ) : (
-                  <><CheckCircle size={12} /> Request Approved</>
+                  <><CheckCircle size={12} /> Request Accepted</>
                 )}
               </span>
             </div>

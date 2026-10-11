@@ -150,7 +150,8 @@ export default function AdminStaff() {
     can_review_certificate: false,
     can_mark_done: false,
     can_change_application_status: false,
-    can_create_kfc_logsheet: false
+    can_create_kfc_logsheet: false,
+    can_activate_deactivate_certificate: false
   });
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -164,6 +165,7 @@ export default function AdminStaff() {
   const [editDonePrivilege, setEditDonePrivilege] = useState(false);
   const [editChangeStatusPrivilege, setEditChangeStatusPrivilege] = useState(false);
   const [editKfcLogsheetGrant, setEditKfcLogsheetGrant] = useState(false);
+  const [editActivateDeactivateCertPrivilege, setEditActivateDeactivateCertPrivilege] = useState(false);
   const [rolesSaving, setRolesSaving] = useState(false);
 
   // Edit User (Login Details) Modal State
@@ -224,7 +226,7 @@ export default function AdminStaff() {
     if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
-    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.can_change_application_status && !s.can_create_kfc_logsheet && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.can_change_application_status && !s.can_create_kfc_logsheet && !s.can_activate_deactivate_certificate && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
@@ -255,7 +257,7 @@ export default function AdminStaff() {
     certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
     accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
-    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.can_change_application_status || s.can_create_kfc_logsheet || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
+    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.can_change_application_status || s.can_create_kfc_logsheet || s.can_activate_deactivate_certificate || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
   };
 
@@ -317,7 +319,8 @@ export default function AdminStaff() {
         can_review_certificate: staffForm.can_review_certificate,
         can_mark_done: staffForm.can_mark_done,
         can_change_application_status: staffForm.can_change_application_status,
-        can_create_kfc_logsheet: staffForm.can_create_kfc_logsheet
+        can_create_kfc_logsheet: staffForm.can_create_kfc_logsheet,
+        can_activate_deactivate_certificate: staffForm.can_activate_deactivate_certificate
       });
       toast.success(`HFA Staff account created for ${staffForm.full_name.trim()}!`);
       setShowStaffModal(false);
@@ -333,7 +336,8 @@ export default function AdminStaff() {
         can_review_certificate: false,
         can_mark_done: false,
         can_change_application_status: false,
-        can_create_kfc_logsheet: false
+        can_create_kfc_logsheet: false,
+        can_activate_deactivate_certificate: false
       });
       fetchUsers();
     } catch (err) {
@@ -355,6 +359,7 @@ export default function AdminStaff() {
     setEditDonePrivilege(Boolean(user.can_mark_done || isSA));
     setEditChangeStatusPrivilege(Boolean(user.can_change_application_status || isSA));
     setEditKfcLogsheetGrant(Boolean(user.can_create_kfc_logsheet || isSA));
+    setEditActivateDeactivateCertPrivilege(Boolean(user.can_activate_deactivate_certificate || isSA));
   };
 
   // Save Edit Roles
@@ -372,6 +377,7 @@ export default function AdminStaff() {
     const doneVal = editRolesList.includes('superadmin') ? true : editDonePrivilege;
     const changeStatusVal = editRolesList.includes('superadmin') ? true : editChangeStatusPrivilege;
     const kfcVal = editRolesList.includes('superadmin') ? true : editKfcLogsheetGrant;
+    const activateDeactivateCertVal = editRolesList.includes('superadmin') ? true : editActivateDeactivateCertPrivilege;
     try {
       await api.put(`/api/users/${targetId}/role`, {
         roles: editRolesList,
@@ -382,7 +388,8 @@ export default function AdminStaff() {
         can_review_certificate: reviewCertVal,
         can_mark_done: doneVal,
         can_change_application_status: changeStatusVal,
-        can_create_kfc_logsheet: kfcVal
+        can_create_kfc_logsheet: kfcVal,
+        can_activate_deactivate_certificate: activateDeactivateCertVal
       });
       toast.success(`Updated roles & special grants for ${editRolesModal.full_name || editRolesModal.email}`);
       
@@ -400,7 +407,8 @@ export default function AdminStaff() {
             can_review_certificate: reviewCertVal,
             can_mark_done: doneVal,
             can_change_application_status: changeStatusVal,
-            can_create_kfc_logsheet: kfcVal
+            can_create_kfc_logsheet: kfcVal,
+            can_activate_deactivate_certificate: activateDeactivateCertVal
           };
         }
         return u;
@@ -516,6 +524,21 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update KFC Logsheet privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Certificate Activation / Deactivation Privilege
+  const handleToggleActivateDeactivateCertPrivilege = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke Certificate Activation / Deactivation privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_activate_deactivate_certificate: nextVal } : u));
+      await api.put(`/api/users/${userId}/activate-deactivate-cert-permission`, { can_activate_deactivate_certificate: nextVal });
+      toast.success(`Certificate Activation/Deactivation privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Certificate Activation privilege');
       fetchUsers();
     }
   };
@@ -969,8 +992,9 @@ export default function AdminStaff() {
                           const hasChangeStatus = isUserSuperAdmin || member.can_change_application_status;
                           const hasSupport = isUserSuperAdmin || member.is_support_manager;
                           const hasKfc = isUserSuperAdmin || member.can_create_kfc_logsheet;
+                          const hasActivateDeactivateCert = isUserSuperAdmin || member.can_activate_deactivate_certificate;
 
-                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasChangeStatus && !hasSupport && !hasKfc) return null;
+                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasChangeStatus && !hasSupport && !hasKfc && !hasActivateDeactivateCert) return null;
 
                           return (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
@@ -1112,6 +1136,26 @@ export default function AdminStaff() {
                                   }}
                                 >
                                   🎧 Support Manager
+                                </span>
+                              )}
+                              {hasActivateDeactivateCert && (
+                                <span
+                                  title="Certificate Activation & Deactivation Privilege — can activate and deactivate non-expired certificates"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#ecfeff',
+                                    color: '#0e7490',
+                                    border: '1px solid #a5f3fc',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  🔐 Activate/Deactivate
                                 </span>
                               )}
                             </div>
@@ -1535,7 +1579,7 @@ export default function AdminStaff() {
                     </div>
                   </label>
 
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                     <input
                       type="checkbox"
                       checked={staffForm.can_create_kfc_logsheet}
@@ -1548,6 +1592,23 @@ export default function AdminStaff() {
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                         Special Grant: Allows this staff member to access the KFC Logsheet studio and generate KFC logsheets.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_activate_deactivate_certificate}
+                      onChange={e => setStaffForm(f => ({ ...f, can_activate_deactivate_certificate: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#0891b2' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Certificate Activation / Deactivation Privilege 🔐
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Special Grant: Allows this staff member to activate and deactivate certificates in the Admin Portal (expired certificates cannot be activated or deactivated).
                       </span>
                     </div>
                   </label>
@@ -1800,7 +1861,7 @@ export default function AdminStaff() {
                       </div>
                     </label>
 
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
                       <input
                         type="checkbox"
                         checked={editKfcLogsheetGrant}
@@ -1813,6 +1874,23 @@ export default function AdminStaff() {
                         </span>
                         <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
                           Special Grant: Allows this staff member to access the KFC Logsheet studio and generate KFC logsheets.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={editActivateDeactivateCertPrivilege}
+                        onChange={e => setEditActivateDeactivateCertPrivilege(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#0891b2' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Certificate Activation / Deactivation Privilege 🔐
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Special Grant: Allows this staff member to activate and deactivate certificates in the Admin Portal (expired certificates cannot be activated or deactivated).
                         </span>
                       </div>
                     </label>

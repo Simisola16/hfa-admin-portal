@@ -137,3 +137,12 @@ export function canAccessKfcLogsheet(user) {
   return isSuperAdmin(user) || Boolean(user?.can_create_kfc_logsheet) || Boolean(user?.can_sign_logsheet);
 }
 
+/**
+ * 7. ACTIVATE / DEACTIVATE CERTIFICATES
+ * - Special privilege: Superadmin or staff with can_activate_deactivate_certificate
+ */
+export function canActivateDeactivateCertificate(user) {
+  if (!user) return false;
+  return isSuperAdmin(user) || Boolean(user?.can_activate_deactivate_certificate);
+}
+

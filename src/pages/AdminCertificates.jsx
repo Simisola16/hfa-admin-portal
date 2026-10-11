@@ -19,6 +19,7 @@ export default function AdminCertificates({ defaultTab }) {
   const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
     ? currentUser.roles
     : (currentUser?.role ? [currentUser.role] : []);
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
   const canReviewCertificate = isSuperAdmin || Boolean(currentUser?.can_review_certificate);
   const canActivateDeactivateCertificate = isSuperAdmin || Boolean(currentUser?.can_activate_deactivate_certificate);
 

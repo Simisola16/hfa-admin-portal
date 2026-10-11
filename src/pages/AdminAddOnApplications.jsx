@@ -703,7 +703,7 @@ export default function AdminAddOnApplications() {
                           onClick={() => {
                             if (app.addon_type === 'remove_product') {
                               navigate(`/addon-applications/${app._id}/processing-remove`);
-                            } else if (app.addon_type === 'change_ingredients') {
+                            } else if (app.addon_type === 'change_ingredients' || app.addon_type === 'change_supplier') {
                               navigate(`/addon-applications/${app._id}/processing-ingredients`);
                             } else {
                               navigate(`/addon-applications/${app._id}/processing`);

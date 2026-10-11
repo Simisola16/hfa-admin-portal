@@ -3,13 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import {
-  UploadCloud, ChevronLeft, Building, FileText, Award, MessageSquare,
-  Clock, CheckCircle2, CheckCircle, CheckSquare, PenTool, Check, ShieldCheck,
-  X, AlertTriangle, ArrowRight, Calendar, Download, Eye, Lock, RotateCcw
+  UploadCloud, ChevronLeft, Building, FileText, CheckCircle2,
+  PenTool, Check, Lock, X, Download, Printer,
+  Package, Mail, User, MapPin, AlertCircle, Calendar, Plus, Trash2
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
-import { canAccessKfcLogsheet } from '../lib/permissions';
 
 export default function AdminCreateKFCLogsheet() {
   const { id } = useParams();
@@ -17,22 +16,21 @@ export default function AdminCreateKFCLogsheet() {
   const { user, profile, loading: authLoading } = useAuth();
   const currentUser = profile || user;
 
-  const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+  const userRoles = (Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
     ? currentUser.roles
-    : (currentUser?.role ? [currentUser.role] : []);
+    : (currentUser?.role ? [currentUser.role] : [])).map(r => String(r).toLowerCase().trim());
   const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
   const hasSignaturePrivilege = isSuperAdmin || Boolean(currentUser?.can_sign_logsheet);
   const hasCreatePrivilege = isSuperAdmin || Boolean(currentUser?.can_create_kfc_logsheet);
-  const hasKfcAccess = isSuperAdmin || hasCreatePrivilege || hasSignaturePrivilege;
+  const hasKfcAccess = isSuperAdmin || hasCreatePrivilege || (Boolean(id) && hasSignaturePrivilege);
 
   const [loading, setLoading] = useState(Boolean(id));
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState(1);
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
   const [signatures, setSignatures] = useState([]);
   const [uploadingReport, setUploadingReport] = useState(false);
 
-  // Signing Modal State
+  // Digital Signing Modal State
   const [showSignModal, setShowSignModal] = useState(false);
   const [sigRole, setSigRole] = useState('');
   const [sigComment, setSigComment] = useState('');
@@ -40,53 +38,46 @@ export default function AdminCreateKFCLogsheet() {
   const [isSigning, setIsSigning] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
-  // Dates
-  const todayStr = new Date().toISOString().split('T')[0];
-  const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  // Form State — Manual typing for all fields, manufacturing_address is NOT compulsory
+  // Streamlined KFC Logsheet Form State (strictly required fields)
   const [form, setForm] = useState({
-    site_name: '',
     company_name: '',
     company_address: '',
     manufacturing_address: '', // Optional / not compulsory
+    products: [{ name: '', code: '' }],
+    remark: '', // Maps to comment/remark
     contact_person: '',
     contact_email: '',
-    nature_of_business: '',
-    product_category: '',
-    issue_date: todayStr,
-    expiry_date: oneYearLater,
-    current_cycle_start: todayStr,
-    original_cycle_start: todayStr,
-    document_url: '',
     document_urls: [],
-
-    audit_type: 'KFC Logsheet',
-    audit_date: todayStr,
-    auditors: '',
-    ncs_close: 'No NCs flagged / All NCs closed',
-    docs_satisfactory: 'Satisfactory - all documentation verified',
-    pork_free_statement: 'Confirmed - signed pork-free declaration in place',
-    reviewed_by: 'HFA Technical Committee',
-    reviewer_name: currentUser?.full_name || currentUser?.username || 'Lead Technical Reviewer',
-    review_date: todayStr,
-
-    certificate_type: 'KFC Logsheet',
-    certificate_standard: 'KFC Logsheet',
-    suggested_certificate_type: 'KFC Logsheet',
-    annual_certificate: 'Yes',
-    batch_certificate: 'No',
-    new_products_only: 'No',
-    new_site_line: 'No',
-    new_client: 'No',
-    agreement_signed: 'Yes',
-    status_date: todayStr,
-
-    comment: '',
     confirmed: false
   });
 
-  // Signatories
+  const handleAddProduct = () => {
+    setForm(prev => ({
+      ...prev,
+      products: [...(prev.products || []), { name: '', code: '' }]
+    }));
+  };
+
+  const handleRemoveProduct = (index) => {
+    setForm(prev => {
+      const updated = [...(prev.products || [])];
+      updated.splice(index, 1);
+      return {
+        ...prev,
+        products: updated.length > 0 ? updated : [{ name: '', code: '' }]
+      };
+    });
+  };
+
+  const handleProductChange = (index, field, value) => {
+    setForm(prev => {
+      const updated = [...(prev.products || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, products: updated };
+    });
+  };
+
+  // Signatories Matrix
   const signatories = [
     { roleKey: 'Mufti', label: 'Mufti / Shariah Signatory', signature: currentLogsheet?.mufti_signature, name: currentLogsheet?.mufti_sign_name, date: currentLogsheet?.mufti_sign_date },
     { roleKey: 'Ceo', label: 'CEO / Executive Signatory', signature: currentLogsheet?.ceo_signature, name: currentLogsheet?.ceo_sign_name, date: currentLogsheet?.ceo_sign_date },
@@ -116,14 +107,14 @@ export default function AdminCreateKFCLogsheet() {
     signature_url: currentUser.signature_url
   } : null);
 
-  // Load signatures for digital signing modal
+  // Load signature profiles
   useEffect(() => {
     api.get('/api/signatures')
       .then(res => setSignatures(Array.isArray(res) ? res : (res?.data || [])))
       .catch(() => {});
   }, []);
 
-  // Load existing logsheet if viewing /:id
+  // Fetch Logsheet when viewing existing ID
   const fetchLogsheet = async () => {
     if (!id) return;
     setLoading(true);
@@ -132,17 +123,39 @@ export default function AdminCreateKFCLogsheet() {
       const log = res.data?.data || res.data;
       if (log) {
         setCurrentLogsheet(log);
+        let products = [];
+        if (Array.isArray(log.products_list) && log.products_list.length > 0) {
+          products = log.products_list.map(p => ({
+            name: p.name || '',
+            code: p.code || ''
+          }));
+        } else if (log.product_name) {
+          const names = log.product_name.split(',').map(s => s.trim()).filter(Boolean);
+          const codes = (log.product_code || '').split(',').map(s => s.trim());
+          if (names.length > 1) {
+            products = names.map((name, i) => ({
+              name,
+              code: codes[i] || ''
+            }));
+          } else {
+            products = [{
+              name: log.product_name || '',
+              code: log.product_code || ''
+            }];
+          }
+        } else {
+          products = [{ name: '', code: '' }];
+        }
+
         setForm({
-          ...log,
-          issue_date: log.issue_date ? log.issue_date.split('T')[0] : todayStr,
-          expiry_date: log.expiry_date ? log.expiry_date.split('T')[0] : oneYearLater,
-          current_cycle_start: log.current_cycle_start ? log.current_cycle_start.split('T')[0] : todayStr,
-          original_cycle_start: log.original_cycle_start ? log.original_cycle_start.split('T')[0] : todayStr,
-          audit_date: log.audit_date ? log.audit_date.split('T')[0] : todayStr,
-          review_date: log.review_date ? log.review_date.split('T')[0] : todayStr,
-          status_date: log.status_date ? log.status_date.split('T')[0] : todayStr,
-          certificate_type: 'KFC Logsheet',
-          certificate_standard: 'KFC Logsheet',
+          company_name: log.company_name || '',
+          company_address: log.company_address || '',
+          manufacturing_address: log.manufacturing_address || '',
+          products: products,
+          remark: log.comment || '',
+          contact_person: log.contact_person || '',
+          contact_email: log.contact_email || '',
+          document_urls: Array.isArray(log.document_urls) ? log.document_urls : (log.document_url ? [{ name: 'Audit Document', url: log.document_url }] : []),
           confirmed: false
         });
       }
@@ -160,13 +173,13 @@ export default function AdminCreateKFCLogsheet() {
     }
   }, [id]);
 
-  // Upload Audit Report Handler
+  // Upload Audit Supporting Documents
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
     setUploadingReport(true);
-    const toastId = toast.loading('Uploading audit document(s)...');
+    const toastId = toast.loading('Uploading document(s)...');
     try {
       const uploadedDocs = [];
       for (const file of files) {
@@ -190,13 +203,12 @@ export default function AdminCreateKFCLogsheet() {
 
       setForm(prev => ({
         ...prev,
-        document_urls: [...(prev.document_urls || []), ...uploadedDocs],
-        document_url: prev.document_url || (uploadedDocs[0]?.url || '')
+        document_urls: [...(prev.document_urls || []), ...uploadedDocs]
       }));
 
-      toast.success(`${uploadedDocs.length} audit report(s) uploaded successfully!`, { id: toastId });
+      toast.success(`${uploadedDocs.length} document(s) uploaded successfully!`, { id: toastId });
     } catch (err) {
-      toast.error('Failed to upload audit documents', { id: toastId });
+      toast.error('Failed to upload document(s)', { id: toastId });
       console.error(err);
     } finally {
       setUploadingReport(false);
@@ -210,19 +222,15 @@ export default function AdminCreateKFCLogsheet() {
       nextDocs.splice(idx, 1);
       return {
         ...prev,
-        document_urls: nextDocs,
-        document_url: nextDocs[0]?.url || ''
+        document_urls: nextDocs
       };
     });
   };
 
-  // Form Submission -> Creates KFC Logsheet -> Status: 'Waiting for Signature'
+  // Submit KFC Logsheet (Strictly validated for the 8 details, product code optional, multiple products supported)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.site_name?.trim()) {
-      return toast.error('Site Name is required');
-    }
     if (!form.company_name?.trim()) {
       return toast.error('Company Name is required');
     }
@@ -235,15 +243,12 @@ export default function AdminCreateKFCLogsheet() {
     if (!form.contact_email?.trim()) {
       return toast.error('Contact Email is required');
     }
-    if (!form.nature_of_business?.trim()) {
-      return toast.error('Nature of the business is required');
+
+    const validProducts = (form.products || []).filter(p => p.name && p.name.trim() !== '');
+    if (validProducts.length === 0) {
+      return toast.error('Please enter at least one Product Name');
     }
-    if (!form.product_category?.trim()) {
-      return toast.error('Product Category is required');
-    }
-    if (!form.comment?.trim()) {
-      return toast.error('Comment / Reason for Decision is required');
-    }
+
     if (!form.confirmed) {
       return toast.error('Please check the confirmation box before submitting');
     }
@@ -251,7 +256,19 @@ export default function AdminCreateKFCLogsheet() {
     setSubmitting(true);
     try {
       const payload = {
-        ...form,
+        company_name: form.company_name.trim(),
+        company_address: form.company_address.trim(),
+        manufacturing_address: (form.manufacturing_address || '').trim(),
+        products_list: validProducts.map(p => ({
+          name: p.name.trim(),
+          code: (p.code || '').trim()
+        })),
+        product_name: validProducts.map(p => p.name.trim()).join(', '),
+        product_code: validProducts.map(p => (p.code || '').trim()).filter(Boolean).join(', '),
+        comment: (form.remark || '').trim(),
+        contact_person: form.contact_person.trim(),
+        contact_email: form.contact_email.trim(),
+        document_urls: form.document_urls || [],
         source_type: 'kfc',
         logsheet_type: 'kfc',
         is_kfc: true,
@@ -260,9 +277,14 @@ export default function AdminCreateKFCLogsheet() {
         status: 'Waiting for Signature'
       };
 
-      await api.post('/api/application-logsheets/kfc', payload);
+      const res = await api.post('/api/application-logsheets/kfc', payload);
+      const createdId = res.data?.data?._id || res.data?._id;
       toast.success('🍗 KFC Logsheet created successfully and moved to Waiting for Signature!');
-      navigate('/logsheet/waiting-signature');
+      if (createdId) {
+        navigate(`/logsheet/kfc/${createdId}`);
+      } else {
+        navigate('/logsheet/waiting-signature');
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create KFC Logsheet');
     } finally {
@@ -270,7 +292,7 @@ export default function AdminCreateKFCLogsheet() {
     }
   };
 
-  // Digital Sign Modal Open
+  // Digital Sign Modal
   const openSigningModal = (preselectedRole = '') => {
     if (preselectedRole) {
       setSigRole(preselectedRole);
@@ -283,7 +305,6 @@ export default function AdminCreateKFCLogsheet() {
     setShowSignModal(true);
   };
 
-  // Digital Signature Application
   const handleApplySignature = async () => {
     if (!sigRole) {
       return toast.error('Please select a signatory role');
@@ -320,10 +341,7 @@ export default function AdminCreateKFCLogsheet() {
     }
   };
 
-  // Final Action: "Approve KFC Logsheet" (Replaces "Application Successful")
-  // User Requirement:
-  // "and when all the four signature has signed so they will press approve kfc losheet instead of application successful,
-  // so after they approved it it will be in manage logsheet, so it does not require a certificate, it journey ended after they've approved it."
+  // Final Action: "Approve KFC Logsheet" (No certificate required, workflow completes here)
   const handleApproveKfcLogsheet = async () => {
     if (!hasSignaturePrivilege) {
       return toast.error('You do not have the Signature Privilege required to approve KFC logsheets.');
@@ -364,7 +382,7 @@ export default function AdminCreateKFCLogsheet() {
     }
   };
 
-  // 1. Loading auth status
+  // Auth Loading
   if (authLoading) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -374,7 +392,7 @@ export default function AdminCreateKFCLogsheet() {
     );
   }
 
-  // 2. Access Denied Fallback if user lacks any KFC privilege (neither superadmin, nor create, nor sign)
+  // Access Restriction
   if (!hasKfcAccess) {
     return (
       <div style={{ maxWidth: 700, margin: '60px auto', padding: '0 20px' }}>
@@ -402,11 +420,11 @@ export default function AdminCreateKFCLogsheet() {
           <h2 style={{ fontSize: 20, fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>
             🍗 KFC Logsheet Access Restricted
           </h2>
-          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, marginBottom: 24, maxWidth: 500, margin: '0 auto 24px' }}>
+          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, maxWidth: 500, margin: '0 auto 24px' }}>
             The <strong>KFC Logsheet</strong> is a restricted special grant feature. Your account has not been assigned the
             <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, margin: '0 4px', color: '#0f172a' }}>KFC Logsheet Privilege</code> or
             <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, margin: '0 4px', color: '#0f172a' }}>Signature Privilege</code>.
-            Please contact an administrator or superadmin to grant this permission.
+            Please contact a Superadmin to grant this permission.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <button
@@ -422,59 +440,6 @@ export default function AdminCreateKFCLogsheet() {
     );
   }
 
-  // 3. User has signature privilege to review/sign existing KFC logsheets, but navigated to /logsheet/kfc to create a new one
-  if (!id && !hasCreatePrivilege && hasSignaturePrivilege) {
-    return (
-      <div style={{ maxWidth: 700, margin: '60px auto', padding: '0 20px' }}>
-        <div style={{
-          background: '#fff',
-          border: '1.5px solid #fed7aa',
-          borderRadius: 16,
-          padding: 36,
-          textAlign: 'center',
-          boxShadow: '0 10px 25px -5px rgba(234, 88, 12, 0.1)'
-        }}>
-          <div style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: '#fff7ed',
-            color: '#ea580c',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <PenTool size={30} />
-          </div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#9a3412', marginBottom: 8 }}>
-            🍗 KFC Logsheet Signatory Review
-          </h2>
-          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, marginBottom: 24, maxWidth: 520, margin: '0 auto 24px' }}>
-            Your account has the <strong>Signature Privilege</strong> to review and digitally sign KFC Logsheets. 
-            Initiating a new KFC Logsheet requires creation rights, but you can review and sign all pending logsheets in the Waiting for Signature queue.
-          </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link
-              to="/logsheet/waiting-signature"
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
-            >
-              <PenTool size={16} /> Go to Waiting for Signature Queue
-            </Link>
-            <Link
-              to="/logsheet/manage"
-              className="btn btn-ghost"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid #e2e8f0', background: '#fff' }}
-            >
-              Manage Logsheets
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -484,9 +449,11 @@ export default function AdminCreateKFCLogsheet() {
     );
   }
 
+  const refNumber = currentLogsheet?.logsheet_number || currentLogsheet?.direct_ref || (currentLogsheet?._id ? `KFC-${String(currentLogsheet._id).slice(-6).toUpperCase()}` : 'NEW');
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1200, margin: '0 auto' }}>
-      {/* Top Action Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
+      {/* Top Header Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
@@ -502,22 +469,32 @@ export default function AdminCreateKFCLogsheet() {
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                 🍗 KFC Logsheet
               </h1>
-              <span className="badge badge-orange" style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+              <span className="badge badge-orange" style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
                 Special Grant
               </span>
               {currentLogsheet?.status && (
-                <span className={`badge ${currentLogsheet.status === 'Completed' || currentLogsheet.status === 'Approved' ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 12 }}>
-                  {currentLogsheet.status === 'Completed' ? 'Approved' : currentLogsheet.status}
+                <span className={`badge ${isApproved ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 12 }}>
+                  {isApproved ? 'Approved' : currentLogsheet.status}
                 </span>
               )}
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-              Special grant privileged workflow for KFC Halal evaluation and 4-committee sign-off.
+              Special grant privileged evaluation form for KFC Halal products and committee sign-off.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {isReadOnly && (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn btn-ghost btn-sm"
+              style={{ border: '1px solid #cbd5e1', background: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <Printer size={14} /> Print / Save PDF
+            </button>
+          )}
           <Link to="/logsheet/manage" className="btn btn-ghost btn-sm" style={{ border: '1px solid #e2e8f0', background: '#fff' }}>
             Manage Logsheets
           </Link>
@@ -527,293 +504,187 @@ export default function AdminCreateKFCLogsheet() {
         </div>
       </div>
 
-      {/* DOCUMENT-STYLE PRESENTATION CARD — EXACTLY LIKE AdminCreateLogsheet */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
-
-        {/* Official Document Header - Bright Modern HFA Emerald Theme */}
-        <div style={{ background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', padding: '24px 30px', borderBottom: '1px solid #0f766e' }}>
+      {/* Main Document Card */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 14, boxShadow: '0 4px 16px rgba(0,0,0,0.06)', background: '#fff' }}>
+        
+        {/* Document Header Ribbon */}
+        <div style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ea580c 100%)', color: '#fff', padding: '24px 30px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', color: '#ffffff', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(255,255,255,0.3)' }}>
-                <CheckSquare size={12} /> OFFICIAL CERTIFICATION DECISION RECORD
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.2)', color: '#ffffff', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(255,255,255,0.3)' }}>
+                🍗 KFC EVALUATION &amp; CERTIFICATION LOGSHEET
               </div>
               <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                🍗 KFC Halal Certification Logsheet
+                Halal Food Authority — KFC Logsheet
               </h2>
-              <p style={{ fontSize: 13, color: '#d1fae5', margin: '4px 0 0' }}>
-                Halal Food Authority — Technical &amp; Shariah Committee Decision File (Special Grant)
+              <p style={{ fontSize: 13, color: '#fef2f2', margin: '4px 0 0' }}>
+                Streamlined KFC product evaluation record and 4-committee sign-off decision file.
               </p>
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Logsheet Ref</div>
+              <div style={{ fontSize: 11, color: '#fee2e2', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Logsheet Ref</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
-                #{currentLogsheet?.logsheet_number || currentLogsheet?.direct_ref || form.logsheet_number || form.direct_ref || (form._id ? `KFC-${String(form._id).slice(-6).toUpperCase()}` : 'KFC')}
+                #{refNumber}
               </div>
-              <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
-                Evaluation Type: <strong>{form.audit_type || 'KFC Logsheet'}</strong>
+              <div style={{ fontSize: 12, color: '#fecaca', marginTop: 2 }}>
+                Workflow: <strong>Special Grant (No Direct Cert Required)</strong>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tab Navigation if creating or editing — exactly as AdminCreateLogsheet */}
-        {!isReadOnly && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            {[
-              { id: 1, label: '1. Company & Site Details', icon: Building },
-              { id: 2, label: '2. Review of Application', icon: FileText },
-              { id: 3, label: '3. Certificate Status', icon: Award },
-              { id: 4, label: '4. Comment / Reason', icon: MessageSquare }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '14px 16px',
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? 'var(--primary)' : '#64748b',
-                    background: isActive ? '#fff' : 'transparent',
-                    border: 'none',
-                    borderBottom: isActive ? '2.5px solid var(--primary)' : '2.5px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: 13
-                  }}
-                >
-                  <Icon size={15} /> {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* UNIFIED READ-ONLY DOCUMENT VIEW (When viewing existing KFC Logsheet) */}
+        {/* ─── CASE A: READ-ONLY / SIGNING VIEW (when viewing existing logsheet) ─── */}
         {isReadOnly ? (
-          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+          <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            
+            {/* The 8 KFC Details Grid */}
+            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <Building size={16} style={{ color: '#dc2626' }} />
+                KFC Logsheet Details
+              </h3>
 
-            {/* Section 1: Company & Site Details */}
-            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <Building size={16} style={{ color: '#047857' }} />
-                1. Site &amp; Company Details
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Site Name</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>
-                    {form.site_name || 'Main KFC Site'}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                
+                {/* 1. Company Name */}
+                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    1. Company Name
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
+                    {form.company_name || '—'}
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company Name</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.company_name || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Contact Person</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.contact_person || '—'}</div>
-                  <div style={{ fontSize: 12, color: '#047857', fontWeight: 500, marginTop: 1 }}>{form.contact_email || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Company Registered Address</div>
-                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.company_address || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Manufacturing Site Address</div>
-                  <div style={{ fontSize: 13, color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{form.manufacturing_address || '— (Optional)'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nature of Business</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.nature_of_business || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product Category</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.product_category || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Issue Date</div>
-                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.issue_date ? new Date(form.issue_date).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expiry Date</div>
-                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.expiry_date ? new Date(form.expiry_date).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current Cycle Start Date</div>
-                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.current_cycle_start ? new Date(form.current_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Original Cycle Start Date</div>
-                  <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Audit & Technical Compliance Review */}
-            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <FileText size={16} style={{ color: '#047857' }} />
-                2. Audit &amp; Technical Compliance Review
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Audit Type</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0d9488', marginTop: 3 }}>{form.audit_type || 'KFC Logsheet'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Audit Date</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.audit_date ? new Date(form.audit_date).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Auditor(s) Assigned</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.auditors || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Non-Conformances (NCS Close)</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#15803d', marginTop: 3 }}>
-                    {form.ncs_close || 'No NCs Flagged'}
+                {/* 2. Contact Person & Email */}
+                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    2. Contact Person &amp; Email
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <User size={14} style={{ color: '#64748b' }} /> {form.contact_person || '—'}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#dc2626', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Mail size={13} /> {form.contact_email || '—'}
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Documentation Review Status</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 3 }}>{form.docs_satisfactory || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pork Free Policy Statement</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#334155', marginTop: 3 }}>{form.pork_free_statement || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reviewed By (Role / Dept)</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.reviewed_by || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reviewer Name</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.reviewer_name || '—'}</div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Date of Review</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 3 }}>{form.review_date ? new Date(form.review_date).toLocaleDateString('en-GB') : '—'}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Certificate Status Checks */}
-            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <Award size={16} style={{ color: '#047857' }} />
-                3. Scheme &amp; Certificate Status Checks
-              </h4>
-              <div style={{ background: '#f0fdfa', padding: '12px 16px', borderRadius: 10, border: '1.5px solid #99f6e4', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#0d9488', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Standard / Scheme</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
-                    {form.certificate_type || form.certificate_standard || 'KFC Logsheet'}
+                {/* 3. Company Address */}
+                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    3. Company Address
+                  </div>
+                  <div style={{ fontSize: 13.5, color: '#1e293b', marginTop: 4, fontWeight: 500, lineHeight: 1.5 }}>
+                    {form.company_address || '—'}
                   </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#0f766e', background: '#ccfbf1', padding: '3px 9px', borderRadius: 20 }}>
-                  Special Grant Workflow
-                </span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-                {[
-                  { label: 'Annual Certificate', val: form.annual_certificate },
-                  { label: 'Batch Certificate', val: form.batch_certificate },
-                  { label: 'Only Addition of New Products', val: form.new_products_only },
-                  { label: 'Addition of New Site / Line', val: form.new_site_line },
-                  { label: 'New Client', val: form.new_client },
-                  { label: 'Agreement Signed', val: form.agreement_signed }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>{item.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: item.val === 'Yes' ? '#15803d' : '#64748b' }}>{item.val || 'No'}</span>
+
+                {/* 4. Manufacturing Address (Optional) */}
+                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    4. Manufacturing Address <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>(Optional)</span>
                   </div>
-                ))}
-              </div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
-                Status Effective Date: <strong>{form.status_date ? new Date(form.status_date).toLocaleDateString('en-GB') : '—'}</strong>
-              </div>
-            </div>
+                  <div style={{ fontSize: 13.5, color: form.manufacturing_address ? '#1e293b' : '#94a3b8', marginTop: 4, fontWeight: 500, lineHeight: 1.5 }}>
+                    {form.manufacturing_address || 'Not specified (optional)'}
+                  </div>
+                </div>
 
-            {/* Section 4: Committee Comments & Reasoning */}
-            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <MessageSquare size={16} style={{ color: '#047857' }} />
-                4. Committee Comments &amp; Reasoning
-              </h4>
-              <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13.5, lineHeight: 1.6, color: '#1e293b', whiteSpace: 'pre-wrap' }}>
-                {form.comment || 'No comments recorded.'}
-              </div>
-            </div>
+                {/* 5. Products List */}
+                <div style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Package size={14} style={{ color: '#dc2626' }} />
+                    5. Products Evaluated ({(form.products || []).length})
+                  </div>
 
-            {/* Section 5: Supporting Documents */}
-            {((Array.isArray(form.document_urls) && form.document_urls.length > 0) || form.document_url) && (
-              <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  <FileText size={16} style={{ color: '#047857' }} />
-                  5. Supporting Audit Documents
-                </h4>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                    form.document_urls.map((doc, idx) => (
-                      <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 12px' }}>
+                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', textAlign: 'left', borderBottom: '1.5px solid #cbd5e1' }}>
+                          <th style={{ padding: '8px 14px', width: 45, color: '#475569', fontWeight: 700 }}>#</th>
+                          <th style={{ padding: '8px 14px', color: '#0f172a', fontWeight: 700 }}>Product Name</th>
+                          <th style={{ padding: '8px 14px', width: 240, color: '#475569', fontWeight: 700 }}>Product Code</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(form.products || []).map((p, idx) => (
+                          <tr key={idx} style={{ borderBottom: idx === (form.products || []).length - 1 ? 'none' : '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#64748b' }}>{idx + 1}</td>
+                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Package size={14} style={{ color: '#dc2626', flexShrink: 0 }} />
+                                <span>{p.name || '—'}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              {p.code ? (
+                                <code style={{ background: '#e2e8f0', padding: '3px 8px', borderRadius: 6, fontSize: 12.5, fontWeight: 700, color: '#0f172a' }}>
+                                  {p.code}
+                                </code>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic' }}>Not specified</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 7. Remark */}
+                <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    7. Remark / Committee Notes
+                  </div>
+                  <div style={{ fontSize: 13.5, color: '#1e293b', marginTop: 4, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {form.remark || '—'}
+                  </div>
+                </div>
+
+                {/* 8. Attached Documents */}
+                {form.document_urls && form.document_urls.length > 0 && (
+                  <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+                      8. Supporting Documents ({form.document_urls.length})
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {form.document_urls.map((doc, idx) => (
                         <a
+                          key={idx}
                           href={getPdfUrl(doc.url)}
                           target="_blank"
                           rel="noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, textDecoration: 'none', color: '#0369a1', fontWeight: 600 }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 12px',
+                            background: '#fff',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 6,
+                            fontSize: 12.5,
+                            color: '#0f172a',
+                            fontWeight: 600,
+                            textDecoration: 'none'
+                          }}
                         >
-                          <Download size={13} /> {doc.name || `Document_${idx + 1}`}
+                          <Download size={13} style={{ color: '#dc2626' }} />
+                          {doc.name || `Attachment_${idx + 1}.pdf`}
                         </a>
-                      </div>
-                    ))
-                  ) : form.document_url ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 12px' }}>
-                      <a
-                        href={getPdfUrl(form.document_url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, textDecoration: 'none', color: '#0369a1', fontWeight: 600 }}
-                      >
-                        <Download size={13} /> Attached Audit Document
-                      </a>
+                      ))}
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Section 6: Committee Signatures Matrix */}
-            <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 24, marginTop: 8 }}>
+            {/* Committee Signatures Matrix (4 Required) */}
+            <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
-                  <h4 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <PenTool size={18} style={{ color: 'var(--primary)' }} />
+                  <h4 style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <PenTool size={18} style={{ color: '#dc2626' }} />
                     Committee Signatures (4 Required)
                   </h4>
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
@@ -824,7 +695,7 @@ export default function AdminCreateKFCLogsheet() {
                   <button
                     onClick={() => openSigningModal()}
                     className="btn btn-outline btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#dc2626', borderColor: '#fca5a5' }}
                   >
                     <PenTool size={14} /> Add Signature
                   </button>
@@ -832,7 +703,7 @@ export default function AdminCreateKFCLogsheet() {
               </div>
 
               {/* 4-Role Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16 }}>
                 {signatories.map((s, idx) => (
                   <div
                     key={idx}
@@ -911,7 +782,7 @@ export default function AdminCreateKFCLogsheet() {
                             type="button"
                             onClick={() => openSigningModal(s.roleKey)}
                             className="btn btn-outline btn-sm"
-                            style={{ width: '100%', fontSize: 12, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--primary)', borderColor: 'var(--primary)', fontWeight: 700 }}
+                            style={{ width: '100%', fontSize: 12, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#dc2626', borderColor: '#dc2626', fontWeight: 700 }}
                           >
                             <PenTool size={13} /> Sign as {s.roleKey}
                           </button>
@@ -931,7 +802,7 @@ export default function AdminCreateKFCLogsheet() {
                 ))}
               </div>
 
-              {/* ACTION BLOCK: APPROVE KFC LOGSHEET (REPLACES APPLICATION SUCCESSFUL) */}
+              {/* ACTION BLOCK: APPROVE KFC LOGSHEET */}
               <div
                 style={{
                   marginTop: 24,
@@ -956,7 +827,7 @@ export default function AdminCreateKFCLogsheet() {
                   </div>
                   <div style={{ fontSize: 12, color: isApproved || totalSignedCount === 4 ? '#166534' : '#b45309', marginTop: 2 }}>
                     {isApproved
-                      ? 'All 4 committee signatures verified and KFC logsheet officially approved. The workflow is complete.'
+                      ? 'All 4 committee signatures verified and KFC logsheet officially approved. Workflow journey is completed.'
                       : totalSignedCount === 4
                       ? 'All 4 committee signatures collected. Click "Approve KFC Logsheet" to complete review and move to Manage Logsheets. (No certificate required).'
                       : `Requires all 4 signatures — currently ${totalSignedCount}/4 signed.`}
@@ -978,10 +849,7 @@ export default function AdminCreateKFCLogsheet() {
                       alignItems: 'center',
                       gap: 8,
                       borderRadius: 10,
-                      cursor: 'not-allowed',
-                      boxShadow: 'none',
-                      opacity: 1,
-                      pointerEvents: 'none'
+                      cursor: 'not-allowed'
                     }}
                   >
                     <CheckCircle2 size={16} strokeWidth={2.5} style={{ color: '#16a34a' }} />
@@ -1003,10 +871,8 @@ export default function AdminCreateKFCLogsheet() {
                       alignItems: 'center',
                       gap: 8,
                       borderRadius: 10,
-                      boxShadow: totalSignedCount === 4 && hasSignaturePrivilege ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
                       cursor: totalSignedCount === 4 && hasSignaturePrivilege ? 'pointer' : 'not-allowed'
                     }}
-                    title={!hasSignaturePrivilege ? 'Signature Privilege required to approve' : ''}
                   >
                     {isFinalizing ? (
                       <span className="spinner-white" />
@@ -1023,664 +889,516 @@ export default function AdminCreateKFCLogsheet() {
 
           </div>
         ) : (
-          /* FORM VIEW FOR CREATING NEW KFC LOGSHEET — MANUAL TYPING ONLY */
-          <form onSubmit={handleSubmit} noValidate style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          /* ─── CASE B: STREAMLINED CREATION FORM (strictly the 8 KFC details) ─── */
+          <form onSubmit={handleSubmit} noValidate style={{ padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            
+            <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: 14 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Building size={18} style={{ color: '#dc2626' }} />
+                Enter KFC Logsheet Details
+              </h3>
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                Please fill in the required company, contact, and product details below.
+              </p>
+            </div>
 
-            {/* TAB 1: COMPANY & SITE DETAILS */}
-            {activeTab === 1 && (
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+              
+              {/* 1. Company Name */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Company Name <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Kentucky Fried Chicken (KFC UK) / Franchise Entity"
+                  value={form.company_name}
+                  onChange={e => setForm({ ...form, company_name: e.target.value })}
+                  style={{ height: 44, fontSize: 14, fontWeight: 600 }}
+                />
+              </div>
 
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                    Site Name <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
+              {/* 2. Contact Person */}
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Contact Person <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <User size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input
                     required
                     type="text"
                     className="form-control"
-                    value={form.site_name || ''}
-                    onChange={e => setForm({ ...form, site_name: e.target.value })}
-                    placeholder="Enter site / facility / store name"
-                    style={{ fontWeight: 700 }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                    Company Name <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.company_name || ''}
-                    onChange={e => setForm({ ...form, company_name: e.target.value })}
-                    placeholder="Enter registered company name"
-                    style={{ fontWeight: 700 }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                    Contact Person <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.contact_person || ''}
+                    placeholder="Full name of representative"
+                    value={form.contact_person}
                     onChange={e => setForm({ ...form, contact_person: e.target.value })}
-                    placeholder="Enter contact person name"
-                    style={{ fontWeight: 700 }}
+                    style={{ paddingLeft: 36, height: 44, fontSize: 13.5, fontWeight: 500 }}
                   />
                 </div>
+              </div>
 
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ margin: 0 }}>
-                    Company Address <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.company_address || ''}
-                    onChange={e => setForm({ ...form, company_address: e.target.value })}
-                    placeholder="Registered company address"
-                    style={{ fontWeight: 600 }}
-                  />
-                </div>
-
-                {/* Manufacturing Site Address — NOT COMPULSORY */}
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ margin: 0 }}>
-                    Manufacturing Site Address <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={form.manufacturing_address || ''}
-                    onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
-                    placeholder="Manufacturing site address (Optional)"
-                    style={{ fontWeight: 600 }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ margin: 0 }}>
-                    Contact E-mail <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
+              {/* 3. Email */}
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Contact Email <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input
                     required
                     type="email"
                     className="form-control"
-                    value={form.contact_email || ''}
+                    placeholder="representative@kfc.co.uk"
+                    value={form.contact_email}
                     onChange={e => setForm({ ...form, contact_email: e.target.value })}
-                    placeholder="name@company.com"
-                    style={{ fontWeight: 600 }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ margin: 0 }}>
-                    Nature of the business <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.nature_of_business || ''}
-                    onChange={e => setForm({ ...form, nature_of_business: e.target.value })}
-                    placeholder="e.g. Halal Food Production & Fast Food Service"
-                    style={{ fontWeight: 600 }}
-                  />
-                </div>
-
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">
-                    Product Category <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.product_category || ''}
-                    onChange={e => setForm({ ...form, product_category: e.target.value })}
-                    placeholder="e.g. KFC Menu Items & Halal Ingredients"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Issue date of certificate <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    value={form.issue_date?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, issue_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Expiry date of certificate <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    value={form.expiry_date?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Current Cycle Start Date <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    value={form.current_cycle_start?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, current_cycle_start: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    value={form.original_cycle_start?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, original_cycle_start: e.target.value })}
-                  />
-                </div>
-
-                {/* Upload Audit Reports in Tab 1 */}
-                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', margin: 0 }}>
-                      Upload Audit Reports
-                    </label>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: uploadingReport ? '#94a3b8' : 'var(--primary)', fontWeight: 600, cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
-                      <UploadCloud size={14} /> {uploadingReport ? 'Uploading...' : 'Add Audit Reports'}
-                      <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
-                    </label>
-                  </div>
-
-                  {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      {form.document_urls.map((doc, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', padding: '10px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <CheckCircle2 size={16} color="#16a34a" />
-                            <a href={getPdfUrl(doc.url)} target="_blank" rel="noreferrer" style={{ color: '#166534', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                              {doc.name || `Audit_Report_${idx + 1}.pdf`}
-                            </a>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ color: '#dc2626', padding: '2px 8px' }}
-                            onClick={() => handleRemoveDocument(idx)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', marginTop: 4 }}>
-                        <UploadCloud size={14} /> + Upload another document
-                        <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
-                      </label>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
-                      No audit report files attached yet. (Optional)
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            )}
-
-            {/* TAB 2: REVIEW OF APPLICATION */}
-            {activeTab === 2 && (
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>
-                    Audit Type <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <select
-                    required
-                    className="form-control"
-                    value={form.audit_type}
-                    onChange={e => setForm({ ...form, audit_type: e.target.value })}
-                  >
-                    <option value="KFC Logsheet">KFC Logsheet</option>
-                    <option value="New">New</option>
-                    <option value="Surveillance">Surveillance</option>
-                    <option value="Re-audit">Re-audit</option>
-                    <option value="Add-on Product Review">Add-on Product Review</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Audit Date <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    value={form.audit_date?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, audit_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>
-                    Auditors <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. John Doe, Jane Smith"
-                    value={form.auditors || ''}
-                    onChange={e => setForm({ ...form, auditors: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    NCS Close (if any)
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={form.ncs_close || ''}
-                    onChange={e => setForm({ ...form, ncs_close: e.target.value })}
-                    placeholder="e.g. No NCs flagged / All NCs closed"
-                  />
-                </div>
-
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">
-                    Audit Documentation reviewed and found satisfactory <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.docs_satisfactory}
-                    onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })}
-                    placeholder="e.g. Satisfactory - all documentation verified"
-                  />
-                </div>
-
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">
-                    Pork free statement / signed pork policy submitted <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.pork_free_statement}
-                    onChange={e => setForm({ ...form, pork_free_statement: e.target.value })}
-                    placeholder="e.g. Confirmed - signed pork-free declaration in place"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Reviewed By <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.reviewed_by}
-                    onChange={e => setForm({ ...form, reviewed_by: e.target.value })}
-                    placeholder="e.g. HFA Technical Committee"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Reviewer Name <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    value={form.reviewer_name}
-                    onChange={e => setForm({ ...form, reviewer_name: e.target.value })}
-                    placeholder="e.g. Lead Technical Reviewer"
-                  />
-                </div>
-
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">
-                    Date of Review <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    required
-                    type="date"
-                    className="form-control"
-                    style={{ maxWidth: 300 }}
-                    value={form.review_date?.split('T')[0] || ''}
-                    onChange={e => setForm({ ...form, review_date: e.target.value })}
+                    style={{ paddingLeft: 36, height: 44, fontSize: 13.5, fontWeight: 500 }}
                   />
                 </div>
               </div>
-            )}
 
-            {/* TAB 3: CERTIFICATE STATUS */}
-            {activeTab === 3 && (
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {/* Certificate Type / Scheme Selection */}
-                <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #cbd5e1' }}>
-                  <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', marginBottom: 6, display: 'block' }}>
-                    Certificate Type / Scheme <span style={{ color: '#dc2626' }}>* (Required)</span>
-                  </label>
-                  <select
-                    required
-                    className="form-control"
-                    value={form.certificate_type || 'KFC Logsheet'}
-                    onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
-                    style={{ fontWeight: 700, fontSize: 13.5, background: '#f0fdfa', borderColor: '#0e7490' }}
-                  >
-                    <option value="KFC Logsheet">KFC Logsheet (Special Grant)</option>
-                    <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food &amp; General Manufacturing)</option>
-                    <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat &amp; Poultry Processing)</option>
-                    <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme - Non-Meat Food)</option>
-                    <option value="GSO MEAT">GSO MEAT (UAE / GCC Scheme - Meat Processing)</option>
-                    <option value="COSMETICS">COSMETICS (Personal Care &amp; Cosmetics Scheme)</option>
-                    <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
-                  </select>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-                    💡 <strong>KFC Standard:</strong> KFC Logsheets are approved by committee signatures directly and do not require a certificate.
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Annual certificate <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Batch certificate <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Only addition of new products <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Addition of new site (or line) <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">New Client <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Agreement Signed <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
-                    <option value="Yes">Yes</option><option value="No">No</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Status Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 4: COMMENT / REASON */}
-            {activeTab === 4 && (
-              <div className="form-group">
-                <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
+              {/* 4. Company Address */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Company Address <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <textarea
                   required
+                  rows={2}
                   className="form-control"
-                  rows={8}
-                  style={{ fontSize: 14, padding: 14 }}
-                  placeholder="Enter final review comments, conditions, or recommendations..."
-                  value={form.comment}
-                  onChange={e => setForm({ ...form, comment: e.target.value })}
+                  placeholder="Registered head office / legal business address"
+                  value={form.company_address}
+                  onChange={e => setForm({ ...form, company_address: e.target.value })}
+                  style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, resize: 'vertical' }}
                 />
               </div>
-            )}
 
-            {/* Bottom Footer Submit — EXACTLY as AdminCreateLogsheet */}
-            <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.confirmed}
-                  onChange={e => setForm({ ...form, confirmed: e.target.checked })}
-                  style={{ width: 18, height: 18, cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                  I confirm that all product and audit compliance details above have been verified. <span style={{ color: '#dc2626' }}>*</span>
-                </span>
-              </label>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting || !form.confirmed}
-                  style={{
-                    padding: '10px 24px',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: form.confirmed ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  {submitting ? 'Saving Logsheet...' : 'Create & Save Logsheet'}
-                </button>
-              </div>
-            </div>
-
-          </form>
-        )}
-      </div>
-
-      {/* INTERACTIVE SIGNATURE MODAL */}
-      {showSignModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 20
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: 16,
-            width: '100%',
-            maxWidth: 520,
-            overflow: 'hidden',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            animation: 'slideDown 0.2s ease-out'
-          }}>
-            {/* Modal Header */}
-            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <PenTool size={20} style={{ color: '#ffffff' }} />
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Apply Committee Electronic Signature</h3>
-              </div>
-              <button
-                onClick={() => setShowSignModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Step 1: Select Role */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
-                  1. Select Signatory Role
+              {/* 5. Manufacturing Address (Optional) */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Manufacturing Address <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>(Optional / Not compulsory)</span>
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {[
-                    { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(currentLogsheet?.mufti_signature) },
-                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(currentLogsheet?.ceo_signature) },
-                    { key: 'Manager', label: 'Manager (Technical)', isSigned: Boolean(currentLogsheet?.manager_signature) },
-                    { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(currentLogsheet?.mufti2_signature) },
-                  ].map(r => {
-                    const isSelected = sigRole === r.key;
-                    const isAlreadySigned = r.isSigned;
-                    const isRestrictedForMufti = isMuftiUser && (r.key === 'Ceo' || r.key === 'Manager');
-                    const isDisabled = isAlreadySigned || isRestrictedForMufti;
+                <textarea
+                  rows={2}
+                  className="form-control"
+                  placeholder="Production facility or manufacturing site address (Leave blank if not applicable)"
+                  value={form.manufacturing_address}
+                  onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
+                  style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, resize: 'vertical' }}
+                />
+              </div>
 
-                    return (
-                      <button
-                        key={r.key}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (isDisabled) return;
-                          setSigRole(r.key);
-                        }}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 10,
-                          border: `1.5px solid ${isDisabled ? '#e2e8f0' : isSelected ? 'var(--primary)' : '#e2e8f0'}`,
-                          background: isAlreadySigned ? '#f1f5f9' : isRestrictedForMufti ? '#fef2f2' : isSelected ? '#f0fdf4' : '#f8fafc',
-                          color: isAlreadySigned ? '#94a3b8' : isRestrictedForMufti ? '#991b1b' : isSelected ? 'var(--primary-dark)' : '#334155',
-                          fontWeight: isSelected ? 800 : 600,
-                          fontSize: 12.5,
-                          cursor: isDisabled ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          opacity: isDisabled ? 0.6 : 1,
-                          textAlign: 'left'
-                        }}
-                      >
+              {/* Products Section (Multiple products allowed, code is optional) */}
+              <div style={{ gridColumn: '1 / -1', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Package size={17} style={{ color: '#dc2626' }} />
+                      Products for Evaluation <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                      Add one or more KFC products covered by this logsheet. Product Code is optional.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddProduct}
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: '#dc2626',
+                      borderColor: '#fca5a5',
+                      background: '#fff',
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      padding: '6px 14px',
+                      borderRadius: 8
+                    }}
+                  >
+                    <Plus size={15} /> Add Another Product
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {(form.products || []).map((prod, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 8,
+                        padding: '14px 16px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Product #{idx + 1}
+                        </span>
+                        {(form.products || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProduct(idx)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: 4
+                            }}
+                            title="Remove this product"
+                          >
+                            <Trash2 size={14} /> Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(180px, 1fr)', gap: 14 }}>
                         <div>
-                          <div>{r.label}</div>
-                          {isAlreadySigned && <span style={{ fontSize: 10.5, color: '#16a34a', fontWeight: 700 }}>(Already Signed)</span>}
+                          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+                            Product Name <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          <div style={{ position: 'relative' }}>
+                            <Package size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                              required
+                              type="text"
+                              className="form-control"
+                              placeholder="e.g. KFC Seasoned Halal Chicken Fillets"
+                              value={prod.name}
+                              onChange={e => handleProductChange(idx, 'name', e.target.value)}
+                              style={{ paddingLeft: 36, height: 42, fontSize: 13.5, fontWeight: 600 }}
+                            />
+                          </div>
                         </div>
-                        {isSelected && !isDisabled && <Check size={14} style={{ color: 'var(--primary)' }} />}
-                      </button>
-                    );
-                  })}
+
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+                            Product Code <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="e.g. KFC-PRD-01 (optional)"
+                            value={prod.code}
+                            onChange={e => handleProductChange(idx, 'code', e.target.value)}
+                            style={{ height: 42, fontSize: 13.5, fontWeight: 500 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-start' }}>
+                  <button
+                    type="button"
+                    onClick={handleAddProduct}
+                    className="btn btn-ghost btn-sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: '#b91c1c',
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      padding: '6px 12px'
+                    }}
+                  >
+                    <Plus size={14} /> + Add Another Product
+                  </button>
                 </div>
               </div>
 
-              {/* Step 2: Signature Preview */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'block' }}>
-                  2. Authenticated Digital Signature Preview
+              {/* 8. Remark */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Remark / Reason for Decision
                 </label>
-                {userSignature ? (
-                  <div style={{ padding: '14px 18px', border: '1px solid #bbf7d0', background: '#f0fdf4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>AUTHENTICATED SIGNER</div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{userSignature.name}</div>
-                    </div>
-                    <img
-                      src={getPdfUrl(userSignature.signature_url)}
-                      alt="Digital Signature"
-                      style={{ maxHeight: 42, maxWidth: 140, objectFit: 'contain', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#991b1b', fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <span>No digital signature image found for your account.</span>
-                    <Link to="/signatures" className="btn btn-sm btn-outline" style={{ fontSize: 11, background: '#fff', whiteSpace: 'nowrap' }}>
-                      Upload Signature
-                    </Link>
+                <textarea
+                  rows={3}
+                  className="form-control"
+                  placeholder="Enter remarks, audit evaluation notes, or Shariah observations for the committee..."
+                  value={form.remark}
+                  onChange={e => setForm({ ...form, remark: e.target.value })}
+                  style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, resize: 'vertical' }}
+                />
+              </div>
+
+              {/* File Attachment Upload */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
+                  Upload Supporting Documents / Audit Reports <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
+                </label>
+                <div style={{
+                  border: '2px dashed #cbd5e1',
+                  borderRadius: 10,
+                  padding: 20,
+                  textAlign: 'center',
+                  background: '#f8fafc',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                    id="kfc-file-upload"
+                  />
+                  <label htmlFor="kfc-file-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <UploadCloud size={24} style={{ color: '#dc2626' }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>
+                      {uploadingReport ? 'Uploading...' : 'Click to upload audit report or certificate attachment'}
+                    </span>
+                    <span style={{ fontSize: 11.5, color: '#64748b' }}>PDF, DOC, Images up to 15MB</span>
+                  </label>
+                </div>
+
+                {form.document_urls && form.document_urls.length > 0 && (
+                  <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {form.document_urls.map((doc, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: '#fff',
+                          border: '1px solid #cbd5e1',
+                          padding: '6px 12px',
+                          borderRadius: 6,
+                          fontSize: 12
+                        }}
+                      >
+                        <FileText size={14} style={{ color: '#dc2626' }} />
+                        <span style={{ fontWeight: 600 }}>{doc.name || `Document ${idx + 1}`}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDocument(idx)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#94a3b8' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Step 3: Optional Comment */}
+            </div>
+
+            {/* Confirmation Checkbox */}
+            <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px 20px', marginTop: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={form.confirmed}
+                  onChange={e => setForm({ ...form, confirmed: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: '#dc2626', marginTop: 2 }}
+                />
+                <span style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.5, fontWeight: 600 }}>
+                  I confirm that all product specifications, manufacturing parameters, and company details provided for this KFC Logsheet have been verified and are ready for Shariah and Technical Committee review.
+                </span>
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="btn btn-ghost"
+                style={{ border: '1px solid #cbd5e1' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="btn btn-primary"
+                style={{
+                  background: 'linear-gradient(135deg, #b91c1c, #dc2626)',
+                  borderColor: '#b91c1c',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  padding: '12px 30px',
+                  borderRadius: 10,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                }}
+              >
+                {submitting ? (
+                  <>
+                    <span className="spinner-white" /> Creating KFC Logsheet...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} /> Create KFC Logsheet
+                  </>
+                )}
+              </button>
+            </div>
+
+          </form>
+        )}
+
+      </div>
+
+      {/* Digital Signing Modal */}
+      {showSignModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: 20
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 14,
+            maxWidth: 500,
+            width: '100%',
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              background: '#b91c1c',
+              color: '#ffffff',
+              padding: '16px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PenTool size={16} /> Apply Committee Signature
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowSignModal(false)}
+                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'block' }}>
-                  3. Signature Comment (Optional)
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
+                  Select Signatory Role <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <select
+                  value={sigRole}
+                  onChange={e => setSigRole(e.target.value)}
+                  className="form-control"
+                  style={{ fontWeight: 600, height: 42 }}
+                >
+                  <option value="">-- Choose Role --</option>
+                  <option value="Mufti">Mufti / Shariah Signatory</option>
+                  <option value="Ceo">CEO / Executive Signatory</option>
+                  <option value="Manager">Manager / Technical Signatory</option>
+                  <option value="Mufti2">Mufti 2 / Secondary Shariah</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
+                  Authenticated Digital Signature
+                </label>
+                {userSignature ? (
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 12, display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 100, height: 46, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={getPdfUrl(userSignature.signature_url)} alt="Signature" style={{ maxHeight: 38, maxWidth: '90%', objectFit: 'contain' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{userSignature.name || currentUser?.full_name}</div>
+                      <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>Signature Verified</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', fontSize: 12 }}>
+                    No signature registered on this account. Please upload in Signatures tab.
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
+                  Signatory Remarks (Optional)
                 </label>
                 <textarea
-                  className="form-control"
                   rows={2}
-                  placeholder="Enter endorsement notes or conditions..."
+                  className="form-control"
+                  placeholder="Optional endorsement note..."
                   value={sigComment}
                   onChange={e => setSigComment(e.target.value)}
-                  style={{ fontSize: 13 }}
+                  style={{ fontSize: 12.5 }}
                 />
               </div>
 
-              {/* Step 4: Double Confirmation */}
-              <div style={{ padding: '12px 14px', background: modalConfirmed ? '#f0fdf4' : '#fffbeb', border: `1px solid ${modalConfirmed ? '#86efac' : '#fed7aa'}`, borderRadius: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: 0 }}>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: 0 }}>
                   <input
                     type="checkbox"
                     checked={modalConfirmed}
                     onChange={e => setModalConfirmed(e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    style={{ marginTop: 2, accentColor: '#b91c1c' }}
                   />
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b' }}>
-                    I formally confirm my review and authorization of this KFC Halal Logsheet.
+                  <span style={{ fontSize: 12, color: '#334155', lineHeight: 1.4 }}>
+                    I confirm my digital signature is legally binding and certifies compliance with HFA KFC Halal standards.
                   </span>
                 </label>
               </div>
 
-              {/* Footer */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
                 <button
                   type="button"
                   onClick={() => setShowSignModal(false)}
-                  className="btn btn-ghost"
-                  style={{ fontWeight: 600 }}
+                  className="btn btn-ghost btn-sm"
+                  style={{ border: '1px solid #cbd5e1' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  disabled={isSigning || !modalConfirmed || !sigRole || !userSignature}
                   onClick={handleApplySignature}
-                  className="btn btn-primary"
+                  disabled={isSigning || !modalConfirmed || !sigRole || !userSignature}
+                  className="btn btn-primary btn-sm"
                   style={{
-                    fontWeight: 800,
-                    padding: '10px 20px',
-                    display: 'inline-flex',
+                    background: '#b91c1c',
+                    borderColor: '#b91c1c',
+                    fontWeight: 700,
+                    padding: '8px 18px',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: 8
+                    gap: 6
                   }}
                 >
-                  {isSigning ? <span className="spinner-white" /> : <><Check size={16} /> Sign as {sigRole || 'Selected Role'}</>}
+                  {isSigning ? <span className="spinner-white" /> : <Check size={14} />} Apply Signature
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

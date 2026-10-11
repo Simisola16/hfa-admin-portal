@@ -55,7 +55,7 @@ export default function AdminDirectProduct() {
     ? profile.roles
     : (profile?.role ? [profile.role] : (Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean)));
   const isSuperAdmin = userRoles.includes('superadmin');
-  const hasDirectPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true || user?.can_issue_direct_certificate === true;
+  const hasManageProductPrivilege = isSuperAdmin || profile?.can_manage_products === true || user?.can_manage_products === true || profile?.can_manage_direct_products === true || user?.can_manage_direct_products === true;
 
   // Active Tab: 'manage' | 'create'
   const [activeTab, setActiveTab] = useState('manage');
@@ -162,33 +162,41 @@ export default function AdminDirectProduct() {
   const [clientSearchLoading, setClientSearchLoading] = useState(false);
 
   useEffect(() => {
-    if (!clientSearchQuery.trim() || clientSearchQuery.length < 2) {
-      setClients([]);
-      return;
-    }
+    const q = clientSearchQuery.trim();
+    if (!q) return;
     const timer = setTimeout(async () => {
       setClientSearchLoading(true);
       try {
         const res = await api.get('/api/users/search-clients', {
-          params: { search: clientSearchQuery.trim(), limit: 20 }
+          params: { search: q, limit: 30 }
         });
         const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
-        setClients(list);
-      } catch (_) { setClients([]); }
+        setClients(prev => {
+          const map = new Map();
+          list.forEach(item => { if (item?._id || item?.id) map.set(String(item._id || item.id), item); });
+          prev.forEach(item => { const id = String(item?._id || item?.id); if (!map.has(id)) map.set(id, item); });
+          return Array.from(map.values());
+        });
+      } catch (_) {}
       finally { setClientSearchLoading(false); }
-    }, 300);
+    }, 250);
     return () => clearTimeout(timer);
   }, [clientSearchQuery]);
 
-  // Load sites for selected client only
+  // Load initial clients and sites
   const fetchInitialData = async () => {
     setLoadingData(true);
     try {
-      const sitesRes = await api.get('/api/sites').catch(() => ({ data: [] }));
+      const [clientsRes, sitesRes] = await Promise.all([
+        api.get('/api/users/search-clients', { params: { limit: 50 } }).catch(() => ({ data: [] })),
+        api.get('/api/sites').catch(() => ({ data: [] }))
+      ]);
+      const clientList = Array.isArray(clientsRes) ? clientsRes : (Array.isArray(clientsRes?.data) ? clientsRes.data : []);
       const siteList = Array.isArray(sitesRes) ? sitesRes : (Array.isArray(sitesRes?.data) ? sitesRes.data : []);
+      setClients(clientList);
       setSites(siteList);
     } catch (err) {
-      toast.error('Failed to load sites');
+      toast.error('Failed to load initial data');
     } finally {
       setLoadingData(false);
     }
@@ -202,10 +210,16 @@ export default function AdminDirectProduct() {
     fetchProductsHistory();
   }, [fetchProductsHistory]);
 
-  // Filtered Client Suggestions — already returned from server search
+  // Filtered Client Suggestions — searches loaded clients + server search
   const filteredClients = useMemo(() => {
-    if (!clientSearchQuery.trim() || clientSearchQuery.length < 2) return [];
-    return clients.slice(0, 20);
+    if (!clientSearchQuery.trim()) return clients.slice(0, 15);
+    const q = clientSearchQuery.toLowerCase().trim();
+    return clients.filter(c => {
+      const cName = (c.company_name || '').toLowerCase();
+      const fName = (c.full_name || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      return cName.includes(q) || fName.includes(q) || email.includes(q);
+    }).slice(0, 20);
   }, [clients, clientSearchQuery]);
 
   // Sites belonging to selected client
@@ -536,7 +550,7 @@ export default function AdminDirectProduct() {
     return Array.from(set).sort();
   }, [clients, sites]);
 
-  if (!loadingData && !hasDirectPrivilege) {
+  if (!loadingData && !hasManageProductPrivilege) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
         <div style={{
@@ -548,7 +562,7 @@ export default function AdminDirectProduct() {
         </div>
         <h2 style={{ color: '#0f172a', fontWeight: 800, margin: '0 0 8px' }}>Access Restricted</h2>
         <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-          You do not have administrative privileges to directly register products.
+          You do not have the Manage Product Privilege required to directly manage and register products.
         </p>
       </div>
     );
@@ -704,7 +718,7 @@ export default function AdminDirectProduct() {
                   </div>
 
                   {/* Search Results List (only when query is active and no client selected) */}
-                  {clientSearchQuery.trim() && clientSearchQuery.length >= 2 && !selectedClient && (
+                  {clientSearchQuery.trim() && !selectedClient && (
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
                       {clientSearchLoading ? (
                         <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>

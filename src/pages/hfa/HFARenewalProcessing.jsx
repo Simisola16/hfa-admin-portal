@@ -616,8 +616,8 @@ export default function HFARenewalProcessing(props) {
       );
     }
 
-    // 5a. Post-Payment -> Mark Ready for Certificate
-    if (status === 'payment_received' || (isRenewalInvoicePaid && status !== 'ready_for_certificate' && status !== 'certificate_issued')) {
+    // 5a. Renewal Workflow: Once renewal invoice is sent, application continues without blocking on payment (Existing HFA Client)
+    if (status === 'payment_received' || isRenewalInvoicePaid || ((status === 'invoice_sent' || renewalInvoice) && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done')) {
       if (!canIssueCertificate(currentUser)) {
         return (
           <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -626,33 +626,21 @@ export default function HFARenewalProcessing(props) {
         );
       }
       return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
-          onClick={handleMarkReadyForCertificate}
-          disabled={actionSubmitting}
-        >
-          <Award size={16} /> Mark Ready for Certificate
-        </button>
-      );
-    }
-
-    if ((status === 'invoice_sent' || renewalInvoice) && !isRenewalInvoicePaid) {
-      if (!canSendInvoice(currentUser)) {
-        return (
-          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Receipt size={15} /> Awaiting Invoice Issuance (Accountant)
-          </span>
-        );
-      }
-      return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#854d0e' }}
-          onClick={() => setShowInvoiceModal(true)}
-        >
-          <Receipt size={16} /> {renewalInvoice ? 'Resend Renewal Invoice' : 'Send Renewal Invoice'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{ gap: 8, background: '#9333ea', borderColor: '#9333ea' }}
+            onClick={handleMarkReadyForCertificate}
+            disabled={actionSubmitting}
+          >
+            <Award size={16} /> Mark Ready for Certificate
+          </button>
+          {!isRenewalInvoicePaid && (
+            <span style={{ fontSize: 11.5, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', padding: '6px 10px', borderRadius: 6, fontWeight: 600 }}>
+              Invoice Unpaid (Processing Continuing)
+            </span>
+          )}
+        </div>
       );
     }
 

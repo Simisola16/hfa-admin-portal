@@ -35,6 +35,12 @@ export default function AdminCreateLogsheet() {
   const [directClients, setDirectClients] = useState([]);
   const [directSites, setDirectSites] = useState([]);
   const [selectedDirectClientId, setSelectedDirectClientId] = useState('');
+  const [directLogsheetType, setDirectLogsheetType] = useState(() => {
+    const sp = new URLSearchParams(location.search);
+    const t = sp.get('type')?.toLowerCase();
+    if (t === 'surveillance' || t === 'extension' || t === 'product' || t === 'normal') return t;
+    return 'normal';
+  });
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +109,22 @@ export default function AdminCreateLogsheet() {
     annual_certificate: 'Yes', batch_certificate: 'No', new_products_only: 'No',
     new_site_line: 'No', new_client: 'No', agreement_signed: 'Yes', status_date: '',
 
+    // Extension Specific Fields
+    existing_certificate_number: '',
+    extension_duration_type: '30_days',
+    extension_days: 30,
+    extension_reason: '',
+    extended_expiry_date: '',
+
+    // Product Specific Fields
+    product_name: '',
+    product_code: '',
+    raw_materials_approved: 'Yes',
+    cross_contamination_risk: 'None',
+    formulation_checked: 'Yes',
+    lab_test_required: 'No',
+    initial_approval_stage: 'Stage 1 - Desk Review',
+
     comment: '', confirmed: false
   });
 
@@ -156,6 +178,130 @@ export default function AdminCreateLogsheet() {
   );
 
   const isDirectCreation = isDirectLogsheetRoute && !directLogsheetId && !currentLogsheet?._id;
+
+  const effectiveLogsheetType = currentLogsheet
+    ? (currentLogsheet.logsheet_type === 'initial_product' ? 'product' : (currentLogsheet.logsheet_type || (currentLogsheet.certificate_type === 'Surveillance Letter' ? 'surveillance' : (currentLogsheet.extension_duration_type ? 'extension' : (currentLogsheet.product_name ? 'product' : 'normal')))))
+    : directLogsheetType;
+
+  const handleSwitchDirectType = (typeId) => {
+    setDirectLogsheetType(typeId);
+    setActiveTab(1);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    if (typeId === 'surveillance') {
+      setForm(prev => ({
+        ...prev,
+        audit_type: 'Surveillance',
+        certificate_type: 'Surveillance Letter',
+        suggested_certificate_type: 'Surveillance Letter',
+        certificate_standard: 'Surveillance Letter',
+        issue_date: prev.issue_date || todayStr,
+        expiry_date: prev.expiry_date || oneYearLater,
+        audit_date: prev.audit_date || todayStr,
+        ncs_close: 'No NCs Flagged',
+        docs_satisfactory: 'Satisfactory',
+        pork_free_statement: 'Verified Compliant',
+        reviewed_by: user?.full_name || 'HFA Lead Auditor',
+        reviewer_name: user?.full_name || 'HFA Lead Auditor',
+        review_date: todayStr,
+        status_date: todayStr
+      }));
+    } else if (typeId === 'extension') {
+      setForm(prev => ({
+        ...prev,
+        audit_type: 'Facility Extension Review',
+        extension_duration_type: '30_days',
+        extension_days: 30,
+        extended_expiry_date: thirtyDaysLater,
+        certificate_type: '',
+        suggested_certificate_type: '',
+        certificate_standard: '',
+        status_date: todayStr,
+        review_date: todayStr
+      }));
+    } else if (typeId === 'product') {
+      setForm(prev => ({
+        ...prev,
+        audit_type: 'Initial Product Evaluation',
+        raw_materials_approved: 'Yes',
+        cross_contamination_risk: 'None',
+        formulation_checked: 'Yes',
+        lab_test_required: 'No',
+        initial_approval_stage: 'Stage 1 - Desk Review',
+        auditors: user?.full_name || 'HFA Food Technologist',
+        reviewed_by: user?.full_name || 'HFA Food Technologist',
+        reviewer_name: user?.full_name || 'HFA Food Technologist',
+        status_date: todayStr,
+        review_date: todayStr
+      }));
+    } else {
+      setForm(prev => ({
+        ...prev,
+        audit_type: 'New',
+        certificate_type: prev.certificate_type === 'Surveillance Letter' ? '' : prev.certificate_type,
+        suggested_certificate_type: prev.suggested_certificate_type === 'Surveillance Letter' ? '' : prev.suggested_certificate_type,
+        certificate_standard: prev.certificate_standard === 'Surveillance Letter' ? '' : prev.certificate_standard,
+        issue_date: prev.issue_date || todayStr,
+        expiry_date: prev.expiry_date || oneYearLater,
+        current_cycle_start: prev.current_cycle_start || todayStr,
+        original_cycle_start: prev.original_cycle_start || todayStr,
+        audit_date: prev.audit_date || todayStr,
+        review_date: prev.review_date || todayStr,
+        status_date: prev.status_date || todayStr,
+        annual_certificate: 'Yes',
+        batch_certificate: 'No',
+        new_products_only: 'No',
+        new_site_line: 'No',
+        new_client: 'No',
+        agreement_signed: 'Yes'
+      }));
+    }
+  };
+
+  const handleExtensionDurationChange = (durationType, days = 30) => {
+    const baseDate = form.expiry_date ? new Date(form.expiry_date) : new Date();
+    const targetDays = durationType === '30_days' ? 30 : durationType === '60_days' ? 60 : durationType === '90_days' ? 90 : durationType === '180_days' ? 180 : days;
+    const newDate = new Date(baseDate.getTime() + targetDays * 24 * 60 * 60 * 1000);
+    const newDateStr = newDate.toISOString().split('T')[0];
+
+    setForm(prev => ({
+      ...prev,
+      extension_duration_type: durationType,
+      extension_days: targetDays,
+      extended_expiry_date: newDateStr
+    }));
+  };
+
+  const getAvailableTabs = () => {
+    if (isDirectCreation) {
+      if (directLogsheetType === 'surveillance') {
+        return [
+          { id: 1, label: '1. Company Details', icon: Building },
+          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+        ];
+      }
+      if (directLogsheetType === 'extension') {
+        return [
+          { id: 1, label: '1. Facility & Extension Details', icon: Building },
+          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+        ];
+      }
+      if (directLogsheetType === 'product') {
+        return [
+          { id: 1, label: '1. Product Evaluation', icon: Package },
+          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+        ];
+      }
+    }
+    return [
+      { id: 1, label: '1. Company & Site Details', icon: Building },
+      { id: 2, label: '2. Review of Application', icon: FileText },
+      { id: 3, label: '3. Certificate Status', icon: Award },
+      { id: 4, label: '4. Comment / Reason', icon: MessageSquare }
+    ];
+  };
 
   const handleDirectClientSelect = (clientId) => {
     setSelectedDirectClientId(clientId);
@@ -212,6 +358,17 @@ export default function AdminCreateLogsheet() {
             } else if (logDoc.application_id && typeof logDoc.application_id === 'object') {
               setApplication(logDoc.application_id);
             }
+            if (logDoc.logsheet_type) {
+              setDirectLogsheetType(logDoc.logsheet_type === 'initial_product' ? 'product' : logDoc.logsheet_type);
+            } else if (logDoc.certificate_type === 'Surveillance Letter') {
+              setDirectLogsheetType('surveillance');
+            } else if (logDoc.extension_duration_type) {
+              setDirectLogsheetType('extension');
+            } else if (logDoc.product_name) {
+              setDirectLogsheetType('product');
+            } else {
+              setDirectLogsheetType('normal');
+            }
             setForm(f => ({
               ...f,
               ...logDoc,
@@ -239,31 +396,35 @@ export default function AdminCreateLogsheet() {
 
       if (isDirectLogsheetRoute) {
         // Direct Creation Mode
+        const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         setForm(f => ({
           ...f,
-          issue_date: todayStr,
-          expiry_date: oneYearLater,
-          current_cycle_start: todayStr,
-          original_cycle_start: todayStr,
-          audit_date: todayStr,
-          review_date: todayStr,
-          status_date: todayStr,
+          issue_date: f.issue_date || todayStr,
+          expiry_date: f.expiry_date || oneYearLater,
+          current_cycle_start: f.current_cycle_start || todayStr,
+          original_cycle_start: f.original_cycle_start || todayStr,
+          audit_date: f.audit_date || todayStr,
+          review_date: f.review_date || todayStr,
+          status_date: f.status_date || todayStr,
           site_name: f.site_name || 'Main Manufacturing Site',
-          audit_type: f.audit_type || 'New',
+          audit_type: directLogsheetType === 'surveillance' ? 'Surveillance' : (directLogsheetType === 'extension' ? 'Facility Extension Review' : (directLogsheetType === 'product' ? 'Initial Product Evaluation' : 'New')),
           annual_certificate: 'Yes',
           batch_certificate: 'No',
           new_products_only: 'No',
           new_site_line: 'No',
           new_client: 'No',
           agreement_signed: 'Yes',
-          certificate_type: '',
-          suggested_certificate_type: '',
-          certificate_standard: '',
+          certificate_type: directLogsheetType === 'surveillance' ? 'Surveillance Letter' : '',
+          suggested_certificate_type: directLogsheetType === 'surveillance' ? 'Surveillance Letter' : '',
+          certificate_standard: directLogsheetType === 'surveillance' ? 'Surveillance Letter' : '',
           nature_of_business: f.nature_of_business || 'Food Manufacturing & Packaging',
           product_category: f.product_category || 'Halal Food & Consumables',
           ncs_close: 'No NCs Flagged',
           reviewed_by: user?.full_name || 'HFA Lead Auditor',
-          reviewer_name: user?.full_name || 'HFA Lead Auditor'
+          reviewer_name: user?.full_name || 'HFA Lead Auditor',
+          extension_duration_type: '30_days',
+          extension_days: 30,
+          extended_expiry_date: thirtyDaysLater
         }));
 
         try {
@@ -1352,148 +1513,278 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    // 1. Validate Tab 1: Company & Site Details
-    if (!form.company_name?.trim()) {
-      toast.error('Company Name is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.contact_person?.trim()) {
-      toast.error('Contact Person is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.company_address?.trim()) {
-      toast.error('Company Address is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
+    if (isDirectCreation && directLogsheetType === 'surveillance') {
+      // Surveillance Letter Validation (matching screenshot: 1. Company Details, 2. Comment / Reason)
+      if (!form.company_name?.trim()) {
+        toast.error('Company Name is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.company_address?.trim()) {
+        toast.error('Company Address is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_person?.trim()) {
+        toast.error('Contact Person is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_email?.trim()) {
+        toast.error('Contact E-mail is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.issue_date) {
+        toast.error('Issue date of certificate is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.expiry_date) {
+        toast.error('Expiry date of certificate is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.audit_date) {
+        toast.error('Audit Date is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.comment?.trim()) {
+        toast.error('Comment / Reason for Decision is required (2. Comment / Reason)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.confirmed) {
+        toast.error('Please confirm the verification checkbox before creating Surveillance Letter');
+        setActiveTab(2);
+        return;
+      }
+      form.certificate_type = 'Surveillance Letter';
+      form.certificate_standard = 'Surveillance Letter';
+      form.suggested_certificate_type = 'Surveillance Letter';
+      form.audit_type = 'Surveillance';
+    } else if (isDirectCreation && directLogsheetType === 'extension') {
+      // Extension Logsheet Validation (1. Facility & Extension Details, 2. Comment / Reason)
+      if (!form.company_name?.trim()) {
+        toast.error('Company Name is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.company_address?.trim()) {
+        toast.error('Company Address is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_person?.trim()) {
+        toast.error('Contact Person is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_email?.trim()) {
+        toast.error('Contact E-mail is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.existing_certificate_number?.trim()) {
+        toast.error('Existing Certificate Number is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.extension_reason?.trim()) {
+        toast.error('Reason for Extension Request is required (1. Facility & Extension Details)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.comment?.trim()) {
+        toast.error('Comment / Reason is required (2. Comment / Reason)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.confirmed) {
+        toast.error('Please confirm the verification checkbox before creating Extension Logsheet');
+        setActiveTab(2);
+        return;
+      }
+      form.audit_type = 'Facility Extension Review';
+    } else if (isDirectCreation && directLogsheetType === 'product') {
+      // Product Logsheet Validation (1. Product Evaluation, 2. Comment / Reason)
+      if (!form.company_name?.trim()) {
+        toast.error('Company Name is required (1. Product Evaluation)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.product_name?.trim()) {
+        toast.error('Product Name is required (1. Product Evaluation)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_person?.trim()) {
+        toast.error('Contact Person is required (1. Product Evaluation)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_email?.trim()) {
+        toast.error('Contact E-mail is required (1. Product Evaluation)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.comment?.trim()) {
+        toast.error('Comment / Reason is required (2. Comment / Reason)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.confirmed) {
+        toast.error('Please confirm the verification checkbox before creating Product Logsheet');
+        setActiveTab(2);
+        return;
+      }
+      form.audit_type = 'Initial Product Evaluation';
+    } else {
+      // Normal Logsheet Validation (Tabs 1, 2, 3, 4)
+      // 1. Validate Tab 1: Company & Site Details
+      if (!form.company_name?.trim()) {
+        toast.error('Company Name is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.contact_person?.trim()) {
+        toast.error('Contact Person is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.company_address?.trim()) {
+        toast.error('Company Address is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
 
-    if (!form.contact_email?.trim()) {
-      toast.error('Contact Email is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.nature_of_business?.trim()) {
-      toast.error('Nature of Business is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.product_category?.trim()) {
-      toast.error('Product Category is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.issue_date) {
-      toast.error('Issue Date of Certificate is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.expiry_date) {
-      toast.error('Expiry Date of Certificate is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.current_cycle_start) {
-      toast.error('Current Cycle Start Date is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.original_cycle_start) {
-      toast.error('Original Cycle Start Date is required (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
+      if (!form.contact_email?.trim()) {
+        toast.error('Contact Email is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.nature_of_business?.trim()) {
+        toast.error('Nature of Business is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.product_category?.trim()) {
+        toast.error('Product Category is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.issue_date) {
+        toast.error('Issue Date of Certificate is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.expiry_date) {
+        toast.error('Expiry Date of Certificate is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.current_cycle_start) {
+        toast.error('Current Cycle Start Date is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.original_cycle_start) {
+        toast.error('Original Cycle Start Date is required (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
 
-    const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
-    if (!isAddon && !isInitialProduct && !isDirectCreation && !hasAuditReports) {
-      toast.error('Please upload at least 1 Audit Report document before creating the logsheet (Tab 1).');
-      setActiveTab(1);
-      return;
-    }
+      const hasAuditReports = (form.document_urls && form.document_urls.length > 0) || form.document_url || (form.audit_reports && form.audit_reports.length > 0);
+      if (!isAddon && !isInitialProduct && !isDirectCreation && !hasAuditReports) {
+        toast.error('Please upload at least 1 Audit Report document before creating the logsheet (Tab 1).');
+        setActiveTab(1);
+        return;
+      }
 
-    // 2. Validate Tab 2: Review of Application
-    if (!form.audit_type?.trim()) {
-      toast.error('Audit Type is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.audit_date) {
-      toast.error('Audit Date is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.auditors?.trim()) {
-      toast.error((isAddon || isInitialProduct) ? 'Assigned FT is required (Tab 2)' : 'Auditor(s) are required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!isAddon && !isInitialProduct && !form.ncs_close?.trim()) {
-      toast.error('NCS Close status is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.docs_satisfactory?.trim()) {
-      toast.error('Documentation Review Status is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.pork_free_statement?.trim()) {
-      toast.error('Pork Free Statement is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.reviewed_by?.trim()) {
-      toast.error('Reviewed By is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.reviewer_name?.trim()) {
-      toast.error('Reviewer Name is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
-    if (!form.review_date) {
-      toast.error('Date of Review is required (Tab 2)');
-      setActiveTab(2);
-      return;
-    }
+      // 2. Validate Tab 2: Review of Application
+      if (!form.audit_type?.trim()) {
+        toast.error('Audit Type is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.audit_date) {
+        toast.error('Audit Date is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.auditors?.trim()) {
+        toast.error((isAddon || isInitialProduct) ? 'Assigned FT is required (Tab 2)' : 'Auditor(s) are required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!isAddon && !isInitialProduct && !form.ncs_close?.trim()) {
+        toast.error('NCS Close status is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.docs_satisfactory?.trim()) {
+        toast.error('Documentation Review Status is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.pork_free_statement?.trim()) {
+        toast.error('Pork Free Statement is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.reviewed_by?.trim()) {
+        toast.error('Reviewed By is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.reviewer_name?.trim()) {
+        toast.error('Reviewer Name is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
+      if (!form.review_date) {
+        toast.error('Date of Review is required (Tab 2)');
+        setActiveTab(2);
+        return;
+      }
 
-    // 3. Validate Tab 3: Certificate Status
-    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
-    const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
-    if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
-      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
-      setActiveTab(3);
-      return;
-    }
-    if (!form.certificate_type || form.certificate_type !== resolvedCertType) {
-      form.certificate_type = resolvedCertType;
-      form.certificate_standard = resolvedCertType;
-      form.suggested_certificate_type = resolvedCertType;
-    }
-    if (isGSO && !form.next_surveillance_due_date) {
-      toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
-      setActiveTab(1);
-      return;
-    }
-    if (!form.status_date) {
-      toast.error('Status Date is required (Tab 3)');
-      setActiveTab(3);
-      return;
-    }
+      // 3. Validate Tab 3: Certificate Status
+      const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+      if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+        toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+        setActiveTab(3);
+        return;
+      }
+      if (!form.certificate_type || form.certificate_type !== resolvedCertType) {
+        form.certificate_type = resolvedCertType;
+        form.certificate_standard = resolvedCertType;
+        form.suggested_certificate_type = resolvedCertType;
+      }
+      if (isGSO && !form.next_surveillance_due_date) {
+        toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
+        setActiveTab(1);
+        return;
+      }
+      if (!form.status_date) {
+        toast.error('Status Date is required (Tab 3)');
+        setActiveTab(3);
+        return;
+      }
 
-    // 4. Validate Tab 4: Comment
-    if (!form.comment?.trim()) {
-      toast.error('Comment / Reason for Decision is required (Tab 4)');
-      setActiveTab(4);
-      return;
-    }
+      // 4. Validate Tab 4: Comment
+      if (!form.comment?.trim()) {
+        toast.error('Comment / Reason for Decision is required (Tab 4)');
+        setActiveTab(4);
+        return;
+      }
 
-    // 5. Confirmation
-    if (!form.confirmed) {
-      toast.error('Please confirm the verification checkbox at the bottom');
-      return;
+      // 5. Confirmation
+      if (!form.confirmed) {
+        toast.error('Please confirm the verification checkbox at the bottom');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -1581,17 +1872,40 @@ export default function AdminCreateLogsheet() {
             navigate(`/logsheet/direct/${logId}`);
           }
         } else {
+          const effectiveBackendType = (isDirectCreation && directLogsheetType === 'surveillance')
+            ? 'surveillance'
+            : (isDirectCreation && directLogsheetType === 'extension')
+              ? 'extension'
+              : (isDirectCreation && directLogsheetType === 'product')
+                ? 'initial_product'
+                : 'application';
+
+          const effectiveCertType = (isDirectCreation && directLogsheetType === 'surveillance')
+            ? 'Surveillance Letter'
+            : (form.certificate_type || form.suggested_certificate_type || form.certificate_standard || 'Surveillance Letter');
+
           const createRes = await api.post('/api/application-logsheets/direct', {
             ...cleanForm,
             source_type: 'direct',
-            logsheet_type: 'application',
+            logsheet_type: effectiveBackendType,
+            certificate_type: effectiveCertType,
+            certificate_standard: effectiveCertType,
+            suggested_certificate_type: effectiveCertType,
             document_urls: form.document_urls || [],
             audit_reports: form.audit_reports || form.document_urls || [],
-            client_id: form.client_id || undefined,
-            site_id: form.site_id || undefined
+            client_id: form.client_id || selectedDirectClientId || undefined,
+            site_id: form.site_id || undefined,
+            application_no: form.application_no || `APP-${directLogsheetType.toUpperCase()}-${Date.now().toString().slice(-6)}`
           });
           const createdDoc = createRes.data?.data || createRes.data;
-          toast.success('Direct Logsheet created successfully!');
+          const toastMsg = directLogsheetType === 'surveillance'
+            ? 'Surveillance Letter created successfully!'
+            : (directLogsheetType === 'extension'
+                ? 'Extension Logsheet created successfully!'
+                : (directLogsheetType === 'product'
+                    ? 'Product Logsheet created successfully!'
+                    : 'Normal Logsheet created successfully!'));
+          toast.success(toastMsg);
           navigate(`/logsheet/direct/${createdDoc?._id || ''}`);
         }
       } else {
@@ -1840,37 +2154,198 @@ export default function AdminCreateLogsheet() {
         </div>
       )}
 
+      {/* DIRECT LOGSHEET TYPE SELECTION CARDS */}
+      {isDirectCreation && !currentLogsheet?._id && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 14 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              Select Logsheet Category
+            </h3>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+              Choose which logsheet you want to prepare. The form structure and official committee decision record will automatically adapt to your selection.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            {[
+              {
+                id: 'normal',
+                title: 'Normal Logsheet',
+                subtitle: 'Application / Renewal',
+                desc: 'Standard 4-part halal certification audit logsheet with technical compliance review.',
+                badge: 'Normal Logsheet',
+                color: '#059669',
+                bg: '#ecfdf5',
+                border: '#10b981',
+                icon: FileText
+              },
+              {
+                id: 'surveillance',
+                title: 'Surveillance Logsheet',
+                subtitle: 'Surveillance Letter Record',
+                desc: 'Official Surveillance Letter decision record for annual audit review and surveillance monitoring.',
+                badge: 'Surveillance Letter',
+                color: '#0284c7',
+                bg: '#f0f9ff',
+                border: '#0284c7',
+                icon: CheckSquare
+              },
+              {
+                id: 'extension',
+                title: 'Extension Logsheet',
+                subtitle: 'Validity & Facility Extension',
+                desc: 'Official extension decision record for facility and certificate validity extensions.',
+                badge: 'Extension',
+                color: '#d97706',
+                bg: '#fffbeb',
+                border: '#f59e0b',
+                icon: Clock
+              },
+              {
+                id: 'product',
+                title: 'Product Logsheet',
+                subtitle: 'Initial Product / Formulation',
+                desc: 'Technical evaluation and Shariah clearance record for new product recipes and formulations.',
+                badge: 'Product Clearance',
+                color: '#4f46e5',
+                bg: '#eef2ff',
+                border: '#6366f1',
+                icon: Package
+              }
+            ].map(typeCard => {
+              const isSelected = directLogsheetType === typeCard.id;
+              const IconComponent = typeCard.icon;
+              return (
+                <div
+                  key={typeCard.id}
+                  onClick={() => handleSwitchDirectType(typeCard.id)}
+                  style={{
+                    background: isSelected ? '#ffffff' : '#f8fafc',
+                    border: `2px solid ${isSelected ? typeCard.border : '#e2e8f0'}`,
+                    borderRadius: 12,
+                    padding: '16px 18px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.18s ease',
+                    boxShadow: isSelected ? `0 8px 20px -4px ${typeCard.color}30` : 'none',
+                    transform: isSelected ? 'translateY(-2px)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: isSelected ? typeCard.bg : '#f1f5f9',
+                      color: isSelected ? typeCard.color : '#64748b',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <IconComponent size={20} />
+                    </div>
+                    {isSelected ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: typeCard.color, color: '#fff',
+                        fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 20
+                      }}>
+                        <Check size={12} strokeWidth={3} /> Selected
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                        background: '#f1f5f9', color: '#64748b'
+                      }}>
+                        {typeCard.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: isSelected ? '#0f172a' : '#334155' }}>
+                    {typeCard.title}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: isSelected ? typeCard.color : '#64748b', marginTop: 1 }}>
+                    {typeCard.subtitle}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, lineHeight: 1.4 }}>
+                    {typeCard.desc}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* DOCUMENT-STYLE PRESENTATION CARD */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
 
-        {/* Official Document Header - Bright Modern HFA Emerald Theme */}
-        <div style={{ background: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', color: 'white', padding: '24px 30px', borderBottom: '1px solid #0f766e' }}>
+        {/* Official Document Header */}
+        <div style={{
+          background: effectiveLogsheetType === 'surveillance'
+            ? 'linear-gradient(135deg, #0369a1 0%, #0284c7 100%)'
+            : effectiveLogsheetType === 'extension'
+              ? 'linear-gradient(135deg, #b45309 0%, #d97706 100%)'
+              : effectiveLogsheetType === 'product'
+                ? 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)'
+                : 'linear-gradient(135deg, #047857 0%, #0d9488 100%)',
+          color: 'white',
+          padding: '24px 30px',
+          borderBottom: '1px solid rgba(0,0,0,0.1)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', color: '#ffffff', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8, border: '1px solid rgba(255,255,255,0.3)' }}>
-                <CheckSquare size={12} /> OFFICIAL CERTIFICATION DECISION RECORD
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: 'rgba(255,255,255,0.18)',
+                color: '#ffffff',
+                padding: '4px 12px',
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                marginBottom: 8,
+                border: '1px solid rgba(255,255,255,0.3)'
+              }}>
+                <CheckSquare size={12} />
+                {effectiveLogsheetType === 'surveillance'
+                  ? 'REVIEW AND CERTIFICATION COMMITTEE DECISION RECORD'
+                  : effectiveLogsheetType === 'extension'
+                    ? 'OFFICIAL EXTENSION DECISION RECORD'
+                    : effectiveLogsheetType === 'product'
+                      ? 'OFFICIAL PRODUCT EVALUATION RECORD'
+                      : 'OFFICIAL CERTIFICATION DECISION RECORD'}
               </div>
               <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                {isProductLogsheet
-                  ? 'Halal Product Certification Logsheet'
-                  : (isDirectLogsheetRoute ? 'Normal Logsheet' : 'Halal Certification Audit Logsheet')}
+                {effectiveLogsheetType === 'surveillance'
+                  ? (isReadOnly ? 'Surveillance Letter' : 'Create Surveillance Letter')
+                  : effectiveLogsheetType === 'extension'
+                    ? (isReadOnly ? 'Extension Logsheet' : 'Create Extension Logsheet')
+                    : effectiveLogsheetType === 'product'
+                      ? (isReadOnly ? 'Halal Product Certification Logsheet' : 'Create Product Logsheet')
+                      : (isDirectLogsheetRoute ? 'Normal Logsheet' : 'Halal Certification Audit Logsheet')}
               </h2>
-              <p style={{ fontSize: 13, color: '#d1fae5', margin: '4px 0 0' }}>
-                {isDirectLogsheetRoute
-                  ? 'Halal Food Authority — Direct Halal Certification Decision Record'
-                  : 'Halal Food Authority — Technical & Shariah Committee Decision File'}
+              <p style={{ fontSize: 13, color: '#e0f2fe', margin: '4px 0 0' }}>
+                {effectiveLogsheetType === 'surveillance'
+                  ? 'Halal Food Authority — Surveillance Letter & Annual Monitoring Decision Record'
+                  : effectiveLogsheetType === 'extension'
+                    ? 'Halal Food Authority — Certificate Validity Extension Decision Record'
+                    : effectiveLogsheetType === 'product'
+                      ? 'Halal Food Authority — Product Evaluation & Formulation Clearance'
+                      : (isDirectLogsheetRoute
+                          ? 'Halal Food Authority — Direct Halal Certification Decision Record'
+                          : 'Halal Food Authority — Technical & Shariah Committee Decision File')}
               </p>
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#d1fae5', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                 Logsheet Reference
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#ffffff', marginTop: 2 }}>
                 #{getLogsheetEffectiveRef(currentLogsheet || form)}
               </div>
-              <div style={{ fontSize: 12, color: '#ccfbf1', marginTop: 2 }}>
-                {isProductLogsheet ? 'Evaluation Type:' : 'Audit Type:'} <strong>{form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'New')}</strong>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
+                {effectiveLogsheetType === 'surveillance' ? 'Document Type:' : (effectiveLogsheetType === 'product' ? 'Evaluation Type:' : 'Audit Type:')}{' '}
+                <strong>{effectiveLogsheetType === 'surveillance' ? 'Surveillance Letter' : (form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'New'))}</strong>
               </div>
             </div>
           </div>
@@ -1878,15 +2353,21 @@ export default function AdminCreateLogsheet() {
 
         {/* Tab Navigation if creating or editing */}
         {!isReadOnly && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            {[
-              { id: 1, label: '1. Company & Site Details', icon: Building },
-              { id: 2, label: '2. Review of Application', icon: FileText },
-              { id: 3, label: '3. Certificate Status', icon: Award },
-              { id: 4, label: '4. Comment / Reason', icon: MessageSquare }
-            ].map((tab) => {
+          <div style={{
+            display: 'flex',
+            borderBottom: '1px solid #e2e8f0',
+            background: effectiveLogsheetType === 'surveillance' ? '#f0f9ff' : '#f8fafc'
+          }}>
+            {getAvailableTabs().map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const activeColor = effectiveLogsheetType === 'surveillance'
+                ? '#0284c7'
+                : (effectiveLogsheetType === 'extension'
+                    ? '#d97706'
+                    : (effectiveLogsheetType === 'product'
+                        ? '#4f46e5'
+                        : 'var(--primary)'));
               return (
                 <button
                   key={tab.id}
@@ -1900,10 +2381,10 @@ export default function AdminCreateLogsheet() {
                     gap: 8,
                     padding: '14px 16px',
                     fontWeight: isActive ? 700 : 500,
-                    color: isActive ? 'var(--primary)' : '#64748b',
+                    color: isActive ? activeColor : '#64748b',
                     background: isActive ? '#fff' : 'transparent',
                     border: 'none',
-                    borderBottom: isActive ? '2.5px solid var(--primary)' : '2.5px solid transparent',
+                    borderBottom: isActive ? `2.5px solid ${activeColor}` : '2.5px solid transparent',
                     cursor: 'pointer',
                     fontSize: 13
                   }}
@@ -2836,6 +3317,700 @@ export default function AdminCreateLogsheet() {
             )}
 
             {activeTab === 1 && (
+              isDirectCreation && directLogsheetType === 'surveillance' ? (
+                /* SURVEILLANCE LOGSHEET TAB 1 (matching official layout in user screenshot) */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Top Context Row */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Company:</label>
+                        {directClients.length > 0 ? (
+                          <select
+                            className="form-control"
+                            value={selectedDirectClientId}
+                            onChange={e => handleDirectClientSelect(e.target.value)}
+                            style={{ fontSize: 13, fontWeight: 600, background: '#fff' }}
+                          >
+                            <option value="">-- Select Client or type below --</option>
+                            {directClients.map(c => (
+                              <option key={c._id} value={c._id}>
+                                {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.company_name || ''}
+                            onChange={e => setForm({ ...form, company_name: e.target.value })}
+                            placeholder="Company Name"
+                            style={{ fontSize: 13, fontWeight: 600 }}
+                          />
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Site Name :</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.site_name || ''}
+                          onChange={e => setForm({ ...form, site_name: e.target.value })}
+                          placeholder="Site Name"
+                          style={{ fontSize: 13, fontWeight: 600 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Application :</label>
+                        <select
+                          className="form-control"
+                          value={form.audit_type || 'Surveillance'}
+                          onChange={e => setForm({ ...form, audit_type: e.target.value })}
+                          style={{ fontSize: 13, fontWeight: 600 }}
+                        >
+                          <option value="Surveillance">Surveillance</option>
+                          <option value="Application">Application</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Certificate Type :</label>
+                        <select
+                          className="form-control"
+                          value="Surveillance Letter"
+                          disabled
+                          style={{ fontSize: 13, fontWeight: 700, background: '#f0fdf4', color: '#166534', borderColor: '#86efac' }}
+                        >
+                          <option value="Surveillance Letter">Surveillance Letter</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>Application No:</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.application_no || ''}
+                          onChange={e => setForm({ ...form, application_no: e.target.value })}
+                          placeholder="e.g. APP-SURV-001"
+                          style={{ fontSize: 13, fontWeight: 600 }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section Title */}
+                  <div style={{ textAlign: 'center', margin: '10px 0 6px' }}>
+                    <h3 style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      1. Company Details
+                    </h3>
+                  </div>
+
+                  {/* 8 Field Form Layout (Matching Screenshot) */}
+                  <div style={{ maxWidth: 880, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Company Name: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.company_name || ''}
+                        onChange={e => setForm({ ...form, company_name: e.target.value })}
+                        placeholder="Registered Company Name"
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Company Address: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.company_address || ''}
+                        onChange={e => setForm({ ...form, company_address: e.target.value })}
+                        placeholder="Registered company address"
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Manufacturing Address:</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={form.manufacturing_address || ''}
+                        onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
+                        placeholder="Manufacturing site address"
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Contact Person: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.contact_person || ''}
+                        onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                        placeholder="Full Name of Contact"
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Contact E-mail: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="email"
+                        className="form-control"
+                        value={form.contact_email || ''}
+                        onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                        placeholder="contact@company.com"
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Issue date of certificate: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="date"
+                        className="form-control"
+                        value={form.issue_date?.split('T')[0] || ''}
+                        onChange={e => setForm({ ...form, issue_date: e.target.value })}
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Expiry date of certificate: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="date"
+                        className="form-control"
+                        value={form.expiry_date?.split('T')[0] || ''}
+                        onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Audit Date: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="date"
+                        className="form-control"
+                        value={form.audit_date?.split('T')[0] || ''}
+                        onChange={e => setForm({ ...form, audit_date: e.target.value })}
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    {/* File Upload with SELECT FILES Button (Purple theme from screenshot) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'flex-start', gap: 16, marginTop: 4 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: '8px 0 0' }}>File:</label>
+                      <div>
+                        <label style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                          color: '#ffffff',
+                          padding: '9px 20px',
+                          borderRadius: 8,
+                          fontWeight: 800,
+                          fontSize: 12.5,
+                          cursor: uploadingReport ? 'not-allowed' : 'pointer',
+                          boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+                          letterSpacing: '0.04em'
+                        }}>
+                          <UploadCloud size={16} />
+                          {uploadingReport ? 'UPLOADING...' : 'SELECT FILES'}
+                          <input
+                            type="file"
+                            multiple
+                            disabled={uploadingReport}
+                            style={{ display: 'none' }}
+                            onChange={handleFileChange}
+                          />
+                        </label>
+
+                        {Array.isArray(form.document_urls) && form.document_urls.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                            {form.document_urls.map((doc, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 12,
+                                  background: '#f8fafc',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: 8,
+                                  padding: '8px 14px',
+                                  maxWidth: 480
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                                  <CheckCircle2 size={15} style={{ color: '#16a34a', flexShrink: 0 }} />
+                                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    {doc.name || `Surveillance_Document_${idx + 1}`}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDocument(idx)}
+                                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 2 }}
+                                  title="Remove file"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                            Attach surveillance audit report, checklists, or surveillance letter drafts (PDF, DOCX).
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => setActiveTab(2)}
+                        style={{
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                          borderColor: '#0284c7',
+                          color: '#fff',
+                          fontWeight: 700,
+                          padding: '10px 22px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          borderRadius: 8
+                        }}
+                      >
+                        Continue to Comment / Reason <ArrowRight size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : isDirectCreation && directLogsheetType === 'extension' ? (
+                /* EXTENSION LOGSHEET TAB 1 (1. Facility & Extension Details) */
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, color: '#92400e', fontWeight: 800 }}>
+                          Extension Logsheet · Direct Generation
+                        </div>
+                        <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
+                          Select registered client to auto-fill facility details, or enter extension specifications below.
+                        </div>
+                      </div>
+                      <div style={{ minWidth: 260 }}>
+                        <select
+                          className="form-control"
+                          value={selectedDirectClientId}
+                          onChange={e => handleDirectClientSelect(e.target.value)}
+                          style={{ fontSize: 12.5, fontWeight: 600, background: '#fff', borderColor: '#f59e0b' }}
+                        >
+                          <option value="">-- Select Registered Client (Optional) --</option>
+                          {directClients.map(c => (
+                            <option key={c._id} value={c._id}>
+                              {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.company_name || ''}
+                      onChange={e => setForm({ ...form, company_name: e.target.value })}
+                      placeholder="Company Name"
+                      style={{ fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Site / Facility Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.site_name || ''}
+                      onChange={e => setForm({ ...form, site_name: e.target.value })}
+                      placeholder="Manufacturing Site Name"
+                      style={{ fontWeight: 600 }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Existing Certificate Number <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.existing_certificate_number || ''}
+                      onChange={e => setForm({ ...form, existing_certificate_number: e.target.value })}
+                      placeholder="e.g. HFA/UK/2025/104"
+                      style={{ fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Company Registered Address <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.company_address || ''}
+                      onChange={e => setForm({ ...form, company_address: e.target.value })}
+                      placeholder="Company Address"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.contact_person || ''}
+                      onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="email"
+                      className="form-control"
+                      value={form.contact_email || ''}
+                      onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Recommended Certificate Scheme / Standard <span style={{ color: '#dc2626' }}>*</span></label>
+                    <select
+                      required
+                      className="form-control"
+                      value={form.certificate_type || form.suggested_certificate_type || ''}
+                      onChange={e => setForm({ ...form, certificate_type: e.target.value, certificate_standard: e.target.value, suggested_certificate_type: e.target.value })}
+                      style={{ fontWeight: 600 }}
+                    >
+                      <option value="" disabled>-- Select Certificate Type / Scheme (Required) --</option>
+                      <option value="HFA SCHEME NON MEAT">HFA SCHEME NON MEAT (Food & General Manufacturing)</option>
+                      <option value="HFA SCHEME MEAT">HFA SCHEME MEAT (Meat & Poultry Processing)</option>
+                      <option value="GSO NON MEAT">GSO NON MEAT (UAE / GCC Scheme)</option>
+                      <option value="GSO MEAT">GSO MEAT (UAE / GCC Meat Scheme)</option>
+                      <option value="COSMETICS">COSMETICS (Personal Care & Cosmetics)</option>
+                      <option value="SMIIC">SMIIC (OIC / SMIIC Halal Scheme)</option>
+                    </select>
+                  </div>
+
+                  {/* Extension Duration selector */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', marginBottom: 10 }}>
+                      Extension Duration <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                      {[
+                        { type: '30_days', days: 30, label: '30 Days Extension' },
+                        { type: '60_days', days: 60, label: '60 Days Extension' },
+                        { type: '90_days', days: 90, label: '90 Days Extension' },
+                        { type: '120_days', days: 120, label: '120 Days Extension' },
+                        { type: '180_days', days: 180, label: '180 Days (6 Months)' }
+                      ].map(dur => (
+                        <button
+                          key={dur.type}
+                          type="button"
+                          onClick={() => handleExtensionDurationChange(dur.type, dur.days)}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 8,
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: `2px solid ${form.extension_duration_type === dur.type ? '#d97706' : '#cbd5e1'}`,
+                            background: form.extension_duration_type === dur.type ? '#fef3c7' : '#fff',
+                            color: form.extension_duration_type === dur.type ? '#92400e' : '#475569'
+                          }}
+                        >
+                          {dur.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12 }}>Current Certificate Expiry:</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={form.expiry_date?.split('T')[0] || ''}
+                          onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>Extended Expiry Date:</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={form.extended_expiry_date?.split('T')[0] || ''}
+                          onChange={e => setForm({ ...form, extended_expiry_date: e.target.value })}
+                          style={{ fontWeight: 800, background: '#fffbeb', borderColor: '#fde68a', color: '#92400e' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Reason for Extension Request <span style={{ color: '#dc2626' }}>*</span></label>
+                    <textarea
+                      required
+                      rows={3}
+                      className="form-control"
+                      value={form.extension_reason || ''}
+                      onChange={e => setForm({ ...form, extension_reason: e.target.value })}
+                      placeholder="e.g. Facility audit rescheduled / Audit window extended pending site inspection"
+                    />
+                  </div>
+
+                  {/* Document upload */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    <label className="form-label" style={{ fontWeight: 700, margin: 0, marginBottom: 8 }}>
+                      Attach Extension Justification / Supporting Documents (Optional)
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', background: '#fff', border: '1px dashed #cbd5e1', padding: '8px 16px', borderRadius: 8 }}>
+                      <UploadCloud size={15} /> {uploadingReport ? 'Uploading...' : '+ Upload Supporting Documents'}
+                      <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                    </label>
+                    {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                        {form.document_urls.map((doc, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{doc.name}</span>
+                            <button type="button" onClick={() => handleRemoveDocument(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><X size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: 10 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setActiveTab(2)}
+                      style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 700 }}
+                    >
+                      Continue to Comment / Reason <ArrowRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              ) : isDirectCreation && directLogsheetType === 'product' ? (
+                /* PRODUCT LOGSHEET TAB 1 (1. Product Evaluation) */
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div style={{ background: '#eef2ff', border: '1.5px solid #c7d2fe', borderRadius: 10, padding: '14px 18px', gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, color: '#3730a3', fontWeight: 800 }}>
+                          Product Logsheet · Direct Generation
+                        </div>
+                        <div style={{ fontSize: 12, color: '#4338ca', marginTop: 2 }}>
+                          Select registered client to link, and enter product formulation details for evaluation.
+                        </div>
+                      </div>
+                      <div style={{ minWidth: 260 }}>
+                        <select
+                          className="form-control"
+                          value={selectedDirectClientId}
+                          onChange={e => handleDirectClientSelect(e.target.value)}
+                          style={{ fontSize: 12.5, fontWeight: 600, background: '#fff', borderColor: '#818cf8' }}
+                        >
+                          <option value="">-- Select Registered Client (Optional) --</option>
+                          {directClients.map(c => (
+                            <option key={c._id} value={c._id}>
+                              {c.company_name ? `${c.company_name} (${c.full_name})` : (c.full_name || c.email)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Company Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.company_name || ''}
+                      onChange={e => setForm({ ...form, company_name: e.target.value })}
+                      style={{ fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Manufacturing Site Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.site_name || ''}
+                      onChange={e => setForm({ ...form, site_name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Product Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.product_name || ''}
+                      onChange={e => setForm({ ...form, product_name: e.target.value, product_category: `${e.target.value}${form.product_code ? ` (${form.product_code})` : ''}` })}
+                      placeholder="e.g. Halal Vanilla Extract"
+                      style={{ fontWeight: 800 }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Product Code / SKU</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={form.product_code || ''}
+                      onChange={e => setForm({ ...form, product_code: e.target.value, product_category: `${form.product_name || 'Product'}${e.target.value ? ` (${e.target.value})` : ''}` })}
+                      placeholder="e.g. PRD-1029"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Contact Person <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="text"
+                      className="form-control"
+                      value={form.contact_person || ''}
+                      onChange={e => setForm({ ...form, contact_person: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Contact E-mail <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input
+                      required
+                      type="email"
+                      className="form-control"
+                      value={form.contact_email || ''}
+                      onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Raw Materials Verified &amp; Approved?</label>
+                    <select
+                      className="form-control"
+                      value={form.raw_materials_approved || 'Yes'}
+                      onChange={e => setForm({ ...form, raw_materials_approved: e.target.value })}
+                    >
+                      <option value="Yes">Yes - All raw materials verified</option>
+                      <option value="Pending">Pending supplier halal certificates</option>
+                      <option value="No">No - NC flagged</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Cross-Contamination Risk</label>
+                    <select
+                      className="form-control"
+                      value={form.cross_contamination_risk || 'None'}
+                      onChange={e => setForm({ ...form, cross_contamination_risk: e.target.value })}
+                    >
+                      <option value="None">None (Dedicated halal equipment)</option>
+                      <option value="Low">Low (Documented CIP cleaning validation)</option>
+                      <option value="Medium">Medium (Shared production line)</option>
+                      <option value="High">High (Porcine/alcohol on site)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Formulation Checked?</label>
+                    <select
+                      className="form-control"
+                      value={form.formulation_checked || 'Yes'}
+                      onChange={e => setForm({ ...form, formulation_checked: e.target.value })}
+                    >
+                      <option value="Yes">Yes - Recipe checked by Food Technologist</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Laboratory Testing Required?</label>
+                    <select
+                      className="form-control"
+                      value={form.lab_test_required || 'No'}
+                      onChange={e => setForm({ ...form, lab_test_required: e.target.value })}
+                    >
+                      <option value="No">No - Desk review sufficient</option>
+                      <option value="Yes">Yes - DNA / Ethanol testing requested</option>
+                    </select>
+                  </div>
+
+                  {/* Document upload */}
+                  <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    <label className="form-label" style={{ fontWeight: 700, margin: 0, marginBottom: 8 }}>
+                      Attach Product Specifications / Ingredient Statements
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#4f46e5', fontWeight: 700, cursor: 'pointer', background: '#fff', border: '1px dashed #cbd5e1', padding: '8px 16px', borderRadius: 8 }}>
+                      <UploadCloud size={15} /> {uploadingReport ? 'Uploading...' : '+ Upload Specifications & Statements'}
+                      <input type="file" multiple disabled={uploadingReport} style={{ display: 'none' }} onChange={handleFileChange} />
+                    </label>
+                    {Array.isArray(form.document_urls) && form.document_urls.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                        {form.document_urls.map((doc, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{doc.name}</span>
+                            <button type="button" onClick={() => handleRemoveDocument(idx)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><X size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: 10 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setActiveTab(2)}
+                      style={{ background: 'linear-gradient(135deg, #4f46e5, #4338ca)', borderColor: '#4f46e5', fontWeight: 700 }}
+                    >
+                      Continue to Comment / Reason <ArrowRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* NORMAL LOGSHEET TAB 1 (Standard 4-Tab Workflow) */
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Auto-populated Indicator Banner / Direct Selection Banner */}
                 {isDirectCreation ? (
@@ -3333,94 +4508,153 @@ export default function AdminCreateLogsheet() {
                   )}
                 </div>
               </div>
-            )}
+            )
+          )}
 
             {activeTab === 2 && (
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
-                    <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      Pre-filled · Editable
-                    </span>
+              isDirectCreation && directLogsheetType !== 'normal' ? (
+                /* TAB 2: COMMENT / REASON FOR DIRECT SPECIALIZED LOGSHEETS */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                        2. Comment / Reason
+                      </h3>
+                      <span style={{ fontSize: 12, background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
+                        {directLogsheetType === 'surveillance' ? 'Surveillance Decision Record' : directLogsheetType === 'extension' ? 'Extension Decision Record' : 'Product Evaluation Record'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                      {directLogsheetType === 'surveillance'
+                        ? 'Provide official review committee comments, surveillance audit verification details, and rationale for issuing the Surveillance Letter.'
+                        : directLogsheetType === 'extension'
+                        ? 'Provide justification, operational conditions, and committee rationale for extending halal certificate validity.'
+                        : 'Provide formulation clearance comments, laboratory analysis notes, and committee rationale for product certification.'}
+                    </p>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: 13 }}>
+                        Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      <textarea
+                        required
+                        className="form-control"
+                        rows={8}
+                        style={{ fontSize: 14, padding: 14, lineHeight: 1.6 }}
+                        placeholder={
+                          directLogsheetType === 'surveillance'
+                            ? 'Enter committee findings, audit observations, and confirmation notes for Surveillance Letter issuance...'
+                            : directLogsheetType === 'extension'
+                            ? 'Enter official reasons and risk assessment for granting certificate extension...'
+                            : 'Enter technical review notes and formulation clearance remarks...'
+                        }
+                        value={form.comment || ''}
+                        onChange={e => setForm({ ...form, comment: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setActiveTab(1)}
+                        style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569' }}
+                      >
+                        <ChevronLeft size={16} /> Back to Details
+                      </button>
+                      <div style={{ fontSize: 12.5, color: '#0d9488', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CheckCircle2 size={16} /> All section details completed
+                      </div>
+                    </div>
                   </div>
-                  {isProductLogsheet ? (
+                </div>
+              ) : (
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>Audit Type <span style={{ color: '#dc2626' }}>*</span></label>
+                      <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        Pre-filled · Editable
+                      </span>
+                    </div>
+                    {isProductLogsheet ? (
+                      <input
+                        required
+                        type="text"
+                        className="form-control"
+                        value={form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'Add-on Products Certification')}
+                        onChange={e => setForm({ ...form, audit_type: e.target.value })}
+                        style={{ fontWeight: 700 }}
+                      />
+                    ) : (
+                      <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
+                        <option value="New">New</option>
+                        <option value="Surveillance">Surveillance</option>
+                        <option value="Re-audit">Re-audit</option>
+                        <option value="Add-on Product Review">Add-on Product Review</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Audit Date <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isProductLogsheet ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
+                      {isProductLogsheet && (
+                        <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          Pre-filled · Editable
+                        </span>
+                      )}
+                    </div>
                     <input
                       required
                       type="text"
                       className="form-control"
-                      value={form.audit_type || (isInitialProduct ? 'Initial Product Evaluation' : 'Add-on Products Certification')}
-                      onChange={e => setForm({ ...form, audit_type: e.target.value })}
-                      style={{ fontWeight: 700 }}
+                      placeholder={isProductLogsheet ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
+                      value={form.auditors || ''}
+                      onChange={e => setForm({ ...form, auditors: e.target.value })}
                     />
-                  ) : (
-                    <select required className="form-control" value={form.audit_type} onChange={e => setForm({ ...form, audit_type: e.target.value })}>
-                      <option value="New">New</option>
-                      <option value="Surveillance">Surveillance</option>
-                      <option value="Re-audit">Re-audit</option>
-                      <option value="Add-on Product Review">Add-on Product Review</option>
-                    </select>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Audit Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="date" className="form-control" value={form.audit_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, audit_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{isProductLogsheet ? 'FTs' : 'Auditors'} <span style={{ color: '#dc2626' }}>*</span></label>
-                    {isProductLogsheet && (
-                      <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Pre-filled · Editable
-                      </span>
-                    )}
                   </div>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    placeholder={isProductLogsheet ? 'Assigned Food Technologist(s)' : 'e.g. John Doe, Jane Smith'}
-                    value={form.auditors || ''}
-                    onChange={e => setForm({ ...form, auditors: e.target.value })}
-                  />
+                  <div className="form-group">
+                    <label className="form-label">
+                      NCS Close (if any) {!isProductLogsheet && <span style={{ color: '#dc2626' }}>*</span>}
+                    </label>
+                    <input
+                      required={!isProductLogsheet}
+                      type="text"
+                      className="form-control"
+                      value={form.ncs_close || ''}
+                      onChange={e => setForm({ ...form, ncs_close: e.target.value })}
+                      placeholder={isProductLogsheet ? 'e.g. N/A - Product Evaluation (Optional)' : 'e.g. No NCs flagged / All NCs closed'}
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Audit Documentation reviewed and found satisfactory <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} placeholder="e.g. Satisfactory - all documentation verified" />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Pork free statement / signed pork policy submitted <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} placeholder="e.g. Confirmed - signed pork-free declaration in place" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Reviewed By <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} placeholder="e.g. HFA Technical Committee" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Reviewer Name <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} placeholder="e.g. Lead Technical Reviewer" />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label">Date of Review <span style={{ color: '#dc2626' }}>*</span></label>
+                    <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    NCS Close (if any) {!isProductLogsheet && <span style={{ color: '#dc2626' }}>*</span>}
-                  </label>
-                  <input
-                    required={!isProductLogsheet}
-                    type="text"
-                    className="form-control"
-                    value={form.ncs_close || ''}
-                    onChange={e => setForm({ ...form, ncs_close: e.target.value })}
-                    placeholder={isProductLogsheet ? 'e.g. N/A - Product Evaluation (Optional)' : 'e.g. No NCs flagged / All NCs closed'}
-                  />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Audit Documentation reviewed and found satisfactory <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.docs_satisfactory} onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })} placeholder="e.g. Satisfactory - all documentation verified" />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Pork free statement / signed pork policy submitted <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.pork_free_statement} onChange={e => setForm({ ...form, pork_free_statement: e.target.value })} placeholder="e.g. Confirmed - signed pork-free declaration in place" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Reviewed By <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.reviewed_by} onChange={e => setForm({ ...form, reviewed_by: e.target.value })} placeholder="e.g. HFA Technical Committee" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Reviewer Name <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="text" className="form-control" value={form.reviewer_name} onChange={e => setForm({ ...form, reviewer_name: e.target.value })} placeholder="e.g. Lead Technical Reviewer" />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Date of Review <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.review_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, review_date: e.target.value })} />
-                </div>
-              </div>
+              )
             )}
 
-            {activeTab === 3 && (
+            {activeTab === 3 && (!isDirectCreation || directLogsheetType === 'normal') && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Certificate Type / Scheme Selection */}
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #cbd5e1' }}>
@@ -3491,7 +4725,7 @@ export default function AdminCreateLogsheet() {
               </div>
             )}
 
-            {activeTab === 4 && (
+            {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal') && (
               <div className="form-group">
                 <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
                 <textarea
@@ -3546,11 +4780,37 @@ export default function AdminCreateLogsheet() {
                     fontWeight: 700,
                     opacity: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 0.6 : 1,
                     cursor: (hasOpenNc && !currentLogsheet?._id && !isProductLogsheet) ? 'not-allowed' : 'pointer',
-                    background: isRedoing ? '#b45309' : undefined,
-                    borderColor: isRedoing ? '#b45309' : undefined
+                    background: isRedoing
+                      ? '#b45309'
+                      : directLogsheetType === 'surveillance'
+                      ? 'linear-gradient(135deg, #0d9488 0%, #059669 100%)'
+                      : directLogsheetType === 'extension'
+                      ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
+                      : directLogsheetType === 'product'
+                      ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)'
+                      : undefined,
+                    borderColor: isRedoing
+                      ? '#b45309'
+                      : directLogsheetType === 'surveillance'
+                      ? '#0d9488'
+                      : directLogsheetType === 'extension'
+                      ? '#d97706'
+                      : directLogsheetType === 'product'
+                      ? '#4f46e5'
+                      : undefined
                   }}
                 >
-                  {submitting ? (isRedoing ? 'Saving & Resetting Signatures...' : 'Saving Logsheet...') : (isRedoing ? 'Save & Update Logsheet' : 'Create & Save Logsheet')}
+                  {submitting
+                    ? (isRedoing ? 'Saving & Resetting Signatures...' : 'Saving Record...')
+                    : (isRedoing
+                      ? 'Save & Update Logsheet'
+                      : isDirectCreation && directLogsheetType === 'surveillance'
+                      ? 'Create Surveillance Letter'
+                      : isDirectCreation && directLogsheetType === 'extension'
+                      ? 'Create Extension Logsheet'
+                      : isDirectCreation && directLogsheetType === 'product'
+                      ? 'Create Product Logsheet'
+                      : 'Create & Save Logsheet')}
                 </button>
               </div>
             </div>

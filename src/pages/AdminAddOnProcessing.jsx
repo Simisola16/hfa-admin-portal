@@ -90,8 +90,9 @@ export default function AdminAddOnProcessing() {
   const [viewProductModal, setViewProductModal] = useState({ isOpen: false, formData: null, product: null, company: null });
 
   const toggleFt = (ftId) => {
+    const idStr = String(ftId);
     setSelectedFtIds(prev =>
-      prev.includes(ftId) ? prev.filter(id => id !== ftId) : [...prev, ftId]
+      prev.map(String).includes(idStr) ? prev.filter(id => String(id) !== idStr) : [...prev, idStr]
     );
   };
 
@@ -138,9 +139,15 @@ export default function AdminAddOnProcessing() {
       setCertificate(certRes?.data?.data || certRes?.data || (typeof fetchedApp?.certificate_id === 'object' ? fetchedApp.certificate_id : null));
 
       if (isManagerOrAdmin) {
-        const usersRes = await api.get('/api/users');
-        const ft = (usersRes.data || []).filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech'))));
-        setFtUsers(ft);
+        const usersRes = await api.get('/api/users?category=staff&all=true').catch(() => ({ data: [] }));
+        const rawUsers = Array.isArray(usersRes.data)
+          ? usersRes.data
+          : (Array.isArray(usersRes.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
+        const ft = rawUsers.filter(u => u && (
+          u.role === 'food_tech' || u.role === 'food_tech_manager' ||
+          (Array.isArray(u.roles) && (u.roles.includes('food_tech') || u.roles.includes('food_tech_manager')))
+        ));
+        setFtUsers(ft.length > 0 ? ft : rawUsers);
       }
     } catch (err) {
       toast.error('Failed to load add-on application details.');
@@ -447,6 +454,12 @@ export default function AdminAddOnProcessing() {
   };
 
   const getActorName = (entry, stepKey) => {
+    if (entry?.changedByName) {
+      const roleStr = entry.changedByRole
+        ? ` (${entry.changedByRole.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+        : '';
+      return `${entry.changedByName}${roleStr}`;
+    }
     if (entry?.changedBy) {
       if (typeof entry.changedBy === 'object') {
         const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.username || entry.changedBy.email;
@@ -1609,7 +1622,7 @@ export default function AdminAddOnProcessing() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                     {ftUsers.map(ft => {
-                      const isSelected = selectedFtIds.includes(ft._id);
+                      const isSelected = selectedFtIds.map(String).includes(String(ft._id));
                       return (
                         <label key={ft._id} style={{
                           display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',

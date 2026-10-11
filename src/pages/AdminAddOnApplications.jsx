@@ -115,9 +115,15 @@ export default function AdminAddOnApplications() {
       const loaded = Array.isArray(res) ? res : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res?.data) ? res.data : []));
       setApps(loaded);
       if (isManagerOrAdmin) {
-        const usersRes = await api.get('/api/users').catch(() => ({ data: [] }));
-        const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
-        setFtUsers(rawUsers.filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech')))));
+        const usersRes = await api.get('/api/users?category=staff&all=true').catch(() => ({ data: [] }));
+        const rawUsers = Array.isArray(usersRes.data)
+          ? usersRes.data
+          : (Array.isArray(usersRes.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
+        const ft = rawUsers.filter(u => u && (
+          u.role === 'food_tech' || u.role === 'food_tech_manager' ||
+          (Array.isArray(u.roles) && (u.roles.includes('food_tech') || u.roles.includes('food_tech_manager')))
+        ));
+        setFtUsers(ft.length > 0 ? ft : rawUsers);
       }
     } catch {
       toast.error('Failed to load add-on applications.');
@@ -145,7 +151,7 @@ export default function AdminAddOnApplications() {
   const toggleFt = (ftId) => {
     const idStr = String(ftId);
     setSelectedFtIds(prev =>
-      prev.includes(idStr) ? prev.filter(id => id !== idStr) : [...prev, idStr]
+      prev.map(String).includes(idStr) ? prev.filter(id => String(id) !== idStr) : [...prev, idStr]
     );
   };
 
@@ -966,7 +972,7 @@ export default function AdminAddOnApplications() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                     {ftUsers.map(ft => {
-                      const isSelected = selectedFtIds.includes(String(ft._id));
+                      const isSelected = selectedFtIds.map(String).includes(String(ft._id));
                       return (
                         <label key={ft._id} style={{
                           display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',

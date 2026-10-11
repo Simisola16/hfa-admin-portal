@@ -82,8 +82,9 @@ export default function AdminChangeIngredientsProcessing() {
   const [requestDocsFile, setRequestDocsFile] = useState(null);
 
   const toggleFt = (ftId) => {
+    const idStr = String(ftId);
     setSelectedFtIds(prev =>
-      prev.includes(ftId) ? prev.filter(id => id !== ftId) : [...prev, ftId]
+      prev.map(String).includes(idStr) ? prev.filter(id => String(id) !== idStr) : [...prev, idStr]
     );
   };
 
@@ -108,9 +109,15 @@ export default function AdminChangeIngredientsProcessing() {
       }
 
       if (isManagerOrAdmin) {
-        const usersRes = await api.get('/api/users').catch(() => ({ data: [] }));
-        const rawUsers = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
-        setFtUsers(rawUsers.filter(u => u && (u.role === 'food_tech' || (Array.isArray(u.roles) && u.roles.includes('food_tech')))));
+        const usersRes = await api.get('/api/users?category=staff&all=true').catch(() => ({ data: [] }));
+        const rawUsers = Array.isArray(usersRes.data)
+          ? usersRes.data
+          : (Array.isArray(usersRes.data?.data) ? usersRes.data.data : (Array.isArray(usersRes?.data) ? usersRes.data : []));
+        const ft = rawUsers.filter(u => u && (
+          u.role === 'food_tech' || u.role === 'food_tech_manager' ||
+          (Array.isArray(u.roles) && (u.roles.includes('food_tech') || u.roles.includes('food_tech_manager')))
+        ));
+        setFtUsers(ft.length > 0 ? ft : rawUsers);
       }
     } catch (err) {
       toast.error('Failed to load application details.');
@@ -182,13 +189,12 @@ export default function AdminChangeIngredientsProcessing() {
     setSubmitting(true);
     try {
       await api.put(`/api/add-on-applications/${app._id}/assign-ft`, {
+        assigned_food_techs: selectedFtIds,
         food_tech_ids: selectedFtIds,
-        food_tech_id: selectedFtIds[0] || undefined,
-        custom_ft: customFtName.trim() ? {
-          name: customFtName.trim(),
-          email: customFtEmail.trim(),
-          notes: customFtNotes.trim()
-        } : undefined
+        custom_ft_name: customFtName.trim(),
+        custom_ft_email: customFtEmail.trim(),
+        custom_ft_notes: customFtNotes.trim(),
+        assigned_ft_details: customFtName.trim()
       });
       toast.success('Food Technology staff assigned successfully!');
       setActionType(null);
@@ -280,6 +286,78 @@ export default function AdminChangeIngredientsProcessing() {
   const currentIdx = ORDER.indexOf(app.status);
   const productsList = app.products || [];
 
+  const historyMap = {};
+  (app.statusHistory || []).forEach(entry => {
+    if (entry && entry.status && !historyMap[entry.status]) {
+      historyMap[entry.status] = entry;
+    }
+  });
+
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+
+  const formatTimeOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const getActorName = (entry, stepKey) => {
+    if (entry?.changedByName) {
+      const roleStr = entry.changedByRole
+        ? ` (${entry.changedByRole.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+        : '';
+      return `${entry.changedByName}${roleStr}`;
+    }
+    if (entry?.changedBy) {
+      if (typeof entry.changedBy === 'object') {
+        const name = entry.changedBy.full_name || entry.changedBy.name || entry.changedBy.username || entry.changedBy.email;
+        const roleStr = entry.changedBy.role
+          ? ` (${entry.changedBy.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})`
+          : '';
+        if (name) return `${name}${roleStr}`;
+      } else if (typeof entry.changedBy === 'string' && entry.changedBy.trim()) {
+        const isHexId = /^[0-9a-fA-F]{24}$/.test(entry.changedBy.trim());
+        if (!isHexId) {
+          return entry.changedBy;
+        }
+      }
+    }
+
+    if (stepKey === 'submitted') {
+      const cName = app?.client_id?.company_name || app?.client_id?.full_name || app?.contact_name;
+      return cName ? `${cName} (Client)` : 'Client / Applicant';
+    }
+    if (stepKey === 'accepted') return 'HFA Administrator';
+    if (stepKey === 'ft_assigned') {
+      const ft = app?.assigned_food_techs?.[0] || app?.assigned_food_tech || app?.assigned_ft_custom;
+      return ft ? `${ft.full_name || ft.name || 'Food Tech'} (Assigned FT)` : 'Food Tech Manager';
+    }
+    if (stepKey === 'all_forms_received') return 'HFA Administrator';
+    if (stepKey === 'logsheet_created') return 'Food Tech Specialist';
+    if (stepKey === 'waiting_sharia_signature') return 'Shari\'a Board Member';
+    if (stepKey === 'completed') return 'Food Tech Manager / Committee';
+    return null;
+  };
+
+  const getStepTimestamp = (stepId, isDone) => {
+    const histEntry = historyMap[stepId];
+    if (histEntry?.changedAt) return histEntry.changedAt;
+    if (stepId === 'submitted') return app?.submission_date || app?.created_at || app?.createdAt;
+    if (stepId === 'completed' && isDone) return app?.ingredients_accepted_at || app?.updatedAt || new Date();
+    if (isDone) return app?.updatedAt;
+    return null;
+  };
+
   return (
     <div className="page-content animate-in">
       {/* ─── Top Header Section ─── */}
@@ -351,7 +429,11 @@ export default function AdminChangeIngredientsProcessing() {
               className="btn btn-outline"
               style={{ fontWeight: 700, borderColor: '#2563eb', color: '#2563eb', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               onClick={() => {
-                setSelectedFtIds(app.assigned_food_techs?.map(f => f._id || f) || (app.assigned_food_tech ? [app.assigned_food_tech._id || app.assigned_food_tech] : []));
+                const preSelected = (app.assigned_food_techs || []).map(f => (f._id || f).toString());
+                setSelectedFtIds(preSelected.length > 0 ? preSelected : (app.assigned_food_tech ? [(app.assigned_food_tech._id || app.assigned_food_tech).toString()] : []));
+                setCustomFtName(app.assigned_ft_custom?.name || app.assigned_ft_details || '');
+                setCustomFtEmail(app.assigned_ft_custom?.email || '');
+                setCustomFtNotes(app.assigned_ft_custom?.notes || '');
                 setActionType('assign_ft');
               }}
             >
@@ -606,6 +688,9 @@ export default function AdminChangeIngredientsProcessing() {
                   const isDone = currentIdx > stepIdx || app.status === 'completed';
                   const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
                   const isLast = idx === FLOW_STEPS.length - 1;
+                  const histEntry = historyMap[step.id];
+                  const stepDate = getStepTimestamp(step.id, isDone);
+                  const actor = getActorName(histEntry, step.id);
 
                   return (
                     <div key={step.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
@@ -633,10 +718,64 @@ export default function AdminChangeIngredientsProcessing() {
                       </div>
 
                       <div style={{ marginLeft: 12, paddingBottom: isLast ? 0 : 20, flex: 1, paddingTop: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: isCurrent ? 800 : isDone ? 700 : 500, color: isDone ? '#0f172a' : isCurrent ? '#0f172a' : '#94a3b8' }}>
-                          {step.label}
-                        </span>
-                        {isCurrent && <span className="badge badge-purple" style={{ fontSize: 9, marginLeft: 6, background: '#f3e8ff', color: '#7c3aed' }}>CURRENT</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13, fontWeight: isCurrent ? 800 : isDone ? 700 : 500, color: isDone ? '#0f172a' : isCurrent ? '#0f172a' : '#94a3b8' }}>
+                            {step.label}
+                          </span>
+                          {isCurrent && <span className="badge badge-purple" style={{ fontSize: 9, marginLeft: 2, background: '#f3e8ff', color: '#7c3aed' }}>CURRENT</span>}
+                        </div>
+
+                        {/* Date, Time & Actor User Details */}
+                        {(isDone || isCurrent) && stepDate && (
+                          <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              fontSize: 11,
+                              color: '#64748b',
+                              background: '#f8fafc',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              border: '1px solid #e2e8f0',
+                              width: 'fit-content',
+                            }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                                <Calendar size={11} style={{ color: '#0e7490' }} />
+                                <span>{formatDateOnly(stepDate)}</span>
+                              </div>
+                              <span style={{ color: '#cbd5e1' }}>•</span>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#334155', fontWeight: 600 }}>
+                                <Clock size={11} style={{ color: '#0e7490' }} />
+                                <span>{formatTimeOnly(stepDate)}</span>
+                              </div>
+                              {actor && (
+                                <>
+                                  <span style={{ color: '#cbd5e1' }}>•</span>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3.5, color: '#0e7490', fontWeight: 700 }}>
+                                    <User size={11} style={{ color: '#0e7490' }} />
+                                    <span>{actor}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {histEntry?.note && (
+                              <div style={{
+                                fontSize: 11.5,
+                                color: '#475569',
+                                background: '#f8fafc',
+                                padding: '4px 8px',
+                                borderRadius: 6,
+                                borderLeft: '3px solid #0e7490',
+                                lineHeight: 1.4,
+                              }}>
+                                {histEntry.note}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -752,25 +891,100 @@ export default function AdminChangeIngredientsProcessing() {
             </div>
             <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 16 }}>
               <div>
-                <label className="form-label" style={{ fontWeight: 700 }}>Select FT Team Members</label>
-                <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
-                  {ftUsers.map(ft => {
-                    const isSelected = selectedFtIds.includes(ft._id);
-                    return (
-                      <div
-                        key={ft._id}
-                        onClick={() => toggleFt(ft._id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
-                          background: isSelected ? '#eff6ff' : 'white', cursor: 'pointer'
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{ft.full_name} ({ft.email})</div>
-                        {isSelected && <Check size={16} color="#2563eb" strokeWidth={3} />}
-                      </div>
-                    );
-                  })}
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 8 }}>
+                  1. Select Registered FT Staff
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
+                    {selectedFtIds.length > 0 ? `(${selectedFtIds.length} selected)` : '— select one or more'}
+                  </span>
+                </label>
+
+                {ftUsers.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#64748b', padding: '10px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    No registered food_tech user accounts in system. You can type FT details below.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
+                    {ftUsers.map(ft => {
+                      const isSelected = selectedFtIds.map(String).includes(String(ft._id));
+                      return (
+                        <label key={ft._id} style={{
+                          display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                          borderRadius: 8, border: `1.5px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                          background: isSelected ? '#eff6ff' : 'white', cursor: 'pointer', transition: 'all 0.15s'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleFt(ft._id)}
+                            style={{ width: 16, height: 16, accentColor: '#2563eb', flexShrink: 0 }}
+                          />
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: isSelected ? '#2563eb' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: isSelected ? 'white' : '#64748b' }}>
+                              {(ft.full_name || ft.email || '?').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#1d4ed8' : '#0f172a' }}>{ft.full_name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{ft.email}</div>
+                          </div>
+                          {isSelected && <Check size={14} style={{ marginLeft: 'auto', color: '#2563eb', flexShrink: 0 }} />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Option 2: Type FT Details Directly */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 8 }}>
+                  2. Or Type FT Staff Details Directly
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>
+                    (Enter name, email, or notes to assign)
+                  </span>
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                      FT Staff Name
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Dr. Lasun Adebayo"
+                      value={customFtName}
+                      onChange={e => setCustomFtName(e.target.value)}
+                      style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                      FT Staff Email
+                    </label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      placeholder="ft@example.com"
+                      value={customFtEmail}
+                      onChange={e => setCustomFtEmail(e.target.value)}
+                      style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+                    Notes / Instructions for FT
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Assigned for formulation review"
+                    value={customFtNotes}
+                    onChange={e => setCustomFtNotes(e.target.value)}
+                    style={{ fontSize: 12.5, height: 36, borderRadius: 6 }}
+                  />
                 </div>
               </div>
             </div>

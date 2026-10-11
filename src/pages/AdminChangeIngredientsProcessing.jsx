@@ -442,7 +442,7 @@ export default function AdminChangeIngredientsProcessing() {
           )}
 
           {/* 3. Document Review Stage Actions (ft_assigned) */}
-          {app.status === 'ft_assigned' && (
+          {canManageProductForm(user) && app.status === 'ft_assigned' && (
             <>
               <button
                 className="btn btn-outline"
@@ -463,7 +463,7 @@ export default function AdminChangeIngredientsProcessing() {
           )}
 
           {/* 4. Create Logsheet */}
-          {app.status === 'all_forms_received' && (
+          {canCreateLogsheet(user) && app.status === 'all_forms_received' && (
             <button
               className="btn btn-primary"
               style={{ background: '#0e7490', borderColor: '#0e7490', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}

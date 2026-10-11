@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import ProductApprovalModal from '../components/ProductApprovalModal';
 import NextSurveillanceDateModal from '../components/NextSurveillanceDateModal';
 import { getLogsheetEffectiveRef, isLogsheetOwnRef } from '../lib/idGenerator';
+import { canManageAddOnProducts } from '../lib/permissions';
 
 export default function AdminCreateLogsheet() {
   const { appId, addonId, initialProductId, id } = useParams();
@@ -64,9 +65,10 @@ export default function AdminCreateLogsheet() {
   const [initialProductCode, setInitialProductCode] = useState('');
   const [savingProductDetails, setSavingProductDetails] = useState(false);
 
-  const effectiveAddonType = application?.addon_type || currentLogsheet?.addon_application_id?.addon_type || (isAddon ? application?.addon_type : null);
+  const effectiveAddonType = application?.addon_type || application?.action_type || currentLogsheet?.addon_application_id?.addon_type || currentLogsheet?.addon_application_id?.action_type || (isAddon ? (application?.addon_type || application?.action_type) : null);
   const isRemoveProduct = effectiveAddonType === 'remove_product';
   const isChangeIngredients = effectiveAddonType === 'change_ingredients';
+  const canManageProducts = canManageAddOnProducts(user);
 
   // Form State declared before any derived variables that reference form
   const [form, setForm] = useState({
@@ -1037,6 +1039,14 @@ export default function AdminCreateLogsheet() {
   };
 
   const openApproveProductsModal = () => {
+    if (isRemoveProduct && !canManageProducts) {
+      toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can remove products.');
+      return;
+    }
+    if (isAddon && !canManageProducts) {
+      toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can approve add-on products.');
+      return;
+    }
     if (totalSignedCount < 3) {
       toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
       return;
@@ -1050,6 +1060,10 @@ export default function AdminCreateLogsheet() {
   };
 
   const handleAcceptIngredients = async () => {
+    if (!canManageProducts) {
+      toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can accept modified ingredients.');
+      return;
+    }
     if (totalSignedCount < 3) {
       toast.error(`Requires at least 3 of 4 committee signatures — currently ${totalSignedCount}/4 signed.`);
       return;
@@ -1064,12 +1078,14 @@ export default function AdminCreateLogsheet() {
       const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
       if (!targetAddonId) throw new Error('Add-on application ID not found.');
 
-      // Finalize logsheet sign-off
+      // 1. Accept ingredients in AddOnApplication FIRST
+      await api.put(`/api/add-on-applications/${targetAddonId}/accept-ingredients`);
+
+      // 2. Finalize logsheet sign-off only after successful acceptance
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         finalizeSignOff: true
       }).catch(() => {});
 
-      await api.put(`/api/add-on-applications/${targetAddonId}/accept-ingredients`);
       toast.success('🎉 Ingredients accepted! Add-on application completed.');
       navigate(`/addon-applications/${targetAddonId}/processing-ingredients`);
     } catch (err) {
@@ -1091,6 +1107,10 @@ export default function AdminCreateLogsheet() {
     const countToApprove = selectedApproveProducts.length > 0 ? selectedApproveProducts.length : productsList.length;
 
     if (isRemoveProduct) {
+      if (!canManageProducts) {
+        toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can remove products.');
+        return;
+      }
       const isConfirmed = window.confirm(
         `Are you sure you want to remove the selected ${countToApprove} product(s) from the client's active Halal certification?`
       );
@@ -1101,16 +1121,16 @@ export default function AdminCreateLogsheet() {
         const targetAddonId = addonId || currentLogsheet?.addon_application_id?._id || currentLogsheet?.addon_application_id;
         const toRemove = selectedApproveProducts.map(idx => productsList[idx]).filter(Boolean);
 
-        // 1. Finalize logsheet sign-off
+        // 1. Remove products from DB and certificate FIRST (enforces requireFoodTechManagerOrAdmin)
+        await api.put(`/api/add-on-applications/${targetAddonId}/remove-products`, {
+          selected_products: toRemove
+        });
+
+        // 2. Finalize logsheet sign-off only after successful product removal
         await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
           finalizeSignOff: true,
           approved_products: toRemove
         }).catch(() => {});
-
-        // 2. Remove products from DB and certificate
-        await api.put(`/api/add-on-applications/${targetAddonId}/remove-products`, {
-          selected_products: toRemove
-        });
 
         toast.success(`🎉 ${toRemove.length} product(s) removed successfully! Ready for updated certificate.`);
         setShowApproveProductsModal(false);
@@ -1120,6 +1140,11 @@ export default function AdminCreateLogsheet() {
       } finally {
         setIsFinalizing(false);
       }
+      return;
+    }
+
+    if (isAddon && !canManageProducts) {
+      toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can approve add-on products.');
       return;
     }
 
@@ -2416,63 +2441,87 @@ export default function AdminCreateLogsheet() {
 
                   {isChangeIngredients ? (
                     <button
-                      onClick={handleAcceptIngredients}
-                      disabled={isFinalizing || totalSignedCount < 3}
+                      onClick={() => {
+                        if (!canManageProducts) {
+                          toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can accept modified ingredients.');
+                          return;
+                        }
+                        handleAcceptIngredients();
+                      }}
+                      disabled={isFinalizing || totalSignedCount < 3 || !canManageProducts}
+                      title={!canManageProducts ? 'Only Food Tech, Food Tech Manager, or Admin can accept modified ingredients' : ''}
                       className="btn btn-primary"
                       style={{
-                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : '#cbd5e1',
-                        borderColor: totalSignedCount >= 3 ? '#7c3aed' : '#cbd5e1',
-                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        background: (totalSignedCount >= 3 && canManageProducts) ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : '#cbd5e1',
+                        borderColor: (totalSignedCount >= 3 && canManageProducts) ? '#7c3aed' : '#cbd5e1',
+                        color: (totalSignedCount >= 3 && canManageProducts) ? '#fff' : '#64748b',
                         fontWeight: 800,
                         padding: '10px 22px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
                         borderRadius: 10,
-                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(124, 58, 237, 0.25)' : 'none',
-                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                        boxShadow: (totalSignedCount >= 3 && canManageProducts) ? '0 4px 12px rgba(124, 58, 237, 0.25)' : 'none',
+                        cursor: (totalSignedCount >= 3 && canManageProducts) ? 'pointer' : 'not-allowed',
+                        opacity: !canManageProducts ? 0.6 : 1
                       }}
                     >
                       {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> Ingredients Accepted</>}
                     </button>
                   ) : isRemoveProduct ? (
                     <button
-                      onClick={openApproveProductsModal}
-                      disabled={isFinalizing || totalSignedCount < 3}
+                      onClick={() => {
+                        if (!canManageProducts) {
+                          toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can remove products.');
+                          return;
+                        }
+                        openApproveProductsModal();
+                      }}
+                      disabled={isFinalizing || totalSignedCount < 3 || !canManageProducts}
+                      title={!canManageProducts ? 'Only Food Tech, Food Tech Manager, or Admin can remove products' : ''}
                       className="btn btn-primary"
                       style={{
-                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : '#cbd5e1',
-                        borderColor: totalSignedCount >= 3 ? '#dc2626' : '#cbd5e1',
-                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        background: (totalSignedCount >= 3 && canManageProducts) ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : '#cbd5e1',
+                        borderColor: (totalSignedCount >= 3 && canManageProducts) ? '#dc2626' : '#cbd5e1',
+                        color: (totalSignedCount >= 3 && canManageProducts) ? '#fff' : '#64748b',
                         fontWeight: 800,
                         padding: '10px 22px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
                         borderRadius: 10,
-                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(220, 38, 38, 0.25)' : 'none',
-                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                        boxShadow: (totalSignedCount >= 3 && canManageProducts) ? '0 4px 12px rgba(220, 38, 38, 0.25)' : 'none',
+                        cursor: (totalSignedCount >= 3 && canManageProducts) ? 'pointer' : 'not-allowed',
+                        opacity: !canManageProducts ? 0.6 : 1
                       }}
                     >
                       {isFinalizing ? <span className="spinner-white" /> : <><Trash2 size={16} strokeWidth={2.5} /> Remove Product</>}
                     </button>
                   ) : (isProductLogsheet || currentLogsheet?.source_type === 'initial_product_application' || currentLogsheet?.source_type === 'addon_application' || !!currentLogsheet?.addon_application_id || !!currentLogsheet?.initial_product_application_id || form.audit_type?.toLowerCase().includes('product') || form.audit_type?.toLowerCase().includes('add-on') || form.audit_type?.toLowerCase().includes('addon')) ? (
                     <button
-                      onClick={openApproveProductsModal}
-                      disabled={isFinalizing || totalSignedCount < 3}
+                      onClick={() => {
+                        if (isAddon && !canManageProducts) {
+                          toast.error('Access denied. Only Food Tech, Food Tech Manager, or Admin can approve add-on products.');
+                          return;
+                        }
+                        openApproveProductsModal();
+                      }}
+                      disabled={isFinalizing || totalSignedCount < 3 || (isAddon && !canManageProducts)}
+                      title={(isAddon && !canManageProducts) ? 'Only Food Tech, Food Tech Manager, or Admin can approve add-on products' : ''}
                       className="btn btn-primary"
                       style={{
-                        background: totalSignedCount >= 3 ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
-                        borderColor: totalSignedCount >= 3 ? '#15803d' : '#cbd5e1',
-                        color: totalSignedCount >= 3 ? '#fff' : '#64748b',
+                        background: (totalSignedCount >= 3 && (!isAddon || canManageProducts)) ? 'linear-gradient(135deg, #15803d, #16a34a)' : '#cbd5e1',
+                        borderColor: (totalSignedCount >= 3 && (!isAddon || canManageProducts)) ? '#15803d' : '#cbd5e1',
+                        color: (totalSignedCount >= 3 && (!isAddon || canManageProducts)) ? '#fff' : '#64748b',
                         fontWeight: 800,
                         padding: '10px 22px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 8,
                         borderRadius: 10,
-                        boxShadow: totalSignedCount >= 3 ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
-                        cursor: totalSignedCount >= 3 ? 'pointer' : 'not-allowed'
+                        boxShadow: (totalSignedCount >= 3 && (!isAddon || canManageProducts)) ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+                        cursor: (totalSignedCount >= 3 && (!isAddon || canManageProducts)) ? 'pointer' : 'not-allowed',
+                        opacity: (isAddon && !canManageProducts) ? 0.6 : 1
                       }}
                     >
                       {isFinalizing ? <span className="spinner-white" /> : <><CheckCircle2 size={16} strokeWidth={2.5} /> {isInitialProduct ? 'Approve Initial Product' : 'Approve Product'}</>}
@@ -3604,7 +3653,8 @@ export default function AdminCreateLogsheet() {
               <button
                 type="button"
                 onClick={handleSendHighlightedProductsToClient}
-                disabled={isFinalizing || selectedApproveProducts.length === 0}
+                disabled={isFinalizing || selectedApproveProducts.length === 0 || ((isRemoveProduct || isAddon) && !canManageProducts)}
+                title={((isRemoveProduct || isAddon) && !canManageProducts) ? 'Only Food Tech, Food Tech Manager, or Admin can perform this action' : ''}
                 className="btn btn-primary"
                 style={{
                   background: isRemoveProduct ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : 'linear-gradient(135deg, #15803d, #16a34a)',
@@ -3617,7 +3667,7 @@ export default function AdminCreateLogsheet() {
                   gap: 8,
                   borderRadius: 10,
                   boxShadow: isRemoveProduct ? '0 4px 12px rgba(220, 38, 38, 0.25)' : '0 4px 12px rgba(22, 163, 74, 0.25)',
-                  opacity: (isFinalizing || selectedApproveProducts.length === 0) ? 0.6 : 1
+                  opacity: (isFinalizing || selectedApproveProducts.length === 0 || ((isRemoveProduct || isAddon) && !canManageProducts)) ? 0.6 : 1
                 }}
               >
                 {isFinalizing ? (

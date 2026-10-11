@@ -145,6 +145,8 @@ export default function AdminStaff() {
     full_name: '',
     roles: ['food_tech'],
     can_issue_direct_certificate: false,
+    can_create_direct_logsheet: false,
+    can_manage_products: false,
     is_support_manager: false,
     can_sign_logsheet: false,
     can_review_certificate: false,
@@ -159,6 +161,8 @@ export default function AdminStaff() {
   const [editRolesModal, setEditRolesModal] = useState(null); // target user
   const [editRolesList, setEditRolesList] = useState([]);
   const [editSpecialGrant, setEditSpecialGrant] = useState(false);
+  const [editDirectLogsheetGrant, setEditDirectLogsheetGrant] = useState(false);
+  const [editManageProductGrant, setEditManageProductGrant] = useState(false);
   const [editSupportManagerGrant, setEditSupportManagerGrant] = useState(false);
   const [editSignaturePrivilege, setEditSignaturePrivilege] = useState(false);
   const [editReviewCertPrivilege, setEditReviewCertPrivilege] = useState(false);
@@ -226,7 +230,7 @@ export default function AdminStaff() {
     if (roleFilter === 'accountant' && !userRoles.includes('accountant')) return false;
     if (roleFilter === 'audit' && !userRoles.some(r => ['audit_manager', 'inspector'].includes(r))) return false;
     if (roleFilter === 'food_tech' && !userRoles.some(r => ['food_tech_manager', 'food_tech'].includes(r))) return false;
-    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.can_change_application_status && !s.can_create_kfc_logsheet && !s.can_activate_deactivate_certificate && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
+    if (roleFilter === 'special_grants' && !s.can_issue_direct_certificate && !s.can_create_direct_logsheet && !s.can_manage_products && !s.can_sign_logsheet && !s.can_review_certificate && !s.can_mark_done && !s.can_change_application_status && !s.can_create_kfc_logsheet && !s.can_activate_deactivate_certificate && !s.is_support_manager && !userRoles.includes('superadmin')) return false;
     if (roleFilter === 'support_manager' && !s.is_support_manager && !userRoles.includes('superadmin') && !userRoles.includes('support_manager')) return false;
 
     // Search query
@@ -257,7 +261,7 @@ export default function AdminStaff() {
     certificateOfficers: staffMembers.filter(s => getUserRoles(s).includes('certificate_officer')).length,
     accountants: staffMembers.filter(s => getUserRoles(s).includes('accountant')).length,
     techAudit: staffMembers.filter(s => getUserRoles(s).some(r => ['audit_manager', 'inspector', 'food_tech_manager', 'food_tech'].includes(r))).length,
-    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.can_change_application_status || s.can_create_kfc_logsheet || s.can_activate_deactivate_certificate || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
+    specialGrants: staffMembers.filter(s => s.can_issue_direct_certificate || s.can_create_direct_logsheet || s.can_manage_products || s.can_sign_logsheet || s.can_review_certificate || s.can_mark_done || s.can_change_application_status || s.can_create_kfc_logsheet || s.can_activate_deactivate_certificate || s.is_support_manager || getUserRoles(s).includes('superadmin')).length,
     active: staffMembers.filter(s => s.is_active !== false).length
   };
 
@@ -314,6 +318,8 @@ export default function AdminStaff() {
         roles: staffForm.roles,
         role: staffForm.roles[0],
         can_issue_direct_certificate: staffForm.can_issue_direct_certificate,
+        can_create_direct_logsheet: staffForm.can_create_direct_logsheet,
+        can_manage_products: staffForm.can_manage_products,
         is_support_manager: staffForm.is_support_manager,
         can_sign_logsheet: staffForm.can_sign_logsheet,
         can_review_certificate: staffForm.can_review_certificate,
@@ -331,6 +337,8 @@ export default function AdminStaff() {
         full_name: '',
         roles: ['food_tech'],
         can_issue_direct_certificate: false,
+        can_create_direct_logsheet: false,
+        can_manage_products: false,
         is_support_manager: false,
         can_sign_logsheet: false,
         can_review_certificate: false,
@@ -353,6 +361,8 @@ export default function AdminStaff() {
     setEditRolesList(getUserRoles(user));
     const isSA = Boolean(user.role === 'superadmin' || (user.roles && user.roles.includes('superadmin')));
     setEditSpecialGrant(Boolean(user.can_issue_direct_certificate || isSA));
+    setEditDirectLogsheetGrant(Boolean(user.can_create_direct_logsheet || isSA));
+    setEditManageProductGrant(Boolean(user.can_manage_products || user.can_manage_direct_products || isSA));
     setEditSupportManagerGrant(Boolean(user.is_support_manager || user.role === 'superadmin' || user.role === 'support_manager' || isSA));
     setEditSignaturePrivilege(Boolean(user.can_sign_logsheet || isSA));
     setEditReviewCertPrivilege(Boolean(user.can_review_certificate || isSA));
@@ -371,6 +381,8 @@ export default function AdminStaff() {
     setRolesSaving(true);
     const targetId = editRolesModal._id || editRolesModal.id;
     const grantVal = editRolesList.includes('superadmin') ? true : editSpecialGrant;
+    const directLogsheetVal = editRolesList.includes('superadmin') ? true : editDirectLogsheetGrant;
+    const manageProductVal = editRolesList.includes('superadmin') ? true : editManageProductGrant;
     const smVal = editRolesList.includes('superadmin') ? true : editSupportManagerGrant;
     const signVal = editRolesList.includes('superadmin') ? true : editSignaturePrivilege;
     const reviewCertVal = editRolesList.includes('superadmin') ? true : editReviewCertPrivilege;
@@ -383,6 +395,8 @@ export default function AdminStaff() {
         roles: editRolesList,
         role: editRolesList[0],
         can_issue_direct_certificate: grantVal,
+        can_create_direct_logsheet: directLogsheetVal,
+        can_manage_products: manageProductVal,
         is_support_manager: smVal,
         can_sign_logsheet: signVal,
         can_review_certificate: reviewCertVal,
@@ -402,6 +416,8 @@ export default function AdminStaff() {
             roles: editRolesList,
             role: editRolesList[0],
             can_issue_direct_certificate: grantVal,
+            can_create_direct_logsheet: directLogsheetVal,
+            can_manage_products: manageProductVal,
             is_support_manager: smVal,
             can_sign_logsheet: signVal,
             can_review_certificate: reviewCertVal,
@@ -434,6 +450,36 @@ export default function AdminStaff() {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to update Special Grant');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Direct Logsheet Privilege
+  const handleToggleDirectLogsheet = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Direct Logsheet privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_create_direct_logsheet: nextVal } : u));
+      await api.put(`/api/users/${userId}/direct-logsheet-permission`, { can_create_direct_logsheet: nextVal });
+      toast.success(`Direct Logsheet privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Direct Logsheet privilege');
+      fetchUsers();
+    }
+  };
+
+  // Special Grants: Toggle Manage Product Privilege
+  const handleToggleManageProduct = async (userId, currentStatus, userName) => {
+    if (!isSuperAdmin) return toast.error('Only Superadmin can grant or revoke the Manage Product privilege.');
+    const nextVal = !currentStatus;
+    try {
+      setUsers(prev => (Array.isArray(prev) ? prev : []).map(u => (u._id === userId || u.id === userId) ? { ...u, can_manage_products: nextVal } : u));
+      await api.put(`/api/users/${userId}/manage-product-permission`, { can_manage_products: nextVal });
+      toast.success(`Manage Product privilege ${nextVal ? 'granted to' : 'revoked from'} ${userName || 'staff member'}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update Manage Product privilege');
       fetchUsers();
     }
   };
@@ -986,6 +1032,8 @@ export default function AdminStaff() {
                         {/* Special Grants Badges */}
                         {(() => {
                           const hasDirect = isUserSuperAdmin || member.can_issue_direct_certificate;
+                          const hasDirectLogsheet = isUserSuperAdmin || member.can_create_direct_logsheet;
+                          const hasManageProducts = isUserSuperAdmin || member.can_manage_products || member.can_manage_direct_products;
                           const hasSig = isUserSuperAdmin || member.can_sign_logsheet;
                           const hasReviewCert = isUserSuperAdmin || member.can_review_certificate;
                           const hasDone = isUserSuperAdmin || member.can_mark_done;
@@ -994,7 +1042,7 @@ export default function AdminStaff() {
                           const hasKfc = isUserSuperAdmin || member.can_create_kfc_logsheet;
                           const hasActivateDeactivateCert = isUserSuperAdmin || member.can_activate_deactivate_certificate;
 
-                          if (!hasDirect && !hasSig && !hasReviewCert && !hasDone && !hasChangeStatus && !hasSupport && !hasKfc && !hasActivateDeactivateCert) return null;
+                          if (!hasDirect && !hasDirectLogsheet && !hasManageProducts && !hasSig && !hasReviewCert && !hasDone && !hasChangeStatus && !hasSupport && !hasKfc && !hasActivateDeactivateCert) return null;
 
                           return (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
@@ -1115,7 +1163,47 @@ export default function AdminStaff() {
                                     whiteSpace: 'nowrap'
                                   }}
                                 >
-                                  ⭐ Direct Cert Studio
+                                  ⭐ Direct Cert
+                                </span>
+                              )}
+                              {hasDirectLogsheet && (
+                                <span
+                                  title="Direct Logsheet Privilege — can create and evaluate direct logsheets"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#ecfdf5',
+                                    color: '#065f46',
+                                    border: '1px solid #a7f3d0',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  📄 Direct Logsheet
+                                </span>
+                              )}
+                              {hasManageProducts && (
+                                <span
+                                  title="Manage Product Privilege — can directly manage and batch-register products"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    background: '#eff6ff',
+                                    color: '#1e40af',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  📦 Manage Product
                                 </span>
                               )}
                               {hasSupport && (
@@ -1486,10 +1574,44 @@ export default function AdminStaff() {
                     />
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                        Grant Direct Certificate Studio Privilege
+                        Grant Direct Certificate Privilege ⚡
                       </span>
                       <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
-                        Allows this staff account to directly generate certificates and certify products outside standard client application flows.
+                        Allows this staff account to directly issue Halal certificates outside standard client application flows.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_create_direct_logsheet}
+                      onChange={e => setStaffForm(f => ({ ...f, can_create_direct_logsheet: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#059669' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Direct Logsheet Privilege 📄
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to create and process direct logsheets without prior application.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={staffForm.can_manage_products}
+                      onChange={e => setStaffForm(f => ({ ...f, can_manage_products: e.target.checked }))}
+                      style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                        Grant Manage Product Privilege 📦
+                      </span>
+                      <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                        Allows this staff member to directly register, manage, and batch-import products for certified sites.
                       </span>
                     </div>
                   </label>
@@ -1768,10 +1890,44 @@ export default function AdminStaff() {
                       />
                       <div>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                          Grant Direct Certificate Studio Privilege
+                          Grant Direct Certificate Privilege ⚡
                         </span>
                         <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
-                          Allows this staff account to directly generate certificates and certify products outside standard client application flows.
+                          Allows this staff account to directly issue Halal certificates outside standard client application flows.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={editDirectLogsheetGrant}
+                        onChange={e => setEditDirectLogsheetGrant(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#059669' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Direct Logsheet Privilege 📄
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to create and process direct logsheets without prior application.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: '0 0 12px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={editManageProductGrant}
+                        onChange={e => setEditManageProductGrant(e.target.checked)}
+                        style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          Grant Manage Product Privilege 📦
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#64748b', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+                          Allows this staff member to directly register, manage, and batch-import products for certified sites.
                         </span>
                       </div>
                     </label>

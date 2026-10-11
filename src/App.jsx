@@ -36,6 +36,7 @@ const AdminAddOnApplications = lazy(() => import('./pages/AdminAddOnApplications
 const AdminAddOnProcessing = lazy(() => import('./pages/AdminAddOnProcessing'));
 const AdminRemoveProductProcessing = lazy(() => import('./pages/AdminRemoveProductProcessing'));
 const AdminChangeIngredientsProcessing = lazy(() => import('./pages/AdminChangeIngredientsProcessing'));
+const AdminChangeSupplierProcessing = lazy(() => import('./pages/AdminChangeSupplierProcessing'));
 const AdminAddOnApprovalForm = lazy(() => import('./pages/AdminAddOnApprovalForm'));
 const AdminInitialProducts = lazy(() => import('./pages/AdminInitialProducts'));
 const AdminInitialProductProcessing = lazy(() => import('./pages/AdminInitialProductProcessing'));
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/addon-applications/:addonId/processing-remove" element={<AdminRemoveProductProcessing />} />
             <Route path="/addon-applications/:addonId/processing-ingredients" element={<AdminChangeIngredientsProcessing />} />
+            <Route path="/addon-applications/:addonId/processing-supplier" element={<AdminChangeSupplierProcessing />} />
             <Route path="/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />
             <Route path="/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/admin/addon-applications" element={<AdminAddOnApplications />} />
@@ -107,6 +109,7 @@ export default function App() {
             <Route path="/admin/addon-applications/:addonId/processing" element={<AdminAddOnProcessing />} />
             <Route path="/admin/addon-applications/:addonId/processing-remove" element={<AdminRemoveProductProcessing />} />
             <Route path="/admin/addon-applications/:addonId/processing-ingredients" element={<AdminChangeIngredientsProcessing />} />
+            <Route path="/admin/addon-applications/:addonId/processing-supplier" element={<AdminChangeSupplierProcessing />} />
             <Route path="/admin/addon-applications/:addonId/approval-form" element={<AdminAddOnApprovalForm />} />
             <Route path="/admin/addon-applications/:addonId/logsheet" element={<AdminCreateLogsheet />} />
             <Route path="/extension-applications" element={<AdminExtensionApplications />} />

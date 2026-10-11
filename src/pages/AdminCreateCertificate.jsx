@@ -1012,6 +1012,7 @@ export default function AdminCreateCertificate() {
       const mfgAddr = (form.manufacturing_address || '').trim();
       const effectiveType = overrideType || form.certificate_type || queryCertType || 'HFA SCHEME MEAT';
       const isEffectiveGso = effectiveType.includes('GSO') || effectiveType.includes('SMIIC');
+      const isPreviewSurv = effectiveType === 'SURVEILLANCE LETTER' || effectiveType.toUpperCase().includes('SURVEILLANCE');
 
       const payload = {
         certificate_number: (form.certificate_number || 'HFA-PREVIEW-001').trim(),
@@ -1023,12 +1024,13 @@ export default function AdminCreateCertificate() {
         product_category: (form.product_category || form.scope || '').trim(),
         issue_date: form.issue_date || new Date().toISOString().split('T')[0],
         expiry_date: form.expiry_date || '',
+        audit_date: form.audit_date || form.certification_start_date || form.issue_date,
         current_cycle_start_date: isEffectiveGso ? (form.current_cycle_start_date || form.issue_date) : form.issue_date,
         original_cycle_start_date: isEffectiveGso ? (form.original_cycle_start_date || form.issue_date) : form.issue_date,
         certification_start_date: form.certification_start_date || form.issue_date,
         product_table_columns: Number(form.product_table_columns) || (isEffectiveGso ? 2 : 1),
-        products: validProducts,
-        product_details: validProducts
+        products: isPreviewSurv ? [] : validProducts,
+        product_details: isPreviewSurv ? [] : validProducts
       };
 
       const res = await api.post('/api/certificates/preview-live', payload);
@@ -1097,16 +1099,17 @@ export default function AdminCreateCertificate() {
       formData.append('manufacturing_address', form.manufacturing_address);
       formData.append('scope', form.scope);
       formData.append('product_category', form.product_category || form.scope);
-      formData.append('audit_date', form.audit_date || form.issue_date);
+      const isSubmitSurv = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
       formData.append('issue_date', form.issue_date);
       formData.append('expiry_date', form.expiry_date);
+      formData.append('audit_date', form.audit_date || form.certification_start_date || form.issue_date);
       formData.append('current_cycle_start_date', form.current_cycle_start_date || form.issue_date);
       formData.append('original_cycle_start_date', form.original_cycle_start_date || form.issue_date);
       formData.append('certification_start_date', form.certification_start_date || form.issue_date);
       formData.append('product_table_columns', form.product_table_columns);
       formData.append('status', 'under_review');
-      formData.append('products_covered', JSON.stringify(selectedProds.map(p => p.name)));
-      formData.append('product_details', JSON.stringify(selectedProds));
+      formData.append('products_covered', JSON.stringify(isSubmitSurv ? [] : selectedProds.map(p => p.name)));
+      formData.append('product_details', JSON.stringify(isSubmitSurv ? [] : selectedProds));
       if (form.review_notes) formData.append('notes', form.review_notes);
       if (isAddOn) formData.append('is_add_on', 'true');
       if (app?.is_extension) {
@@ -1158,6 +1161,7 @@ export default function AdminCreateCertificate() {
   const rawPdfUrl = getPdfUrl(livePreviewUrl);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
   const regenerating = generatingPreview;
+  const isSurvLetter = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400, margin: '0 auto', paddingBottom: 60 }}>
@@ -1864,12 +1868,24 @@ export default function AdminCreateCertificate() {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label" style={{ fontWeight: 700 }}>Certification Start Date</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                          {isSurvLetter ? 'Audit Date' : 'Certification Start Date'} {isSurvLetter && <span style={{ color: '#dc2626' }}>*</span>}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, certification_start_date: f.issue_date, audit_date: f.issue_date }))}
+                          style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Match Issue Date
+                        </button>
+                      </div>
                       <input
                         type="date"
+                        required={isSurvLetter}
                         className="form-control"
-                        value={form.certification_start_date || form.issue_date}
-                        onChange={e => setForm(f => ({ ...f, certification_start_date: e.target.value }))}
+                        value={form.audit_date || form.certification_start_date || form.issue_date}
+                        onChange={e => setForm(f => ({ ...f, certification_start_date: e.target.value, audit_date: e.target.value }))}
                       />
                     </div>
                   </div>
@@ -1878,6 +1894,7 @@ export default function AdminCreateCertificate() {
             </div>
 
             {/* Card 3: Certified Products Schedule */}
+            {!isSurvLetter && (
             <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2125,6 +2142,7 @@ export default function AdminCreateCertificate() {
                 </span>
               </div>
             </div>
+            )}
 
             {/* Bottom Action Buttons */}
             <div style={{

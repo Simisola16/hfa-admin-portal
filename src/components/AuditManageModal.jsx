@@ -21,6 +21,7 @@ export default function AuditManageModal({
   applicationId,
   audit,
   existingAudits: propExistingAudits,
+  isSurveillance: propIsSurv = false,
   onSuccess
 }) {
   const { user, profile } = useAuth();
@@ -57,9 +58,10 @@ export default function AuditManageModal({
   const cat = String(currentApp?.category || '').toLowerCase();
   const type = String(currentApp?.application_type || '').toLowerCase();
   const scheme = String(currentApp?.scheme || '').toLowerCase();
+  const isSurveillance = propIsSurv || type === 'surveillance' || Boolean(currentApp?.is_surveillance) || (currentApp?.surveillance_year && currentApp?.surveillance_year > 0) || cat.includes('surv') || type.includes('surv') || scheme.includes('surv');
   const isGso = cat.includes('gso') || cat.includes('uae') || type.includes('gso') || scheme.includes('gso');
-  const isRenewalOrSurveillance = type === 'renewal' || type === 'surveillance' || Boolean(currentApp?.is_renewal) || Boolean(currentApp?.is_surveillance);
-  const isDualStage = isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE';
+  const isRenewalOrSurveillance = type === 'renewal' || isSurveillance || Boolean(currentApp?.is_renewal);
+  const isDualStage = !isSurveillance && (isGso || currentApp?.category === 'UAE/GSO Approved Halal Certification For Exporters To UAE');
   const isGsoInitial = isGso && !isRenewalOrSurveillance;
 
   const [initialProduct, setInitialProduct] = useState(null);

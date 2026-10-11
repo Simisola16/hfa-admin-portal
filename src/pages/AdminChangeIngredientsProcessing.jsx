@@ -96,6 +96,10 @@ export default function AdminChangeIngredientsProcessing() {
     try {
       const res = await api.get(`/api/add-on-applications/${addonId}`);
       const data = res.data?.data || res.data;
+      if (data?.addon_type === 'change_supplier' || data?.addon_type === 'change_supplier_manufacturer') {
+        navigate(`/addon-applications/${addonId}/processing-supplier`, { replace: true });
+        return;
+      }
       setApp(data);
 
       if (data?.certificate_id?._id || data?.certificate_id) {
@@ -285,6 +289,7 @@ export default function AdminChangeIngredientsProcessing() {
 
   const currentIdx = ORDER.indexOf(app.status);
   const productsList = app.products || [];
+  const flowSteps = FLOW_STEPS;
 
   const historyMap = {};
   (app.statusHistory || []).forEach(entry => {
@@ -487,7 +492,7 @@ export default function AdminChangeIngredientsProcessing() {
           {/* Completed Badge */}
           {app.status === 'completed' && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-              <CheckCircle2 size={16} /> Ingredients Accepted
+              <CheckCircle2 size={16} /> {isSupplier ? 'Supplier/Manufacturer Accepted' : 'Ingredients Accepted'}
             </div>
           )}
         </div>
@@ -683,11 +688,11 @@ export default function AdminChangeIngredientsProcessing() {
             </div>
             <div className="card-body" style={{ padding: '20px 24px' }}>
               <div style={{ padding: '8px 0' }}>
-                {FLOW_STEPS.map((step, idx) => {
+                {flowSteps.map((step, idx) => {
                   const stepIdx = ORDER.indexOf(step.id);
                   const isDone = currentIdx > stepIdx || app.status === 'completed';
                   const isCurrent = currentIdx === stepIdx && app.status !== 'completed';
-                  const isLast = idx === FLOW_STEPS.length - 1;
+                  const isLast = idx === flowSteps.length - 1;
                   const histEntry = historyMap[step.id];
                   const stepDate = getStepTimestamp(step.id, isDone);
                   const actor = getActorName(histEntry, step.id);

@@ -8,7 +8,8 @@ import {
   Clock, Package, RefreshCw, ChevronDown, ChevronUp, User,
   CheckCircle, Users, ArrowRight, Building2, Calendar,
   Layers, ShieldCheck, CheckCheck, ExternalLink, Sparkles,
-  Tag, ArrowUpRight, Award, RotateCcw
+  Tag, ArrowUpRight, Award, RotateCcw,
+  Truck, Beaker, Trash2, Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canIssueCertificate, canAssignFoodTech, canReviewAddOnApp } from '../lib/permissions';
@@ -86,6 +87,7 @@ export default function AdminAddOnApplications() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [expandedId, setExpandedId] = useState(null);
@@ -296,6 +298,14 @@ export default function AdminAddOnApplications() {
       if (statusFilter === 'ready' && a.status !== 'ready_for_certificate') return false;
       if (statusFilter === 'completed' && a.status !== 'completed') return false;
 
+      if (typeFilter !== 'all') {
+        const at = a.addon_type || '';
+        if (typeFilter === 'change_supplier' && at !== 'change_supplier' && at !== 'change_supplier_manufacturer') return false;
+        if (typeFilter === 'change_ingredients' && at !== 'change_ingredients' && at !== 'change_ingredient') return false;
+        if (typeFilter === 'remove_product' && at !== 'remove_product') return false;
+        if (typeFilter === 'add_product' && at !== 'add_product' && at !== '') return false;
+      }
+
       if (!search.trim()) return true;
       const s = search.toLowerCase();
       const refNo = (a.application_number || `ADDON-${String(a._id || '').slice(-6).toUpperCase()}`).toLowerCase();
@@ -315,7 +325,7 @@ export default function AdminAddOnApplications() {
         (a.products || []).some(p => (p.name || p.new_name || p.code || p.new_code)?.toLowerCase().includes(s))
       );
     });
-  }, [baseList, statusFilter, search]);
+  }, [baseList, statusFilter, typeFilter, search]);
 
   // Order strictly according to date descending (newest first)
   const sorted = useMemo(() => {
@@ -328,7 +338,7 @@ export default function AdminAddOnApplications() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, view]);
+  }, [search, statusFilter, typeFilter, view]);
 
   const paginatedApps = useMemo(() => {
     return sorted.slice((page - 1) * pageSize, page * pageSize);
@@ -509,20 +519,45 @@ export default function AdminAddOnApplications() {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 260, maxWidth: 360, flex: 1 }}>
-          <Search size={14} style={{ color: '#94a3b8', marginRight: 8, flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search client, cert, contact, product..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, width: '100%', color: '#1e293b' }}
-          />
-          {search && (
-            <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>
-              <X size={13} />
-            </button>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 8,
+              border: '1px solid #e2e8f0',
+              background: '#fff',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#334155',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <option value="all">All Request Types</option>
+            <option value="add_product">➕ Add Product</option>
+            <option value="remove_product">🗑️ Remove Product</option>
+            <option value="change_ingredients">🧪 Change Ingredients</option>
+            <option value="change_supplier">🚚 Change Supplier</option>
+          </select>
+
+          <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 240, maxWidth: 360, flex: 1 }}>
+            <Search size={14} style={{ color: '#94a3b8', marginRight: 8, flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search client, cert, contact, product..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, width: '100%', color: '#1e293b' }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -587,6 +622,23 @@ export default function AdminAddOnApplications() {
                           <span style={{ fontSize: 11, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
                             {app.application_number || `ADDON-${String(app._id || '').slice(-6).toUpperCase()}`}
                           </span>
+                          {(app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer') ? (
+                            <span style={{ fontSize: 11, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Truck size={11} /> Change Supplier
+                            </span>
+                          ) : (app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient') ? (
+                            <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Beaker size={11} /> Change Ingredients
+                            </span>
+                          ) : app.addon_type === 'remove_product' ? (
+                            <span style={{ fontSize: 11, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Trash2 size={11} /> Remove Product
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Plus size={11} /> Add Product
+                            </span>
+                          )}
                           {certNo ? (
                             <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                               <FileText size={10} /> {certNo}
@@ -629,23 +681,28 @@ export default function AdminAddOnApplications() {
                         Products ({productsList.length})
                       </div>
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {productsList.slice(0, 3).map((p, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
-                              background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
-                              color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1',
-                              border: `1px solid ${p.type === 'Add product' ? '#bbf7d0' : p.type === 'Remove product' ? '#fecaca' : '#bae6fd'}`,
-                              display: 'inline-flex', alignItems: 'center', gap: 4
-                            }}
-                          >
-                            <span style={{ opacity: 0.7, fontWeight: 700 }}>
-                              {p.type === 'Add product' ? '+' : p.type === 'Remove product' ? '-' : '~'}
+                        {productsList.slice(0, 3).map((p, i) => {
+                          const isCS = app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer' || String(p.type || '').toLowerCase().includes('supplier') || String(p.type || '').toLowerCase().includes('manufacturer');
+                          const isCI = app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient' || String(p.type || '').toLowerCase().includes('ingredient');
+                          const isRM = p.type === 'Remove product' || app.addon_type === 'remove_product';
+                          return (
+                            <span
+                              key={i}
+                              style={{
+                                fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+                                background: isCS ? '#fffbeb' : isCI ? '#f0f9ff' : isRM ? '#fef2f2' : '#f0fdf4',
+                                color: isCS ? '#b45309' : isCI ? '#0369a1' : isRM ? '#991b1b' : '#166534',
+                                border: `1px solid ${isCS ? '#fde68a' : isCI ? '#bae6fd' : isRM ? '#fecaca' : '#bbf7d0'}`,
+                                display: 'inline-flex', alignItems: 'center', gap: 4
+                              }}
+                            >
+                              <span style={{ opacity: 0.8, fontWeight: 700, display: 'inline-flex', alignItems: 'center' }}>
+                                {isCS ? <Truck size={10} /> : isCI ? <Beaker size={10} /> : isRM ? '-' : '+'}
+                              </span>
+                              {p.new_name || p.name}
                             </span>
-                            {p.new_name || p.name}
-                          </span>
-                        ))}
+                          );
+                        })}
                           {productsList.length > 3 && (
                             <span style={{ fontSize: 10.5, color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
                               +{productsList.length - 3} more
@@ -703,7 +760,9 @@ export default function AdminAddOnApplications() {
                           onClick={() => {
                             if (app.addon_type === 'remove_product') {
                               navigate(`/addon-applications/${app._id}/processing-remove`);
-                            } else if (app.addon_type === 'change_ingredients') {
+                            } else if (app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer') {
+                              navigate(`/addon-applications/${app._id}/processing-supplier`);
+                            } else if (app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient') {
                               navigate(`/addon-applications/${app._id}/processing-ingredients`);
                             } else {
                               navigate(`/addon-applications/${app._id}/processing`);
@@ -803,9 +862,25 @@ export default function AdminAddOnApplications() {
                                     <td style={{ padding: '7px 10px' }}>
                                       <span style={{
                                         fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 700,
-                                        background: p.type === 'Add product' ? '#f0fdf4' : p.type === 'Remove product' ? '#fef2f2' : '#f0f9ff',
-                                        color: p.type === 'Add product' ? '#166534' : p.type === 'Remove product' ? '#991b1b' : '#0369a1'
-                                      }}>{p.type}</span>
+                                        background: (p.type?.toLowerCase().includes('supplier') || p.type?.toLowerCase().includes('manufacturer') || app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer')
+                                          ? '#fffbeb'
+                                          : (p.type?.toLowerCase().includes('ingredient') || app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient')
+                                            ? '#f0f9ff'
+                                            : p.type === 'Add product'
+                                              ? '#f0fdf4'
+                                              : p.type === 'Remove product'
+                                                ? '#fef2f2'
+                                                : '#f0f9ff',
+                                        color: (p.type?.toLowerCase().includes('supplier') || p.type?.toLowerCase().includes('manufacturer') || app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer')
+                                          ? '#b45309'
+                                          : (p.type?.toLowerCase().includes('ingredient') || app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient')
+                                            ? '#0369a1'
+                                            : p.type === 'Add product'
+                                              ? '#166534'
+                                              : p.type === 'Remove product'
+                                                ? '#991b1b'
+                                                : '#0369a1'
+                                      }}>{p.type || (app.addon_type === 'change_supplier' ? 'Change Supplier' : app.addon_type === 'change_ingredients' ? 'Change Ingredients' : 'Add product')}</span>
                                     </td>
                                   </tr>
                                 ))}

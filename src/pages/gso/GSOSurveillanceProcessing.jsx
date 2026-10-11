@@ -120,11 +120,9 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       const fetchedLogsheet = isExternalProductLogsheet ? null : rawLogsheet;
 
       const loadedAudits = auditRes.data?.data || auditRes.data || [];
-      const s1Audit = loadedAudits.find(a => a.stage === 1) || loadedAudits[0];
-      const s2Audit = loadedAudits.find(a => a.stage === 2);
-      const isS1Done = s1Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s1Audit.status);
-      const isS2Done = s2Audit && ['audit_completed', 'audit_successful', 'completed'].includes(s2Audit.status);
-      const hasCompletedAudit = Boolean(isS1Done && isS2Done);
+      const singleAuditRecord = loadedAudits[0] || null;
+      const isSingleAuditDone = singleAuditRecord && ['audit_completed', 'audit_successful', 'completed'].includes(singleAuditRecord.status);
+      const hasCompletedAudit = Boolean(isSingleAuditDone);
 
       if (fetchedApp) {
         if (fetchedLogsheet) {
@@ -207,14 +205,11 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const status = (app.status || 'submitted').toLowerCase().replace(/ /g, '_');
   const auditsArr = Array.isArray(audits) ? audits : (audits?.data || []);
-  const stage1 = auditsArr.find(a => a.stage === 1) || auditsArr[0];
-  const stage2 = auditsArr.find(a => a.stage === 2);
-  const isStage1Complete = stage1?.status === 'audit_completed' || stage1?.status === 'audit_successful';
-  const isStage2Complete = stage2?.status === 'audit_completed' || stage2?.status === 'audit_successful';
-  const isStage1Ready = stage1 && (stage1.status === 'auditors_assigned' || (stage1.status === 'date_finalized' && stage1.auditors?.length > 0));
-  const isStage2Ready = stage2 && (stage2.status === 'auditors_assigned' || (stage2.status === 'date_finalized' && stage2.auditors?.length > 0));
-  const auditCanBeCompleted = isStage1Complete ? isStage2Ready : isStage1Ready;
-  const activeAudit = (isStage1Complete ? stage2 : stage1) || auditsArr[0] || null;
+  const singleAudit = auditsArr[0] || null;
+  const isAuditComplete = singleAudit?.status === 'audit_completed' || singleAudit?.status === 'audit_successful' || singleAudit?.completed_at;
+  const isAuditReady = singleAudit && (singleAudit.status === 'auditors_assigned' || (singleAudit.status === 'date_finalized' && singleAudit.auditors?.length > 0));
+  const auditCanBeCompleted = isAuditReady;
+  const activeAudit = singleAudit;
 
   const appNcList = Array.isArray(app.nc_reports) ? app.nc_reports : [];
   const auditNcList = auditsArr.flatMap(a => Array.isArray(a.nc_reports) ? a.nc_reports : []);
@@ -259,9 +254,10 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
     hasLogsheetRecord
   );
 
-  // In Dual-Stage: Audit is fully completed when Stage 1 and Stage 2 are both complete, or downstream stages reached
+  // In Surveillance: Single Audit flow
   const isAuditCompleted = Boolean(
-    (isStage1Complete && isStage2Complete) ||
+    isAuditComplete ||
+    status === 'audit_completed' ||
     status === 'nc_flagged' ||
     status === 'nc_closed' ||
     isNcClosed ||
@@ -367,7 +363,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       return;
     }
     setFlaggingNc(true);
-    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const targetAuditForNc = singleAudit;
     const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     try {
       const formData = new FormData();
@@ -391,7 +387,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
 
   const handleReplyNc = async () => {
     if (!ncReplyText.trim()) return;
-    const targetAuditForNc = isStage1Complete && stage2 ? stage2 : stage1;
+    const targetAuditForNc = singleAudit;
     const auditId = targetAuditForNc?._id || targetAuditForNc?.id;
     setReplyingNc(true);
     try {
@@ -416,7 +412,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleCloseNc = async () => {
     setActionSubmitting(true);
     try {
-      const targetAudit = isStage1Complete && stage2 ? stage2 : stage1;
+      const targetAudit = singleAudit;
       const auditId = targetAudit?._id || targetAudit?.id;
       const res = await api.post('/api/audits/nc-close', { audit_id: auditId, application_id: appId });
       const nextStatus = res?.data?.data?.status || res?.data?.application_status || 'nc_closed';
@@ -427,7 +423,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         nc_reports: (prev?.nc_reports || []).map(r => ({ ...r, status: 'closed' })),
         statusHistory: [...(prev?.statusHistory || []), { status: 'nc_closed', changedAt: new Date() }]
       }));
-      setAudits(prev => Array.isArray(prev) ? prev.map(a => (a._id === auditId || a.id === auditId || a.stage === 2) ? {
+      setAudits(prev => Array.isArray(prev) ? prev.map(a => (a._id === auditId || a.id === auditId) ? {
         ...a,
         nc_closed: true,
         nc_reports: (a.nc_reports || []).map(r => ({ ...r, status: 'closed' }))
@@ -505,16 +501,12 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
   const handleMarkAuditCompleted = async () => {
     setActionSubmitting(true);
     try {
-      const targetAudit = isStage1Complete ? stage2 : stage1;
+      const targetAudit = singleAudit;
       await api.post('/api/audits/complete-clean', {
         audit_id: targetAudit?._id || targetAudit?.id,
         application_id: appId
       });
-      if (!isStage1Complete) {
-        toast.success('Stage 1 Audit completed! Please propose Stage 2 Audit dates.');
-      } else {
-        toast.success('Stage 2 Audit session marked as completed successfully! You can now Flag NC or Close NC.');
-      }
+      toast.success('Surveillance audit session marked as completed successfully! You can now Flag NC or Close NC.');
       fetchApp(true);
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to complete surveillance audit');
@@ -690,10 +682,10 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
-    // 3. LogSheet Stage (AFTER Stage 2 audit is completed AND NC is closed)
+    // 3. LogSheet Stage (AFTER audit is completed AND NC is closed)
     const isLogsheetSigned = status === 'logsheet_signed' || status === 'application_successful' || (logsheet && (logsheet.status === 'Signed' || logsheet.status === 'Waiting For Certificate' || logsheet.status === 'Completed'));
 
-    if (isStage2Complete && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
+    if (isAuditCompleted && !hasActiveNc && (status === 'nc_closed' || isNcClosed || ['audit_report_submitted', 'logsheet_created', 'logsheet_sign_requested'].includes(status) || isLogsheetSigned)) {
       if (!isLogsheetSigned && status !== 'ready_for_certificate' && status !== 'certificate_issued' && status !== 'done' && status !== 'invoice_sent' && status !== 'payment_received') {
         if (!canCreateLogsheet(currentUser)) {
           return (
@@ -736,35 +728,9 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
       );
     }
 
-    // Dual-Stage Intercept: If Stage 1 completed but Stage 2 is NOT complete, DO NOT jump to LogSheet or NC resolution!
-    if (!isStage2Complete) {
+    // Audit Stage (Single Audit Flow):
+    if (!isAuditCompleted) {
       if (auditCanBeCompleted) {
-        if (isStage1Complete) {
-          return (
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {canManageAuditDates(currentUser) && (
-                <button
-                  className="btn btn-ghost"
-                  style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
-                  onClick={() => setShowAuditModal(true)}
-                >
-                  <Calendar size={16} /> Manage Stage 2 Audit
-                </button>
-              )}
-              {canCompleteAudit(currentUser) && (
-                <button
-                  className="btn btn-primary"
-                  style={{ gap: 8, background: '#16a34a', borderColor: '#16a34a' }}
-                  onClick={handleMarkAuditCompleted}
-                  disabled={actionSubmitting}
-                >
-                  <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 2 Audit Completed'}
-                </button>
-              )}
-            </div>
-          );
-        }
-
         return (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {canManageAuditDates(currentUser) && (
@@ -773,7 +739,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
                 style={{ gap: 8, border: '1.5px solid #cbd5e1', background: 'white', color: 'var(--text-primary)', fontWeight: 700 }}
                 onClick={() => setShowAuditModal(true)}
               >
-                <Calendar size={16} /> Manage Stage 1 Audit
+                <Calendar size={16} /> Manage Audit
               </button>
             )}
             {canCompleteAudit(currentUser) && (
@@ -783,7 +749,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
                 onClick={handleMarkAuditCompleted}
                 disabled={actionSubmitting}
               >
-                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Stage 1 Audit Completed'}
+                <CheckCircle size={16} /> {actionSubmitting ? 'Completing...' : 'Mark Audit Completed'}
               </button>
             )}
           </div>
@@ -805,17 +771,17 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
           onClick={() => setShowAuditModal(true)}
         >
           <Calendar size={16} /> {
-            isStage1Complete
-              ? ((!stage2 || !stage2.proposed_dates || stage2.proposed_dates.length === 0 || stage2.status === 'pending') ? 'Propose Stage 2 Audit Dates' : 'Manage Stage 2 Audit')
-              : ((!stage1 || !stage1.proposed_dates || stage1.proposed_dates.length === 0) ? 'Propose Stage 1 Audit Dates' : (stage1?.status === 'dates_rejected' ? 'Propose New Stage 1 Dates' : 'Manage Stage 1 Audit'))
+            (!singleAudit || !singleAudit.proposed_dates || singleAudit.proposed_dates.length === 0)
+              ? 'Propose Audit Dates'
+              : (singleAudit?.status === 'dates_rejected' ? 'Propose New Audit Dates' : 'Manage Audit')
           }
         </button>
       );
     }
 
-    // Step A: ONLY AFTER Stage 2 audit has been marked completed (and NC not yet closed):
+    // Step A: ONLY AFTER audit has been marked completed (and NC not yet closed):
     // Show [Manage Audit], [Flag NC], and [Close NC]
-    if (isStage2Complete && !isNcClosed) {
+    if (isAuditCompleted && !isNcClosed) {
       if (!canManageNC(currentUser) && !canManageAuditDates(currentUser)) {
         return (
           <span style={{ fontSize: 13, color: '#b45309', fontWeight: 600, padding: '8px 12px', background: '#fef3c7', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -951,6 +917,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
             audits={audits}
             status={status}
             isFastTrack={true}
+            isSurveillance={true}
             onManage={() => setShowAuditModal(true)}
           />
           <NcCard
@@ -1347,6 +1314,7 @@ export default function GSOSurveillanceProcessing({ appId: propAppId, initialDat
         onClose={() => setShowAuditModal(false)}
         app={app}
         existingAudits={audits}
+        isSurveillance={true}
         onSuccess={() => fetchApp(true)}
       />
 

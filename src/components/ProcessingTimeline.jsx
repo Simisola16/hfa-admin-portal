@@ -34,8 +34,8 @@ export default function ProcessingTimeline({
   const isRenewal = (applicationType || '').toLowerCase() === 'renewal' || isSurveillance;
   const catLower = String(category || '').toLowerCase();
   const typeLower = String(applicationType || '').toLowerCase();
-  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso') || isSurveillance;
-  const isDualStage = isGSO;
+  const isGSO = catLower.includes('gso') || catLower.includes('uae') || catLower.includes('dual') || typeLower.includes('gso');
+  const isDualStage = isGSO && !isSurveillance;
   const isInitialProductApproved = Boolean(initialProduct && (initialProduct.status === 'initial_product_approved' || initialProduct.status === 'approved'));
 
   const stage1 = audits?.find(a => a.stage === 1) || audits?.[0];

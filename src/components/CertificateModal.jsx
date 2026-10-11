@@ -972,7 +972,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         try {
           const formData = new FormData();
           formData.append('letter_number', certificateForm.certificate_number);
-          formData.append('audit_date', certificateForm.audit_date || certificateForm.issue_date);
+          formData.append('audit_date', certificateForm.audit_date || certificateForm.certification_start_date || certificateForm.issue_date);
           formData.append('issue_date', certificateForm.issue_date);
           formData.append('expiry_date', certificateForm.expiry_date);
           formData.append('next_due_date', certificateForm.expiry_date);
@@ -1431,8 +1431,8 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
                       type="date"
                       required
                       className="form-control"
-                      value={certificateForm.audit_date || ''}
-                      onChange={e => setCertificateForm(f => ({ ...f, audit_date: e.target.value }))}
+                      value={certificateForm.audit_date || certificateForm.certification_start_date || ''}
+                      onChange={e => setCertificateForm(f => ({ ...f, audit_date: e.target.value, certification_start_date: e.target.value }))}
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>

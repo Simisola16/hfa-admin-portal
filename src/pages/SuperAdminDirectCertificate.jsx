@@ -65,6 +65,8 @@ export default function SuperAdminDirectCertificate() {
 
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
+  const [serverClients, setServerClients] = useState([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
 
   // Client Catalog State (Registered Products for Selected Client)
   const [clientCatalog, setClientCatalog] = useState([]);
@@ -108,6 +110,7 @@ export default function SuperAdminDirectCertificate() {
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
 
   const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT' || certType === 'SMIIC' || (certType && (certType.includes('GSO') || certType.includes('SMIIC')));
+  const isSurvLetter = certType === 'SURVEILLANCE LETTER' || String(certType || '').toUpperCase().includes('SURVEILLANCE');
 
   // Product Table Column Format (1 = Name Only, 2 = Code + Desc, 3 = Code + Desc + Category)
   const [productTableColumns, setProductTableColumns] = useState(2);
@@ -191,12 +194,13 @@ export default function SuperAdminDirectCertificate() {
         scope: certProductCategory || '',
         product_category: certProductCategory || '',
         issue_date: issueDate,
+        audit_date: certificationStartDate || issueDate,
         current_cycle_start_date: isGso ? currentCycleStartDate : issueDate,
         original_cycle_start_date: isGso ? originalCycleStartDate : issueDate,
         certification_start_date: certificationStartDate || issueDate,
         expiry_date: expiryDate,
         product_table_columns: productTableColumns,
-        products: validProducts
+        products: isSurvLetter ? [] : validProducts
       });
 
       const url = res.previewUrl || res.data?.previewUrl;
@@ -216,16 +220,14 @@ export default function SuperAdminDirectCertificate() {
   const fetchInitialData = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, sitesRes] = await Promise.all([
-        api.get('/api/users').catch(() => ({ data: [] })),
+      const [searchRes, sitesRes] = await Promise.all([
+        api.get('/api/users/search-clients', { params: { limit: 50 } }).catch(() => ({ data: [] })),
         api.get('/api/sites').catch(() => ({ data: [] }))
       ]);
 
-      const userList = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
+      const clientAccounts = Array.isArray(searchRes) ? searchRes : (Array.isArray(searchRes?.data) ? searchRes.data : []);
       const siteList = Array.isArray(sitesRes) ? sitesRes : (Array.isArray(sitesRes?.data) ? sitesRes.data : []);
 
-      // Filter only client users
-      const clientAccounts = userList.filter(u => u.role === 'client');
       setClients(clientAccounts);
       setSites(siteList);
       if (queryClientId && clientAccounts.length > 0) {
@@ -241,6 +243,31 @@ export default function SuperAdminDirectCertificate() {
       setLoadingData(false);
     }
   };
+
+  // Real-time server-side debounced client search
+  useEffect(() => {
+    const q = clientSearchQuery.trim();
+    if (!q) {
+      setServerClients([]);
+      setClientSearchLoading(false);
+      return;
+    }
+    setClientSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/api/users/search-clients', {
+          params: { search: q, limit: 25 }
+        });
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        setServerClients(list);
+      } catch {
+        setServerClients([]);
+      } finally {
+        setClientSearchLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [clientSearchQuery]);
 
   // Fetch Direct Issuance History
   const fetchHistory = async () => {
@@ -262,13 +289,13 @@ export default function SuperAdminDirectCertificate() {
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (hasDirectCertPrivilege) {
       fetchInitialData();
       if (activeTab === 'history') {
         fetchHistory();
       }
     }
-  }, [isSuperAdmin, activeTab]);
+  }, [hasDirectCertPrivilege, activeTab]);
 
   // Load logsheet details if queryLogsheetId is passed
   useEffect(() => {
@@ -346,24 +373,62 @@ export default function SuperAdminDirectCertificate() {
     setExpiryDate(end.toISOString().split('T')[0]);
   };
 
-  // Client Filtered List — only show results when user has typed a query
+  // Client Filtered List — combines real-time server search and in-memory clients
   const filteredClients = useMemo(() => {
     if (!clientSearchQuery.trim()) return []; // hide all until user searches
-    const q = clientSearchQuery.toLowerCase();
-    return clients.filter(c =>
-      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
-      (c.full_name && c.full_name.toLowerCase().includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q))
-    ).slice(0, 20);
-  }, [clients, clientSearchQuery]);
+    const q = clientSearchQuery.toLowerCase().trim();
+    const map = new Map();
+    serverClients.forEach(c => {
+      if (c && (c._id || c.id)) map.set(String(c._id || c.id), c);
+    });
+    clients.forEach(c => {
+      if (!c) return;
+      const cName = (c.company_name || '').toLowerCase();
+      const fName = (c.full_name || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      if (cName.includes(q) || fName.includes(q) || email.includes(q)) {
+        const id = String(c._id || c.id);
+        if (!map.has(id)) map.set(id, c);
+      }
+    });
+    return Array.from(map.values()).slice(0, 25);
+  }, [clients, serverClients, clientSearchQuery]);
+
+  // Fetch sites specifically for selected client to ensure all sites are immediately available
+  useEffect(() => {
+    if (selectedClient?._id || selectedClient?.id) {
+      const cId = selectedClient._id || selectedClient.id;
+      api.get('/api/sites', { params: { client_id: cId } })
+        .then(res => {
+          const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          if (list.length > 0) {
+            setSites(prev => {
+              const existingIds = new Set(prev.map(s => String(s._id || s.id)));
+              const newSites = list.filter(s => !existingIds.has(String(s._id || s.id)));
+              return [...prev, ...newSites];
+            });
+            if (list.length === 1 && !selectedSiteId) {
+              const onlySite = list[0];
+              const sId = onlySite._id || onlySite.id;
+              setSelectedSiteId(sId);
+              const siteAddr = formatSiteAddress(onlySite);
+              setCustomSiteAddress(siteAddr);
+              setCertCompanyAddress(siteAddr);
+              setCertManufacturingFacility(onlySite.name ? `${onlySite.name}, ${siteAddr}` : siteAddr);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [selectedClient]);
 
   // Sites belonging to selected client
   const clientSites = useMemo(() => {
     if (!selectedClient) return [];
-    const clientId = selectedClient._id || selectedClient.id;
+    const clientId = String(selectedClient._id || selectedClient.id);
     return sites.filter(s => {
-      const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
-      return String(sClientId) === String(clientId);
+      const sClientId = s.raw_client_id || (s.client_id ? (typeof s.client_id === 'object' ? (s.client_id._id || s.client_id.id) : s.client_id) : null);
+      return String(sClientId) === clientId;
     });
   }, [sites, selectedClient]);
 
@@ -842,7 +907,7 @@ export default function SuperAdminDirectCertificate() {
       }
     }
 
-    if (validProducts.length === 0) {
+    if (!isSurvLetter && validProducts.length === 0) {
       return toast.error('Please specify at least one product name to certify.');
     }
 
@@ -885,6 +950,7 @@ export default function SuperAdminDirectCertificate() {
       formData.append('certificate_type', certType);
       formData.append('issue_date', issueDate);
       formData.append('expiry_date', expiryDate);
+      formData.append('audit_date', certificationStartDate || issueDate);
       formData.append('current_cycle_start_date', isGso ? (currentCycleStartDate || issueDate) : issueDate);
       formData.append('original_cycle_start_date', isGso ? (originalCycleStartDate || issueDate) : issueDate);
       formData.append('certification_start_date', !isGso ? (certificationStartDate || issueDate) : issueDate);
@@ -892,7 +958,7 @@ export default function SuperAdminDirectCertificate() {
       formData.append('notes', notes);
 
       // Products JSON
-      formData.append('products', JSON.stringify(validProducts));
+      formData.append('products', JSON.stringify(isSurvLetter ? [] : validProducts));
       formData.append('product_table_columns', productTableColumns);
 
       // Options — certificate PDF is always auto-generated
@@ -1007,7 +1073,7 @@ export default function SuperAdminDirectCertificate() {
                   fontSize: 10.5, fontWeight: 800, padding: '2px 8px',
                   borderRadius: 6, textTransform: 'uppercase', letterSpacing: 0.5
                 }}>
-                  👑 Superadmin Console
+                  ⭐ Special Privilege
                 </span>
                 <span style={{ fontSize: 12, color: '#bbf7d0', fontWeight: 600 }}>• Instant Issuance Bypass Mode</span>
               </div>
@@ -1115,7 +1181,9 @@ export default function SuperAdminDirectCertificate() {
                       style={{ paddingLeft: 40, height: 44, fontSize: 14, fontWeight: 500 }}
                       autoComplete="off"
                     />
-                    {clientSearchQuery && (
+                    {clientSearchLoading ? (
+                      <span className="spinner" style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16 }} />
+                    ) : clientSearchQuery ? (
                       <button
                         type="button"
                         onClick={() => { setClientSearchQuery(''); setSelectedClient(null); setSelectedSiteId(''); setCustomSiteAddress(''); }}
@@ -1123,13 +1191,18 @@ export default function SuperAdminDirectCertificate() {
                       >
                         <X size={15} />
                       </button>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* ── Search Results List (only when query is active and no client selected) ── */}
                   {clientSearchQuery.trim() && !selectedClient && (
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
-                      {filteredClients.length === 0 ? (
+                      {clientSearchLoading ? (
+                        <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                          <span className="spinner" style={{ display: 'block', margin: '0 auto 8px', width: 20, height: 20 }} />
+                          Searching companies...
+                        </div>
+                      ) : filteredClients.length === 0 ? (
                         <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                           <Search size={20} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
                           No companies found matching "{clientSearchQuery}"
@@ -1143,9 +1216,10 @@ export default function SuperAdminDirectCertificate() {
                               setClientSearchQuery(c.company_name || c.full_name || '');
                               setCertNumber(generateHfaId(c.company_name || c.full_name, 'NE'));
                               setProducts([{ id: Date.now(), name: '', code: 'PRD-01', category: 'Meat & Poultry', product_type: 'Processed', barcode: '', ingredients: '' }]);
+                              const cId = String(c._id || c.id);
                               const clientMatchedSites = sites.filter(s => {
-                                const sClientId = s.client_id ? (typeof s.client_id === 'object' ? s.client_id._id : s.client_id) : null;
-                                return String(sClientId) === String(c._id || c.id);
+                                const sClientId = s.raw_client_id || (s.client_id ? (typeof s.client_id === 'object' ? (s.client_id._id || s.client_id.id) : s.client_id) : null);
+                                return String(sClientId) === cId;
                               });
                               if (clientMatchedSites.length === 1) {
                                 const onlySite = clientMatchedSites[0];
@@ -1549,10 +1623,12 @@ export default function SuperAdminDirectCertificate() {
                         />
                       </div>
 
-                      {/* Certification Start Date */}
+                      {/* Certification Start Date / Audit Date */}
                       <div className="form-group">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <label className="form-label">Certification Start Date</label>
+                          <label className="form-label">
+                            {isSurvLetter ? 'Audit Date' : 'Certification Start Date'} {isSurvLetter && <span>*</span>}
+                          </label>
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
@@ -1567,6 +1643,7 @@ export default function SuperAdminDirectCertificate() {
                           className="form-control"
                           value={certificationStartDate}
                           onChange={e => setCertificationStartDate(e.target.value)}
+                          required={isSurvLetter}
                         />
                       </div>
                     </>
@@ -1575,6 +1652,7 @@ export default function SuperAdminDirectCertificate() {
               </div>
 
               {/* CARD 3: Multi-Product Certification Builder */}
+              {!isSurvLetter && (
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2043,6 +2121,7 @@ export default function SuperAdminDirectCertificate() {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
 

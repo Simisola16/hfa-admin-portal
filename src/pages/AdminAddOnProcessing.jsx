@@ -131,7 +131,11 @@ export default function AdminAddOnProcessing() {
         navigate(`/addon-applications/${addonId}/processing-remove`, { replace: true });
         return;
       }
-      if (fetchedApp?.addon_type === 'change_ingredients' || fetchedApp?.addon_type === 'change_supplier') {
+      if (fetchedApp?.addon_type === 'change_supplier' || fetchedApp?.addon_type === 'change_supplier_manufacturer') {
+        navigate(`/addon-applications/${addonId}/processing-supplier`, { replace: true });
+        return;
+      }
+      if (fetchedApp?.addon_type === 'change_ingredients') {
         navigate(`/addon-applications/${addonId}/processing-ingredients`, { replace: true });
         return;
       }

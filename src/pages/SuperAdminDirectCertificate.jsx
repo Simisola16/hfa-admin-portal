@@ -65,6 +65,8 @@ export default function SuperAdminDirectCertificate() {
 
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
+  const [serverClients, setServerClients] = useState([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
 
   // Client Catalog State (Registered Products for Selected Client)
   const [clientCatalog, setClientCatalog] = useState([]);
@@ -218,16 +220,14 @@ export default function SuperAdminDirectCertificate() {
   const fetchInitialData = async () => {
     setLoadingData(true);
     try {
-      const [usersRes, sitesRes] = await Promise.all([
-        api.get('/api/users').catch(() => ({ data: [] })),
+      const [searchRes, sitesRes] = await Promise.all([
+        api.get('/api/users/search-clients', { params: { limit: 50 } }).catch(() => ({ data: [] })),
         api.get('/api/sites').catch(() => ({ data: [] }))
       ]);
 
-      const userList = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
+      const clientAccounts = Array.isArray(searchRes) ? searchRes : (Array.isArray(searchRes?.data) ? searchRes.data : []);
       const siteList = Array.isArray(sitesRes) ? sitesRes : (Array.isArray(sitesRes?.data) ? sitesRes.data : []);
 
-      // Filter only client users
-      const clientAccounts = userList.filter(u => u.role === 'client');
       setClients(clientAccounts);
       setSites(siteList);
       if (queryClientId && clientAccounts.length > 0) {
@@ -243,6 +243,31 @@ export default function SuperAdminDirectCertificate() {
       setLoadingData(false);
     }
   };
+
+  // Real-time server-side debounced client search
+  useEffect(() => {
+    const q = clientSearchQuery.trim();
+    if (!q) {
+      setServerClients([]);
+      setClientSearchLoading(false);
+      return;
+    }
+    setClientSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/api/users/search-clients', {
+          params: { search: q, limit: 25 }
+        });
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        setServerClients(list);
+      } catch {
+        setServerClients([]);
+      } finally {
+        setClientSearchLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [clientSearchQuery]);
 
   // Fetch Direct Issuance History
   const fetchHistory = async () => {
@@ -348,16 +373,26 @@ export default function SuperAdminDirectCertificate() {
     setExpiryDate(end.toISOString().split('T')[0]);
   };
 
-  // Client Filtered List — only show results when user has typed a query
+  // Client Filtered List — combines real-time server search and in-memory clients
   const filteredClients = useMemo(() => {
     if (!clientSearchQuery.trim()) return []; // hide all until user searches
-    const q = clientSearchQuery.toLowerCase();
-    return clients.filter(c =>
-      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
-      (c.full_name && c.full_name.toLowerCase().includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q))
-    ).slice(0, 20);
-  }, [clients, clientSearchQuery]);
+    const q = clientSearchQuery.toLowerCase().trim();
+    const map = new Map();
+    serverClients.forEach(c => {
+      if (c && (c._id || c.id)) map.set(String(c._id || c.id), c);
+    });
+    clients.forEach(c => {
+      if (!c) return;
+      const cName = (c.company_name || '').toLowerCase();
+      const fName = (c.full_name || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      if (cName.includes(q) || fName.includes(q) || email.includes(q)) {
+        const id = String(c._id || c.id);
+        if (!map.has(id)) map.set(id, c);
+      }
+    });
+    return Array.from(map.values()).slice(0, 25);
+  }, [clients, serverClients, clientSearchQuery]);
 
   // Sites belonging to selected client
   const clientSites = useMemo(() => {
@@ -1118,7 +1153,9 @@ export default function SuperAdminDirectCertificate() {
                       style={{ paddingLeft: 40, height: 44, fontSize: 14, fontWeight: 500 }}
                       autoComplete="off"
                     />
-                    {clientSearchQuery && (
+                    {clientSearchLoading ? (
+                      <span className="spinner" style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16 }} />
+                    ) : clientSearchQuery ? (
                       <button
                         type="button"
                         onClick={() => { setClientSearchQuery(''); setSelectedClient(null); setSelectedSiteId(''); setCustomSiteAddress(''); }}
@@ -1126,13 +1163,18 @@ export default function SuperAdminDirectCertificate() {
                       >
                         <X size={15} />
                       </button>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* ── Search Results List (only when query is active and no client selected) ── */}
                   {clientSearchQuery.trim() && !selectedClient && (
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
-                      {filteredClients.length === 0 ? (
+                      {clientSearchLoading ? (
+                        <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                          <span className="spinner" style={{ display: 'block', margin: '0 auto 8px', width: 20, height: 20 }} />
+                          Searching companies...
+                        </div>
+                      ) : filteredClients.length === 0 ? (
                         <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                           <Search size={20} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
                           No companies found matching "{clientSearchQuery}"

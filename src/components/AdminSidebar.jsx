@@ -75,7 +75,8 @@ const NAV_SECTIONS = [
         children: [
           { label: 'Manage Logsheet',       path: '/logsheet/manage' },
           { label: 'Waiting for Signature', path: '/logsheet/waiting-signature' },
-          { label: 'Waiting for Certificate', path: '/logsheet/waiting-certificate' }
+          { label: 'Waiting for Certificate', path: '/logsheet/waiting-certificate' },
+          { label: 'KFC Logsheet', path: '/logsheet/kfc', kfcLogsheetOnly: true }
         ],
       },
       {
@@ -104,7 +105,7 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
-          { label: 'Manage Product', path: '/products/direct', directCertOnly: true },
+          { label: 'Manage Product', path: '/products/direct', manageProductOnly: true },
         ],
       },
     ],
@@ -128,9 +129,8 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    key: 'superadmin_section',
-    label: '👑 SUPERADMIN CONSOLE',
-    directCertOnly: true,
+    key: 'special_privilege',
+    label: 'SPECIAL PRIVILEGE',
     items: [
       {
         icon: Activity,
@@ -143,19 +143,22 @@ const NAV_SECTIONS = [
         icon: Sparkles,
         label: 'Direct Certificate',
         path: '/superadmin/direct-certificate',
-        badge: '⚡ DIRECT'
+        badge: '⚡ DIRECT',
+        directCertOnly: true
       },
       {
         icon: FileText,
         label: 'Direct Logsheet',
         path: '/superadmin/direct-logsheet',
-        badge: '⚡ DIRECT'
+        badge: '⚡ DIRECT',
+        directLogsheetOnly: true
       },
       {
         icon: Package,
         label: 'Manage Product',
         path: '/superadmin/direct-product',
-        badge: '⚡ DIRECT'
+        badge: '⚡ DIRECT',
+        manageProductOnly: true
       },
       {
         icon: FileText,
@@ -284,24 +287,27 @@ function getUnreadNavCount(notifications, pathStr, children = []) {
 
 /* ─── Component─────────────────────────────────────────────────── */
 export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onClose, notifications = [] }) {
-  const { profile, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const initials = profile?.full_name
+  const currentUser = profile || user;
+  const initials = currentUser?.full_name
     ?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'A';
 
   /* ── Expanded sub-menu state ── */
   const [expanded, setExpanded] = useState({});
 
-  const userRoles = (Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : [])).map(r => String(r).toLowerCase().trim());
-  const isSuperAdmin = userRoles.includes('superadmin') || profile?.role === 'superadmin';
-  const isAdmin = isSuperAdmin || userRoles.includes('admin') || profile?.role === 'admin';
-  const isAccountant = isSuperAdmin || userRoles.includes('accountant') || profile?.role === 'accountant';
+  const userRoles = (Array.isArray(currentUser?.roles) && currentUser.roles.length > 0 ? currentUser.roles : (currentUser?.role ? [currentUser.role] : [])).map(r => String(r).toLowerCase().trim());
+  const isSuperAdmin = userRoles.includes('superadmin') || currentUser?.role === 'superadmin';
+  const isAdmin = isSuperAdmin || userRoles.includes('admin') || currentUser?.role === 'admin';
+  const isAccountant = isSuperAdmin || userRoles.includes('accountant') || currentUser?.role === 'accountant';
   const hasInvoicePrivilege = isAccountant || isAdmin;
-  const hasDirectCertPrivilege = isSuperAdmin || profile?.can_issue_direct_certificate === true;
-  const hasReviewCertPrivilege = isSuperAdmin || profile?.can_review_certificate === true;
-  const hasKfcLogsheetPrivilege = isSuperAdmin || profile?.can_create_kfc_logsheet === true || profile?.can_sign_logsheet === true;
+  const hasDirectCertPrivilege = isSuperAdmin || currentUser?.can_issue_direct_certificate === true;
+  const hasDirectLogsheetPrivilege = isSuperAdmin || currentUser?.can_create_direct_logsheet === true;
+  const hasManageProductPrivilege = isSuperAdmin || currentUser?.can_manage_products === true || currentUser?.can_manage_direct_products === true;
+  const hasReviewCertPrivilege = isSuperAdmin || currentUser?.can_review_certificate === true;
+  const hasKfcLogsheetPrivilege = isSuperAdmin || currentUser?.can_create_kfc_logsheet === true;
 
   const visibleSections = NAV_SECTIONS.filter(section => {
     if (section.superadminOnly) return isSuperAdmin;
@@ -313,6 +319,8 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
     items: section.items.filter(item => {
       if (item.superadminOnly && !isSuperAdmin) return false;
       if (item.directCertOnly && !hasDirectCertPrivilege) return false;
+      if (item.directLogsheetOnly && !hasDirectLogsheetPrivilege) return false;
+      if (item.manageProductOnly && !hasManageProductPrivilege) return false;
       if (item.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
       if (item.accountantOnly && !isAccountant) return false;
       if (item.invoiceAccessOnly && !hasInvoicePrivilege) return false;
@@ -326,13 +334,15 @@ export default function AdminSidebar({ collapsed, onToggleCollapse, isOpen, onCl
           if (child.invoiceAccessOnly && !hasInvoicePrivilege) return false;
           if (child.reviewCertOnly && !hasReviewCertPrivilege) return false;
           if (child.directCertOnly && !hasDirectCertPrivilege) return false;
+          if (child.directLogsheetOnly && !hasDirectLogsheetPrivilege) return false;
+          if (child.manageProductOnly && !hasManageProductPrivilege) return false;
           if (child.kfcLogsheetOnly && !hasKfcLogsheetPrivilege) return false;
           if (child.superadminOnly && !isSuperAdmin) return false;
           return true;
         })
       };
     })
-  }));
+  })).filter(section => section.items.length > 0);
 
   /* Auto-expand the section that contains the active route */
   useEffect(() => {

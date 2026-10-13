@@ -1801,11 +1801,6 @@ export default function AdminCreateLogsheet() {
         setActiveTab(1);
         return;
       }
-      if (!form.comment?.trim()) {
-        toast.error('Comment / Reason for Decision is required (2. Comment / Reason)');
-        setActiveTab(2);
-        return;
-      }
       if (!form.confirmed) {
         toast.error('Please confirm the verification checkbox before creating Surveillance Letter');
         setActiveTab(2);
@@ -1847,11 +1842,6 @@ export default function AdminCreateLogsheet() {
         setActiveTab(1);
         return;
       }
-      if (!form.comment?.trim()) {
-        toast.error('Comment / Reason is required (2. Comment / Reason)');
-        setActiveTab(2);
-        return;
-      }
       if (!form.confirmed) {
         toast.error('Please confirm the verification checkbox before creating Extension Logsheet');
         setActiveTab(2);
@@ -1878,11 +1868,6 @@ export default function AdminCreateLogsheet() {
       if (!form.contact_email?.trim()) {
         toast.error('Contact E-mail is required (1. Product Evaluation)');
         setActiveTab(1);
-        return;
-      }
-      if (!form.comment?.trim()) {
-        toast.error('Comment / Reason is required (2. Comment / Reason)');
-        setActiveTab(2);
         return;
       }
       if (!form.confirmed) {
@@ -2014,21 +1999,9 @@ export default function AdminCreateLogsheet() {
           form.certificate_standard = resolvedCertType;
           form.suggested_certificate_type = resolvedCertType;
         }
-        if (!form.status_date) {
-          toast.error('Status Date is required (Tab 3)');
-          setActiveTab(3);
-          return;
-        }
       }
 
-      // 4. Validate Tab 4: Comment
-      if (!form.comment?.trim()) {
-        toast.error(`Comment / Reason for Decision is required (${isProduct ? 'Tab 3' : 'Tab 4'})`);
-        setActiveTab(4);
-        return;
-      }
-
-      // 5. Confirmation
+      // 4. Confirmation
       if (!form.confirmed) {
         toast.error('Please confirm the verification checkbox at the bottom');
         return;
@@ -5790,10 +5763,9 @@ export default function AdminCreateLogsheet() {
 
                     <div className="form-group">
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 13 }}>
-                        Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span>
+                        Comment / Reason for Decision
                       </label>
                       <textarea
-                        required
                         className="form-control"
                         rows={8}
                         style={{ fontSize: 14, padding: 14, lineHeight: 1.6 }}
@@ -5939,53 +5911,52 @@ export default function AdminCreateLogsheet() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Annual certificate <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
+                  <label className="form-label">Annual certificate</label>
+                  <select className="form-control" value={form.annual_certificate} onChange={e => setForm({ ...form, annual_certificate: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Batch certificate <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
+                  <label className="form-label">Batch certificate</label>
+                  <select className="form-control" value={form.batch_certificate} onChange={e => setForm({ ...form, batch_certificate: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Only addition of new products <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
+                  <label className="form-label">Only addition of new products</label>
+                  <select className="form-control" value={form.new_products_only} onChange={e => setForm({ ...form, new_products_only: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Addition of new site (or line) <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
+                  <label className="form-label">Addition of new site (or line)</label>
+                  <select className="form-control" value={form.new_site_line} onChange={e => setForm({ ...form, new_site_line: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">New Client <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
+                  <label className="form-label">New Client</label>
+                  <select className="form-control" value={form.new_client} onChange={e => setForm({ ...form, new_client: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Agreement Signed <span style={{ color: '#dc2626' }}>*</span></label>
-                  <select required className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
+                  <label className="form-label">Agreement Signed</label>
+                  <select className="form-control" value={form.agreement_signed} onChange={e => setForm({ ...form, agreement_signed: e.target.value })}>
                     <option value="Yes">Yes</option><option value="No">No</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Status Date <span style={{ color: '#dc2626' }}>*</span></label>
-                  <input required type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
+                  <label className="form-label">Status Date</label>
+                  <input type="date" className="form-control" style={{ maxWidth: 300 }} value={form.status_date?.split('T')[0] || ''} onChange={e => setForm({ ...form, status_date: e.target.value })} />
                 </div>
               </div>
             )}
 
             {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal' || isProduct) && !isSurveillanceLogsheet && (
               <div className="form-group">
-                <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
+                <label className="form-label">Comment / Reason for Decision</label>
                 <textarea
-                  required
                   className="form-control"
                   rows={8}
                   style={{ fontSize: 14, padding: 14 }}

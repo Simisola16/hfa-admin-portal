@@ -21,7 +21,7 @@ export default function AdminCreateLogsheet() {
   const isInitialProduct = !!initialProductId || window.location.pathname.includes('/initial-products/');
   const resolvedInitialProductId = initialProductId || (isInitialProduct ? (id || appId) : null);
   const isAddon = !!addonId;
-  const isProductLogsheet = isAddon || isInitialProduct;
+  let isProductLogsheet = isAddon || isInitialProduct;
   const entityId = isInitialProduct ? resolvedInitialProductId : (isAddon ? addonId : appId);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -184,7 +184,16 @@ export default function AdminCreateLogsheet() {
   const isDirectCreation = isDirectLogsheetRoute && !directLogsheetId && !currentLogsheet?._id;
 
   const effectiveLogsheetType = currentLogsheet
-    ? (currentLogsheet.logsheet_type === 'initial_product' || currentLogsheet.logsheet_type === 'addon_application'
+    ? (currentLogsheet.logsheet_type === 'initial_product' ||
+       currentLogsheet.logsheet_type === 'addon' ||
+       currentLogsheet.logsheet_type === 'addon_application' ||
+       currentLogsheet.logsheet_type === 'product' ||
+       currentLogsheet.source_type === 'initial_product_application' ||
+       currentLogsheet.source_type === 'addon_application' ||
+       Boolean(currentLogsheet.initial_product_application_id) ||
+       Boolean(currentLogsheet.addon_application_id) ||
+       currentLogsheet.audit_type === 'Initial Product Evaluation' ||
+       (currentLogsheet.audit_type && currentLogsheet.audit_type.toLowerCase().includes('product'))
         ? 'product'
         : (currentLogsheet.logsheet_type === 'surveillance' || currentLogsheet.certificate_type === 'Surveillance Letter'
             ? 'surveillance'
@@ -192,6 +201,23 @@ export default function AdminCreateLogsheet() {
                 ? 'extension'
                 : 'normal')))
     : directLogsheetType;
+
+  const isProduct = Boolean(
+    isAddon ||
+    isInitialProduct ||
+    effectiveLogsheetType === 'product' ||
+    (isDirectCreation && directLogsheetType === 'product') ||
+    currentLogsheet?.logsheet_type === 'initial_product' ||
+    currentLogsheet?.logsheet_type === 'addon' ||
+    currentLogsheet?.logsheet_type === 'addon_application' ||
+    currentLogsheet?.logsheet_type === 'product' ||
+    currentLogsheet?.source_type === 'initial_product_application' ||
+    currentLogsheet?.source_type === 'addon_application' ||
+    Boolean(currentLogsheet?.initial_product_application_id) ||
+    Boolean(currentLogsheet?.addon_application_id) ||
+    (currentLogsheet?.audit_type && currentLogsheet.audit_type.toLowerCase().includes('product'))
+  );
+  isProductLogsheet = isProduct;
 
   const isSurveillanceLogsheet = Boolean(
     (isDirectCreation && directLogsheetType === 'surveillance') ||
@@ -364,6 +390,13 @@ export default function AdminCreateLogsheet() {
           { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
         ];
       }
+    }
+    if (isProduct) {
+      return [
+        { id: 1, label: '1. Company & Site Details', icon: Building },
+        { id: 2, label: '2. Review of Application', icon: FileText },
+        { id: 4, label: '3. Comment / Reason', icon: MessageSquare }
+      ];
     }
     return [
       { id: 1, label: '1. Company & Site Details', icon: Building },
@@ -1384,12 +1417,14 @@ export default function AdminCreateLogsheet() {
       return;
     }
 
-    const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
-    const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
-    if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
-      toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
-      setActiveTab(3);
-      return;
+    if (!isProduct) {
+      const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+      if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+        toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+        setActiveTab(3);
+        return;
+      }
     }
 
     if (isGSO) {
@@ -1957,33 +1992,35 @@ export default function AdminCreateLogsheet() {
         return;
       }
 
-      // 3. Validate Tab 3: Certificate Status
-      const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
-      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
-      if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
-        toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
-        setActiveTab(3);
-        return;
-      }
-      if (!form.certificate_type || form.certificate_type !== resolvedCertType) {
-        form.certificate_type = resolvedCertType;
-        form.certificate_standard = resolvedCertType;
-        form.suggested_certificate_type = resolvedCertType;
-      }
-      if (isGSO && !form.next_surveillance_due_date) {
-        toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
-        setActiveTab(1);
-        return;
-      }
-      if (!form.status_date) {
-        toast.error('Status Date is required (Tab 3)');
-        setActiveTab(3);
-        return;
+      // 3. Validate Tab 3: Certificate Status (Skipped for product logsheets)
+      if (!isProduct) {
+        const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
+        const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+        if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
+          toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
+          setActiveTab(3);
+          return;
+        }
+        if (!form.certificate_type || form.certificate_type !== resolvedCertType) {
+          form.certificate_type = resolvedCertType;
+          form.certificate_standard = resolvedCertType;
+          form.suggested_certificate_type = resolvedCertType;
+        }
+        if (isGSO && !form.next_surveillance_due_date) {
+          toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
+          setActiveTab(1);
+          return;
+        }
+        if (!form.status_date) {
+          toast.error('Status Date is required (Tab 3)');
+          setActiveTab(3);
+          return;
+        }
       }
 
       // 4. Validate Tab 4: Comment
       if (!form.comment?.trim()) {
-        toast.error('Comment / Reason for Decision is required (Tab 4)');
+        toast.error(`Comment / Reason for Decision is required (${isProduct ? 'Tab 3' : 'Tab 4'})`);
         setActiveTab(4);
         return;
       }
@@ -2767,60 +2804,62 @@ export default function AdminCreateLogsheet() {
               </div>
             </div>
 
-            {/* Section 4: Certificate Status Checks */}
-            <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <Award size={16} style={{ color: '#047857' }} />
-                4. Scheme &amp; Certificate Status Checks
-              </h4>
-              <div style={{ background: '#f0fdfa', padding: '12px 16px', borderRadius: 10, border: '1.5px solid #99f6e4', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#0d9488', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Suggested Certificate Scheme</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
-                    {form.certificate_type || form.certificate_standard || currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || application?.suggested_certificate_type || application?.certificate_type || '—'}
+            {/* Section 4: Certificate Status Checks (Hidden for product logsheets) */}
+            {!isProduct && (
+              <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <Award size={16} style={{ color: '#047857' }} />
+                  4. Scheme &amp; Certificate Status Checks
+                </h4>
+                <div style={{ background: '#f0fdfa', padding: '12px 16px', borderRadius: 10, border: '1.5px solid #99f6e4', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#0d9488', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Suggested Certificate Scheme</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
+                      {form.certificate_type || form.certificate_standard || currentLogsheet?.certificate_type || currentLogsheet?.certificate_standard || application?.suggested_certificate_type || application?.certificate_type || '—'}
+                    </div>
                   </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0f766e', background: '#ccfbf1', padding: '3px 9px', borderRadius: 20 }}>
+                    Recommended Scheme for Issuer
+                  </span>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#0f766e', background: '#ccfbf1', padding: '3px 9px', borderRadius: 20 }}>
-                  Recommended Scheme for Issuer
-                </span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-                {[
-                  { label: 'Annual Certificate', val: form.annual_certificate },
-                  { label: 'Batch Certificate', val: form.batch_certificate },
-                  { label: 'Only Addition of New Products', val: form.new_products_only },
-                  { label: 'Addition of New Site / Line', val: form.new_site_line },
-                  { label: 'New Client Application', val: form.new_client },
-                  { label: 'Certification Agreement Signed', val: form.agreement_signed },
-                ].map((item, idx) => (
-                  <div key={idx} style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>{item.label}</span>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: 800,
-                      padding: '3px 10px',
-                      borderRadius: 12,
-                      background: item.val === 'Yes' ? '#dcfce7' : '#f1f5f9',
-                      color: item.val === 'Yes' ? '#15803d' : '#64748b',
-                      border: `1px solid ${item.val === 'Yes' ? '#bbf7d0' : '#e2e8f0'}`
-                    }}>
-                      {item.val || 'No'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  {[
+                    { label: 'Annual Certificate', val: form.annual_certificate },
+                    { label: 'Batch Certificate', val: form.batch_certificate },
+                    { label: 'Only Addition of New Products', val: form.new_products_only },
+                    { label: 'Addition of New Site / Line', val: form.new_site_line },
+                    { label: 'New Client Application', val: form.new_client },
+                    { label: 'Certification Agreement Signed', val: form.agreement_signed },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>{item.label}</span>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        padding: '3px 10px',
+                        borderRadius: 12,
+                        background: item.val === 'Yes' ? '#dcfce7' : '#f1f5f9',
+                        color: item.val === 'Yes' ? '#15803d' : '#64748b',
+                        border: `1px solid ${item.val === 'Yes' ? '#bbf7d0' : '#e2e8f0'}`
+                      }}>
+                        {item.val || 'No'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
 
-              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Status Effective Date:</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{form.status_date ? new Date(form.status_date).toLocaleDateString('en-GB') : '—'}</span>
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Status Effective Date:</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{form.status_date ? new Date(form.status_date).toLocaleDateString('en-GB') : '—'}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Section 5: Committee Comments & Recommendation Notes */}
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <MessageSquare size={16} style={{ color: '#047857' }} />
-                5. Committee Comments &amp; Recommendation Notes
+                {isProduct ? '4. Committee Comments & Recommendation Notes' : '5. Committee Comments & Recommendation Notes'}
               </h4>
               <div style={{
                 background: '#f8fafc',
@@ -2842,11 +2881,11 @@ export default function AdminCreateLogsheet() {
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <FileText size={16} style={{ color: '#047857' }} />
                 {isRemoveProduct
-                  ? '6. Products Requested for Removal'
+                  ? (isProduct ? '5. Products Requested for Removal' : '6. Products Requested for Removal')
                   : isChangeIngredients
-                  ? '6. Products with Formulation / Ingredient Changes'
+                  ? (isProduct ? '5. Products with Formulation / Ingredient Changes' : '6. Products with Formulation / Ingredient Changes')
                   : isProductLogsheet
-                  ? '6. Filled Product Approval Request Forms & Declarations'
+                  ? (isProduct ? '5. Filled Product Approval Request Forms & Declarations' : '6. Filled Product Approval Request Forms & Declarations')
                   : '6. Attached Audit Reports'}
               </h4>
 
@@ -5875,7 +5914,7 @@ export default function AdminCreateLogsheet() {
               )
             )}
 
-            {activeTab === 3 && (!isDirectCreation || directLogsheetType === 'normal') && !isSurveillanceLogsheet && (
+            {activeTab === 3 && (!isDirectCreation || directLogsheetType === 'normal') && !isSurveillanceLogsheet && !isProduct && (
               <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Certificate Type / Scheme Selection */}
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: '16px 18px', borderRadius: 12, border: '1.5px solid #cbd5e1' }}>
@@ -5946,7 +5985,7 @@ export default function AdminCreateLogsheet() {
               </div>
             )}
 
-            {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal') && !isSurveillanceLogsheet && (
+            {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal' || isProduct) && !isSurveillanceLogsheet && (
               <div className="form-group">
                 <label className="form-label">Comment / Reason for Decision <span style={{ color: '#dc2626' }}>*</span></label>
                 <textarea

@@ -1427,7 +1427,7 @@ export default function AdminCreateLogsheet() {
       }
     }
 
-    if (isGSO) {
+    if (isSurveillanceLogsheet && !form.next_surveillance_due_date && !currentLogsheet?.next_surveillance_due_date) {
       setShowNextSurvModal(true);
       return;
     }
@@ -1441,7 +1441,10 @@ export default function AdminCreateLogsheet() {
       await api.put(`/api/application-logsheets/${currentLogsheet._id}/sign`, {
         finalizeSignOff: true,
         certificate_type: chosenCertType,
-        suggested_certificate_type: chosenCertType
+        suggested_certificate_type: chosenCertType,
+        ...(isSurveillanceLogsheet && (form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date) ? {
+          next_surveillance_due_date: form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date
+        } : {})
       });
 
       toast.success('🎉 Application marked Successful! Committee Signatures finalized.');
@@ -1793,6 +1796,11 @@ export default function AdminCreateLogsheet() {
         setActiveTab(1);
         return;
       }
+      if (!form.next_surveillance_due_date) {
+        toast.error('Next Surveillance Due Date is required (1. Company Details)');
+        setActiveTab(1);
+        return;
+      }
       if (!form.comment?.trim()) {
         toast.error('Comment / Reason for Decision is required (2. Comment / Reason)');
         setActiveTab(2);
@@ -2005,11 +2013,6 @@ export default function AdminCreateLogsheet() {
           form.certificate_type = resolvedCertType;
           form.certificate_standard = resolvedCertType;
           form.suggested_certificate_type = resolvedCertType;
-        }
-        if (isGSO && !form.next_surveillance_due_date) {
-          toast.error('Next Surveillance Due Date is required for GSO logsheet (Tab 1)');
-          setActiveTab(1);
-          return;
         }
         if (!form.status_date) {
           toast.error('Status Date is required (Tab 3)');
@@ -2737,7 +2740,7 @@ export default function AdminCreateLogsheet() {
                   <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginTop: 3 }}>{form.original_cycle_start ? new Date(form.original_cycle_start).toLocaleDateString('en-GB') : '—'}</div>
                 </div>
 
-                {(form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date || application?.next_surveillance_due_date) && (
+                {isSurveillanceLogsheet && (form.next_surveillance_due_date || currentLogsheet?.next_surveillance_due_date || application?.next_surveillance_due_date) && (
                   <div style={{ background: '#f0f9ff', padding: '12px 14px', borderRadius: 8, border: '1.5px solid #bae6fd' }}>
                     <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Next Surveillance Due Date</div>
                     <div style={{ fontSize: 13, color: '#0284c7', fontWeight: 800, marginTop: 3 }}>
@@ -3873,6 +3876,18 @@ export default function AdminCreateLogsheet() {
                         className="form-control"
                         value={form.audit_date?.split('T')[0] || ''}
                         onChange={e => setForm({ ...form, audit_date: e.target.value })}
+                        style={{ fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Next Surveillance Due Date: <span style={{ color: '#dc2626' }}>*</span></label>
+                      <input
+                        required
+                        type="date"
+                        className="form-control"
+                        value={form.next_surveillance_due_date?.split('T')[0] || ''}
+                        onChange={e => setForm({ ...form, next_surveillance_due_date: e.target.value })}
                         style={{ fontWeight: 600 }}
                       />
                     </div>
@@ -5448,25 +5463,6 @@ export default function AdminCreateLogsheet() {
                   <label className="form-label">Original Cycle Start Date <span style={{ color: '#dc2626' }}>*</span></label>
                   <input required type="date" className="form-control" value={form.original_cycle_start?.split('T')[0] || ''} onChange={e => setForm({ ...form, original_cycle_start: e.target.value })} />
                 </div>
-
-                {isGSO && (
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label" style={{ fontWeight: 800, color: '#0f172a' }}>
-                      Next Surveillance Due Date <span style={{ color: '#dc2626' }}>* (Required for GSO)</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      className="form-control"
-                      style={{ maxWidth: 300, background: form.next_surveillance_due_date ? '#f0fdf4' : '#fff', fontWeight: 700 }}
-                      value={form.next_surveillance_due_date?.split('T')[0] || ''}
-                      onChange={e => setForm({ ...form, next_surveillance_due_date: e.target.value })}
-                    />
-                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
-                      Milestone surveillance audit due date required for GSO 3-year certification cycle
-                    </div>
-                  </div>
-                )}
 
                 <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f8fafc', padding: 18, borderRadius: 10, border: '1px solid #e2e8f0' }}>
                   {isProductLogsheet ? (

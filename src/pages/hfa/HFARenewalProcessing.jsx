@@ -961,6 +961,7 @@ export default function HFARenewalProcessing(props) {
                 appId={appId}
                 audits={audits}
                 app={app}
+                allInvoices={allInvoices}
               />
             </div>
           </div>

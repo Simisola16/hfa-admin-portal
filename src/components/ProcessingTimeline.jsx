@@ -26,7 +26,8 @@ export default function ProcessingTimeline({
   initialProduct = null,
   appId = null,
   audits = [],
-  app = null
+  app = null,
+  allInvoices = []
 }) {
   const navigate = useNavigate();
   const isRejected = status === 'rejected';
@@ -419,7 +420,7 @@ export default function ProcessingTimeline({
 
         // Fallback for renewal/surveillance invoice milestone if not present in historyMap
         if (!histEntry && (isRenewal || isSurveillance) && s === 'invoice_sent') {
-          const inv = app?.invoice || (allInvoices && allInvoices[0]) || (app?.invoices && app.invoices[0]);
+          const inv = app?.invoice || (Array.isArray(allInvoices) && allInvoices[0]) || (Array.isArray(app?.invoices) && app.invoices[0]);
           if (inv || ['invoice_sent', 'payment_received', 'ready_for_certificate', 'waiting_for_certificate', 'certificate_issued', 'done'].includes(normStatus)) {
             histEntry = {
               changedAt: inv?.created_at || inv?.updated_at || app?.updated_at || new Date(),

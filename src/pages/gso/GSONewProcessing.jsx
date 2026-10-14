@@ -1343,6 +1343,7 @@ export default function GSONewProcessing({ appId: propAppId, initialData }) {
                 appId={appId}
                 audits={audits}
                 app={app}
+                allInvoices={allInvoices}
               />
             </div>
           </div>

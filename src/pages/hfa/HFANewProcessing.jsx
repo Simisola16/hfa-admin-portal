@@ -1244,6 +1244,7 @@ export default function HFANewProcessing(props) {
                 appId={appId}
                 audits={audits}
                 app={app}
+                allInvoices={allInvoices}
               />
             </div>
           </div>

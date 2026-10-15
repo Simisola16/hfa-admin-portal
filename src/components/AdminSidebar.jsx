@@ -6,7 +6,7 @@ import {
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
   UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
   X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
-  Sparkles, ShieldCheck, AlertTriangle, ExternalLink, Activity
+  Sparkles, ShieldCheck, AlertTriangle, ExternalLink, Activity, CheckSquare
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -52,6 +52,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices', invoiceAccessOnly: true },
+      { icon: CheckSquare,  label: 'Approved Products (Billing)', path: '/accountant-approved-products', invoiceAccessOnly: true },
       {
         icon: Calendar, label: 'Audits', path: '/audits',
         children: [
@@ -105,6 +106,7 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
+          { label: 'Approved Products (Billing)', path: '/accountant-approved-products', invoiceAccessOnly: true },
           { label: 'Manage Product', path: '/products/direct', manageProductOnly: true },
         ],
       },

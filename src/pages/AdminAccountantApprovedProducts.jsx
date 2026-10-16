@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import Pagination from '../components/Pagination';
 
 /**
  * AdminAccountantApprovedProducts
@@ -20,6 +21,11 @@ export default function AdminAccountantApprovedProducts() {
   const [products, setProducts] = useState([]);
   const [stats, setStats] = useState({ pendingCount: 0, invoicedCount: 0, totalApproved: 0, sitesCount: 0 });
   const [filterOptions, setFilterOptions] = useState({ companies: [], sites: [] });
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Filter states
   const [invoicedStatus, setInvoicedStatus] = useState('pending'); // 'pending' | 'invoiced' | 'all'
@@ -54,7 +60,8 @@ export default function AdminAccountantApprovedProducts() {
         client_id: selectedCompany !== 'all' ? selectedCompany : undefined,
         site_id: selectedSite !== 'all' ? selectedSite : undefined,
         search: search.trim() || undefined,
-        limit: 0
+        page,
+        limit: pageSize
       };
 
       let res;
@@ -68,12 +75,19 @@ export default function AdminAccountantApprovedProducts() {
             status: 'approved',
             client_id: selectedCompany !== 'all' ? selectedCompany : undefined,
             site_id: selectedSite !== 'all' ? selectedSite : undefined,
-            limit: 0
+            page,
+            limit: pageSize
           }
         });
         const rawProds = Array.isArray(fallbackRes) ? fallbackRes : (fallbackRes?.data || []);
         res = {
           data: rawProds,
+          pagination: {
+            page,
+            limit: pageSize,
+            total: fallbackRes?.pagination?.total || rawProds.length,
+            totalPages: fallbackRes?.pagination?.totalPages || 1
+          },
           stats: {
             pendingCount: rawProds.filter(p => !p.is_invoiced).length,
             invoicedCount: rawProds.filter(p => p.is_invoiced).length,
@@ -84,6 +98,11 @@ export default function AdminAccountantApprovedProducts() {
 
       const data = res?.data || [];
       setProducts(data);
+      if (res?.pagination) {
+        setTotalItems(res.pagination.total ?? data.length);
+      } else {
+        setTotalItems(data.length);
+      }
       if (res?.stats) setStats(prev => ({ ...prev, ...res.stats }));
       if (res?.filterOptions) {
         setFilterOptions(prev => ({
@@ -98,7 +117,7 @@ export default function AdminAccountantApprovedProducts() {
     } finally {
       if (!isSilent) setLoading(false);
     }
-  }, [invoicedStatus, period, startDate, endDate, selectedCompany, selectedSite, search]);
+  }, [invoicedStatus, period, startDate, endDate, selectedCompany, selectedSite, search, page, pageSize]);
 
   useEffect(() => {
     fetchProducts();
@@ -110,16 +129,48 @@ export default function AdminAccountantApprovedProducts() {
     return filterOptions.sites.filter(s => String(s.company_id) === String(selectedCompany));
   }, [filterOptions.sites, selectedCompany]);
 
-  // Handle Company change
+  // Handle pagination changes
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
+
+  // Handle filter changes (resets page to 1)
+  const handleInvoicedStatusChange = (status) => {
+    setInvoicedStatus(status);
+    setPage(1);
+  };
+
   const handleCompanyChange = (e) => {
     const newCompanyId = e.target.value;
     setSelectedCompany(newCompanyId);
+    setPage(1);
     if (newCompanyId !== 'all') {
       const currentSiteBelongs = filterOptions.sites.some(
         s => String(s.id) === String(selectedSite) && String(s.company_id) === String(newCompanyId)
       );
       if (!currentSiteBelongs) setSelectedSite('all');
     }
+  };
+
+  const handleSiteChange = (e) => {
+    setSelectedSite(e.target.value);
+    setPage(1);
+  };
+
+  const handlePeriodChange = (newPeriod) => {
+    setPeriod(newPeriod);
+    setPage(1);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value);
+    setPage(1);
   };
 
   // Toggle single product invoiced status
@@ -328,6 +379,7 @@ export default function AdminAccountantApprovedProducts() {
     setPeriod('all');
     setStartDate('');
     setEndDate('');
+    setPage(1);
   };
 
   const hasActiveFilters = Boolean(
@@ -387,7 +439,7 @@ export default function AdminAccountantApprovedProducts() {
         
         {/* Card 1: Total Products Added Awaiting Invoice (The main number the accountant wants!) */}
         <div 
-          onClick={() => setInvoicedStatus('pending')}
+          onClick={() => handleInvoicedStatusChange('pending')}
           style={{
             background: invoicedStatus === 'pending' ? '#fffbeb' : '#ffffff',
             border: invoicedStatus === 'pending' ? '3px solid #f59e0b' : '2px solid #cbd5e1',
@@ -419,7 +471,7 @@ export default function AdminAccountantApprovedProducts() {
 
         {/* Card 2: Already Invoiced / Done */}
         <div 
-          onClick={() => setInvoicedStatus('invoiced')}
+          onClick={() => handleInvoicedStatusChange('invoiced')}
           style={{
             background: invoicedStatus === 'invoiced' ? '#f0fdf4' : '#ffffff',
             border: invoicedStatus === 'invoiced' ? '3px solid #16a34a' : '2px solid #cbd5e1',
@@ -451,7 +503,7 @@ export default function AdminAccountantApprovedProducts() {
 
         {/* Card 3: Total Company Sites Active */}
         <div 
-          onClick={() => setInvoicedStatus('all')}
+          onClick={() => handleInvoicedStatusChange('all')}
           style={{
             background: invoicedStatus === 'all' ? '#f0f9ff' : '#ffffff',
             border: invoicedStatus === 'all' ? '3px solid #0284c7' : '2px solid #cbd5e1',
@@ -477,7 +529,7 @@ export default function AdminAccountantApprovedProducts() {
             </div>
           </div>
           <div style={{ fontSize: 14, color: '#075985', marginTop: 10, fontWeight: 700 }}>
-            Showing {products.length} products total across all sites
+            Showing {products.length} of {totalItems.toLocaleString()} products (Page {page} of {Math.max(1, Math.ceil(totalItems / pageSize))})
           </div>
         </div>
 
@@ -496,7 +548,7 @@ export default function AdminAccountantApprovedProducts() {
               type="text"
               placeholder="Search by Company, Site, or Product Name..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearchChange}
               style={{
                 width: '100%', padding: '14px 16px 14px 48px',
                 fontSize: 16, fontWeight: 700, color: '#0f172a',
@@ -508,7 +560,7 @@ export default function AdminAccountantApprovedProducts() {
             />
             {search && (
               <button
-                onClick={() => setSearch('')}
+                onClick={() => { setSearch(''); setPage(1); }}
                 style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
               >
                 <X size={20} />
@@ -519,7 +571,7 @@ export default function AdminAccountantApprovedProducts() {
           {/* Status Tabs */}
           <div style={{ display: 'inline-flex', background: '#e2e8f0', padding: 5, borderRadius: 12, gap: 4 }}>
             <button
-              onClick={() => setInvoicedStatus('pending')}
+              onClick={() => handleInvoicedStatusChange('pending')}
               style={{
                 padding: '10px 20px', borderRadius: 9, fontSize: 15, fontWeight: 900,
                 border: 'none', cursor: 'pointer', transition: 'all 0.15s ease',
@@ -531,7 +583,7 @@ export default function AdminAccountantApprovedProducts() {
               ⏳ Needs Invoice ({stats.pendingCount})
             </button>
             <button
-              onClick={() => setInvoicedStatus('invoiced')}
+              onClick={() => handleInvoicedStatusChange('invoiced')}
               style={{
                 padding: '10px 20px', borderRadius: 9, fontSize: 15, fontWeight: 900,
                 border: 'none', cursor: 'pointer', transition: 'all 0.15s ease',
@@ -543,7 +595,7 @@ export default function AdminAccountantApprovedProducts() {
               ✓ Invoiced ({stats.invoicedCount})
             </button>
             <button
-              onClick={() => setInvoicedStatus('all')}
+              onClick={() => handleInvoicedStatusChange('all')}
               style={{
                 padding: '10px 20px', borderRadius: 9, fontSize: 15, fontWeight: 900,
                 border: 'none', cursor: 'pointer', transition: 'all 0.15s ease',
@@ -617,7 +669,7 @@ export default function AdminAccountantApprovedProducts() {
             </label>
             <select
               value={selectedSite}
-              onChange={(e) => setSelectedSite(e.target.value)}
+              onChange={handleSiteChange}
               style={{
                 width: '100%', padding: '11px 14px', fontSize: 15, fontWeight: 700,
                 background: '#f8fafc', border: '2px solid #94a3b8', borderRadius: 10,
@@ -647,7 +699,7 @@ export default function AdminAccountantApprovedProducts() {
               ].map(p => (
                 <button
                   key={p.key}
-                  onClick={() => setPeriod(p.key)}
+                  onClick={() => handlePeriodChange(p.key)}
                   style={{
                     padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 800,
                     border: period === p.key ? '2px solid #0284c7' : '1px solid #cbd5e1',
@@ -670,7 +722,7 @@ export default function AdminAccountantApprovedProducts() {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
                   style={{ padding: '9px', border: '2px solid #cbd5e1', borderRadius: 8, fontSize: 13, fontWeight: 600 }}
                 />
               </div>
@@ -679,7 +731,7 @@ export default function AdminAccountantApprovedProducts() {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
                   style={{ padding: '9px', border: '2px solid #cbd5e1', borderRadius: 8, fontSize: 13, fontWeight: 600 }}
                 />
               </div>
@@ -1022,6 +1074,29 @@ export default function AdminAccountantApprovedProducts() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ─── PAGINATION (Clean, responsive & senior-friendly) ─── */}
+      {!loading && totalItems > 0 && (
+        <div style={{
+          marginTop: 24,
+          background: '#ffffff',
+          borderRadius: 16,
+          border: '2px solid #cbd5e1',
+          overflow: 'hidden',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+        }}>
+          <Pagination
+            currentPage={page}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            itemName="products"
+            disabled={loading}
+          />
         </div>
       )}
 

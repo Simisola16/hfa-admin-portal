@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, Award, Package, Ship, MessageSquare,
   Users, MapPin, LogOut, ChevronDown, ChevronRight, ClipboardList,
-  UserCheck, Calendar, BarChart3, FileBarChart, Briefcase, Shield,
-  X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, PlusCircle,
-  Sparkles, ShieldCheck, AlertTriangle, ExternalLink, Activity, CheckSquare
+  Calendar, BarChart3, FileBarChart, Briefcase, Shield,
+  X, PenTool, HelpCircle, ChevronsLeft, ChevronsRight, 
+  Sparkles, AlertTriangle, ExternalLink, Activity, CheckSquare
 } from 'lucide-react';
 
 /* ─── Navigation structure ──────────────────────────────────────── */
@@ -106,7 +106,6 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
-          { label: 'Approved Products (Billing)', path: '/accountant-approved-products', accountantOnly: true },
           { label: 'Manage Product', path: '/products/direct', manageProductOnly: true },
         ],
       },

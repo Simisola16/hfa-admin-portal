@@ -52,7 +52,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: Briefcase,    label: 'Proposals',   path: '/proposals' },
       { icon: FileBarChart, label: 'Invoices',    path: '/invoices', invoiceAccessOnly: true },
-      { icon: CheckSquare,  label: 'Approved Products (Billing)', path: '/accountant-approved-products', invoiceAccessOnly: true },
+      { icon: CheckSquare,  label: 'Approved Products (Billing)', path: '/accountant-approved-products', accountantOnly: true },
       {
         icon: Calendar, label: 'Audits', path: '/audits',
         children: [
@@ -106,7 +106,7 @@ const NAV_SECTIONS = [
           { label: 'Add-on InProgress', path: '/addon-applications?view=inprogress' },
           { label: 'Add-on List',    path: '/addon-applications?view=list' },
           { label: 'Product List',   path: '/products' },
-          { label: 'Approved Products (Billing)', path: '/accountant-approved-products', invoiceAccessOnly: true },
+          { label: 'Approved Products (Billing)', path: '/accountant-approved-products', accountantOnly: true },
           { label: 'Manage Product', path: '/products/direct', manageProductOnly: true },
         ],
       },

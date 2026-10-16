@@ -8,6 +8,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * AdminAccountantApprovedProducts
@@ -16,6 +17,17 @@ import Pagination from '../components/Pagination';
  * and a one-click "Done" button to track invoiced batches.
  */
 export default function AdminAccountantApprovedProducts() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const userRoles = (Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : [])
+  ).map(r => String(r).toLowerCase().trim());
+  const isAccountant = userRoles.includes('accountant') ||
+    currentUser?.role === 'accountant' ||
+    userRoles.includes('superadmin') ||
+    currentUser?.role === 'superadmin';
+
   // Data state
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
@@ -32,7 +44,7 @@ export default function AdminAccountantApprovedProducts() {
   const [search, setSearch] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('all');
   const [selectedSite, setSelectedSite] = useState('all');
-  const [period, setPeriod] = useState('all'); // 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom'
+  const [period, setPeriod] = useState('today'); // 'today' (default) | 'yesterday' | 'this_week' | 'this_month' | 'all' | 'custom'
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -50,6 +62,10 @@ export default function AdminAccountantApprovedProducts() {
 
   // Fetch approved products with graceful fallback for live server
   const fetchProducts = useCallback(async (isSilent = false) => {
+    if (!isAccountant) {
+      setLoading(false);
+      return;
+    }
     if (!isSilent) setLoading(true);
     try {
       const params = {
@@ -376,15 +392,41 @@ export default function AdminAccountantApprovedProducts() {
     setSearch('');
     setSelectedCompany('all');
     setSelectedSite('all');
-    setPeriod('all');
+    setPeriod('today');
     setStartDate('');
     setEndDate('');
     setPage(1);
   };
 
   const hasActiveFilters = Boolean(
-    search || selectedCompany !== 'all' || selectedSite !== 'all' || period !== 'all' || startDate || endDate || invoicedStatus !== 'pending'
+    search || selectedCompany !== 'all' || selectedSite !== 'all' || period !== 'today' || startDate || endDate || invoicedStatus !== 'pending'
   );
+
+  if (!isAccountant) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: 640, margin: '60px auto', background: '#ffffff', borderRadius: 20, border: '2px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#dc2626' }}>
+          <AlertCircle size={36} />
+        </div>
+        <h2 style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', marginBottom: 10, letterSpacing: '-0.02em' }}>
+          Accountant Access Only
+        </h2>
+        <p style={{ fontSize: 16, color: '#475569', lineHeight: 1.6, marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
+          This page is strictly reserved for the Accountant to review newly added and approved products for billing and invoice processing.
+        </p>
+        <button
+          onClick={() => window.location.href = '/dashboard'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '12px 26px', background: '#0f172a', color: '#ffffff',
+            border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer'
+          }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1440, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>
@@ -690,11 +732,11 @@ export default function AdminAccountantApprovedProducts() {
             </label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[
-                { key: 'all', label: 'All Time' },
-                { key: 'today', label: 'Today' },
+                { key: 'today', label: '📅 Today' },
                 { key: 'yesterday', label: 'Yesterday' },
                 { key: 'this_week', label: 'This Week' },
                 { key: 'this_month', label: 'This Month' },
+                { key: 'all', label: 'All Time' },
                 { key: 'custom', label: 'Custom' }
               ].map(p => (
                 <button
@@ -773,25 +815,56 @@ export default function AdminAccountantApprovedProducts() {
         <div style={{ background: '#ffffff', border: '2px solid #cbd5e1', borderRadius: 16, padding: '60px 24px', textAlign: 'center' }}>
           <CheckCircle2 size={64} style={{ color: '#16a34a', margin: '0 auto 18px' }} />
           <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0' }}>
-            {invoicedStatus === 'pending' ? 'All Clear! No Pending Products to Invoice.' : 'No Products Found'}
+            {period === 'today'
+              ? (invoicedStatus === 'pending' ? 'No Pending Products Added Today' : 'No Products Invoiced Today')
+              : (invoicedStatus === 'pending' ? 'All Clear! No Pending Products to Invoice.' : 'No Products Found')}
           </h2>
-          <p style={{ fontSize: 16, color: '#475569', maxWidth: 500, margin: '0 auto 24px', lineHeight: 1.5 }}>
-            {invoicedStatus === 'pending'
-              ? 'All newly added products in this period have already been invoiced and marked done.'
-              : 'Try changing your search term, company filter, or date period.'}
+          <p style={{ fontSize: 16, color: '#475569', maxWidth: 520, margin: '0 auto 24px', lineHeight: 1.5 }}>
+            {period === 'today'
+              ? 'No newly added products were recorded today. Click "This Week" or "All Time" to review earlier additions.'
+              : invoicedStatus === 'pending'
+                ? 'All newly added products in this period have already been invoiced and marked done.'
+                : 'Try changing your search term, company filter, or date period.'}
           </p>
-          {hasActiveFilters && (
-            <button
-              onClick={handleResetFilters}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px',
-                background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 10,
-                fontSize: 15, fontWeight: 800, cursor: 'pointer'
-              }}
-            >
-              Reset Filters
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {period === 'today' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handlePeriodChange('this_week')}
+                  style={{
+                    padding: '11px 20px', background: '#0284c7', color: '#ffffff',
+                    border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer'
+                  }}
+                >
+                  View This Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePeriodChange('all')}
+                  style={{
+                    padding: '11px 20px', background: '#0f172a', color: '#ffffff',
+                    border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer'
+                  }}
+                >
+                  View All Time
+                </button>
+              </>
+            )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px',
+                  background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 10,
+                  fontSize: 14, fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                Reset to Today
+              </button>
+            )}
+          </div>
         </div>
       ) : viewMode === 'summary' ? (
         /* ─── CARDS VIEW: PROMINENTLY SHOWS HOW MANY PRODUCTS EACH SITE ADDED ─── */
@@ -957,7 +1030,7 @@ export default function AdminAccountantApprovedProducts() {
                         <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: 12, textTransform: 'uppercase' }}>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>#</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Product Name</th>
-                          <th style={{ padding: '10px 14px', fontWeight: 800 }}>Code / Barcode</th>
+                          <th style={{ padding: '10px 14px', fontWeight: 800 }}>Code</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Category</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Date Added</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Status</th>

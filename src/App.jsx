@@ -52,6 +52,7 @@ const AdminDirectLogsheet = lazy(() => import('./pages/AdminDirectLogsheet'));
 const AdminDirectProduct = lazy(() => import('./pages/AdminDirectProduct'));
 const AdminSurveillanceDueDates = lazy(() => import('./pages/AdminSurveillanceDueDates'));
 const SuperAdminLiveMonitor = lazy(() => import('./pages/SuperAdminLiveMonitor'));
+const AdminAccountantApprovedProducts = lazy(() => import('./pages/AdminAccountantApprovedProducts'));
 
 const PageFallback = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -144,6 +145,9 @@ export default function App() {
             <Route path="/audits" element={<AdminAudits />} />
             <Route path="/audit-reports" element={<AdminAuditReports />} />
             <Route path="/invoices" element={<AdminInvoices />} />
+            <Route path="/accountant-approved-products" element={<AdminAccountantApprovedProducts />} />
+            <Route path="/accountant/approved-products" element={<AdminAccountantApprovedProducts />} />
+            <Route path="/invoices/approved-products" element={<AdminAccountantApprovedProducts />} />
             <Route path="/messages" element={<AdminMessages />} />
             <Route path="/sites" element={<AdminSites />} />
             <Route path="/products" element={<AdminProducts />} />

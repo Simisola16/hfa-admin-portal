@@ -8,6 +8,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * AdminAccountantApprovedProducts
@@ -16,6 +17,17 @@ import Pagination from '../components/Pagination';
  * and a one-click "Done" button to track invoiced batches.
  */
 export default function AdminAccountantApprovedProducts() {
+  const { user, profile } = useAuth();
+  const currentUser = profile || user;
+  const userRoles = (Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : [])
+  ).map(r => String(r).toLowerCase().trim());
+  const isAccountant = userRoles.includes('accountant') ||
+    currentUser?.role === 'accountant' ||
+    userRoles.includes('superadmin') ||
+    currentUser?.role === 'superadmin';
+
   // Data state
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
@@ -50,6 +62,10 @@ export default function AdminAccountantApprovedProducts() {
 
   // Fetch approved products with graceful fallback for live server
   const fetchProducts = useCallback(async (isSilent = false) => {
+    if (!isAccountant) {
+      setLoading(false);
+      return;
+    }
     if (!isSilent) setLoading(true);
     try {
       const params = {
@@ -385,6 +401,32 @@ export default function AdminAccountantApprovedProducts() {
   const hasActiveFilters = Boolean(
     search || selectedCompany !== 'all' || selectedSite !== 'all' || period !== 'all' || startDate || endDate || invoicedStatus !== 'pending'
   );
+
+  if (!isAccountant) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: 640, margin: '60px auto', background: '#ffffff', borderRadius: 20, border: '2px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#dc2626' }}>
+          <AlertCircle size={36} />
+        </div>
+        <h2 style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', marginBottom: 10, letterSpacing: '-0.02em' }}>
+          Accountant Access Only
+        </h2>
+        <p style={{ fontSize: 16, color: '#475569', lineHeight: 1.6, marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
+          This page is strictly reserved for the Accountant to review newly added and approved products for billing and invoice processing.
+        </p>
+        <button
+          onClick={() => window.location.href = '/dashboard'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '12px 26px', background: '#0f172a', color: '#ffffff',
+            border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer'
+          }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1440, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>

@@ -999,7 +999,7 @@ export default function AdminAccountantApprovedProducts() {
                         <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: 12, textTransform: 'uppercase' }}>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>#</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Product Name</th>
-                          <th style={{ padding: '10px 14px', fontWeight: 800 }}>Code / Barcode</th>
+                          <th style={{ padding: '10px 14px', fontWeight: 800 }}>Code</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Category</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Date Added</th>
                           <th style={{ padding: '10px 14px', fontWeight: 800 }}>Status</th>

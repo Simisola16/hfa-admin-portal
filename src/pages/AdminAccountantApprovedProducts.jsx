@@ -462,7 +462,7 @@ export default function AdminAccountantApprovedProducts() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#b45309' }}>
-              ⚡ Products Just Added (Needs Invoice)
+              ⚡ New Product Approved (Raise Invoice)
             </span>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
               <Clock size={22} strokeWidth={2.5} />
@@ -494,7 +494,7 @@ export default function AdminAccountantApprovedProducts() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#15803d' }}>
-              ✓ Already Invoiced (Done)
+              ✓ Invoiced Raised (Done)
             </span>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
               <CheckCircle2 size={22} strokeWidth={2.5} />

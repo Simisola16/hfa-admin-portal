@@ -80,37 +80,7 @@ export default function AdminAccountantApprovedProducts() {
         limit: pageSize
       };
 
-      let res;
-      try {
-        res = await api.get('/api/products/accountant-approved', { params });
-      } catch (endpointErr) {
-        // Fallback to standard products endpoint if dedicated accountant endpoint is still deploying
-        console.warn('Endpoint fallback to /api/products:', endpointErr.message);
-        const fallbackRes = await api.get('/api/products', {
-          params: {
-            status: 'approved',
-            client_id: selectedCompany !== 'all' ? selectedCompany : undefined,
-            site_id: selectedSite !== 'all' ? selectedSite : undefined,
-            page,
-            limit: pageSize
-          }
-        });
-        const rawProds = Array.isArray(fallbackRes) ? fallbackRes : (fallbackRes?.data || []);
-        res = {
-          data: rawProds,
-          pagination: {
-            page,
-            limit: pageSize,
-            total: fallbackRes?.pagination?.total || rawProds.length,
-            totalPages: fallbackRes?.pagination?.totalPages || 1
-          },
-          stats: {
-            pendingCount: rawProds.filter(p => !p.is_invoiced).length,
-            invoicedCount: rawProds.filter(p => p.is_invoiced).length,
-            totalApproved: rawProds.length
-          }
-        };
-      }
+      const res = await api.get('/api/products/accountant-approved', { params });
 
       const data = res?.data || [];
       setProducts(data);

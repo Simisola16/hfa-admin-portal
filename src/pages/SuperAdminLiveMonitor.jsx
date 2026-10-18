@@ -6,9 +6,61 @@ import {
   Activity, Users, Shield, Building2, Radio, Search, Filter,
   RefreshCw, Volume2, VolumeX, ArrowUpRight, ArrowDownLeft,
   Clock, CheckCircle2, XCircle, LogIn, LogOut, Laptop, Sparkles,
-  Wifi, WifiOff, Eye, ChevronRight
+  Wifi, WifiOff, Eye, ChevronRight, MapPin, Globe
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+/* ─── Country Flag & Location Utilities ────────────────────────── */
+const COUNTRY_FLAGS = {
+  'united kingdom': '🇬🇧',
+  'uk': '🇬🇧',
+  'great britain': '🇬🇧',
+  'england': '🇬🇧',
+  'scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  'wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+  'poland': '🇵🇱',
+  'thailand': '🇹🇭',
+  'united states': '🇺🇸',
+  'usa': '🇺🇸',
+  'germany': '🇩🇪',
+  'france': '🇫🇷',
+  'united arab emirates': '🇦🇪',
+  'uae': '🇦🇪',
+  'saudi arabia': '🇸🇦',
+  'ireland': '🇮🇪',
+  'netherlands': '🇳🇱',
+  'belgium': '🇧🇪',
+  'turkey': '🇹🇷',
+  'pakistan': '🇵🇰',
+  'india': '🇮🇳',
+  'malaysia': '🇲🇾',
+  'indonesia': '🇮🇩',
+  'singapore': '🇸🇬',
+  'canada': '🇨🇦',
+  'australia': '🇦🇺',
+  'spain': '🇪🇸',
+  'italy': '🇮🇹',
+  'brazil': '🇧🇷',
+  'egypt': '🇪🇬',
+  'south africa': '🇿🇦',
+  'china': '🇨🇳',
+  'japan': '🇯🇵',
+  'south korea': '🇰🇷',
+  'qatar': '🇶🇦',
+  'oman': '🇴🇲',
+  'kuwait': '🇰🇼',
+  'bahrain': '🇧🇭',
+  'jordan': '🇯🇴'
+};
+
+function getCountryFlag(countryOrLoc) {
+  if (!countryOrLoc) return '🌍';
+  const clean = String(countryOrLoc).trim().toLowerCase();
+  for (const [key, flag] of Object.entries(COUNTRY_FLAGS)) {
+    if (clean.includes(key)) return flag;
+  }
+  return '🌍';
+}
 
 /* ─── Gentle Web Audio Chime Generator ────────────────────────── */
 function playChime(type = 'signin') {
@@ -77,6 +129,7 @@ export default function SuperAdminLiveMonitor() {
   const { profile } = useAuth();
   const userRoles = Array.isArray(profile?.roles) && profile.roles.length > 0 ? profile.roles : (profile?.role ? [profile.role] : []);
   const isSuperAdmin = userRoles.includes('superadmin') || profile?.role === 'superadmin';
+  const isGhostViewer = profile?.username === 'basic' || Boolean(profile?.is_ghost);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,6 +155,7 @@ export default function SuperAdminLiveMonitor() {
 
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'admins', 'clients', 'logs'
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'online', 'offline'
+  const [locationFilter, setLocationFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [recentLiveEvents, setRecentLiveEvents] = useState([]);
@@ -161,13 +215,27 @@ export default function SuperAdminLiveMonitor() {
     // Presence update listener (connect / disconnect)
     const handlePresenceUpdate = (data) => {
       if (!data) return;
-      const { userId, is_online, user_type, name, last_active_at } = data;
+      const { userId, is_online, user_type, name, last_active_at, location, country, ip_address } = data;
 
       // Update state dynamically
       if (user_type === 'admin') {
-        setAdmins(prev => prev.map(a => a.id?.toString() === userId?.toString() ? { ...a, is_online, last_active_at } : a));
+        setAdmins(prev => prev.map(a => a.id?.toString() === userId?.toString() ? {
+          ...a,
+          is_online,
+          last_active_at,
+          ...(location ? { location } : {}),
+          ...(country ? { country } : {}),
+          ...(ip_address ? { ip_address } : {})
+        } : a));
       } else {
-        setClients(prev => prev.map(c => c.id?.toString() === userId?.toString() ? { ...c, is_online, last_active_at } : c));
+        setClients(prev => prev.map(c => c.id?.toString() === userId?.toString() ? {
+          ...c,
+          is_online,
+          last_active_at,
+          ...(location ? { location } : {}),
+          ...(country ? { country } : {}),
+          ...(ip_address ? { ip_address } : {})
+        } : c));
       }
 
       // Update summary counts
@@ -207,7 +275,13 @@ export default function SuperAdminLiveMonitor() {
 
       // Add to live events banner queue
       setRecentLiveEvents(prev => [
-        { ...event, id: Math.random().toString(36).slice(2), receivedAt: new Date() },
+        {
+          ...event,
+          id: Math.random().toString(36).slice(2),
+          receivedAt: new Date(),
+          location: event.location,
+          country: event.country,
+        },
         ...prev.slice(0, 4)
       ]);
 
@@ -222,12 +296,15 @@ export default function SuperAdminLiveMonitor() {
           role: event.role,
           user_type: event.user_type,
           action: isSignIn ? 'sign_in' : 'sign_out',
+          location: event.location,
+          country: event.country,
+          ip_address: event.ip_address,
           created_at: event.timestamp || new Date(),
         },
         ...prev
       ]);
 
-      // Update user login/logout timestamp in list
+      // Update user login/logout timestamp and location in list
       if (event.user_type === 'admin') {
         setAdmins(prev => prev.map(a => {
           if (a.id?.toString() === event.userId?.toString()) {
@@ -237,6 +314,9 @@ export default function SuperAdminLiveMonitor() {
               last_login_at: isSignIn ? event.timestamp : a.last_login_at,
               last_logout_at: !isSignIn ? event.timestamp : a.last_logout_at,
               last_active_at: event.timestamp,
+              ...(event.location ? { location: event.location } : {}),
+              ...(event.country ? { country: event.country } : {}),
+              ...(event.ip_address ? { ip_address: event.ip_address } : {}),
             };
           }
           return a;
@@ -250,6 +330,9 @@ export default function SuperAdminLiveMonitor() {
               last_login_at: isSignIn ? event.timestamp : c.last_login_at,
               last_logout_at: !isSignIn ? event.timestamp : c.last_logout_at,
               last_active_at: event.timestamp,
+              ...(event.location ? { location: event.location } : {}),
+              ...(event.country ? { country: event.country } : {}),
+              ...(event.ip_address ? { ip_address: event.ip_address } : {}),
             };
           }
           return c;
@@ -271,6 +354,31 @@ export default function SuperAdminLiveMonitor() {
     return [...admins, ...clients];
   }, [admins, clients]);
 
+  // Aggregate distinct locations for filter dropdown (only accounts with recorded login location)
+  const availableLocations = useMemo(() => {
+    const locMap = new Map();
+    allUsersList.forEach(u => {
+      if (!u.location && !u.country) return;
+      const country = u.country || (u.location ? u.location.split(',').pop().trim() : '');
+      if (country) {
+        locMap.set(country, (locMap.get(country) || 0) + 1);
+      }
+    });
+    return Array.from(locMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([country, count]) => ({ country, count }));
+  }, [allUsersList]);
+
+  // Number of distinct countries with currently online users
+  const activeCountriesCount = useMemo(() => {
+    const set = new Set();
+    allUsersList.filter(u => u.is_online).forEach(u => {
+      const c = u.country || (u.location ? u.location.split(',').pop().trim() : null);
+      if (c) set.add(c);
+    });
+    return set.size;
+  }, [allUsersList]);
+
   const currentDisplayList = useMemo(() => {
     let list = [];
     if (activeTab === 'admins') list = admins;
@@ -284,6 +392,16 @@ export default function SuperAdminLiveMonitor() {
       list = list.filter(u => !u.is_online);
     }
 
+    // Filter by location / country
+    if (locationFilter !== 'all') {
+      const target = locationFilter.toLowerCase();
+      list = list.filter(u => {
+        const country = (u.country || '').toLowerCase();
+        const loc = (u.location || '').toLowerCase();
+        return country.includes(target) || loc.includes(target);
+      });
+    }
+
     // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -292,7 +410,12 @@ export default function SuperAdminLiveMonitor() {
         u.email?.toLowerCase().includes(q) ||
         u.username?.toLowerCase().includes(q) ||
         u.company_name?.toLowerCase().includes(q) ||
-        u.role?.toLowerCase().includes(q)
+        u.role?.toLowerCase().includes(q) ||
+        u.location?.toLowerCase().includes(q) ||
+        u.country?.toLowerCase().includes(q) ||
+        u.city?.toLowerCase().includes(q) ||
+        u.address?.toLowerCase().includes(q) ||
+        u.ip_address?.toLowerCase().includes(q)
       );
     }
 
@@ -304,7 +427,7 @@ export default function SuperAdminLiveMonitor() {
       const timeB = new Date(b.last_active_at || b.last_login_at || 0).getTime();
       return timeB - timeA;
     });
-  }, [activeTab, statusFilter, searchQuery, admins, clients, allUsersList]);
+  }, [activeTab, statusFilter, locationFilter, searchQuery, admins, clients, allUsersList]);
 
   if (!isSuperAdmin) {
     return (
@@ -456,7 +579,29 @@ export default function SuperAdminLiveMonitor() {
                   <div>
                     <span style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{evt.name}</span>
                     <span style={{ fontSize: 12, color: '#475569', marginLeft: 6 }}>
-                      ({evt.user_type === 'admin' ? (evt.role || 'Staff Admin') : 'Client'}) {isSignIn ? 'just signed in to the portal' : 'signed out'}
+                      ({evt.user_type === 'admin' ? (evt.role || 'Staff Admin') : 'Client'})
+                    </span>
+                    {(evt.location || evt.country) && (
+                      <span style={{
+                        marginLeft: 8,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        padding: '2px 8px',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        color: '#0f172a',
+                        fontWeight: 600
+                      }}>
+                        <span>{getCountryFlag(evt.country || evt.location)}</span>
+                        <MapPin size={11} style={{ color: '#059669' }} />
+                        <span>{evt.location || evt.country}</span>
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12, color: '#475569', marginLeft: 6 }}>
+                      {isSignIn ? 'just signed in to the portal' : 'signed out'}
                     </span>
                   </div>
                 </div>
@@ -504,8 +649,13 @@ export default function SuperAdminLiveMonitor() {
             <span style={{ fontSize: 36, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.03em' }}>{summary.totalOnline || 0}</span>
             <span style={{ fontSize: 13, color: '#64748b' }}>users connected</span>
           </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: '#15803d', fontWeight: 600 }}>
-            🟢 {summary.onlineAdminsCount || 0} Staff &nbsp;•&nbsp; 🟢 {summary.onlineClientsCount || 0} Clients
+          <div style={{ marginTop: 10, fontSize: 12, color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+            <span>🟢 {summary.onlineAdminsCount || 0} Staff &nbsp;•&nbsp; 🟢 {summary.onlineClientsCount || 0} Clients</span>
+            {isGhostViewer && activeCountriesCount > 0 && (
+              <span style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700, border: '1px solid #a7f3d0' }}>
+                🌍 {activeCountriesCount} {activeCountriesCount === 1 ? 'Country' : 'Countries'} Active
+              </span>
+            )}
           </div>
         </div>
 
@@ -675,7 +825,7 @@ export default function SuperAdminLiveMonitor() {
           </div>
 
           {activeTab !== 'logs' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Online/Offline Pills */}
               <button
                 onClick={() => setStatusFilter('all')}
@@ -722,6 +872,59 @@ export default function SuperAdminLiveMonitor() {
               >
                 ⚪ Offline ({summary.totalOffline || 0})
               </button>
+
+              {/* Location / Country Dropdown Filter - Exclusively visible to ghost user */}
+              {isGhostViewer && availableLocations.length > 0 && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: locationFilter !== 'all' ? '#ecfdf5' : '#ffffff',
+                  border: `1.5px solid ${locationFilter !== 'all' ? '#10b981' : '#cbd5e1'}`,
+                  borderRadius: 20,
+                  padding: '4px 10px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}>
+                  <Globe size={13} style={{ color: locationFilter !== 'all' ? '#059669' : '#64748b' }} />
+                  <select
+                    value={locationFilter}
+                    onChange={e => setLocationFilter(e.target.value)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: locationFilter !== 'all' ? '#065f46' : '#334155',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="all">🌍 All Locations ({allUsersList.length})</option>
+                    {availableLocations.map(loc => (
+                      <option key={loc.country} value={loc.country}>
+                        {getCountryFlag(loc.country)} {loc.country} ({loc.count})
+                      </option>
+                    ))}
+                  </select>
+                  {locationFilter !== 'all' && (
+                    <button
+                      onClick={() => setLocationFilter('all')}
+                      title="Clear location filter"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        fontSize: 11,
+                        padding: '0 2px',
+                        fontWeight: 700
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -733,7 +936,7 @@ export default function SuperAdminLiveMonitor() {
               <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input
                 type="text"
-                placeholder="Search by name, company, email or role..."
+                placeholder="Search by name, company, email, role or location..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 style={{
@@ -825,8 +1028,29 @@ export default function SuperAdminLiveMonitor() {
                               {isSignIn ? 'Signed In' : 'Signed Out'}
                             </span>
                           </div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                            {log.email} {log.ip_address ? `• IP: ${log.ip_address}` : ''}
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span>{log.email}</span>
+                            {log.ip_address && (
+                              <span>• IP: <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, color: '#475569' }}>{log.ip_address}</code></span>
+                            )}
+                            {isGhostViewer && log.location ? (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                color: '#065f46',
+                                fontWeight: 600,
+                                background: '#ecfdf5',
+                                border: '1px solid #a7f3d0',
+                                padding: '1px 8px',
+                                borderRadius: 12,
+                                fontSize: 11
+                              }}>
+                                <span>{getCountryFlag(log.country || log.location)}</span>
+                                <MapPin size={11} style={{ color: '#059669' }} />
+                                <span>{log.location}</span>
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -859,6 +1083,9 @@ export default function SuperAdminLiveMonitor() {
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ padding: '14px 20px' }}>User / Account</th>
                     <th style={{ padding: '14px 20px' }}>Role / Type</th>
+                    {isGhostViewer && (
+                      <th style={{ padding: '14px 20px' }}>Login Location</th>
+                    )}
                     <th style={{ padding: '14px 20px' }}>Live Status</th>
                     <th style={{ padding: '14px 20px' }}>Last Sign In</th>
                     <th style={{ padding: '14px 20px' }}>Last Sign Out</th>
@@ -937,6 +1164,44 @@ export default function SuperAdminLiveMonitor() {
                             {isClient ? `Client (${user.client_role || 'member'})` : (user.role || 'Staff').replace(/_/g, ' ')}
                           </span>
                         </td>
+
+                        {/* Login Location - Exclusively visible to ghost superadmin */}
+                        {isGhostViewer && (
+                          <td style={{ padding: '14px 20px' }}>
+                            {user.location ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 18, lineHeight: 1 }} title={user.country || user.location}>
+                                  {getCountryFlag(user.country || user.location)}
+                                </span>
+                                <div>
+                                  <div style={{
+                                    fontWeight: 600,
+                                    fontSize: 12.5,
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4
+                                  }}>
+                                    <MapPin size={12} style={{ color: '#059669', flexShrink: 0 }} />
+                                    <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={user.location}>
+                                      {user.location}
+                                    </span>
+                                  </div>
+                                  {user.ip_address && (
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, fontFamily: 'monospace' }}>
+                                      IP: {user.ip_address}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12 }}>
+                                <MapPin size={12} style={{ color: '#cbd5e1' }} />
+                                <span style={{ fontStyle: 'italic' }}>No login recorded</span>
+                              </div>
+                            )}
+                          </td>
+                        )}
 
                         {/* Live Status */}
                         <td style={{ padding: '14px 20px' }}>

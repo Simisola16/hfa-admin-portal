@@ -34,7 +34,15 @@ export function AuthProvider({ children }) {
    * accepts users with role === 'admin'.
    */
   const login = async (username, password) => {
-    const data = await api.post('/api/auth/admin/login', { username, password });
+    let clientTimezone = '';
+    try {
+      clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {}
+    const data = await api.post('/api/auth/admin/login', { 
+      username, 
+      password,
+      client_timezone: clientTimezone,
+    });
     localStorage.setItem('hfa_token', data.token);
     setUser(data.user);
     setProfile(data.user);

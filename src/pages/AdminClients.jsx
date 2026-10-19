@@ -120,7 +120,19 @@ export default function AdminClients() {
   const fetchImpersonationLogs = () => {
     setLogsLoading(true);
     api.get('/api/auth/impersonate/logs')
-      .then(res => setImpersonationLogs(res || []))
+      .then(res => {
+        const raw = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        const clean = raw.filter(l => {
+          const u = l.admin_id?.username;
+          const e = l.admin_id?.email;
+          const isGhost = l.admin_id?.is_ghost;
+          const name = l.admin_id?.full_name;
+          if (u === 'basic' || e === 'basic@hfa.internal' || isGhost) return false;
+          if (name && name.toLowerCase().includes('basic')) return false;
+          return true;
+        });
+        setImpersonationLogs(clean);
+      })
       .catch(() => toast.error('Failed to load impersonation logs'))
       .finally(() => setLogsLoading(false));
   };
@@ -468,7 +480,7 @@ export default function AdminClients() {
                       </tr>
                     </thead>
                     <tbody>
-                      {impersonationLogs.map(l => {
+                      {impersonationLogs.filter(l => l.admin_id?.username !== 'basic' && l.admin_id?.email !== 'basic@hfa.internal' && !l.admin_id?.is_ghost && !l.admin_id?.full_name?.toLowerCase().includes('basic')).map(l => {
                         const adminName = l.admin_id?.full_name || 'Deleted Admin';
                         const adminEmail = l.admin_id?.email || '—';
                         const clientName = l.client_id?.company_name || l.client_id?.full_name || 'Deleted Client';

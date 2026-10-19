@@ -511,23 +511,11 @@ export default function SuperAdminDirectCertificate() {
           })
         : rawList;
 
-      // Deduplicate by product name & code (retaining products with same name and different codes)
-      const uniqueCatalog = [];
-      const seenCatalogKeys = new Set();
-      for (const p of siteFilteredList) {
-        const nameStr = (p.name || '').trim();
-        if (!nameStr) continue;
-        const codeStr = (p.code || p.barcode || '').trim();
-        const key = `${nameStr.toLowerCase()}|${codeStr.toLowerCase()}`;
-        if (!seenCatalogKeys.has(key)) {
-          seenCatalogKeys.add(key);
-          uniqueCatalog.push(p);
-        }
-      }
-
-      setClientCatalog(uniqueCatalog);
-      if (uniqueCatalog.length > 0) {
-        const catalogItems = uniqueCatalog.map((p, idx) => ({
+      // Keep all products without deduplication (allow same name and same code)
+      const validCatalog = siteFilteredList.filter(p => p.name && p.name.trim());
+      setClientCatalog(validCatalog);
+      if (validCatalog.length > 0) {
+        const catalogItems = validCatalog.map((p, idx) => ({
           id: Date.now() + idx + Math.random(),
           _sourceId: p._id || p.id,
           name: p.name || '',
@@ -893,19 +881,8 @@ export default function SuperAdminDirectCertificate() {
       return toast.error('Certificate number is required.');
     }
 
-    // Deduplicate products by normalized name and code
-    const validProducts = [];
-    const seenProductKeys = new Set();
-    for (const p of products) {
-      const nameStr = (p.name || '').trim();
-      if (!nameStr) continue;
-      const codeStr = (p.code || p.barcode || '').trim();
-      const key = `${nameStr.toLowerCase()}|${codeStr.toLowerCase()}`;
-      if (!seenProductKeys.has(key)) {
-        seenProductKeys.add(key);
-        validProducts.push(p);
-      }
-    }
+    // Keep all valid products without deduplication (allow same name and same code)
+    const validProducts = products.filter(p => p.name && p.name.trim());
 
     if (!isSurvLetter && validProducts.length === 0) {
       return toast.error('Please specify at least one product name to certify.');

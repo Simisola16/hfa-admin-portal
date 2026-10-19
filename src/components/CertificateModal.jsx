@@ -377,17 +377,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
         const pCode = (p.code || p.barcode || '').trim();
         const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
 
-        const isDuplicate = resolvedProductItems.some(r => {
-          if (pId && r.id && r.id === pId) return true;
-          if (r.name.toLowerCase() === pName.toLowerCase()) {
-            const rCode = (r.code || '').trim().toLowerCase();
-            const curCode = pCode.toLowerCase();
-            if (rCode && curCode) return rCode === curCode;
-            if (!rCode && !curCode) return true;
-            return false;
-          }
-          return false;
-        });
+        const isDuplicate = pId ? resolvedProductItems.some(r => r.id && r.id === pId) : false;
 
         if (pName && !isDuplicate) {
           resolvedProductItems.push({
@@ -420,16 +410,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           const pName = typeof item === 'string' ? item.trim() : (item.name || item.title || '').trim();
           const pCode = typeof item === 'object' && item.code ? String(item.code).trim() : '';
 
-          const isDuplicate = resolvedProductItems.some(r => {
-            if (r.name.toLowerCase() === pName.toLowerCase()) {
-              const rCode = (r.code || '').trim().toLowerCase();
-              const curCode = pCode.toLowerCase();
-              if (rCode && curCode) return rCode === curCode;
-              if (!rCode && !curCode) return true;
-              return false;
-            }
-            return false;
-          });
+          const isDuplicate = false;
 
           if (pName && !isDuplicate) {
             resolvedProductItems.push({
@@ -463,17 +444,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
             const pCode = (p.code || '').trim();
             const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
 
-            const isDuplicate = resolvedProductItems.some(r => {
-              if (pId && r.id && r.id === pId) return true;
-              if (r.name.toLowerCase() === pName.toLowerCase()) {
-                const rCode = (r.code || '').trim().toLowerCase();
-                const curCode = pCode.toLowerCase();
-                if (rCode && curCode) return rCode === curCode;
-                if (!rCode && !curCode) return true;
-                return false;
-              }
-              return false;
-            });
+            const isDuplicate = pId ? resolvedProductItems.some(r => r.id && r.id === pId) : false;
 
             if (pName && !isDuplicate) {
               resolvedProductItems.push({
@@ -502,17 +473,7 @@ export default function CertificateModal({ isOpen, onClose, app: propApp, appId:
           const pId = p._id ? String(p._id) : (p.id ? String(p.id) : '');
 
           if (pType === 'Add product' || !p.type) {
-            const isDuplicate = resolvedProductItems.some(r => {
-              if (pId && r.id && r.id === pId) return true;
-              if (r.name.toLowerCase() === pName.toLowerCase()) {
-                const rCode = (r.code || '').trim().toLowerCase();
-                const curCode = pCode.toLowerCase();
-                if (rCode && curCode) return rCode === curCode;
-                if (!rCode && !curCode) return true;
-                return false;
-              }
-              return false;
-            });
+            const isDuplicate = pId ? resolvedProductItems.some(r => r.id && r.id === pId) : false;
 
             if (pName && !isDuplicate) {
               resolvedProductItems.push({

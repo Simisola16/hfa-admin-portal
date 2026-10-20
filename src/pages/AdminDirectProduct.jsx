@@ -309,8 +309,8 @@ export default function AdminDirectProduct() {
     if (!bulkText.trim()) return;
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map((line, idx) => {
-      // Split by |, comma, tab, or semicolon
-      const parts = line.split(/[|,;\t]/).map(p => p.trim());
+      // Split by double pipe (||) so names containing commas or single pipes remain intact
+      const parts = (line.includes('||') ? line.split('||') : line.split('|')).map(p => p.trim());
       const name = parts[0] || `Product Line ${idx + 1}`;
       const code = parts[1] || `PRD-${String(products.length + idx + 1).padStart(2, '0')}`;
       const category = parts[2] || 'General Food Products';
@@ -1650,11 +1650,11 @@ export default function AdminDirectProduct() {
               <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, fontSize: 12, color: '#475569', marginBottom: 14 }}>
                 <strong style={{ color: '#0f172a' }}>Format guidelines:</strong>
                 <p style={{ margin: '4px 0 0' }}>
-                  Enter or paste product names line by line. You can optionally include code and category separated by a pipe (<code>|</code>) or comma (<code>,</code>).
+                  Enter or paste product names line by line. Separate product name, code, and category using double pipe (<code>||</code>). Commas (<code>,</code>) within product names are preserved.
                 </p>
                 <div style={{ background: '#e2e8f0', padding: 6, borderRadius: 4, fontFamily: 'monospace', marginTop: 6 }}>
-                  Halal Whole Beef Roast | PRD-01 | Meat & Poultry<br />
-                  Halal Chicken Breast | PRD-02 | Meat & Poultry<br />
+                  Halal Whole Beef Roast, Seasoned || PRD-01 || Meat & Poultry<br />
+                  Halal Chicken Breast, Boneless || PRD-02 || Meat & Poultry<br />
                   Halal Burger Patties
                 </div>
               </div>

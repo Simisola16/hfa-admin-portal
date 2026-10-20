@@ -416,11 +416,27 @@ export default function AdminDirectLogsheet() {
     }
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map((line, idx) => {
-      const parts = line.split(/[,\t|]/).map(s => s.trim());
+      // Split by double pipe (||) so product names containing commas (,) or single pipes remain intact
+      const parts = (line.includes('||') ? line.split('||') : line.split('|')).map(s => s.trim());
+      let code = '';
+      let name = '';
+      if (parts.length > 1) {
+        // Support either: Code | Name | Category OR Name | Code | Category
+        if (parts[0].length <= 15 && (/^(PRD|HFA|P-|[0-9]{2,})/i.test(parts[0]) || parts[0].length < parts[1].length)) {
+          code = parts[0];
+          name = parts[1];
+        } else {
+          name = parts[0];
+          code = parts[1];
+        }
+      } else {
+        name = parts[0] || `Product ${products.length + idx + 1}`;
+      }
+
       return {
         id: Date.now() + idx + Math.random(),
-        code: parts.length > 1 && parts[0].length <= 15 ? parts[0] : `PRD-${String(products.length + idx + 1).padStart(2, '0')}`,
-        name: parts.length > 1 && parts[0].length <= 15 ? parts[1] : parts[0],
+        code: code || `PRD-${String(products.length + idx + 1).padStart(2, '0')}`,
+        name: name || `Product ${products.length + idx + 1}`,
         category: parts[2] || form.product_category || 'General Food Products',
         product_type: parts[3] || 'Processed',
         barcode: parts[4] || '',
@@ -1760,12 +1776,17 @@ export default function AdminDirectLogsheet() {
             </div>
             <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 14 }}>
               <p style={{ fontSize: 12.5, color: '#64748b', margin: 0 }}>
-                Paste product names or lines (one per row, optionally separated by commas, tabs or pipes):
+                Paste product names one per line. Separate Product Code, Name, and Category using double pipe (<code>||</code>). Commas (<code>,</code>) within product names are preserved:
               </p>
+              <div style={{ background: '#f8fafc', padding: 8, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#475569' }}>
+                PRD-01 || Fresh Chicken Breast, 500g || Poultry<br />
+                PRD-02 || Beef Burgers, 4pk || Beef<br />
+                PRD-03 || Lamb Sausages, Garlic &amp; Herb || Lamb
+              </div>
               <textarea
                 rows={8}
                 className="form-control"
-                placeholder={`PRD-01, Fresh Chicken Breast 500g, Poultry\nPRD-02, Beef Burgers 4pk, Beef\nPRD-03, Lamb Sausages 400g, Lamb`}
+                placeholder={`PRD-01 || Fresh Chicken Breast, 500g || Poultry\nPRD-02 || Beef Burgers, 4pk || Beef\nPRD-03 || Lamb Sausages, Garlic & Herb || Lamb`}
                 value={bulkText}
                 onChange={e => setBulkText(e.target.value)}
                 style={{ fontFamily: 'monospace', fontSize: 12 }}

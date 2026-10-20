@@ -416,8 +416,8 @@ export default function AdminDirectLogsheet() {
     }
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map((line, idx) => {
-      // Split strictly by pipe (|) so product names containing commas (,) remain intact
-      const parts = line.split('|').map(s => s.trim());
+      // Split by double pipe (||) so product names containing commas (,) or single pipes remain intact
+      const parts = (line.includes('||') ? line.split('||') : line.split('|')).map(s => s.trim());
       let code = '';
       let name = '';
       if (parts.length > 1) {
@@ -1776,17 +1776,17 @@ export default function AdminDirectLogsheet() {
             </div>
             <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 14 }}>
               <p style={{ fontSize: 12.5, color: '#64748b', margin: 0 }}>
-                Paste product names one per line. Separate Product Code, Name, and Category using a pipe (<code>|</code>). Commas (<code>,</code>) within product names are preserved:
+                Paste product names one per line. Separate Product Code, Name, and Category using double pipe (<code>||</code>). Commas (<code>,</code>) within product names are preserved:
               </p>
               <div style={{ background: '#f8fafc', padding: 8, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#475569' }}>
-                PRD-01 | Fresh Chicken Breast, 500g | Poultry<br />
-                PRD-02 | Beef Burgers, 4pk | Beef<br />
-                PRD-03 | Lamb Sausages, Garlic &amp; Herb | Lamb
+                PRD-01 || Fresh Chicken Breast, 500g || Poultry<br />
+                PRD-02 || Beef Burgers, 4pk || Beef<br />
+                PRD-03 || Lamb Sausages, Garlic &amp; Herb || Lamb
               </div>
               <textarea
                 rows={8}
                 className="form-control"
-                placeholder={`PRD-01 | Fresh Chicken Breast, 500g | Poultry\nPRD-02 | Beef Burgers, 4pk | Beef\nPRD-03 | Lamb Sausages, Garlic & Herb | Lamb`}
+                placeholder={`PRD-01 || Fresh Chicken Breast, 500g || Poultry\nPRD-02 || Beef Burgers, 4pk || Beef\nPRD-03 || Lamb Sausages, Garlic & Herb || Lamb`}
                 value={bulkText}
                 onChange={e => setBulkText(e.target.value)}
                 style={{ fontFamily: 'monospace', fontSize: 12 }}

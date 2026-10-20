@@ -823,8 +823,8 @@ export default function SuperAdminDirectCertificate() {
     if (!bulkText.trim()) return;
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map((line, idx) => {
-      // Split strictly by pipe (|) so product names containing commas (,) remain intact
-      const parts = line.split('|').map(p => p.trim());
+      // Split by double pipe (||) so names containing commas or single pipes remain intact
+      const parts = (line.includes('||') ? line.split('||') : line.split('|')).map(p => p.trim());
       const name = parts[0] || `Product Line ${idx + 1}`;
       const code = parts[1] || `PRD-${String(products.length + idx + 1).padStart(2, '0')}`;
       const category = parts[2] || 'Meat & Poultry';
@@ -2500,12 +2500,12 @@ export default function SuperAdminDirectCertificate() {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
-                Paste product names one per line. Separate Product Name, Code, and Category using a pipe (<code>|</code>). Commas (<code>,</code>) within names are preserved:
+                Paste product names one per line. Separate Product Name, Code, and Category using double pipe (<code>||</code>). Commas (<code>,</code>) within names are preserved:
               </p>
               <div style={{ background: '#f8fafc', padding: 8, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#475569', marginBottom: 12 }}>
-                Halal Beef Sausage, Smoked | PRD-01 | Meat & Poultry<br />
-                Halal Chicken Nuggets, Crispy | PRD-02 | Meat & Poultry<br />
-                Spicy Peri Peri Sauce | PRD-03 | Sauces & Condiments
+                Halal Beef Sausage, Smoked || PRD-01 || Meat & Poultry<br />
+                Halal Chicken Nuggets, Crispy || PRD-02 || Meat & Poultry<br />
+                Spicy Peri Peri Sauce || PRD-03 || Sauces & Condiments
               </div>
               <textarea
                 className="form-control"

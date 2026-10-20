@@ -554,28 +554,25 @@ export default function AdminReviewCertificate() {
     }
   }, [certId]);
 
-  // Check if a site product is currently picked for certificate
+  // Check if a site product is currently picked for certificate (strictly by product ID)
   const isProductSelected = (prod) => {
     if (!prod) return false;
+    const prodId = typeof prod === 'object' ? (prod._id || prod.id) : null;
+    if (prodId) {
+      return form.product_details.some(p => {
+        const pId = p._id || p.id;
+        return pId && String(pId) === String(prodId);
+      });
+    }
+
     const prodName = typeof prod === 'string' ? prod.trim().toLowerCase() : (prod.name || '').trim().toLowerCase();
     const prodCode = typeof prod === 'object' ? (prod.code || prod.barcode || '').trim().toLowerCase() : '';
-    const prodId = typeof prod === 'object' ? (prod._id || prod.id) : null;
-
-    if (!prodName && !prodId) return false;
+    if (!prodName) return false;
 
     return form.product_details.some(p => {
-      if (prodId && (p._id || p.id)) {
-        if (String(p._id || p.id) === String(prodId)) return true;
-      }
       const pName = (p.name || '').trim().toLowerCase();
-      if (pName && pName === prodName) {
-        const pCode = (p.code || p.barcode || '').trim().toLowerCase();
-        if (prodCode || pCode) {
-          return prodCode === pCode;
-        }
-        return true;
-      }
-      return false;
+      const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+      return pName === prodName && pCode === prodCode;
     });
   };
 
@@ -595,15 +592,12 @@ export default function AdminReviewCertificate() {
 
       const updatedDetails = form.product_details.filter(p => {
         if (prodId && (p._id || p.id)) {
-          if (String(p._id || p.id) === String(prodId)) return false;
+          return String(p._id || p.id) !== String(prodId);
         }
         const pName = (p.name || '').trim().toLowerCase();
         if (pName && pName === prodNameLower) {
           const pCode = (p.code || p.barcode || '').trim().toLowerCase();
-          if (prodCode || pCode) {
-            return prodCode !== pCode;
-          }
-          return false;
+          return prodCode !== pCode;
         }
         return true;
       });

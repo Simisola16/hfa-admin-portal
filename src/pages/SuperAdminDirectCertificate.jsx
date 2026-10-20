@@ -626,21 +626,18 @@ export default function SuperAdminDirectCertificate() {
     }
   }, [selectedSite]);
 
-  // Catalog Helper: Check if a client catalog product is currently selected
+  // Catalog Helper: Check if a client catalog product is currently selected (strictly by source ID)
   const isProductSelected = (catalogItem) => {
     const cId = catalogItem._id || catalogItem.id;
+    if (cId) {
+      return products.some(p => p._sourceId && String(p._sourceId) === String(cId));
+    }
     const cName = (catalogItem.name || '').trim().toLowerCase();
     const cCode = (catalogItem.code || catalogItem.barcode || '').trim().toLowerCase();
     return products.some(p => {
-      if (p._sourceId && cId && String(p._sourceId) === String(cId)) return true;
-      if (cName && (p.name || '').trim().toLowerCase() === cName) {
-        const pCode = (p.code || p.barcode || '').trim().toLowerCase();
-        if (cCode || pCode) {
-          return cCode === pCode;
-        }
-        return true;
-      }
-      return false;
+      const pName = (p.name || '').trim().toLowerCase();
+      const pCode = (p.code || p.barcode || '').trim().toLowerCase();
+      return pName === cName && pCode === cCode;
     });
   };
 
@@ -655,13 +652,12 @@ export default function SuperAdminDirectCertificate() {
       // Deselect: remove from products table
       setProducts(prev => {
         const filtered = prev.filter(p => {
-          if (p._sourceId && cId && String(p._sourceId) === String(cId)) return false;
+          if (cId && p._sourceId) {
+            return String(p._sourceId) !== String(cId);
+          }
           if (cName && (p.name || '').trim().toLowerCase() === cName) {
             const pCode = (p.code || p.barcode || '').trim().toLowerCase();
-            if (cCode || pCode) {
-              return cCode !== pCode;
-            }
-            return false;
+            return cCode !== pCode;
           }
           return true;
         });
@@ -725,14 +721,11 @@ export default function SuperAdminDirectCertificate() {
 
   // Deselect all catalog products
   const handleDeselectAllCatalog = () => {
-    const catalogIds = new Set(clientCatalog.map(c => String(c._id || c.id)));
-    const catalogKeys = new Set(clientCatalog.map(c => `${(c.name || '').trim().toLowerCase()}:::${(c.code || c.barcode || '').trim().toLowerCase()}`));
+    const catalogIds = new Set(clientCatalog.map(c => String(c._id || c.id)).filter(Boolean));
 
     setProducts(prev => {
       const remaining = prev.filter(p => {
         if (p._sourceId && catalogIds.has(String(p._sourceId))) return false;
-        const pKey = `${(p.name || '').trim().toLowerCase()}:::${(p.code || p.barcode || '').trim().toLowerCase()}`;
-        if (catalogKeys.has(pKey)) return false;
         return true;
       });
       return remaining.length > 0

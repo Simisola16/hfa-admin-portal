@@ -280,19 +280,20 @@ export default function AdminCreateLogsheet() {
     if (typeId === 'surveillance') {
       setForm(prev => ({
         ...prev,
-        audit_type: 'Surveillance',
+        audit_type: prev.audit_type || 'Re-audit',
         certificate_type: 'Surveillance Letter',
         suggested_certificate_type: 'Surveillance Letter',
         certificate_standard: 'Surveillance Letter',
         issue_date: prev.issue_date || todayStr,
         expiry_date: prev.expiry_date || oneYearLater,
         audit_date: prev.audit_date || todayStr,
-        ncs_close: 'No NCs Flagged',
-        docs_satisfactory: 'Satisfactory',
-        pork_free_statement: 'Verified Compliant',
-        reviewed_by: user?.full_name || 'HFA Lead Auditor',
-        reviewer_name: user?.full_name || 'HFA Lead Auditor',
-        review_date: todayStr,
+        auditors: prev.auditors || 'Shoaib',
+        ncs_close: prev.ncs_close || 'NC Closed',
+        docs_satisfactory: prev.docs_satisfactory || 'Satisfactory - all documentation verified',
+        pork_free_statement: prev.pork_free_statement || 'Confirmed - signed pork-free declaration in place',
+        reviewed_by: prev.reviewed_by || 'Audit Manager',
+        reviewer_name: prev.reviewer_name || 'Enas',
+        review_date: prev.review_date || todayStr,
         status_date: todayStr
       }));
     } else if (typeId === 'extension') {
@@ -1806,10 +1807,10 @@ export default function AdminCreateLogsheet() {
         setActiveTab(2);
         return;
       }
-      form.certificate_type = 'Surveillance Letter';
-      form.certificate_standard = 'Surveillance Letter';
-      form.suggested_certificate_type = 'Surveillance Letter';
-      form.audit_type = 'Surveillance';
+      form.certificate_type = form.certificate_type || 'Surveillance Letter';
+      form.certificate_standard = form.certificate_standard || 'Surveillance Letter';
+      form.suggested_certificate_type = form.suggested_certificate_type || 'Surveillance Letter';
+      form.audit_type = form.audit_type || 'Surveillance';
     } else if (isDirectCreation && directLogsheetType === 'extension') {
       // Extension Logsheet Validation (1. Facility & Extension Details, 2. Comment / Reason)
       if (!form.company_name?.trim()) {
@@ -2151,7 +2152,7 @@ export default function AdminCreateLogsheet() {
           ...redoPayload,
           source_type: 'application',
           logsheet_type: isSurveillanceLogsheet ? 'surveillance' : (cleanForm.logsheet_type || 'application'),
-          audit_type: isSurveillanceLogsheet ? 'Surveillance' : (cleanForm.audit_type || 'New'),
+          audit_type: cleanForm.audit_type || (isSurveillanceLogsheet ? 'Surveillance' : 'New'),
           certificate_type: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.certificate_type || ''),
           suggested_certificate_type: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.suggested_certificate_type || ''),
           certificate_standard: isSurveillanceLogsheet ? 'Surveillance Letter' : (cleanForm.certificate_standard || ''),
@@ -3863,6 +3864,168 @@ export default function AdminCreateLogsheet() {
                         onChange={e => setForm({ ...form, next_surveillance_due_date: e.target.value })}
                         style={{ fontWeight: 600 }}
                       />
+                    </div>
+
+                    {/* Section 2: Audit & Technical Compliance Review (from uploaded screenshot) */}
+                    <div style={{
+                      background: '#ffffff',
+                      borderRadius: 12,
+                      border: '1px solid #e2e8f0',
+                      padding: '20px 24px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                      marginTop: 10,
+                      marginBottom: 10
+                    }}>
+                      <h4 style={{
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: '#0f172a',
+                        borderBottom: '1.5px solid #f1f5f9',
+                        paddingBottom: 10,
+                        marginBottom: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.03em'
+                      }}>
+                        <FileText size={16} style={{ color: '#047857' }} />
+                        Audit &amp; Technical Compliance Review
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+                        {/* 1. AUDIT TYPE */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            AUDIT TYPE
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.audit_type || ''}
+                            onChange={e => setForm({ ...form, audit_type: e.target.value })}
+                            placeholder="Re-audit"
+                            style={{ fontSize: 13, fontWeight: 700, color: '#0d9488', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 2. AUDIT DATE */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            AUDIT DATE
+                          </label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={form.audit_date?.split('T')[0] || ''}
+                            onChange={e => setForm({ ...form, audit_date: e.target.value })}
+                            style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 3. AUDITOR(S) ASSIGNED */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            AUDITOR(S) ASSIGNED
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.auditors || ''}
+                            onChange={e => setForm({ ...form, auditors: e.target.value })}
+                            placeholder="Shoaib"
+                            style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 4. NON-CONFORMANCES (NCS CLOSE) */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            NON-CONFORMANCES (NCS CLOSE)
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.ncs_close || ''}
+                            onChange={e => setForm({ ...form, ncs_close: e.target.value })}
+                            placeholder="NC Closed"
+                            style={{ fontSize: 13, fontWeight: 600, color: '#15803d', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 5. DOCUMENTATION REVIEW STATUS (Full width) */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            DOCUMENTATION REVIEW STATUS
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.docs_satisfactory || ''}
+                            onChange={e => setForm({ ...form, docs_satisfactory: e.target.value })}
+                            placeholder="Satisfactory - all documentation verified"
+                            style={{ fontSize: 13, fontWeight: 500, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 6. PORK FREE POLICY STATEMENT (Full width) */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            PORK FREE POLICY STATEMENT
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.pork_free_statement || ''}
+                            onChange={e => setForm({ ...form, pork_free_statement: e.target.value })}
+                            placeholder="Confirmed - signed pork-free declaration in place"
+                            style={{ fontSize: 13, fontWeight: 500, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 7. REVIEWED BY (ROLE / DEPT) */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            REVIEWED BY (ROLE / DEPT)
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.reviewed_by || ''}
+                            onChange={e => setForm({ ...form, reviewed_by: e.target.value })}
+                            placeholder="Audit Manager"
+                            style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 8. REVIEWER NAME */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            REVIEWER NAME
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={form.reviewer_name || ''}
+                            onChange={e => setForm({ ...form, reviewer_name: e.target.value })}
+                            placeholder="Enas"
+                            style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+
+                        {/* 9. DATE OF REVIEW */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                            DATE OF REVIEW
+                          </label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={form.review_date?.split('T')[0] || ''}
+                            onChange={e => setForm({ ...form, review_date: e.target.value })}
+                            style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* File Upload with SELECT FILES Button (Purple theme from screenshot) */}

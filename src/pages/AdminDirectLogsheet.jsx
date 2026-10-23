@@ -93,6 +93,18 @@ const LOGSHEET_TYPES = [
     badgeBg: '#fffbeb',
     badgeBorder: '#fde68a',
     description: 'Authorize a temporary 30, 60, 90, or 180-day validity extension on an existing certificate pending re-audit or corrective action closure.'
+  },
+  {
+    id: 'surveillance',
+    title: 'Surveillance Logsheet',
+    shortTitle: 'Surveillance',
+    subtitle: 'Periodic Surveillance Audit & Compliance Verification',
+    icon: CheckCircle2,
+    badge: 'Surveillance Letter',
+    badgeColor: '#0d9488',
+    badgeBg: '#f0fdfa',
+    badgeBorder: '#99f6e4',
+    description: 'Evaluate periodic surveillance audits, technical compliance reviews, pork-free declarations, and issue official Surveillance Letters.'
   }
 ];
 
@@ -236,12 +248,24 @@ export default function AdminDirectLogsheet() {
       } else if (typeId === 'initial_product') {
         updatedAuditType = 'Initial Product Evaluation';
         defaultComment = 'Initial product formulations and ingredients cleared for Halal processing.';
+      } else if (typeId === 'surveillance') {
+        updatedAuditType = 'Re-audit';
+        defaultComment = 'Surveillance audit completed with satisfactory compliance verified. Recommended for Surveillance Letter issuance.';
       }
 
       return {
         ...prev,
         logsheet_type: typeId,
         audit_type: updatedAuditType,
+        certificate_type: typeId === 'surveillance' ? 'Surveillance Letter' : prev.certificate_type,
+        certificate_standard: typeId === 'surveillance' ? 'Surveillance Letter' : prev.certificate_standard,
+        suggested_certificate_type: typeId === 'surveillance' ? 'Surveillance Letter' : prev.suggested_certificate_type,
+        auditors: typeId === 'surveillance' ? (prev.auditors || 'Shoaib') : prev.auditors,
+        ncs_close: typeId === 'surveillance' ? (prev.ncs_close || 'NC Closed') : prev.ncs_close,
+        docs_satisfactory: typeId === 'surveillance' ? (prev.docs_satisfactory || 'Satisfactory - all documentation verified') : prev.docs_satisfactory,
+        pork_free_statement: typeId === 'surveillance' ? (prev.pork_free_statement || 'Confirmed - signed pork-free declaration in place') : prev.pork_free_statement,
+        reviewed_by: typeId === 'surveillance' ? (prev.reviewed_by || 'Audit Manager') : prev.reviewed_by,
+        reviewer_name: typeId === 'surveillance' ? (prev.reviewer_name || 'Enas') : prev.reviewer_name,
         comment: defaultComment
       };
     });
@@ -462,7 +486,7 @@ export default function AdminDirectLogsheet() {
     setSubmitting(true);
 
     try {
-      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || '').trim();
+      const resolvedCertType = (form.certificate_type || form.certificate_standard || form.suggested_certificate_type || (selectedType === 'surveillance' ? 'Surveillance Letter' : '')).trim();
       const INVALID_SCHEMES = ['', '-- select certificate type / scheme (required) --'];
       if (!resolvedCertType || INVALID_SCHEMES.includes(resolvedCertType.toLowerCase())) {
         toast.error('⚠️ Please select a valid Certificate Type / Scheme. "-- Select Certificate Type / Scheme (Required) --" is not a certificate type.');
@@ -1079,6 +1103,22 @@ export default function AdminDirectLogsheet() {
                         style={{ height: 42, borderRadius: 8 }}
                       />
                     </div>
+
+                    {selectedType === 'surveillance' && (
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>
+                          Next Surveillance Due Date <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={form.next_surveillance_due_date?.split('T')[0] || ''}
+                          onChange={e => setForm(f => ({ ...f, next_surveillance_due_date: e.target.value }))}
+                          style={{ height: 42, borderRadius: 8, fontWeight: 600 }}
+                          required
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Products Schedule for Application, Addon, and Initial Product */}
@@ -1324,28 +1364,190 @@ export default function AdminDirectLogsheet() {
                   </div>
                 )}
 
-                {/* GENERAL AUDIT / REVIEW FIELDS */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Audit / Review Date</label>
-                    <input type="date" className="form-control" value={form.audit_date} onChange={e => setForm(f => ({ ...f, audit_date: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
-                  </div>
+                {/* AUDIT & TECHNICAL COMPLIANCE REVIEW (Exact layout from uploaded image) */}
+                {selectedType === 'surveillance' ? (
+                  <div style={{
+                    background: '#ffffff',
+                    borderRadius: 12,
+                    border: '1px solid #e2e8f0',
+                    padding: '20px 24px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <h4 style={{
+                      fontSize: 14,
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      borderBottom: '1.5px solid #f1f5f9',
+                      paddingBottom: 10,
+                      marginBottom: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.03em'
+                    }}>
+                      <FileText size={16} style={{ color: '#047857' }} />
+                      Audit &amp; Technical Compliance Review
+                    </h4>
 
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Auditor / Technical Officer Name</label>
-                    <input className="form-control" value={form.auditors} onChange={e => setForm(f => ({ ...f, auditors: e.target.value }))} placeholder="Lead Auditor" style={{ height: 42, borderRadius: 8 }} />
-                  </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                      {/* AUDIT TYPE */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          AUDIT TYPE
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.audit_type || ''}
+                          onChange={e => setForm(f => ({ ...f, audit_type: e.target.value }))}
+                          placeholder="Re-audit"
+                          style={{ fontSize: 13, fontWeight: 700, color: '#0d9488', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
 
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>NCs Closure & Corrective Actions</label>
-                    <input className="form-control" value={form.ncs_close} onChange={e => setForm(f => ({ ...f, ncs_close: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
-                  </div>
+                      {/* AUDIT DATE */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          AUDIT DATE
+                        </label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={form.audit_date?.split('T')[0] || ''}
+                          onChange={e => setForm(f => ({ ...f, audit_date: e.target.value }))}
+                          style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
 
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Documentation & Specifications</label>
-                    <input className="form-control" value={form.docs_satisfactory} onChange={e => setForm(f => ({ ...f, docs_satisfactory: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
+                      {/* AUDITOR(S) ASSIGNED */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          AUDITOR(S) ASSIGNED
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.auditors || ''}
+                          onChange={e => setForm(f => ({ ...f, auditors: e.target.value }))}
+                          placeholder="Shoaib"
+                          style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* NON-CONFORMANCES (NCS CLOSE) */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          NON-CONFORMANCES (NCS CLOSE)
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.ncs_close || ''}
+                          onChange={e => setForm(f => ({ ...f, ncs_close: e.target.value }))}
+                          placeholder="NC Closed"
+                          style={{ fontSize: 13, fontWeight: 600, color: '#15803d', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* DOCUMENTATION REVIEW STATUS (Full width) */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          DOCUMENTATION REVIEW STATUS
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.docs_satisfactory || ''}
+                          onChange={e => setForm(f => ({ ...f, docs_satisfactory: e.target.value }))}
+                          placeholder="Satisfactory - all documentation verified"
+                          style={{ fontSize: 13, fontWeight: 500, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* PORK FREE POLICY STATEMENT (Full width) */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          PORK FREE POLICY STATEMENT
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.pork_free_statement || ''}
+                          onChange={e => setForm(f => ({ ...f, pork_free_statement: e.target.value }))}
+                          placeholder="Confirmed - signed pork-free declaration in place"
+                          style={{ fontSize: 13, fontWeight: 500, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* REVIEWED BY (ROLE / DEPT) */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          REVIEWED BY (ROLE / DEPT)
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.reviewed_by || ''}
+                          onChange={e => setForm(f => ({ ...f, reviewed_by: e.target.value }))}
+                          placeholder="Audit Manager"
+                          style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* REVIEWER NAME */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          REVIEWER NAME
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={form.reviewer_name || ''}
+                          onChange={e => setForm(f => ({ ...f, reviewer_name: e.target.value }))}
+                          placeholder="Enas"
+                          style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+
+                      {/* DATE OF REVIEW */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>
+                          DATE OF REVIEW
+                        </label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={form.review_date?.split('T')[0] || ''}
+                          onChange={e => setForm(f => ({ ...f, review_date: e.target.value }))}
+                          style={{ fontSize: 13, fontWeight: 600, color: '#334155', background: '#ffffff', height: 38 }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                    <div>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Audit / Review Date</label>
+                      <input type="date" className="form-control" value={form.audit_date} onChange={e => setForm(f => ({ ...f, audit_date: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Auditor / Technical Officer Name</label>
+                      <input className="form-control" value={form.auditors} onChange={e => setForm(f => ({ ...f, auditors: e.target.value }))} placeholder="Lead Auditor" style={{ height: 42, borderRadius: 8 }} />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>NCs Closure & Corrective Actions</label>
+                      <input className="form-control" value={form.ncs_close} onChange={e => setForm(f => ({ ...f, ncs_close: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Documentation & Specifications</label>
+                      <input className="form-control" value={form.docs_satisfactory} onChange={e => setForm(f => ({ ...f, docs_satisfactory: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
                   <button type="button" className="btn btn-ghost" onClick={() => setCreateStep(1)} style={{ borderRadius: 8 }}>
@@ -1365,7 +1567,7 @@ export default function AdminDirectLogsheet() {
               <div className="card" style={{ padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', background: '#fff' }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Award size={18} style={{ color: 'var(--primary)' }} />
-                  {selectedType === 'extension' ? 'Extension Justification & Authorization Terms' : selectedType === 'addon' ? 'Add-on Approval Decision & Validity Dates' : selectedType === 'initial_product' ? 'Initial Product Approval Decision' : 'Certificate Status & Committee Recommendation'}
+                  {selectedType === 'extension' ? 'Extension Justification & Authorization Terms' : selectedType === 'addon' ? 'Add-on Approval Decision & Validity Dates' : selectedType === 'initial_product' ? 'Initial Product Approval Decision' : selectedType === 'surveillance' ? 'Surveillance Decision & Committee Recommendation' : 'Certificate Status & Committee Recommendation'}
                 </h3>
 
                 {/* EXTENSION JUSTIFICATION */}
@@ -1402,7 +1604,7 @@ export default function AdminDirectLogsheet() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 20 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
                     <div>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Official Decision Recommendation</label>
                       <select className="form-control" value={form.decision_type} onChange={e => setForm(f => ({ ...f, decision_type: e.target.value }))} style={{ height: 42, borderRadius: 8, fontWeight: 700 }}>
@@ -1421,6 +1623,13 @@ export default function AdminDirectLogsheet() {
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Expiry / Valid Until Date</label>
                       <input type="date" className="form-control" value={form.expiry_date} onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} style={{ height: 42, borderRadius: 8 }} />
                     </div>
+
+                    {selectedType === 'surveillance' && (
+                      <div>
+                        <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Next Surveillance Due Date <span style={{ color: '#dc2626' }}>*</span></label>
+                        <input type="date" className="form-control" value={form.next_surveillance_due_date?.split('T')[0] || ''} onChange={e => setForm(f => ({ ...f, next_surveillance_due_date: e.target.value }))} style={{ height: 42, borderRadius: 8 }} required />
+                      </div>
+                    )}
                   </div>
                 )}
 

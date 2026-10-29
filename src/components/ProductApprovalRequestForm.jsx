@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, Plus, Trash2, CheckCircle, FileText, AlertTriangle, ShieldCheck, 
-  Download, Upload, Save, Check, RefreshCw, X, Printer
+  Download, Upload, UploadCloud, Save, Check, RefreshCw, X, Printer, ExternalLink
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { exportProductApprovalPdf } from '../lib/generateProductApprovalPdf';
+import { getPdfUrl } from '../lib/pdfUtils';
 
 export const INITIAL_PRODUCT_APPROVAL_FORM = {
   // Header
@@ -55,6 +56,7 @@ export const INITIAL_PRODUCT_APPROVAL_FORM = {
   packaging_details: [
     { packaging_material: '', chemical_composition: '', migration_certificate: '', suitability: '' }
   ],
+  supporting_documents: [],
 
   // Section 5: Signature & Designation
   print_name: '',
@@ -108,6 +110,102 @@ export default function ProductApprovalRequestForm({
     : internalForm;
 
   const [uploadingField, setUploadingField] = useState(null);
+  const [uploadingMultiple, setUploadingMultiple] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const supportingDocsInputRef = useRef(null);
+
+  const formatFileSize = (bytes) => {
+    if (!bytes || isNaN(bytes)) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const normalizeSupportingDocs = (docs) => {
+    if (!Array.isArray(docs)) return [];
+    return docs
+      .filter(Boolean)
+      .map((doc, idx) => {
+        if (typeof doc === 'string') {
+          const rawName = doc.split('/').pop() || `Supporting_Document_${idx + 1}.pdf`;
+          return {
+            name: decodeURIComponent(rawName.replace(/^\d+_[a-z0-9]+_/i, '')),
+            url: doc,
+            size: null,
+            uploaded_at: null
+          };
+        }
+        const url = doc.url || doc.file_url || '';
+        const rawFallback = url ? (url.split('/').pop() || '').replace(/^\d+_[a-z0-9]+_/i, '') : `Supporting_Document_${idx + 1}.pdf`;
+        return {
+          name: doc.name || doc.file_name || decodeURIComponent(rawFallback) || `Supporting_Document_${idx + 1}.pdf`,
+          url,
+          size: doc.size || doc.file_size || null,
+          type: doc.type || '',
+          uploaded_at: doc.uploaded_at || null
+        };
+      })
+      .filter(d => Boolean(d.url));
+  };
+
+  const handleSupportingDocsUpload = async (fileList) => {
+    if (readOnly || uploadingMultiple) return;
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (files.length === 0) return;
+
+    setUploadingMultiple(true);
+    const newlyUploaded = [];
+    let failedCount = 0;
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        setUploadProgressText(`Uploading ${i + 1} of ${files.length}: ${f.name}...`);
+        try {
+          const url = await api.uploadPdf(f, 'addon-forms');
+          if (url) {
+            newlyUploaded.push({
+              name: f.name,
+              url,
+              size: f.size,
+              type: f.type || '',
+              uploaded_at: new Date().toISOString()
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to upload ${f.name}:`, err);
+          failedCount++;
+        }
+      }
+
+      if (newlyUploaded.length > 0) {
+        const currentDocs = normalizeSupportingDocs(form.supporting_documents);
+        updateField('supporting_documents', [...currentDocs, ...newlyUploaded]);
+        toast.success(
+          newlyUploaded.length === 1
+            ? `"${newlyUploaded[0].name}" uploaded successfully`
+            : `${newlyUploaded.length} documents uploaded successfully`
+        );
+      }
+      if (failedCount > 0) {
+        toast.error(`Failed to upload ${failedCount} file${failedCount > 1 ? 's' : ''}`);
+      }
+    } finally {
+      setUploadingMultiple(false);
+      setUploadProgressText('');
+      if (supportingDocsInputRef.current) {
+        supportingDocsInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeSupportingDocument = (index) => {
+    if (readOnly) return;
+    const currentDocs = normalizeSupportingDocs(form.supporting_documents);
+    const nextDocs = currentDocs.filter((_, idx) => idx !== index);
+    updateField('supporting_documents', nextDocs);
+  };
 
   const handleFileUpload = async (field, file) => {
     if (!file) {
@@ -983,7 +1081,7 @@ export default function ProductApprovalRequestForm({
               {form.artwork_labelling_document ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '8px 12px', borderRadius: 6, border: '1px solid #86efac' }}>
                   <a
-                    href={typeof form.artwork_labelling_document === 'string' ? form.artwork_labelling_document : '#'}
+                    href={typeof form.artwork_labelling_document === 'string' ? getPdfUrl(form.artwork_labelling_document) : '#'}
                     target="_blank"
                     rel="noreferrer"
                     style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
@@ -1095,7 +1193,7 @@ export default function ProductApprovalRequestForm({
               {form.packaging_animal_free_document ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '8px 12px', borderRadius: 6, border: '1px solid #86efac' }}>
                   <a
-                    href={typeof form.packaging_animal_free_document === 'string' ? form.packaging_animal_free_document : '#'}
+                    href={typeof form.packaging_animal_free_document === 'string' ? getPdfUrl(form.packaging_animal_free_document) : '#'}
                     target="_blank"
                     rel="noreferrer"
                     style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
@@ -1212,6 +1310,279 @@ export default function ProductApprovalRequestForm({
         </div>
 
       </div>
+
+      {/* SECTION 13: SUPPORTING DOCUMENTS & ATTACHMENTS */}
+      {(() => {
+        const supportingDocs = normalizeSupportingDocs(form.supporting_documents);
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{
+              background: '#164e63',
+              color: '#ffffff',
+              fontSize: 12.5,
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              padding: '8px 14px',
+              borderRadius: '6px 6px 0 0',
+              textTransform: 'uppercase',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <UploadCloud size={15} /> 13. SUPPORTING DOCUMENTS &amp; SPECIFICATION ATTACHMENTS
+              </span>
+              <span style={{
+                background: supportingDocs.length > 0 ? '#059669' : 'rgba(255,255,255,0.16)',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '2px 10px',
+                borderRadius: 999
+              }}>
+                {supportingDocs.length} {supportingDocs.length === 1 ? 'Document' : 'Documents'} Attached
+              </span>
+            </div>
+
+            <div style={{
+              border: '1px solid #cbd5e1',
+              borderTop: 'none',
+              borderRadius: '0 0 8px 8px',
+              padding: '16px 18px',
+              background: '#ffffff'
+            }}>
+              {!readOnly && (
+                <div
+                  onDragOver={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!uploadingMultiple) setIsDragOver(true);
+                  }}
+                  onDragLeave={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragOver(false);
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragOver(false);
+                    if (e.dataTransfer?.files?.length) {
+                      handleSupportingDocsUpload(e.dataTransfer.files);
+                    }
+                  }}
+                  onClick={() => {
+                    if (!uploadingMultiple) supportingDocsInputRef.current?.click();
+                  }}
+                  style={{
+                    border: `2px dashed ${isDragOver ? '#0284c7' : '#94a3b8'}`,
+                    borderRadius: 10,
+                    padding: '18px 20px',
+                    background: isDragOver ? '#f0f9ff' : '#f8fafc',
+                    textAlign: 'center',
+                    cursor: uploadingMultiple ? 'wait' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    marginBottom: supportingDocs.length > 0 ? 16 : 0
+                  }}
+                >
+                  <input
+                    ref={supportingDocsInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                    style={{ display: 'none' }}
+                    disabled={uploadingMultiple}
+                    onChange={e => handleSupportingDocsUpload(e.target.files)}
+                  />
+
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: '#e0f2fe',
+                    color: '#0284c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 10px'
+                  }}>
+                    {uploadingMultiple ? <RefreshCw size={20} className="spin" /> : <UploadCloud size={20} />}
+                  </div>
+
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                    {uploadingMultiple
+                      ? uploadProgressText || 'Uploading supporting documents...'
+                      : 'Click to upload documents or drag & drop files here'}
+                  </div>
+
+                  <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 12, maxWidth: 640, margin: '0 auto 12px' }}>
+                    You can upload as many supporting documents as needed (Halal certificates, ingredient spec sheets, SDS, flowcharts, lab reports, etc.). Select multiple files at once or add more anytime.
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={uploadingMultiple}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (!uploadingMultiple) supportingDocsInputRef.current?.click();
+                    }}
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      background: '#ffffff',
+                      borderColor: '#0284c7',
+                      color: '#0284c7',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      padding: '6px 14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <Plus size={14} /> {supportingDocs.length > 0 ? 'Add More Documents' : 'Choose Files to Upload'}
+                  </button>
+
+                  <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 8 }}>
+                    Accepted: PDF, JPG, PNG, DOCX, XLSX (Up to 25 MB per file &bull; Unlimited files)
+                  </div>
+                </div>
+              )}
+
+              {supportingDocs.length > 0 ? (
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 8
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Uploaded Supporting Documents ({supportingDocs.length})
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {supportingDocs.map((doc, idx) => {
+                      const resolvedUrl = getPdfUrl(doc.url);
+                      const sizeLabel = formatFileSize(doc.size);
+                      return (
+                        <div
+                          key={`${doc.url}-${idx}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            padding: '10px 14px',
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: 8,
+                            flexWrap: 'wrap'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                            <div style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 6,
+                              background: '#dcfce7',
+                              color: '#166534',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: 11.5,
+                              flexShrink: 0
+                            }}>
+                              #{idx + 1}
+                            </div>
+                            <FileText size={16} style={{ color: '#15803d', flexShrink: 0 }} />
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <a
+                                href={resolvedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: 12.5,
+                                  fontWeight: 700,
+                                  color: '#0f172a',
+                                  textDecoration: 'none',
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={doc.name}
+                              >
+                                {doc.name}
+                              </a>
+                              {sizeLabel && (
+                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
+                                  {sizeLabel}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <a
+                              href={resolvedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline btn-sm"
+                              style={{
+                                background: '#ffffff',
+                                borderColor: '#0284c7',
+                                color: '#0284c7',
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                textDecoration: 'none'
+                              }}
+                            >
+                              <ExternalLink size={12} /> View / Download
+                            </a>
+                            {!readOnly && (
+                              <button
+                                type="button"
+                                onClick={() => removeSupportingDocument(idx)}
+                                className="btn btn-ghost btn-sm"
+                                style={{
+                                  color: '#dc2626',
+                                  padding: '4px 8px',
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4
+                                }}
+                                title="Remove document"
+                              >
+                                <Trash2 size={13} /> Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                readOnly && (
+                  <div style={{ fontSize: 12.5, color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
+                    No additional supporting documents attached for this product.
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* SECTION V: SIGNATURES & DECLARATION */}
       <div style={{

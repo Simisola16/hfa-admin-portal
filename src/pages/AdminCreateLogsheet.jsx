@@ -2994,11 +2994,16 @@ export default function AdminCreateLogsheet() {
                               <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
                                 {displayName} {displayCode ? `(${displayCode})` : ''}
                               </div>
-                              <div style={{ fontSize: 11.5, color: isSaved ? '#15803d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                <div style={{ fontSize: 11.5, color: isSaved ? '#15803d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                                 {isSaved ? (
                                   <>
                                     <CheckCircle2 size={13} style={{ color: '#16a34a' }} />
                                     <span>Form Completed &amp; Signed by Client ({formData.print_name || 'Signatory'})</span>
+                                    {Array.isArray(formData.supporting_documents) && formData.supporting_documents.filter(Boolean).length > 0 && (
+                                      <span style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 700, fontSize: 10.5, padding: '1px 7px', borderRadius: 999 }}>
+                                        {formData.supporting_documents.filter(Boolean).length} Supporting {formData.supporting_documents.filter(Boolean).length === 1 ? 'Doc' : 'Docs'}
+                                      </span>
+                                    )}
                                   </>
                                 ) : (
                                   <span>Awaiting Client Form Completion</span>
@@ -5741,8 +5746,13 @@ export default function AdminCreateLogsheet() {
                                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
                                     {displayName} {displayCode ? `(${displayCode})` : ''}
                                   </div>
-                                  <div style={{ fontSize: 11, color: isSaved ? '#16a34a' : '#94a3b8' }}>
-                                    {isSaved ? '✓ Form Filled & Signed by Client' : 'Awaiting Client Form Completion'}
+                                  <div style={{ fontSize: 11, color: isSaved ? '#16a34a' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <span>{isSaved ? '✓ Form Filled & Signed by Client' : 'Awaiting Client Form Completion'}</span>
+                                    {Array.isArray(formData.supporting_documents) && formData.supporting_documents.filter(Boolean).length > 0 && (
+                                      <span style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 700, fontSize: 10.5, padding: '1px 7px', borderRadius: 999 }}>
+                                        {formData.supporting_documents.filter(Boolean).length} Supporting {formData.supporting_documents.filter(Boolean).length === 1 ? 'Doc' : 'Docs'}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>

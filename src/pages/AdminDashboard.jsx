@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import { STATUS_LABELS, STATUS_ORDER } from '../lib/applicationStatuses';
 import {
@@ -76,6 +77,24 @@ function formatDate(dateStr) {
 /* ─── Component ─────────────────────────────────────────────────── */
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Auto-detect the primary operational role for the logged-in staff member
+  const primaryRole = useMemo(() => {
+    if (!user) return 'all';
+    const roles = Array.isArray(user.roles) && user.roles.length > 0
+      ? user.roles.map(r => String(r).toLowerCase().trim())
+      : [String(user.role || '').toLowerCase().trim()];
+    if (roles.includes('superadmin')) return 'all';
+    if (roles.includes('accountant') || roles.includes('finance')) return 'accountant';
+    if (roles.includes('food_tech') || roles.includes('food_tech_manager')) return 'food_tech';
+    if (roles.includes('auditor') || roles.includes('inspector') || roles.includes('audit_manager')) return 'auditor';
+    if (roles.includes('certificate_officer')) return 'certificate_officer';
+    if (roles.includes('scheme_manager')) return 'scheme_manager';
+    if (roles.includes('committee') || roles.includes('mufti') || roles.includes('ceo')) return 'committee';
+    if (roles.includes('support')) return 'support';
+    return 'all';
+  }, [user]);
 
   const [data, setData] = useState({
     stats: {
@@ -110,9 +129,20 @@ export default function AdminDashboard() {
   const [actionCategoryTab, setActionCategoryTab] = useState('all');
   const [actionTimelineFilter, setActionTimelineFilter] = useState('all');
   const [actionRoleFilter, setActionRoleFilter] = useState('all');
+  const [hasAutoSelectedRole, setHasAutoSelectedRole] = useState(false);
   const [actionSearchQuery, setActionSearchQuery] = useState('');
   const [actionSectionCollapsed, setActionSectionCollapsed] = useState(false);
   const [showAdminActionModal, setShowAdminActionModal] = useState(false);
+
+  // Automatically default role filter to logged-in user's role on load
+  useEffect(() => {
+    if (user && !hasAutoSelectedRole) {
+      if (primaryRole && primaryRole !== 'all') {
+        setActionRoleFilter(primaryRole);
+      }
+      setHasAutoSelectedRole(true);
+    }
+  }, [user, primaryRole, hasAutoSelectedRole]);
 
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
@@ -188,11 +218,17 @@ export default function AdminDashboard() {
     const items = [];
     const currentTime = new Date();
 
-    // Helper: get the best representative date for an item
-    const getItemDate = (obj) => new Date(
-      obj?.created_at || obj?.createdAt || obj?.client_sign_date ||
-      obj?.due_date || obj?.audit_date || obj?.updatedAt || 0
-    );
+    // Helper: get the latest representative activity date for an item
+    const getItemDate = (obj) => {
+      const dates = [
+        obj?.updated_at, obj?.updatedAt,
+        obj?.client_sign_date,
+        obj?.audit_date,
+        obj?.due_date,
+        obj?.created_at, obj?.createdAt
+      ].filter(Boolean).map(d => new Date(d).getTime()).filter(t => !isNaN(t));
+      return dates.length > 0 ? new Date(Math.max(...dates)) : new Date(0);
+    };
 
     // 1. Applications across Processing Timeline stages (New, Renewal, Surveillance, Add-on, Extension)
     (allAppsList || []).forEach(app => {
@@ -345,6 +381,29 @@ export default function AdminDashboard() {
           meta: 'Awaiting initial invoice generation',
           actionLabel: 'Issue Invoice',
           actionUrl: `/applications/${app._id || app.id}/processing`,
+          icon: <CreditCard size={18} />
+        });
+      } else if (st === 'invoice_sent') {
+        items.push({
+          id: `app_${app._id || app.id}`,
+          category: 'finance',
+          appType,
+          appTypeLabel,
+          appTypeBadgeBg,
+          appTypeBadgeColor,
+          appStatus: 'invoice_sent',
+          appStatusLabel: STATUS_LABELS['invoice_sent'] || 'Initial Invoice Sent',
+          timelineStage: 'Initial Invoice Sent',
+          urgency: 'action_needed',
+          urgencyLabel: 'Invoice Awaiting Payment',
+          badgeColor: '#ffedd5',
+          badgeTextColor: '#c2410c',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
+          title: `${clientName} • App ${appRef}`,
+          description: 'Initial certification invoice has been issued. Accountant monitoring client payment receipt confirmation.',
+          meta: `Awaiting payment receipt • Application ${appRef}`,
+          actionLabel: 'Track Invoice',
+          actionUrl: '/invoices',
           icon: <CreditCard size={18} />
         });
       } else if (st === 'payment_received') {
@@ -507,6 +566,29 @@ export default function AdminDashboard() {
           actionLabel: 'Send Agreement',
           actionUrl: `/applications/${app._id || app.id}/processing`,
           icon: <FileSignature size={18} />
+        });
+      } else if (st === 'final_invoice_sent') {
+        items.push({
+          id: `app_${app._id || app.id}`,
+          category: 'finance',
+          appType,
+          appTypeLabel,
+          appTypeBadgeBg,
+          appTypeBadgeColor,
+          appStatus: 'final_invoice_sent',
+          appStatusLabel: STATUS_LABELS['final_invoice_sent'] || 'Final Invoice Sent',
+          timelineStage: 'Final Certification Invoice',
+          urgency: 'action_needed',
+          urgencyLabel: 'Final Invoice Pending',
+          badgeColor: '#fee2e2',
+          badgeTextColor: '#b91c1c',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
+          title: `${clientName} • App ${appRef}`,
+          description: 'Final certification invoice has been issued. Accountant follow-up on client settlement required.',
+          meta: `Final fee pending • Application ${appRef}`,
+          actionLabel: 'Track Invoice',
+          actionUrl: '/invoices',
+          icon: <CreditCard size={18} />
         });
       } else if (st === 'final_invoice_paid' || st === 'ready_for_certificate') {
         items.push({
@@ -788,14 +870,16 @@ export default function AdminDashboard() {
       }
     });
 
-    // 9. Receipts Submitted awaiting confirmation / Overdue Invoices
+    // 9. Receipts Submitted awaiting confirmation / Overdue & Pending Invoices
     (invoicesList || []).forEach(inv => {
       if (getItemDate(inv) < ACTION_REQUIRED_CUTOFF) return;
       const isClientPaid = inv.status === 'client_paid';
-      const isOverdue = inv.status !== 'paid' && inv.status !== 'settled' && inv.due_date && new Date(inv.due_date) < currentTime;
+      const isUnpaid = inv.status !== 'paid' && inv.status !== 'settled';
+      const isOverdue = isUnpaid && inv.due_date && new Date(inv.due_date) < currentTime;
+      const company = inv.profiles?.company_name || inv.client_id?.company_name || 'Client';
+      const amountStr = inv.amount ? `£${Number(inv.amount).toFixed(2)}` : '';
+
       if (isClientPaid) {
-        const company = inv.profiles?.company_name || inv.client_id?.company_name || 'Client';
-        const amountStr = inv.amount ? `£${Number(inv.amount).toFixed(2)}` : '';
         items.push({
           id: `inv_paid_${inv._id || inv.id}`,
           category: 'finance',
@@ -804,9 +888,9 @@ export default function AdminDashboard() {
           appTypeBadgeBg: '#ecfdf5',
           appTypeBadgeColor: '#047857',
           appStatus: inv.application_id?.status || 'payment_received',
-          appStatusLabel: STATUS_LABELS[inv.application_id?.status] || 'Initial Payment Confirmed',
+          appStatusLabel: STATUS_LABELS[inv.application_id?.status] || 'Payment Receipt Uploaded',
           timelineStage: 'Verify Payment',
-          urgency: 'action_needed',
+          urgency: 'urgent',
           urgencyLabel: 'Verify Payment',
           badgeColor: '#fef3c7',
           badgeTextColor: '#b45309',
@@ -819,8 +903,6 @@ export default function AdminDashboard() {
           icon: <CreditCard size={18} />
         });
       } else if (isOverdue) {
-        const company = inv.profiles?.company_name || inv.client_id?.company_name || 'Client';
-        const amountStr = inv.amount ? `£${Number(inv.amount).toFixed(2)}` : '';
         items.push({
           id: `inv_overdue_${inv._id || inv.id}`,
           category: 'finance',
@@ -830,8 +912,8 @@ export default function AdminDashboard() {
           appTypeBadgeColor: '#047857',
           appStatus: inv.application_id?.status || (inv.is_final ? 'final_invoice_sent' : 'invoice_sent'),
           appStatusLabel: STATUS_LABELS[inv.application_id?.status] || (inv.is_final ? 'Final Certification Invoice Sent' : 'Initial Invoice Sent'),
-          timelineStage: inv.is_final ? 'Final Invoice' : 'Initial Invoice Sent',
-          urgency: 'action_needed',
+          timelineStage: inv.is_final ? 'Final Invoice Overdue' : 'Invoice Overdue',
+          urgency: 'urgent',
           urgencyLabel: 'Invoice Overdue',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
@@ -839,6 +921,29 @@ export default function AdminDashboard() {
           title: `Overdue Invoice #${inv.invoice_number || 'INV'} • ${amountStr} (${company})`,
           description: `Invoice passed due date (${formatDate(inv.due_date)}). Follow up with client regarding settlement.`,
           meta: `Due was ${formatDate(inv.due_date)}`,
+          actionLabel: 'Review Invoices',
+          actionUrl: '/invoices',
+          icon: <CreditCard size={18} />
+        });
+      } else if (isUnpaid) {
+        items.push({
+          id: `inv_unpaid_${inv._id || inv.id}`,
+          category: 'finance',
+          appType: 'finance',
+          appTypeLabel: 'Finance',
+          appTypeBadgeBg: '#ecfdf5',
+          appTypeBadgeColor: '#047857',
+          appStatus: inv.application_id?.status || (inv.is_final ? 'final_invoice_sent' : 'invoice_sent'),
+          appStatusLabel: STATUS_LABELS[inv.application_id?.status] || (inv.is_final ? 'Final Invoice Pending' : 'Initial Invoice Pending'),
+          timelineStage: inv.is_final ? 'Final Invoice Pending' : 'Invoice Pending',
+          urgency: 'action_needed',
+          urgencyLabel: 'Payment Pending',
+          badgeColor: '#ffedd5',
+          badgeTextColor: '#c2410c',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
+          title: `Unpaid Invoice #${inv.invoice_number || 'INV'} • ${amountStr} (${company})`,
+          description: `Invoice issued and awaiting payment from client.`,
+          meta: inv.due_date ? `Due: ${formatDate(inv.due_date)}` : `Issued: ${formatDate(getItemDate(inv))}`,
           actionLabel: 'Review Invoices',
           actionUrl: '/invoices',
           icon: <CreditCard size={18} />
@@ -1352,8 +1457,10 @@ export default function AdminDashboard() {
                         { role: 'certificate_officer', label: '🟡 Cert Officer',         count: adminActionItems.filter(i => i.targetRole === 'certificate_officer').length },
                         { role: 'committee',           label: '🔴 Committee Signatory',  count: adminActionItems.filter(i => i.targetRole === 'committee').length },
                         { role: 'support',             label: '🔵 Support Staff',        count: adminActionItems.filter(i => i.targetRole === 'support').length },
-                      ].filter(r => r.count > 0).map(r => (
-                        <option key={r.role} value={r.role}>{r.label} ({r.count})</option>
+                      ].map(r => (
+                        <option key={r.role} value={r.role}>
+                          {r.role === primaryRole ? `⭐ ${r.label} (My Role)` : r.label} ({r.count})
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1423,8 +1530,20 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ) : filteredAdminActions.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 0', color: '#64748b', fontSize: 13.5 }}>
-                  No pending action items match the selected filter.
+                <div style={{ textAlign: 'center', padding: '36px 20px' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                    {actionRoleFilter !== 'all'
+                      ? `No Pending Tasks for ${actionRoleFilter.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`
+                      : 'No pending action items match the selected filter'}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
+                    {actionRoleFilter !== 'all'
+                      ? 'All operational items for this role are currently up to date.'
+                      : 'Try selecting a different filter or search term.'}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

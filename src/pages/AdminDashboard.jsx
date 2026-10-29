@@ -109,6 +109,7 @@ export default function AdminDashboard() {
   // UI filters for Action Required
   const [actionCategoryTab, setActionCategoryTab] = useState('all');
   const [actionTimelineFilter, setActionTimelineFilter] = useState('all');
+  const [actionRoleFilter, setActionRoleFilter] = useState('all');
   const [actionSearchQuery, setActionSearchQuery] = useState('');
   const [actionSectionCollapsed, setActionSectionCollapsed] = useState(false);
   const [showAdminActionModal, setShowAdminActionModal] = useState(false);
@@ -181,12 +182,21 @@ export default function AdminDashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // ── Action Items Calculation for Admin Staff ─────────────────────────────────
+  const ACTION_REQUIRED_CUTOFF = new Date('2026-10-01T00:00:00Z');
+
   const adminActionItems = useMemo(() => {
     const items = [];
     const currentTime = new Date();
 
+    // Helper: get the best representative date for an item
+    const getItemDate = (obj) => new Date(
+      obj?.created_at || obj?.createdAt || obj?.client_sign_date ||
+      obj?.due_date || obj?.audit_date || obj?.updatedAt || 0
+    );
+
     // 1. Applications across Processing Timeline stages (New, Renewal, Surveillance, Add-on, Extension)
     (allAppsList || []).forEach(app => {
+      if (getItemDate(app) < ACTION_REQUIRED_CUTOFF) return; // Date cutoff: Oct 01, 2026
       const st = app.status;
       const clientName = app.client_id?.company_name || app.profiles?.company_name || app.establishment_name || app.site_name || 'Client';
       const appRef = app.application_number ? `#${app.application_number}` : 'N/A';
@@ -234,6 +244,13 @@ export default function AdminDashboard() {
       const isRenewal = appType === 'renewal';
       const isSurv = appType === 'surveillance';
 
+      // ── Role assignment per processing stage ──────────────────────────────
+      // Will be overridden per status block where the responsible role changes
+      let targetRole = 'scheme_manager';
+      let targetRoleLabel = 'Scheme Manager';
+      let roleColor = '#7e22ce';
+      let roleBg = '#f3e8ff';
+
       if (st === 'submitted' || st === 'application_submitted') {
         items.push({
           id: `app_${app._id || app.id}`,
@@ -249,6 +266,7 @@ export default function AdminDashboard() {
           urgencyLabel: isRenewal ? 'Renewal Submitted' : isSurv ? 'Surveillance' : 'New Application',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: isRenewal
             ? `Certificate renewal application submitted. Review site changes and proceed with scope triage.`
@@ -273,6 +291,7 @@ export default function AdminDashboard() {
           urgencyLabel: isRenewal ? 'Renewal In Review' : 'Under Review',
           badgeColor: '#fef3c7',
           badgeTextColor: '#b45309',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: isRenewal
             ? 'Renewal application is undergoing technical evaluation. Review scope and formulate fee proposal.'
@@ -297,6 +316,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Scope Accepted',
           badgeColor: '#dcfce7',
           badgeTextColor: '#15803d',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: 'Application accepted. Generate and issue official Halal certification proposal to client.',
           meta: `Category: ${app.category || 'Halal Certification'}`,
@@ -319,6 +339,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Invoice Due',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
           title: `${clientName} • App ${appRef}`,
           description: 'Client accepted formal fee proposal. Issue initial audit invoice to proceed to next stage.',
           meta: 'Awaiting initial invoice generation',
@@ -341,6 +362,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'PAF / Dates',
           badgeColor: '#e0e7ff',
           badgeTextColor: '#4338ca',
+          targetRole: 'food_tech', targetRoleLabel: 'Food Tech', roleColor: '#4338ca', roleBg: '#e0e7ff',
           title: `${clientName} • App ${appRef}`,
           description: 'Initial invoice payment confirmed. Enable Product Approval Form (PAF) or propose audit dates to client.',
           meta: 'Ready for PAF enablement & audit scheduling',
@@ -363,6 +385,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Assign Auditor',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'auditor', targetRoleLabel: 'Lead Auditor', roleColor: '#0369a1', roleBg: '#e0f2fe',
           title: `${clientName} • App ${appRef}`,
           description: 'Client has confirmed audit dates. Finalize date schedule and assign Lead Auditor to facility.',
           meta: 'Audit schedule confirmation needed',
@@ -385,6 +408,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Audit Done',
           badgeColor: '#dcfce7',
           badgeTextColor: '#15803d',
+          targetRole: 'auditor', targetRoleLabel: 'Lead Auditor', roleColor: '#0369a1', roleBg: '#e0f2fe',
           title: `${clientName} • App ${appRef}`,
           description: 'Facility audit completed. Review findings, verify non-conformances, and initiate Committee logsheet review.',
           meta: 'Ready for Logsheet review',
@@ -407,6 +431,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'NC Evidence',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'auditor', targetRoleLabel: 'Lead Auditor', roleColor: '#0369a1', roleBg: '#e0f2fe',
           title: `${clientName} • App ${appRef}`,
           description: 'Non-conformance flagged during audit. Review corrective evidence submitted by client.',
           meta: 'Client rectification pending review',
@@ -429,6 +454,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'NCs Cleared',
           badgeColor: '#dcfce7',
           badgeTextColor: '#15803d',
+          targetRole: 'auditor', targetRoleLabel: 'Lead Auditor', roleColor: '#0369a1', roleBg: '#e0f2fe',
           title: `${clientName} • App ${appRef}`,
           description: 'All non-conformances cleared. Prepare facility logsheet for Committee signatures.',
           meta: 'Ready for Committee Logsheet',
@@ -451,6 +477,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Endorsed',
           badgeColor: '#dcfce7',
           badgeTextColor: '#15803d',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: 'Committee members signed audit logsheet. Mark application as successful and release agreement.',
           meta: 'Committee endorsement complete',
@@ -473,6 +500,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Agreement Due',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: 'Application successfully endorsed. Prepare and send official Halal Certification Agreement.',
           meta: 'Ready for Agreement issuance',
@@ -495,6 +523,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Issue Certificate',
           badgeColor: '#dcfce7',
           badgeTextColor: '#15803d',
+          targetRole: 'certificate_officer', targetRoleLabel: 'Cert Officer', roleColor: '#b45309', roleBg: '#fef3c7',
           title: `${clientName} • App ${appRef}`,
           description: 'All milestones fulfilled and final fee paid. Generate, approve, and issue official Halal Certificate.',
           meta: 'Final milestone reached',
@@ -517,6 +546,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'On Hold',
           badgeColor: '#ffedd5',
           badgeTextColor: '#c2410c',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `${clientName} • App ${appRef}`,
           description: app.on_hold_reason ? `On hold: ${app.on_hold_reason}` : 'Application placed on hold. Review outstanding documentation to resume.',
           meta: 'Awaiting resolution to resume processing',
@@ -529,6 +559,7 @@ export default function AdminDashboard() {
 
     // 2. Client-Signed Agreements Awaiting HFA Countersignature
     (agreementsList || []).forEach(agr => {
+      if (getItemDate(agr) < ACTION_REQUIRED_CUTOFF) return;
       const isSignedByClient = agr.status === 'signed' || (agr.client_signed && agr.status !== 'approved' && agr.status !== 'finalized');
       if (isSignedByClient) {
         const appRef = agr.application_id?.application_number ? `#${agr.application_id.application_number}` : '';
@@ -547,6 +578,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Countersign Required',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `Countersign Agreement: ${clientName} ${appRef}`,
           description: 'Client has signed the Halal Certification Agreement. Scheme Manager countersignature and final copy upload required.',
           meta: `Client signed on ${formatDate(agr.client_sign_date || agr.updatedAt || agr.createdAt)}`,
@@ -559,6 +591,7 @@ export default function AdminDashboard() {
 
     // 3. Logsheets Waiting Signatures
     (logsheetsList || []).forEach(log => {
+      if (getItemDate(log) < ACTION_REQUIRED_CUTOFF) return;
       if (log.status === 'Waiting for Signature') {
         const logRef = log.logsheet_number || log.direct_ref || 'LOG';
         const company = log.company_name || log.site_name || 'Facility';
@@ -576,6 +609,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Signatures Pending',
           badgeColor: '#fef3c7',
           badgeTextColor: '#b45309',
+          targetRole: 'committee', targetRoleLabel: 'Committee Signatory', roleColor: '#be123c', roleBg: '#ffe4e6',
           title: `Logsheet #${logRef}: ${company}`,
           description: 'Facility audit logsheet is waiting for Committee signatures (Mufti, CEO, Scheme Manager) before certificate issuance.',
           meta: `Standard: ${log.certificate_standard || log.certificate_type || 'Halal Standard'}`,
@@ -588,6 +622,7 @@ export default function AdminDashboard() {
 
     // 4. Initial Products submitted / PAF completed
     (initialProductsList || []).forEach(ip => {
+      if (getItemDate(ip) < ACTION_REQUIRED_CUTOFF) return;
       const isSubmitted = ip.status === 'submitted';
       const isPafDone = ip.status === 'paf_client_submitted';
       const isPending = isSubmitted || isPafDone || ip.status === 'under_review' || ip.status === 'in_review';
@@ -608,6 +643,7 @@ export default function AdminDashboard() {
           urgencyLabel: isPafDone ? 'PAF Completed' : 'Product Evaluation',
           badgeColor: isPafDone ? '#dcfce7' : '#e0e7ff',
           badgeTextColor: isPafDone ? '#15803d' : '#4338ca',
+          targetRole: 'food_tech', targetRoleLabel: 'Food Tech', roleColor: '#4338ca', roleBg: '#e0e7ff',
           title: `Initial Product: "${ip.product?.name || 'Product'}" (${clientName})`,
           description: isPafDone
             ? 'Client submitted Product Approval Form specifications. Food Tech review and evaluation required.'
@@ -622,6 +658,7 @@ export default function AdminDashboard() {
 
     // 5. Add-on Applications submitted / PAF completed
     (addOnsList || []).forEach(ao => {
+      if (getItemDate(ao) < ACTION_REQUIRED_CUTOFF) return;
       const isSubmitted = ao.status === 'submitted';
       const isPafDone = ao.status === 'paf_client_submitted';
       const isPending = isSubmitted || isPafDone || ao.status === 'under_review' || ao.status === 'in_review';
@@ -642,6 +679,7 @@ export default function AdminDashboard() {
           urgencyLabel: isPafDone ? 'PAF Completed' : 'Add-on Request',
           badgeColor: isPafDone ? '#dcfce7' : '#f3e8ff',
           badgeTextColor: isPafDone ? '#15803d' : '#7e22ce',
+          targetRole: 'food_tech', targetRoleLabel: 'Food Tech', roleColor: '#4338ca', roleBg: '#e0e7ff',
           title: `Add-on Application: ${count} product(s) (${clientName})`,
           description: isPafDone
             ? 'Client has submitted the Add-on Product Approval Form. Technical review and evaluation required.'
@@ -656,6 +694,7 @@ export default function AdminDashboard() {
 
     // 6. Extension Applications
     (extensionsList || []).forEach(ext => {
+      if (getItemDate(ext) < ACTION_REQUIRED_CUTOFF) return;
       const isPending = !['approved', 'rejected', 'completed'].includes((ext.status || '').toLowerCase());
       if (isPending) {
         const clientName = ext.client_id?.company_name || ext.client_id?.full_name || 'Client';
@@ -675,6 +714,7 @@ export default function AdminDashboard() {
           urgencyLabel: isSubmitted ? 'Extension Submitted' : 'Scope Review',
           badgeColor: isSubmitted ? '#fee2e2' : '#fef3c7',
           badgeTextColor: isSubmitted ? '#b91c1c' : '#b45309',
+          targetRole: 'scheme_manager', targetRoleLabel: 'Scheme Manager', roleColor: '#7e22ce', roleBg: '#f3e8ff',
           title: `Scope Extension ${extRef} (${clientName})`,
           description: `Client requested facility/standard scope extension for: ${ext.extension_scope || ext.scope || 'Facility Extension'}. Review and determine audit/approval requirement.`,
           meta: `Date: ${formatDate(ext.created_at || ext.createdAt)} • Type: Extension Application`,
@@ -687,6 +727,7 @@ export default function AdminDashboard() {
 
     // 7. Surveillance Schedules & Due Dates
     (surveillanceList || []).forEach(surv => {
+      if (getItemDate(surv) < ACTION_REQUIRED_CUTOFF) return;
       const isDueOrPending = !['completed', 'cancelled'].includes((surv.status || '').toLowerCase());
       if (isDueOrPending) {
         const clientName = surv.client_id?.company_name || surv.client_name || surv.site_name || 'Client Facility';
@@ -706,6 +747,7 @@ export default function AdminDashboard() {
           urgencyLabel: isOverdue ? 'Surveillance Overdue' : 'Surveillance Due',
           badgeColor: isOverdue ? '#fee2e2' : '#e0f2fe',
           badgeTextColor: isOverdue ? '#b91c1c' : '#0369a1',
+          targetRole: 'auditor', targetRoleLabel: 'Lead Auditor', roleColor: '#0369a1', roleBg: '#e0f2fe',
           title: `Surveillance Audit: ${clientName}`,
           description: `Annual Halal compliance surveillance audit ${isOverdue ? 'is overdue' : 'is approaching due date'}. Coordinate with client and assign auditor.`,
           meta: dueDate ? `Due: ${formatDate(dueDate)}` : 'Annual surveillance cycle',
@@ -718,6 +760,7 @@ export default function AdminDashboard() {
 
     // 8. Open Support Tickets
     (ticketsList || []).forEach(t => {
+      if (getItemDate(t) < ACTION_REQUIRED_CUTOFF) return;
       if (t.status === 'open') {
         const clientName = t.user_id?.company_name || t.user_id?.full_name || 'Client';
         items.push({
@@ -734,6 +777,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Open Ticket',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'support', targetRoleLabel: 'Support Staff', roleColor: '#1d4ed8', roleBg: '#dbeafe',
           title: `Support Ticket #${t.ticket_number || 'TKT'}: ${t.subject || 'Inquiry'}`,
           description: `Client (${clientName}) submitted a support request. Priority: ${(t.priority || 'Medium').toUpperCase()}. Staff response needed.`,
           meta: `Submitted: ${formatDate(t.created_at || t.createdAt)} • Dept: ${t.department || 'General'}`,
@@ -746,6 +790,7 @@ export default function AdminDashboard() {
 
     // 9. Receipts Submitted awaiting confirmation / Overdue Invoices
     (invoicesList || []).forEach(inv => {
+      if (getItemDate(inv) < ACTION_REQUIRED_CUTOFF) return;
       const isClientPaid = inv.status === 'client_paid';
       const isOverdue = inv.status !== 'paid' && inv.status !== 'settled' && inv.due_date && new Date(inv.due_date) < currentTime;
       if (isClientPaid) {
@@ -765,6 +810,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Verify Payment',
           badgeColor: '#fef3c7',
           badgeTextColor: '#b45309',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
           title: `Receipt Uploaded: Invoice #${inv.invoice_number || 'INV'} ${amountStr ? `(${amountStr})` : ''}`,
           description: `Client (${company}) uploaded payment proof. Accountant verification required to unlock progress.`,
           meta: `Invoice: ${inv.title || 'Certification Fee'}`,
@@ -789,6 +835,7 @@ export default function AdminDashboard() {
           urgencyLabel: 'Invoice Overdue',
           badgeColor: '#fee2e2',
           badgeTextColor: '#b91c1c',
+          targetRole: 'accountant', targetRoleLabel: 'Accountant', roleColor: '#047857', roleBg: '#ecfdf5',
           title: `Overdue Invoice #${inv.invoice_number || 'INV'} • ${amountStr} (${company})`,
           description: `Invoice passed due date (${formatDate(inv.due_date)}). Follow up with client regarding settlement.`,
           meta: `Due was ${formatDate(inv.due_date)}`,
@@ -849,24 +896,29 @@ export default function AdminDashboard() {
     if (actionTimelineFilter !== 'all') {
       list = list.filter(i => i.appStatus === actionTimelineFilter);
     }
+    if (actionRoleFilter !== 'all') {
+      list = list.filter(i => i.targetRole === actionRoleFilter);
+    }
     if (actionSearchQuery.trim()) {
       const q = actionSearchQuery.trim().toLowerCase();
       list = list.filter(i =>
-        (i.title          || '').toLowerCase().includes(q) ||
-        (i.description    || '').toLowerCase().includes(q) ||
-        (i.meta           || '').toLowerCase().includes(q) ||
-        (i.urgencyLabel   || '').toLowerCase().includes(q) ||
-        (i.urgency        || '').toLowerCase().includes(q) ||
-        (i.appType        || '').toLowerCase().includes(q) ||
-        (i.appTypeLabel   || '').toLowerCase().includes(q) ||
-        (i.appStatus      || '').toLowerCase().includes(q) ||
-        (i.appStatusLabel || '').toLowerCase().includes(q) ||
-        (i.timelineStage  || '').toLowerCase().includes(q) ||
-        (i.actionLabel    || '').toLowerCase().includes(q)
+        (i.title           || '').toLowerCase().includes(q) ||
+        (i.description     || '').toLowerCase().includes(q) ||
+        (i.meta            || '').toLowerCase().includes(q) ||
+        (i.urgencyLabel    || '').toLowerCase().includes(q) ||
+        (i.urgency         || '').toLowerCase().includes(q) ||
+        (i.appType         || '').toLowerCase().includes(q) ||
+        (i.appTypeLabel    || '').toLowerCase().includes(q) ||
+        (i.appStatus       || '').toLowerCase().includes(q) ||
+        (i.appStatusLabel  || '').toLowerCase().includes(q) ||
+        (i.timelineStage   || '').toLowerCase().includes(q) ||
+        (i.actionLabel     || '').toLowerCase().includes(q) ||
+        (i.targetRole      || '').toLowerCase().includes(q) ||
+        (i.targetRoleLabel || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [adminActionItems, actionCategoryTab, actionTimelineFilter, actionSearchQuery]);
+  }, [adminActionItems, actionCategoryTab, actionTimelineFilter, actionRoleFilter, actionSearchQuery]);
 
   // Auto popup on login when pending action items exist
   useEffect(() => {
@@ -1046,7 +1098,7 @@ export default function AdminDashboard() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
-                Action Required &amp; Operational Triage
+                Action Required
               </span>
               <span style={{
                 fontSize: 11.5,
@@ -1158,7 +1210,7 @@ export default function AdminDashboard() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                      Action Required &amp; Operational Triage
+                      Action Required
                     </h2>
                     <span style={{
                       fontSize: 11,
@@ -1269,6 +1321,39 @@ export default function AdminDashboard() {
                         <option key={stage.status} value={stage.status}>
                           Timeline: {stage.label} ({stage.count})
                         </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Role Filter Selector */}
+                  <div style={{ minWidth: 190 }}>
+                    <select
+                      value={actionRoleFilter}
+                      onChange={e => setActionRoleFilter(e.target.value)}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        borderRadius: 8,
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        fontWeight: 600,
+                        color: actionRoleFilter !== 'all' ? '#7e22ce' : '#0f172a',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">👥 All Roles ({adminActionItems.length})</option>
+                      {[
+                        { role: 'scheme_manager',      label: '🟣 Scheme Manager',      count: adminActionItems.filter(i => i.targetRole === 'scheme_manager').length },
+                        { role: 'accountant',          label: '🟢 Accountant',           count: adminActionItems.filter(i => i.targetRole === 'accountant').length },
+                        { role: 'food_tech',           label: '🔵 Food Tech',            count: adminActionItems.filter(i => i.targetRole === 'food_tech').length },
+                        { role: 'auditor',             label: '🔷 Lead Auditor',         count: adminActionItems.filter(i => i.targetRole === 'auditor').length },
+                        { role: 'certificate_officer', label: '🟡 Cert Officer',         count: adminActionItems.filter(i => i.targetRole === 'certificate_officer').length },
+                        { role: 'committee',           label: '🔴 Committee Signatory',  count: adminActionItems.filter(i => i.targetRole === 'committee').length },
+                        { role: 'support',             label: '🔵 Support Staff',        count: adminActionItems.filter(i => i.targetRole === 'support').length },
+                      ].filter(r => r.count > 0).map(r => (
+                        <option key={r.role} value={r.role}>{r.label} ({r.count})</option>
                       ))}
                     </select>
                   </div>
@@ -1418,6 +1503,23 @@ export default function AdminDashboard() {
                               }}>
                                 <Clock size={10} style={{ color: '#64748b' }} />
                                 Timeline: {item.timelineStage}
+                              </span>
+                            )}
+                            {item.targetRoleLabel && (
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                padding: '2px 9px',
+                                borderRadius: 20,
+                                background: item.roleBg || '#f3e8ff',
+                                color: item.roleColor || '#7e22ce',
+                                border: `1px solid ${(item.roleColor || '#7e22ce') + '44'}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                letterSpacing: '0.01em'
+                              }}>
+                                👤 {item.targetRoleLabel}
                               </span>
                             )}
                             <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>

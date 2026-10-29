@@ -146,8 +146,6 @@ export default function ProcessingTimeline({
           'logsheet_signed',
           'application_successful',
           'agreement_sent',
-          'agreement_signed',
-          'agreement_finalised',
           'final_invoice_sent',
           'final_invoice_paid',
           'ready_for_certificate',
@@ -249,6 +247,7 @@ export default function ProcessingTimeline({
     if (s === 'audit_completed') s = 'audit_successful';
     if (s === 'dates_rejected') s = 'dates_proposed';
     if (s === 'audit_report_submitted') s = 'nc_closed';
+    if (s === 'agreement_signed' || s === 'agreement_finalised') s = 'agreement_sent';
     if (isRenewal || isSurveillance) {
       if (['invoice_sent', 'payment_received', 'ready_for_certificate', 'waiting_for_certificate'].includes(s)) {
         s = 'certificate_issued';
@@ -361,7 +360,8 @@ export default function ProcessingTimeline({
         let histEntry = historyMap[s] ||
           (s === 'dates_proposed' ? (historyMap['dates_rejected'] || historyMap['dates_proposed']) : null) ||
           (s === 'audit_successful' ? (historyMap['audit_completed'] || historyMap['audit_successful']) : null) ||
-          (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null);
+          (s === 'nc_closed' ? (historyMap['nc_closed'] || historyMap['audit_report_submitted']) : null) ||
+          (s === 'agreement_sent' ? (historyMap['agreement_sent'] || historyMap['agreement_finalised'] || historyMap['agreement_signed']) : null);
 
         // For GSO dual-stage flows, resolve Stage 2 steps to the latest Stage 2 history entries
         if (isDualStage && isStage1Complete) {

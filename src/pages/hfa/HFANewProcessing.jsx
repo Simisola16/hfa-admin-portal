@@ -863,7 +863,7 @@ export default function HFANewProcessing(props) {
     }
 
     // 7. Send Agreement Stage
-    if (status === 'application_successful' || status === 'agreement_sent') {
+    if (status === 'application_successful') {
       if (!canSendAgreement(currentUser)) {
         return (
           <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -882,28 +882,8 @@ export default function HFANewProcessing(props) {
       );
     }
 
-    // 8. Final Countersigned Agreement Copy
-    if (status === 'agreement_signed') {
-      if (!canSendAgreement(currentUser)) {
-        return (
-          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <FileText size={15} /> Agreement Signed by Client (Awaiting Final Countersigned Copy)
-          </span>
-        );
-      }
-      return (
-        <button
-          className="btn btn-primary"
-          style={{ gap: 8, background: '#0284c7' }}
-          onClick={() => setShowFinalAgreementModal(true)}
-        >
-          <FileText size={16} /> {agreement?.final_agreement_url ? 'Resend Final Signed Copy' : 'Send Final Signed Copy'}
-        </button>
-      );
-    }
-
-    // 9. Final Invoice Stage
-    if (status === 'agreement_finalised' || status === 'final_invoice_sent') {
+    // 8. Final Invoice Stage
+    if (status === 'agreement_sent' || status === 'agreement_signed' || status === 'agreement_finalised' || status === 'final_invoice_sent') {
       if (finalInvoice?.status === 'client_paid') {
         if (!canConfirmPayment(currentUser)) {
           return (
@@ -1205,8 +1185,8 @@ export default function HFANewProcessing(props) {
             markingDone={markingAgreementDone}
           />
 
-          {/* 8. Final Invoice Card — only visible after admin sends the final countersigned agreement copy */}
-          {(finalInvoice || ['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(status)) && (
+          {/* 8. Final Invoice Card — visible once certification agreement is sent */}
+          {(finalInvoice || ['agreement_sent', 'agreement_signed', 'agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued', 'done'].includes(status)) && (
             <InvoiceCard
               app={app}
               invoice={finalInvoice}

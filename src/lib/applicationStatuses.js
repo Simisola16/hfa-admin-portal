@@ -102,7 +102,7 @@ export const STATUS_BADGE = {
   logsheet_created: 'badge-yellow',
   logsheet_signed: 'badge-green',
   application_successful: 'badge-green',
-  agreement_sent: 'badge-purple',
+  agreement_sent: 'badge-green',
   agreement_signed: 'badge-green',
   agreement_finalised: 'badge-green',
   final_invoice_sent: 'badge-purple',

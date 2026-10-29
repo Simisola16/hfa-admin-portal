@@ -55,28 +55,13 @@ export default function AdminAgreements() {
     const title = (ag.title || '').toLowerCase();
     const s = search.toLowerCase();
 
-    const matchesSearch = compName.includes(s) || appNum.includes(s) || title.includes(s);
-    if (!matchesSearch) return false;
-
-    if (statusFilter === 'sent') return ag.status === 'sent' && !ag.client_signed;
-    if (statusFilter === 'client_signed') return ag.client_signed || ag.status === 'client_signed';
-    if (statusFilter === 'approved') return ag.status === 'approved' || ag.status === 'completed' || ag.status === 'countersigned';
-    return true;
+    return compName.includes(s) || appNum.includes(s) || title.includes(s);
   });
 
   const paginatedAgreements = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const getStatusBadge = (ag) => {
-    if (ag.status === 'approved' || ag.status === 'completed') {
-      return <span className="badge badge-green" style={{ fontWeight: 700 }}>Approved / Countersigned</span>;
-    }
-    if (ag.client_signed || ag.status === 'client_signed') {
-      return <span className="badge badge-blue" style={{ fontWeight: 700 }}>Signed by Client</span>;
-    }
-    if (ag.status === 'sent') {
-      return <span className="badge badge-yellow" style={{ fontWeight: 700 }}>Pending Client Signature</span>;
-    }
-    return <span className="badge badge-gray" style={{ fontWeight: 700 }}>{ag.status || 'Draft'}</span>;
+  const getStatusBadge = () => {
+    return <span className="badge badge-green" style={{ fontWeight: 700 }}>Agreement Sent</span>;
   };
 
   return (
@@ -88,7 +73,7 @@ export default function AdminAgreements() {
             Certification Agreements
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: 0 }}>
-            Manage, review, track client signatures, and countersign official certification agreements.
+            Manage, review, and send official certification agreements to clients.
           </p>
         </div>
 
@@ -102,60 +87,11 @@ export default function AdminAgreements() {
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
         <div className="card" style={{ padding: '18px 20px', borderRadius: 16 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Agreements</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Sent Agreements</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>{agreements.length}</div>
         </div>
-
-        <div className="card" style={{ padding: '18px 20px', borderRadius: 16 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#b45309', textTransform: 'uppercase' }}>Pending Client Signature</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#d97706', marginTop: 4 }}>
-            {agreements.filter(a => a.status === 'sent' && !a.client_signed).length}
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '18px 20px', borderRadius: 16 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>Signed by Client</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#0284c7', marginTop: 4 }}>
-            {agreements.filter(a => a.client_signed || a.status === 'client_signed').length}
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '18px 20px', borderRadius: 16 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>Countersigned / Approved</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a', marginTop: 4 }}>
-            {agreements.filter(a => a.status === 'approved' || a.status === 'completed').length}
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Tabs & Search */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid #e2e8f0', paddingBottom: 12, flexWrap: 'wrap' }}>
-        <button
-          className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setStatusFilter('all')}
-        >
-          All Agreements ({agreements.length})
-        </button>
-        <button
-          className={`btn btn-sm ${statusFilter === 'sent' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setStatusFilter('sent')}
-        >
-          Pending Client ({agreements.filter(a => a.status === 'sent' && !a.client_signed).length})
-        </button>
-        <button
-          className={`btn btn-sm ${statusFilter === 'client_signed' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setStatusFilter('client_signed')}
-        >
-          Signed by Client ({agreements.filter(a => a.client_signed || a.status === 'client_signed').length})
-        </button>
-        <button
-          className={`btn btn-sm ${statusFilter === 'approved' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setStatusFilter('approved')}
-        >
-          Approved / Countersigned ({agreements.filter(a => a.status === 'approved' || a.status === 'completed').length})
-        </button>
       </div>
 
       {/* Search Toolbar */}
@@ -192,7 +128,6 @@ export default function AdminAgreements() {
                   <th>Company &amp; Application</th>
                   <th>Agreement Title</th>
                   <th>Date Sent</th>
-                  <th>Client Signature</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -224,22 +159,6 @@ export default function AdminAgreements() {
 
                       <td style={{ padding: '16px 20px', fontSize: 12.5, color: '#64748b' }}>
                         {ag.createdAt ? new Date(ag.createdAt).toLocaleDateString('en-GB') : '—'}
-                      </td>
-
-                      <td style={{ padding: '16px 20px' }}>
-                        {ag.client_signed || ag.status === 'client_signed' ? (
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <Check size={14} /> Signed
-                            </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                              {ag.client_sign_name || 'Authorized Signatory'}
-                              {ag.client_sign_date && ` (${new Date(ag.client_sign_date).toLocaleDateString('en-GB')})`}
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Pending signature</span>
-                        )}
                       </td>
 
                       <td style={{ padding: '16px 20px' }}>
@@ -289,40 +208,17 @@ export default function AdminAgreements() {
               </span>
             }
             actions={[
-              ag.final_agreement_url && {
-                label: 'View Final Countersigned Copy',
-                description: 'Open official countersigned agreement PDF',
-                icon: FileCheck,
-                variant: 'primary',
-                href: getPdfUrl(ag.final_agreement_url),
-                target: '_blank'
-              },
-              (ag.client_signed || ag.status === 'client_signed') && {
-                label: ag.final_agreement_url ? 'Resend Countersigned Copy' : 'Upload & Send Final Countersigned Copy',
-                description: 'Finalize agreement with countersignature and notify client',
-                icon: FileCheck,
-                variant: 'primary',
-                onClick: () => setFinalModalAg(ag)
-              },
-              ag.signed_agreement_url && {
-                label: 'View Client Signed Copy',
-                description: 'View document signed by client authorized signatory',
-                icon: Download,
-                variant: 'default',
-                href: getPdfUrl(ag.signed_agreement_url),
-                target: '_blank'
-              },
               ag.agreement_url && {
-                label: 'View Initial Agreement PDF',
-                description: 'View original sent agreement document',
+                label: 'View Agreement PDF',
+                description: 'View sent agreement document',
                 icon: Eye,
-                variant: 'default',
+                variant: 'primary',
                 href: getPdfUrl(ag.agreement_url),
                 target: '_blank'
               },
-              (!ag.client_signed && ag.status !== 'approved' && ag.status !== 'completed') && {
+              {
                 label: 'Edit / Re-upload Agreement',
-                description: 'Generate or upload updated agreement PDF draft',
+                description: 'Upload an updated agreement PDF document',
                 icon: PenTool,
                 variant: 'default',
                 onClick: () => setAgreementModalAg(ag)
@@ -340,7 +236,6 @@ export default function AdminAgreements() {
       })()}
 
       {/* Initial / Re-upload Agreement Modal */}
-
       <AgreementModal
         isOpen={Boolean(agreementModalAg)}
         onClose={() => setAgreementModalAg(null)}
@@ -349,19 +244,6 @@ export default function AdminAgreements() {
         agreement={agreementModalAg}
         onSuccess={() => {
           setAgreementModalAg(null);
-          fetchAgreements();
-        }}
-      />
-
-      {/* Final Countersigned Agreement Modal */}
-      <FinalAgreementModal
-        isOpen={Boolean(finalModalAg)}
-        onClose={() => setFinalModalAg(null)}
-        app={finalModalAg?.application_id}
-        appId={finalModalAg?.application_id?._id || finalModalAg?.application_id}
-        agreement={finalModalAg}
-        onSuccess={() => {
-          setFinalModalAg(null);
           fetchAgreements();
         }}
       />

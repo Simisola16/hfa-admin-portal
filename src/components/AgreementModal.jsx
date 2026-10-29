@@ -139,7 +139,7 @@ export default function AgreementModal({ isOpen, onClose, app: propApp, appId: p
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
             {propAgreement
-              ? <>Upload a revised or corrected certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>. The client will be notified to review and sign the updated agreement.</>
+              ? <>Upload a revised or updated certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>. The client will be notified to view and download the updated agreement.</>
               : <>Provide a certification agreement for <strong>{app.profiles?.company_name || app.establishment_name}</strong>. This will be visible to the client on their portal.</>}
           </p>
 

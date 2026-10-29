@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import { STATUS_LABELS, STATUS_ORDER } from '../lib/applicationStatuses';
 import {
@@ -76,6 +77,24 @@ function formatDate(dateStr) {
 /* ─── Component ─────────────────────────────────────────────────── */
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Auto-detect the primary operational role for the logged-in staff member
+  const primaryRole = useMemo(() => {
+    if (!user) return 'all';
+    const roles = Array.isArray(user.roles) && user.roles.length > 0
+      ? user.roles.map(r => String(r).toLowerCase().trim())
+      : [String(user.role || '').toLowerCase().trim()];
+    if (roles.includes('superadmin')) return 'all';
+    if (roles.includes('accountant') || roles.includes('finance')) return 'accountant';
+    if (roles.includes('food_tech') || roles.includes('food_tech_manager')) return 'food_tech';
+    if (roles.includes('auditor') || roles.includes('inspector') || roles.includes('audit_manager')) return 'auditor';
+    if (roles.includes('certificate_officer')) return 'certificate_officer';
+    if (roles.includes('scheme_manager')) return 'scheme_manager';
+    if (roles.includes('committee') || roles.includes('mufti') || roles.includes('ceo')) return 'committee';
+    if (roles.includes('support')) return 'support';
+    return 'all';
+  }, [user]);
 
   const [data, setData] = useState({
     stats: {
@@ -110,9 +129,20 @@ export default function AdminDashboard() {
   const [actionCategoryTab, setActionCategoryTab] = useState('all');
   const [actionTimelineFilter, setActionTimelineFilter] = useState('all');
   const [actionRoleFilter, setActionRoleFilter] = useState('all');
+  const [hasAutoSelectedRole, setHasAutoSelectedRole] = useState(false);
   const [actionSearchQuery, setActionSearchQuery] = useState('');
   const [actionSectionCollapsed, setActionSectionCollapsed] = useState(false);
   const [showAdminActionModal, setShowAdminActionModal] = useState(false);
+
+  // Automatically default role filter to logged-in user's role on load
+  useEffect(() => {
+    if (user && !hasAutoSelectedRole) {
+      if (primaryRole && primaryRole !== 'all') {
+        setActionRoleFilter(primaryRole);
+      }
+      setHasAutoSelectedRole(true);
+    }
+  }, [user, primaryRole, hasAutoSelectedRole]);
 
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
@@ -1428,7 +1458,9 @@ export default function AdminDashboard() {
                         { role: 'committee',           label: '🔴 Committee Signatory',  count: adminActionItems.filter(i => i.targetRole === 'committee').length },
                         { role: 'support',             label: '🔵 Support Staff',        count: adminActionItems.filter(i => i.targetRole === 'support').length },
                       ].map(r => (
-                        <option key={r.role} value={r.role}>{r.label} ({r.count})</option>
+                        <option key={r.role} value={r.role}>
+                          {r.role === primaryRole ? `⭐ ${r.label} (My Role)` : r.label} ({r.count})
+                        </option>
                       ))}
                     </select>
                   </div>

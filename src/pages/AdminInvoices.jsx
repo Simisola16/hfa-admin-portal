@@ -111,9 +111,6 @@ export default function AdminInvoices() {
     }
   };
 
-  const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid');
-  const totalUnpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
-
   const filtered = invoices.filter(inv => {
     const s = search.toLowerCase();
     const invNum = (inv.invoice_number || '').toLowerCase();
@@ -188,123 +185,6 @@ export default function AdminInvoices() {
           <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{marginLeft:'auto'}}><Plus size={15}/> Create Invoice</button>
         )}
       </div>
-
-      {/* UNPAID & OUTSTANDING INVOICES SECTION */}
-      {unpaidInvoices.length > 0 && (
-        <div className="card" style={{ marginBottom: 24, borderRadius: 16, border: '1.5px solid #fed7aa', boxShadow: '0 4px 12px -2px rgba(234, 88, 12, 0.08)' }}>
-          <div className="card-header" style={{ background: 'linear-gradient(135deg, #fff7ed, #fffbeb)', padding: '18px 24px', borderBottom: '1px solid #fed7aa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: '#ffedd5', color: '#c2410c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Receipt size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#9a3412', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  Unpaid & Outstanding Invoices ({unpaidInvoices.length})
-                  <span style={{ fontSize: 12, background: '#ea580c', color: '#fff', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>
-                    £{totalUnpaidAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} Due
-                  </span>
-                </div>
-                <div style={{ fontSize: 12.5, color: '#c2410c', marginTop: 2 }}>
-                  Invoices awaiting client payment. Renewal & Surveillance applications continue processing normally.
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: 8, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                ✓ Applications Continue Normally
-              </span>
-            </div>
-          </div>
-
-          <div className="table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Invoice No.</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Client</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Description</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Amount</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Reminder History</th>
-                  <th style={{ padding: '12px 18px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unpaidInvoices.map(inv => {
-                  const invId = inv._id || inv.id;
-                  const isClientPaid = inv.status === 'client_paid';
-                  return (
-                    <tr key={`unpaid-${invId}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '12px 18px', fontWeight: 700, color: '#0f172a' }}>{inv.invoice_number}</td>
-                      <td style={{ padding: '12px 18px', color: '#334155', fontWeight: 600 }}>{inv.profiles?.company_name || 'Client'}</td>
-                      <td style={{ padding: '12px 18px', color: '#64748b', fontSize: 13, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {inv.description || inv.title || 'Certification Fee'}
-                      </td>
-                      <td style={{ padding: '12px 18px', fontWeight: 800, color: '#ea580c' }}>
-                        £{parseFloat(inv.amount || 0).toFixed(2)}
-                      </td>
-                      <td style={{ padding: '12px 18px' }}>
-                        <span className={`badge ${isClientPaid ? 'badge-orange' : inv.status === 'overdue' ? 'badge-red' : 'badge-yellow'}`}>
-                          {isClientPaid ? 'Proof Submitted' : inv.status || 'Unpaid'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 18px', fontSize: 12, color: '#64748b' }}>
-                        {inv.last_reminded_at ? (
-                          <span title={`Reminded ${inv.reminder_count || 1} times`}>
-                            Reminded {new Date(inv.last_reminded_at).toLocaleDateString('en-GB')} ({inv.reminder_count || 1}x)
-                          </span>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>Never reminded</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            disabled={remindingId === invId}
-                            onClick={() => handleRemindClient(inv)}
-                            style={{ border: '1px solid #fde68a', background: '#fffbeb', color: '#b45309', padding: '6px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                            title="Send payment reminder email and portal notification"
-                          >
-                            <Bell size={13} style={{ color: '#d97706' }} />
-                            <span>{remindingId === invId ? 'Sending...' : 'Remind Client'}</span>
-                          </button>
-                          {canConfirmPayment(currentUser) && (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              disabled={confirmingId === invId}
-                              onClick={() => handleOneClickConfirm(inv)}
-                              style={{ border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', padding: '6px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                              title="Confirm payment directly"
-                            >
-                              <Check size={13} />
-                              <span>{confirmingId === invId ? 'Confirming...' : 'Confirm'}</span>
-                            </button>
-                          )}
-                          {inv.invoice_url && (
-                            <a
-                              href={getPdfUrl(inv.invoice_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', color: '#475569' }}
-                              title="View PDF"
-                            >
-                              <Eye size={13} />
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       <div className="card">
         <div className="card-header"><div className="card-title">All Invoices ({filtered.length})</div></div>

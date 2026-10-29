@@ -34,6 +34,8 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
   );
 
   const isPastAgreement = [
+    'agreement_sent',
+    'agreement_signed',
     'agreement_finalised',
     'final_invoice_sent',
     'final_invoice_paid',
@@ -118,8 +120,8 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
       {/* Header */}
       <div style={{ padding: '18px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: isFinalized ? '#ecfdf5' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${isFinalized ? '#a7f3d0' : '#bfdbfe'}` }}>
-            <FileCheck size={20} style={{ color: isFinalized ? '#10b981' : '#2563eb' }} />
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #a7f3d0' }}>
+            <FileCheck size={20} style={{ color: '#10b981' }} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -130,17 +132,17 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: 12,
-                  background: isFinalized ? '#dcfce7' : (hasAdminSentSignedCopy ? '#f0fdf4' : (hasClientSigned ? '#e0f2fe' : '#fef3c7')),
-                  color: isFinalized ? '#15803d' : (hasAdminSentSignedCopy ? '#166534' : (hasClientSigned ? '#0369a1' : '#b45309')),
-                  border: `1px solid ${isFinalized ? '#86efac' : (hasAdminSentSignedCopy ? '#bbf7d0' : (hasClientSigned ? '#bae6fd' : '#fde68a'))}`
+                  background: '#dcfce7',
+                  color: '#15803d',
+                  border: '1px solid #86efac'
                 }}
               >
-                {isFinalized ? 'Agreement Finalized & Verified' : (hasAdminSentSignedCopy ? 'HFA Signed Copy Sent' : (hasClientSigned ? 'Client Signed' : 'Awaiting Client Signature'))}
+                Agreement Sent
               </span>
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-              Status: <strong style={{ color: '#334155', textTransform: 'capitalize' }}>
-                {isFinalized ? 'Finalized' : (hasAdminSentSignedCopy ? 'HFA Countersigned Copy Sent' : (hasClientSigned ? 'Signed by Client (Awaiting HFA Signed Agreement)' : 'Pending Client Action'))}
+              Status: <strong style={{ color: '#15803d' }}>
+                Sent to Client
               </strong>
             </div>
           </div>
@@ -161,71 +163,10 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
             </button>
           )}
 
-          {/* STEP 1: When client has signed, but Admin has NOT sent their signed copy yet -> Show 'Send HFA Signed Agreement' button */}
-          {canManage && hasClientSigned && !hasAdminSentSignedCopy && onSendFinal && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={onSendFinal}
-              style={{
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                borderColor: '#0284c7',
-                color: 'white',
-                fontSize: 12,
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px',
-                borderRadius: 8,
-                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
-              }}
-              title="Upload and send HFA countersigned / signed agreement copy to the client"
-            >
-              <FileCheck size={14} /> Send HFA Signed Agreement
-            </button>
-          )}
-
-          {/* STEP 2: ONLY AFTER Admin has sent their own signed agreement -> Show 'Mark Agreement Done' button (until finalized) */}
-          {canManage && hasAdminSentSignedCopy && onMarkDone && agreement?.status !== 'finalized' && !['agreement_finalised', 'final_invoice_sent', 'final_invoice_paid', 'ready_for_certificate', 'certificate_issued'].includes(normalizedStatus) && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={onMarkDone}
-              disabled={markingDone}
-              style={{
-                background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-                borderColor: '#15803d',
-                color: 'white',
-                fontSize: 12,
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px',
-                borderRadius: 8,
-                boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
-              }}
-              title="Mark agreement as verified/completed and advance to next stage"
-            >
-              <CheckCircle size={14} /> {markingDone ? 'Marking Done...' : 'Mark Agreement Done'}
-            </button>
-          )}
-
-          {/* Document Download Links */}
+          {/* Document Download Link */}
           {agreement.agreement_url && (
             <a href={getPdfUrl(agreement.agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Download size={13} /> View Original PDF
-            </a>
-          )}
-          {agreement.signed_agreement_url && (
-            <a href={getPdfUrl(agreement.signed_agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 12, color: '#15803d', borderColor: '#bbf7d0', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Download size={13} /> View Signed Copy
-            </a>
-          )}
-          {agreement.final_agreement_url && (
-            <a href={getPdfUrl(agreement.final_agreement_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ fontSize: 12, color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Download size={13} /> View Final Signed PDF
+              <Download size={13} /> View Agreement PDF
             </a>
           )}
         </div>
@@ -233,7 +174,7 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
 
       {/* Body */}
       <div style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: (agreement.admin_comment || agreement.details) ? 18 : 0 }}>
           <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Agreement Title</div>
             <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', marginTop: 3 }}>{agreement.title || 'Certification Agreement'}</div>
@@ -246,32 +187,8 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
           </div>
         </div>
 
-        {hasClientSigned && !hasAdminSentSignedCopy && (
-          <div style={{ marginBottom: 18, background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16 }}>
-                ✓
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#166534' }}>Client Has Signed Agreement</div>
-                <div style={{ fontSize: 12, color: '#15803d', marginTop: 1 }}>Please send the HFA countersigned / signed agreement copy to unlock the next stage.</div>
-              </div>
-            </div>
-            {canManage && onSendFinal && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={onSendFinal}
-                style={{ background: '#0284c7', borderColor: '#0284c7', fontWeight: 700, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <FileCheck size={14} /> Send HFA Signed Agreement
-              </button>
-            )}
-          </div>
-        )}
-
         {agreement.admin_comment && (
-          <div style={{ marginBottom: 18, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 14 }}>
+          <div style={{ marginBottom: agreement.details ? 18 : 0, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', marginBottom: 4 }}>Admin Note to Client</div>
             <div style={{ fontSize: 13, color: '#075985', lineHeight: 1.5 }}>
               {agreement.admin_comment}
@@ -280,40 +197,10 @@ export default function AgreementCard({ app, agreement, status, user: propUser, 
         )}
 
         {agreement.details && (
-          <div style={{ marginBottom: 18 }}>
+          <div>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 6 }}>Agreement Details &amp; Terms</div>
             <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: '#334155' }}>
               {agreement.details}
-            </div>
-          </div>
-        )}
-
-        {agreement.client_signed && agreement.client_signature_url && (
-          <div style={{ border: '1.5px dashed #bbf7d0', background: '#f0fdf4', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 10.5, color: '#15803d', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-              ✓ Client Digital Signature Verified
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <img
-                src={getPdfUrl(agreement.client_signature_url)}
-                alt="Client Signature"
-                style={{ maxHeight: 52, maxWidth: 160, objectFit: 'contain', background: 'white', padding: 4, borderRadius: 6, border: '1px solid #cbd5e1' }}
-              />
-              <div style={{ fontSize: 13, color: '#1e293b' }}>
-                <div>Signed by: <strong style={{ fontWeight: 700 }}>{agreement.client_sign_name || 'Authorized Client Signatory'}</strong></div>
-                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                  Signed Date: {agreement.client_sign_date ? new Date(agreement.client_sign_date).toLocaleString('en-GB') : 'N/A'}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {agreement.client_comment && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 6 }}>Client Comments / Feedback</div>
-            <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, fontStyle: 'italic', color: '#334155' }}>
-              "{agreement.client_comment}"
             </div>
           </div>
         )}

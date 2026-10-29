@@ -541,29 +541,15 @@ export default function AdminActionsNeededWidget({ onActionCompleted }) {
             }
             break;
 
+          case 'agreement_sent':
           case 'agreement_signed':
-            actionList.push({
-              id: `app-agfinal-${appId}`,
-              category: 'applications',
-              app,
-              type: 'send_final_agreement',
-              title: 'Agreement Signed: Send Countersigned Copy',
-              tag: 'Agreement Final',
-              desc: `Upload official countersigned agreement PDF for ${estName}`,
-              buttonText: 'Send Final Copy',
-              buttonBg: '#0284c7',
-              isFullPage: false,
-              icon: <FileText size={16} />
-            });
-            break;
-
           case 'agreement_finalised':
             actionList.push({
               id: `app-finalinv-${appId}`,
               category: 'applications',
               app,
               type: 'send_final_invoice',
-              title: 'Final Agreement Sent: Issue Final Invoice',
+              title: 'Agreement Sent: Issue Final Invoice',
               tag: 'Final Invoice',
               desc: `Issue final certification fee invoice to ${estName}`,
               buttonText: 'Send Final Invoice',

@@ -383,14 +383,14 @@ export default function AdminApplications() {
     }
 
     // 5. Send Final Invoice
-    // Agreement finalised / countersigned
-    if (['agreement_finalised', 'agreement_finalized'].includes(status) || ['agreement_finalised', 'agreement_finalized'].includes(effStatus)) {
+    // Agreement sent / finalised
+    if (['agreement_sent', 'agreement_signed', 'agreement_finalised', 'agreement_finalized'].includes(status) || ['agreement_sent', 'agreement_signed', 'agreement_finalised', 'agreement_finalized'].includes(effStatus)) {
       return {
         type: 'send_invoice',
         actionLabel: 'Send Final Invoice',
         badgeText: 'Send Final Invoice',
         badgeVariant: 'badge-yellow',
-        desc: 'Final agreement completed. Ready for final certification invoice.',
+        desc: 'Certification agreement sent. Ready for final certification invoice.',
         invoiceType: 'final',
         isFinal: true
       };

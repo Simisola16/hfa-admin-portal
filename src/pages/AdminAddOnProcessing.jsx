@@ -1032,6 +1032,19 @@ export default function AdminAddOnProcessing() {
                     {(app.products || []).map((p, idx) => {
                       const resp = (app.product_approval_form?.product_responses || []).find(r => r.product_index === idx);
                       const isSaved = resp?.is_saved;
+                      const rawSuppDocs = Array.isArray(resp?.form_data?.supporting_documents) ? resp.form_data.supporting_documents : [];
+                      const suppDocs = rawSuppDocs
+                        .filter(Boolean)
+                        .map((d, dIdx) => {
+                          if (typeof d === 'string') {
+                            const rawName = d.split('/').pop() || `Document_${dIdx + 1}.pdf`;
+                            return { name: decodeURIComponent(rawName.replace(/^\d+_[a-z0-9]+_/i, '')), url: d };
+                          }
+                          const url = d.url || d.file_url || '';
+                          const rawFallback = url ? (url.split('/').pop() || '').replace(/^\d+_[a-z0-9]+_/i, '') : `Document_${dIdx + 1}.pdf`;
+                          return { name: d.name || d.file_name || decodeURIComponent(rawFallback) || `Document_${dIdx + 1}.pdf`, url };
+                        })
+                        .filter(d => Boolean(d.url));
 
                       return (
                         <div key={idx} style={{ padding: 14, borderRadius: 10, background: isSaved ? '#f0fdf4' : '#fafbfc', border: isSaved ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
@@ -1039,41 +1052,83 @@ export default function AdminAddOnProcessing() {
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
                               Product #{idx + 1}: {p.name} {p.code ? `(${p.code})` : ''}
                             </div>
-                            {isSaved ? (
-                              <span className="badge badge-green" style={{ fontSize: 10, fontWeight: 700 }}>
-                                <Check size={11} style={{ marginRight: 2 }} /> RESPONDED
-                              </span>
-                            ) : (
-                              <span className="badge badge-gray" style={{ fontSize: 10, fontWeight: 700 }}>
-                                AWAITING RESPONSE
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {suppDocs.length > 0 && (
+                                <span className="badge badge-blue" style={{ fontSize: 10, fontWeight: 700 }}>
+                                  {suppDocs.length} {suppDocs.length === 1 ? 'SUPPORTING DOC' : 'SUPPORTING DOCS'}
+                                </span>
+                              )}
+                              {isSaved ? (
+                                <span className="badge badge-green" style={{ fontSize: 10, fontWeight: 700 }}>
+                                  <Check size={11} style={{ marginRight: 2 }} /> RESPONDED
+                                </span>
+                              ) : (
+                                <span className="badge badge-gray" style={{ fontSize: 10, fontWeight: 700 }}>
+                                  AWAITING RESPONSE
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {isSaved ? (
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                style={{ background: '#164e63', borderColor: '#164e63', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 11.5 }}
-                                onClick={() => setViewProductModal({
-                                  isOpen: true,
-                                  formData: resp.form_data && Object.keys(resp.form_data).length > 0 ? resp.form_data : {
-                                    product_name: p.name,
-                                    product_code: p.code,
-                                    company_name_address: app.client_id?.company_name
-                                  },
-                                  product: p,
-                                  company: app.client_id
-                                })}
-                              >
-                                <Eye size={13} /> View Filled Product Approval Form
-                              </button>
+                            <div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm"
+                                  style={{ background: '#164e63', borderColor: '#164e63', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 11.5 }}
+                                  onClick={() => setViewProductModal({
+                                    isOpen: true,
+                                    formData: resp.form_data && Object.keys(resp.form_data).length > 0 ? resp.form_data : {
+                                      product_name: p.name,
+                                      product_code: p.code,
+                                      company_name_address: app.client_id?.company_name
+                                    },
+                                    product: p,
+                                    company: app.client_id
+                                  })}
+                                >
+                                  <Eye size={13} /> View Filled Product Approval Form
+                                </button>
 
-                              {resp.response_url && (
-                                <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', fontSize: 11.5 }}>
-                                  <Download size={13} /> Attached PDF
-                                </a>
+                                {resp.response_url && (
+                                  <a href={getPdfUrl(resp.response_url)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', fontSize: 11.5 }}>
+                                    <Download size={13} /> Attached PDF
+                                  </a>
+                                )}
+                              </div>
+
+                              {suppDocs.length > 0 && (
+                                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #bbf7d0' }}>
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: 6 }}>
+                                    Uploaded Supporting Documents ({suppDocs.length}):
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {suppDocs.map((doc, dIdx) => (
+                                      <a
+                                        key={`${doc.url}-${dIdx}`}
+                                        href={getPdfUrl(doc.url)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn btn-outline btn-sm"
+                                        style={{
+                                          background: '#ffffff',
+                                          borderColor: '#86efac',
+                                          color: '#166534',
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          padding: '4px 10px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 5,
+                                          textDecoration: 'none'
+                                        }}
+                                      >
+                                        <FileText size={12} /> {doc.name}
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           ) : (

@@ -708,6 +708,57 @@ export default function AdminInitialProductProcessing() {
                 </div>
               )}
 
+              {/* Client Uploaded Supporting Documents inside Product Approval Form */}
+              {(() => {
+                const rawSuppDocs = Array.isArray(productResp?.form_data?.supporting_documents) ? productResp.form_data.supporting_documents : [];
+                const suppDocs = rawSuppDocs
+                  .filter(Boolean)
+                  .map((d, dIdx) => {
+                    if (typeof d === 'string') {
+                      const rawName = d.split('/').pop() || `Document_${dIdx + 1}.pdf`;
+                      return { name: decodeURIComponent(rawName.replace(/^\d+_[a-z0-9]+_/i, '')), url: d };
+                    }
+                    const url = d.url || d.file_url || '';
+                    const rawFallback = url ? (url.split('/').pop() || '').replace(/^\d+_[a-z0-9]+_/i, '') : `Document_${dIdx + 1}.pdf`;
+                    return { name: d.name || d.file_name || decodeURIComponent(rawFallback) || `Document_${dIdx + 1}.pdf`, url };
+                  })
+                  .filter(d => Boolean(d.url));
+
+                if (suppDocs.length === 0) return null;
+                return (
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: 8 }}>
+                      Client Uploaded Supporting Documents ({suppDocs.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {suppDocs.map((doc, dIdx) => (
+                        <a
+                          key={`${doc.url}-${dIdx}`}
+                          href={getPdfUrl(doc.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline btn-sm"
+                          style={{
+                            background: '#f0fdf4',
+                            borderColor: '#86efac',
+                            color: '#166534',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            padding: '5px 12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            textDecoration: 'none'
+                          }}
+                        >
+                          <FileText size={13} /> {doc.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Client Reply to Requested Information & Documents */}
               {(app.product_approval_form?.client_reply_text || app.product_approval_form?.client_reply_file_url) && (
                 <div style={{ marginTop: 14, background: '#f0fdf4', padding: 18, borderRadius: 12, border: '1.5px solid #86efac' }}>

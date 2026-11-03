@@ -1169,10 +1169,10 @@ export default function AdminDashboard() {
       <div
         onClick={() => setShowAdminActionModal(true)}
         style={{
-          background: '#ffffff',
+          background: adminActionItems.length > 0 ? '#fefce8' : '#ffffff',
           borderRadius: 16,
-          border: urgentAdminCount > 0 ? '1.5px solid #fecaca' : adminActionItems.length > 0 ? '1.5px solid #fed7aa' : '1px solid #bbf7d0',
-          boxShadow: urgentAdminCount > 0 ? '0 4px 16px -2px rgba(220, 38, 38, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.04)',
+          border: urgentAdminCount > 0 ? '1.5px solid #fef08a' : adminActionItems.length > 0 ? '1.5px solid #fef08a' : '1px solid #fef08a',
+          boxShadow: urgentAdminCount > 0 ? '0 4px 16px -2px rgba(234, 179, 8, 0.15)' : '0 2px 8px rgba(0, 0, 0, 0.04)',
           padding: '14px 22px',
           display: 'flex',
           alignItems: 'center',
@@ -1190,8 +1190,8 @@ export default function AdminDashboard() {
             width: 42,
             height: 42,
             borderRadius: 12,
-            background: urgentAdminCount > 0 ? '#dc2626' : adminActionItems.length > 0 ? '#ea580c' : '#008744',
-            color: '#ffffff',
+            background: urgentAdminCount > 0 ? '#fef08a' : adminActionItems.length > 0 ? '#fef08a' : '#fef9c3',
+            color: '#854d0e',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1210,8 +1210,9 @@ export default function AdminDashboard() {
                 fontWeight: 800,
                 padding: '2px 9px',
                 borderRadius: 12,
-                background: urgentAdminCount > 0 ? '#dc2626' : adminActionItems.length > 0 ? '#ea580c' : '#008744',
-                color: '#ffffff'
+                background: '#fef08a',
+                color: '#854d0e',
+                border: '1px solid #fde047'
               }}>
                 {adminActionItems.length === 0 ? '0 Queues Clear' : `${adminActionItems.length} ${adminActionItems.length === 1 ? 'Action Pending' : 'Actions Pending'}`}
               </span>
@@ -1228,9 +1229,9 @@ export default function AdminDashboard() {
           type="button"
           onClick={(e) => { e.stopPropagation(); setShowAdminActionModal(true); }}
           style={{
-            background: urgentAdminCount > 0 ? '#dc2626' : adminActionItems.length > 0 ? '#008744' : '#ffffff',
-            color: adminActionItems.length > 0 ? '#ffffff' : '#334155',
-            border: adminActionItems.length > 0 ? 'none' : '1px solid #cbd5e1',
+            background: adminActionItems.length > 0 ? '#fef08a' : '#ffffff',
+            color: adminActionItems.length > 0 ? '#854d0e' : '#334155',
+            border: '1px solid #fde047',
             fontWeight: 700,
             fontSize: 12.5,
             padding: '8px 16px',
@@ -1289,11 +1290,9 @@ export default function AdminDashboard() {
           >
             {/* Modal Header */}
             <div style={{
-              background: urgentAdminCount > 0
-                ? 'linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #b91c1c 100%)'
-                : 'linear-gradient(135deg, #093b3b 0%, #008744 50%, #047857 100%)',
+              background: 'linear-gradient(135deg, #fef9c3 0%, #fef08a 50%, #fde047 100%)',
               padding: '22px 28px',
-              color: '#ffffff',
+              color: '#713f12',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
@@ -1303,18 +1302,18 @@ export default function AdminDashboard() {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: 'rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(255, 255, 255, 0.6)',
                   backdropFilter: 'blur(4px)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#ffffff'
+                  color: '#854d0e'
                 }}>
                   {urgentAdminCount > 0 ? <AlertTriangle size={24} /> : <BellRing size={24} />}
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                    <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: '#713f12', letterSpacing: '-0.01em' }}>
                       Action Required
                     </h2>
                     <span style={{
@@ -1322,14 +1321,14 @@ export default function AdminDashboard() {
                       fontWeight: 800,
                       padding: '2px 9px',
                       borderRadius: 12,
-                      background: 'rgba(255, 255, 255, 0.25)',
-                      color: '#ffffff',
-                      border: '1px solid rgba(255, 255, 255, 0.3)'
+                      background: '#fef08a',
+                      color: '#854d0e',
+                      border: '1px solid #fde047'
                     }}>
                       {adminActionItems.length === 0 ? '0 Queues Clear' : `${adminActionItems.length} Actions Pending`}
                     </span>
                   </div>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.9 }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#854d0e' }}>
                     {adminActionItems.length === 0
                       ? 'All staff processing queues, countersignatures, logsheets, and support tickets are clear.'
                       : `${urgentAdminCount > 0 ? `${urgentAdminCount} urgent task(s) require immediate staff action.` : 'Tasks awaiting internal review, countersignature, or reply.'}`}
@@ -1341,9 +1340,9 @@ export default function AdminDashboard() {
                 type="button"
                 onClick={() => setShowAdminActionModal(false)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  border: 'none',
-                  color: '#ffffff',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  border: '1px solid rgba(133, 77, 14, 0.2)',
+                  color: '#713f12',
                   width: 32,
                   height: 32,
                   borderRadius: '50%',
@@ -1558,8 +1557,8 @@ export default function AdminDashboard() {
                         gap: 12,
                         padding: '14px 18px',
                         borderRadius: 12,
-                        background: item.urgency === 'urgent' ? '#fffaf9' : '#fcfcfc',
-                        border: item.urgency === 'urgent' ? '1.5px solid #fecaca' : '1px solid #e2e8f0',
+                        background: item.urgency === 'urgent' ? '#fefce8' : '#fcfcfc',
+                        border: item.urgency === 'urgent' ? '1.5px solid #fef08a' : '1px solid #e2e8f0',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
                       }}
                     >
@@ -1664,8 +1663,9 @@ export default function AdminDashboard() {
                             navigate(item.actionUrl);
                           }}
                           style={{
-                            background: item.urgency === 'urgent' ? '#dc2626' : '#008744',
-                            color: '#ffffff',
+                            background: '#fef08a',
+                            color: '#854d0e',
+                            border: '1px solid #fde047',
                             fontWeight: 700,
                             fontSize: 12,
                             padding: '8px 16px',

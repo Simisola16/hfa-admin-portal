@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, Paperclip, UploadCloud, File, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -20,6 +20,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
     notes: '',
     file: null
   });
+  const [supportingFiles, setSupportingFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const targetAppId = getCleanId(propAppId) || getCleanId(propApp) || getCleanId(propInvoice?.application_id);
@@ -69,6 +70,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
             notes: loadedInvoice?.notes || '',
             file: null
           }));
+          setSupportingFiles([]);
         }
       }).finally(() => setLoading(false));
     } else {
@@ -89,6 +91,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
         notes: activeInvoice?.notes || '',
         file: null
       });
+      setSupportingFiles([]);
     }
   }, [isOpen, targetAppId, invoiceType]);
 
@@ -102,6 +105,17 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
     </div>
   );
   if (!app) return null;
+  const isSurvApp = propApp?.application_type === 'surveillance' || app?.application_type === 'surveillance' || String(app?.application_number || '').includes('-SU-');
+  const isRenApp = !isSurvApp && (propApp?.application_type === 'renewal' || app?.application_type === 'renewal' || String(app?.application_number || '').includes('-RE-'));
+  const isRenewalOrSurv = isSurvApp || isRenApp;
+
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const handleSubmit = async () => {
     const isFinal = invoiceType === 'final';
@@ -130,6 +144,9 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
       formData.append('amount', invoiceForm.amount);
       if (invoiceForm.notes) formData.append('notes', invoiceForm.notes);
       if (invoiceForm.file) formData.append('invoice_file', invoiceForm.file);
+      supportingFiles.forEach(sFile => {
+        formData.append('supporting_files', sFile);
+      });
       formData.append('invoice_type', isFinal ? 'final' : 'initial');
       formData.append('target_status', isFinal ? 'final_invoice_sent' : 'invoice_sent');
 
@@ -152,7 +169,7 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">{invoiceType === 'final' ? 'Send Final Invoice' : (invoice ? 'Send Revised Invoice' : 'Send Invoice')}</div>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
@@ -214,6 +231,154 @@ export default function InvoiceModal({ isOpen, onClose, app: propApp, appId: pro
                 onChange={e => setInvoiceForm(f => ({ ...f, file: e.target.files[0] }))}
               />
             </div>
+          </div>
+          {/* Supporting Documents / Attachments (Especially for Renewal & Surveillance) */}
+          <div className="form-group" style={{ marginTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+                <Paperclip size={15} style={{ color: '#0d9488' }} />
+                <span>Supporting Documents & Schedules</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>(Optional)</span>
+              </label>
+              {isRenewalOrSurv && (
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  background: '#f0fdf4',
+                  color: '#15803d',
+                  border: '1px solid #bbf7d0',
+                  padding: '2px 8px',
+                  borderRadius: 12,
+                  letterSpacing: '0.02em'
+                }}>
+                  Recommended for {isSurvApp ? 'Surveillance' : 'Renewal'}
+                </span>
+              )}
+            </div>
+
+            <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+              Upload additional attachments alongside this invoice (e.g. audit report summary, fee breakdown schedule, terms & conditions, or cover letter).
+            </p>
+
+            <div
+              onClick={() => document.getElementById('supporting-files-input').click()}
+              style={{
+                border: '1.5px dashed #cbd5e1',
+                padding: '16px',
+                borderRadius: '10px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: '#f8fafc',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.background = '#f0fdfa'; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+            >
+              <UploadCloud size={24} style={{ color: '#0d9488', margin: '0 auto 6px' }} />
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                Click to add supporting files
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                PDF, Word (.docx), Excel (.xlsx), or Images &middot; Max 10 files
+              </div>
+              <input
+                id="supporting-files-input"
+                type="file"
+                multiple
+                hidden
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                onChange={e => {
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length) return;
+                  setSupportingFiles(prev => {
+                    const combined = [...prev, ...files];
+                    return combined.slice(0, 10);
+                  });
+                  e.target.value = '';
+                }}
+              />
+            </div>
+
+            {/* List of files selected to upload */}
+            {supportingFiles.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Files to Attach ({supportingFiles.length})</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSupportingFiles([]); }}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+                {supportingFiles.map((f, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      fontSize: 12
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                      <File size={15} style={{ color: '#0d9488', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: 260 }} title={f.name}>
+                        {f.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>({formatBytes(f.size)})</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSupportingFiles(prev => prev.filter((_, i) => i !== idx));
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#94a3b8',
+                        padding: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: 4
+                      }}
+                      onMouseOver={e => e.currentTarget.style.color = '#ef4444'}
+                      onMouseOut={e => e.currentTarget.style.color = '#94a3b8'}
+                      title="Remove file"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Previously uploaded supporting documents */}
+            {invoice?.supporting_documents && invoice.supporting_documents.length > 0 && (
+              <div style={{ marginTop: 10, background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>
+                  Previously Attached Documents ({invoice.supporting_documents.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {invoice.supporting_documents.map((doc, dIdx) => (
+                    <div key={dIdx} style={{ fontSize: 11, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Paperclip size={12} style={{ color: '#64748b' }} />
+                      <a href={doc.url} target="_blank" rel="noreferrer" style={{ color: '#0d9488', textDecoration: 'underline', fontWeight: 600 }}>
+                        {doc.name || 'Document ' + (dIdx + 1)}
+                      </a>
+                      {doc.size ? <span style={{ color: '#94a3b8', fontSize: 10 }}>({formatBytes(doc.size)})</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="form-group">

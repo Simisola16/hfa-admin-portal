@@ -2,12 +2,19 @@ import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle, Bell } from 'lucide-react';
+import { Receipt, Download, Lock, CheckCircle, Clock, ShieldCheck, AlertCircle, Bell, Paperclip, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canSendInvoice, canConfirmPayment } from '../lib/permissions';
 
 export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, isRenewal, isSurveillance, onConfirmPayment, confirmingPayment, onSendInvoice }) {
   const { user } = useAuth();
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
   const [reminding, setReminding] = useState(false);
   const canSend = canSendInvoice(user);
   const canConfirm = canConfirmPayment(user);
@@ -327,6 +334,52 @@ export default function InvoiceCard({ app, invoice, status, isInitial, isFinal, 
           </div>
         )}
 
+        {/* Supporting Documents / Schedules */}
+        {invoice.supporting_documents && invoice.supporting_documents.length > 0 && (
+          <div style={{ marginBottom: invoice.notes ? 16 : 0, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <Paperclip size={14} style={{ color: '#0d9488' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#334155' }}>
+                Supporting Documents & Attachments ({invoice.supporting_documents.length})
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+              {invoice.supporting_documents.map((doc, idx) => (
+                <a
+                  key={idx}
+                  href={getPdfUrl(doc.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    padding: '8px 12px',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease-in-out'
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.background = '#f0fdfa'; }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#ffffff'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                    <FileText size={15} style={{ color: '#0d9488', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: 160 }} title={doc.name}>
+                        {doc.name || 'Attachment ' + (idx + 1)}
+                      </span>
+                      {doc.size ? <span style={{ fontSize: 10, color: '#94a3b8' }}>{formatBytes(doc.size)}</span> : null}
+                    </div>
+                  </div>
+                  <Download size={13} style={{ color: '#0d9488', flexShrink: 0 }} />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {invoice.notes && (
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 6 }}>Payment Notes</div>

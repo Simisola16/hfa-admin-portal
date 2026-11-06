@@ -1,6 +1,6 @@
 import { getPdfUrl } from '../lib/pdfUtils';
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Users, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, Calendar, Users, FileText, AlertCircle, CheckCircle, AlertTriangle, Lock, RefreshCw, Trash2, Edit3, Clock } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +33,22 @@ export default function AuditManageModal({
   const [activeStage, setActiveStage] = useState(audit?.stage || 1);
   const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [appData, setAppData] = useState(typeof app === 'object' && app !== null ? app : null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [isCancelingDate, setIsCancelingDate] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isEditingAuditors, setIsEditingAuditors] = useState(false);
+
+  useEffect(() => {
+    setIsRescheduling(false);
+    setRescheduleDate('');
+    setRescheduleReason('');
+    setIsCancelingDate(false);
+    setCancelReason('');
+    setIsEditingAuditors(false);
+  }, [activeStage, isOpen]);
+
   const [auditForm, setAuditForm] = useState({
     dates: [''],
     auditors: [],
@@ -230,6 +246,13 @@ export default function AuditManageModal({
 
   const existingAudit = existingAudits.find(a => (a.stage || 1) === activeStage) || (activeStage === 1 ? existingAudits[0] : null);
 
+  const isAuditCompleted = Boolean(
+    existingAudit?.status === 'audit_completed' ||
+    existingAudit?.status === 'completed' ||
+    existingAudit?.status === 'audit_successful' ||
+    ['audit_completed', 'audit_report_submitted', 'logsheet_created', 'logsheet_signed', 'agreement_sent', 'agreement_signed', 'agreement_finalised', 'certificate_issued', 'done'].includes(String(currentApp?.status || '').toLowerCase())
+  );
+
   // Setup initial auditors list depending on dual exporter or single
   useEffect(() => {
     if (existingAudit?.status === 'date_finalized' && (!auditForm.auditors || auditForm.auditors.length === 0)) {
@@ -368,7 +391,135 @@ export default function AuditManageModal({
     }
   };
 
+  const handleRescheduleDate = async () => {
+    if (isAuditCompleted) {
+      toast.error('Audit has already been concluded/completed. The audit date can no longer be modified.');
+      return;
+    }
+    if (!rescheduleDate) {
+      toast.error('Please select a valid future audit date.');
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateObj = new Date(rescheduleDate);
+    dateObj.setHours(0, 0, 0, 0);
+    if (isNaN(dateObj.getTime()) || dateObj < today) {
+      toast.error('Rescheduled date cannot be in the past. Please select a valid future date.');
+      return;
+    }
+
+    setAuditSubmitting(true);
+    try {
+      const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
+      const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+
+      const res = await api.post('/api/audits/reschedule-date', {
+        audit_id: currentAuditId,
+        application_id: targetAppId,
+        stage: activeStage,
+        new_date: rescheduleDate,
+        reason: rescheduleReason
+      });
+
+      const serverAudit = res.data?.data || res.data || {};
+      setExistingAudits(prev => {
+        const idToMatch = currentAuditId || serverAudit._id;
+        const idx = prev.findIndex(a => 
+          (idToMatch && (String(a._id) === String(idToMatch) || String(a.id) === String(idToMatch))) ||
+          ((a.stage || 1) === activeStage)
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...serverAudit, finalized_date: rescheduleDate, scheduled_date: rescheduleDate };
+          return next;
+        }
+        return prev;
+      });
+
+      toast.success(`Audit date rescheduled to ${new Date(rescheduleDate).toDateString()} successfully!`);
+      setIsRescheduling(false);
+      setRescheduleDate('');
+      setRescheduleReason('');
+      if (typeof onSuccess === 'function') onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to reschedule audit date');
+    } finally {
+      setAuditSubmitting(false);
+    }
+  };
+
+  const handleCancelDate = async () => {
+    if (isAuditCompleted) {
+      toast.error('Audit has already been concluded/completed. The audit date can no longer be modified.');
+      return;
+    }
+
+    setAuditSubmitting(true);
+    try {
+      const currentAuditId = existingAudit?._id || existingAudit?.id || (existingAudits?.[0]?._id || existingAudits?.[0]?.id);
+      const targetAppId = getCleanId(app?._id || app?.id || app || applicationId);
+
+      const res = await api.post('/api/audits/cancel-date', {
+        audit_id: currentAuditId,
+        application_id: targetAppId,
+        stage: activeStage,
+        reason: cancelReason
+      });
+
+      const serverAudit = res.data?.data || res.data || {};
+      setExistingAudits(prev => {
+        const idToMatch = currentAuditId || serverAudit._id;
+        const idx = prev.findIndex(a => 
+          (idToMatch && (String(a._id) === String(idToMatch) || String(a.id) === String(idToMatch))) ||
+          ((a.stage || 1) === activeStage)
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...serverAudit, status: 'cancelled', finalized_date: null, scheduled_date: null };
+          return next;
+        }
+        return prev;
+      });
+
+      toast.success('Audit date cancelled successfully. A new date can now be scheduled or proposed.');
+      setIsCancelingDate(false);
+      setCancelReason('');
+      if (typeof onSuccess === 'function') onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to cancel audit date');
+    } finally {
+      setAuditSubmitting(false);
+    }
+  };
+
+  const startEditingAuditors = () => {
+    if (isAuditCompleted) return;
+    const existing = existingAudit?.auditors || [];
+    const populated = existing.length > 0
+      ? existing.map(a => ({
+          inspector_id: a.inspector_id || (inspectorsList.find(i => i.email && a.email && i.email.toLowerCase() === a.email.toLowerCase())?._id) || 'custom',
+          name: a.name || '',
+          email: a.email || '',
+          contact_number: a.contact_number || '',
+          purpose: a.purpose || (isRenewalOrSurveillance ? (type === 'surveillance' ? 'Surveillance Audit' : 'Renewal Audit') : 'Halal Facility & Systems Audit')
+        }))
+      : Array(isDualStage ? 2 : 1).fill(null).map(() => ({
+          name: '',
+          email: '',
+          contact_number: '',
+          purpose: isRenewalOrSurveillance ? (type === 'surveillance' ? 'Surveillance Audit' : 'Renewal Audit') : 'Halal Facility & Systems Audit',
+          inspector_id: ''
+        }));
+    setAuditForm(f => ({ ...f, auditors: populated }));
+    setIsEditingAuditors(true);
+  };
+
   const handleAssignAuditors = async () => {
+    if (isAuditCompleted) {
+      toast.error('Audit has already been concluded/completed. Assigned auditors can no longer be modified.');
+      return;
+    }
     if (!canAssignAuditor(currentUser)) {
       toast.error('Only Audit Manager can assign auditors.');
       return;
@@ -428,6 +579,7 @@ export default function AuditManageModal({
       });
 
       toast.success('Auditors assigned successfully!' + (isDualStage && stage2Filled.length > 0 ? ' Stage 2 auditors will be applied when Stage 2 date is finalized.' : ''));
+      setIsEditingAuditors(false);
       if (typeof onSuccess === 'function') onSuccess();
       if (typeof onClose === 'function') onClose();
     } catch (err) {
@@ -515,8 +667,21 @@ export default function AuditManageModal({
           )}
           
           {/* Propose Dates Phase */}
-          {(!existingAudit || existingAudit?.status === 'dates_rejected') && (
+          {(!existingAudit || existingAudit?.status === 'dates_rejected' || existingAudit?.status === 'cancelled') && (
             <div>
+              {existingAudit?.status === 'cancelled' && (
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px 16px', borderRadius: 10, marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.4, fontWeight: 700 }}>
+                      Audit Date Previously Cancelled
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#991b1b', marginTop: 4 }}>
+                    {existingAudit?.client_availability_note || 'The previous audit date was cancelled. You can propose or set a new audit date for this session below.'}
+                  </div>
+                </div>
+              )}
               {existingAudit?.status === 'dates_rejected' && (
                 <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px 16px', borderRadius: 10, marginBottom: 18 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (existingAudit?.client_availability_note || currentApp?.client_audit_availability_note) ? 8 : 0 }}>
@@ -651,12 +816,134 @@ export default function AuditManageModal({
           {/* Date Finalized (Assign Auditors) */}
           {existingAudit?.status === 'date_finalized' && (
             <div>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                <h4 style={{ fontSize: 14, color: '#166534', marginBottom: 4, fontWeight: 700 }}>✓ Audit Date Finalized</h4>
-                <p style={{ fontSize: 14, color: '#15803d', fontWeight: 700, margin: 0 }}>
-                  {new Date(existingAudit.finalized_date || auditForm.finalized_date).toDateString()}
-                </p>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '10px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <h4 style={{ fontSize: 13, color: '#166534', marginBottom: 2, fontWeight: 700 }}>✓ Audit Date Finalized</h4>
+                    <p style={{ fontSize: 15, color: '#15803d', fontWeight: 800, margin: 0 }}>
+                      {new Date(existingAudit.finalized_date || auditForm.finalized_date).toDateString()}
+                    </p>
+                  </div>
+                  {!isAuditCompleted && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: '#2563eb', border: '1px solid #bfdbfe', background: '#eff6ff', fontSize: 12, padding: '6px 12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => {
+                          setIsRescheduling(!isRescheduling);
+                          setIsCancelingDate(false);
+                          setRescheduleDate(existingAudit.finalized_date ? new Date(existingAudit.finalized_date).toISOString().split('T')[0] : '');
+                        }}
+                      >
+                        <RefreshCw size={13} /> {isRescheduling ? 'Dismiss' : 'Reschedule Date'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: '#dc2626', border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, padding: '6px 12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => {
+                          setIsCancelingDate(!isCancelingDate);
+                          setIsRescheduling(false);
+                        }}
+                      >
+                        <Trash2 size={13} /> Cancel Date
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Inline Reschedule Form */}
+              {isRescheduling && !isAuditCompleted && (
+                <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '16px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Calendar size={18} style={{ color: '#2563eb' }} />
+                    <h4 style={{ fontSize: 14, fontWeight: 800, color: '#1e40af', margin: 0 }}>Reschedule Audit Date to Specific Date</h4>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#1e3a8a' }}>New Audit Date *</label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      className="form-control"
+                      value={rescheduleDate}
+                      onChange={e => setRescheduleDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#1e3a8a' }}>Reason for Rescheduling (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Client requested postponement / auditor availability adjustment"
+                      value={rescheduleReason}
+                      onChange={e => setRescheduleReason(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsRescheduling(false)}
+                      disabled={auditSubmitting}
+                    >
+                      Dismiss
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleRescheduleDate}
+                      disabled={auditSubmitting || !rescheduleDate}
+                      style={{ background: '#2563eb', borderColor: '#2563eb' }}
+                    >
+                      {auditSubmitting ? 'Rescheduling...' : 'Confirm New Date'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Inline Cancel Form */}
+              {isCancelingDate && !isAuditCompleted && (
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <AlertTriangle size={18} style={{ color: '#dc2626' }} />
+                    <h4 style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', margin: 0 }}>Confirm Audit Date Cancellation</h4>
+                  </div>
+                  <p style={{ fontSize: 12.5, color: '#7f1d1d', margin: '0 0 12px', lineHeight: 1.5 }}>
+                    Cancelling this date will reset the audit schedule, notify the client, and allow you to propose or set a fresh audit date.
+                  </p>
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>Reason for Cancellation (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Client facility undergoing maintenance"
+                      value={cancelReason}
+                      onChange={e => setCancelReason(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsCancelingDate(false)}
+                      disabled={auditSubmitting}
+                    >
+                      Keep Date
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={handleCancelDate}
+                      disabled={auditSubmitting}
+                      style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, fontWeight: 700 }}
+                    >
+                      {auditSubmitting ? 'Cancelling...' : 'Yes, Cancel Date'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {!canAssignAuditor(currentUser) ? (
                 <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '24px 20px', textAlign: 'center' }}>
@@ -820,38 +1107,357 @@ export default function AuditManageModal({
           {/* View for Assigned / Completed Audits */}
           {(existingAudit?.status === 'auditors_assigned' || existingAudit?.status === 'audit_completed') && (
             <div>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
-                <div style={{ fontSize: 12, color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-                  ✓ Confirmed Audit Date {isDualStage ? `(Stage ${activeStage})` : ''}
+              {/* Permanent Completed Lock Banner */}
+              {isAuditCompleted && (
+                <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', padding: '14px 18px', borderRadius: 12, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Lock size={20} style={{ color: '#475569', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>Audit Concluded &amp; Permanently Locked</div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>This audit session has been concluded. In accordance with compliance standards, both the audit date and assigned auditors are permanently locked and can no longer be modified.</div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 15, color: '#15803d', fontWeight: 800 }}>
-                  {existingAudit.finalized_date ? new Date(existingAudit.finalized_date).toDateString() : 'Confirmed'}
-                </div>
-              </div>
+              )}
 
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>
-                Assigned Auditor Team ({existingAudit.auditors?.length || 0})
-              </div>
-
-              <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
-                {existingAudit.auditors?.map((a, idx) => (
-                  <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{a.name}</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
+              {/* Confirmed Date Header */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px 20px', borderRadius: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#166534', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                      ✓ Confirmed Audit Date {isDualStage ? `(Stage ${activeStage})` : ''}
                     </div>
-                    {a.purpose && (
-                      <div>
-                        <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px' }}>
-                          {a.purpose}
-                        </span>
+                    <div style={{ fontSize: 15, color: '#15803d', fontWeight: 800 }}>
+                      {existingAudit.finalized_date ? new Date(existingAudit.finalized_date).toDateString() : 'Confirmed'}
+                    </div>
+                  </div>
+                  {!isAuditCompleted && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: '#2563eb', border: '1px solid #bfdbfe', background: '#eff6ff', fontSize: 12, padding: '6px 12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => {
+                          setIsRescheduling(!isRescheduling);
+                          setIsCancelingDate(false);
+                          setRescheduleDate(existingAudit.finalized_date ? new Date(existingAudit.finalized_date).toISOString().split('T')[0] : '');
+                        }}
+                      >
+                        <RefreshCw size={13} /> {isRescheduling ? 'Dismiss' : 'Reschedule Date'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: '#dc2626', border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, padding: '6px 12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => {
+                          setIsCancelingDate(!isCancelingDate);
+                          setIsRescheduling(false);
+                        }}
+                      >
+                        <Trash2 size={13} /> Cancel Date
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Inline Reschedule Form */}
+              {isRescheduling && !isAuditCompleted && (
+                <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '16px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Calendar size={18} style={{ color: '#2563eb' }} />
+                    <h4 style={{ fontSize: 14, fontWeight: 800, color: '#1e40af', margin: 0 }}>Reschedule Audit Date to Specific Date</h4>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#1e3a8a' }}>New Audit Date *</label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      className="form-control"
+                      value={rescheduleDate}
+                      onChange={e => setRescheduleDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#1e3a8a' }}>Reason for Rescheduling (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Client requested postponement / auditor availability adjustment"
+                      value={rescheduleReason}
+                      onChange={e => setRescheduleReason(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsRescheduling(false)}
+                      disabled={auditSubmitting}
+                    >
+                      Dismiss
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleRescheduleDate}
+                      disabled={auditSubmitting || !rescheduleDate}
+                      style={{ background: '#2563eb', borderColor: '#2563eb' }}
+                    >
+                      {auditSubmitting ? 'Rescheduling...' : 'Confirm New Date'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Inline Cancel Form */}
+              {isCancelingDate && !isAuditCompleted && (
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <AlertTriangle size={18} style={{ color: '#dc2626' }} />
+                    <h4 style={{ fontSize: 14, fontWeight: 800, color: '#991b1b', margin: 0 }}>Confirm Audit Date Cancellation</h4>
+                  </div>
+                  <p style={{ fontSize: 12.5, color: '#7f1d1d', margin: '0 0 12px', lineHeight: 1.5 }}>
+                    Cancelling this date will reset the audit schedule, notify the client and auditors, and allow you to propose or set a fresh audit date.
+                  </p>
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>Reason for Cancellation (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Facility shutdown / scheduling conflict"
+                      value={cancelReason}
+                      onChange={e => setCancelReason(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsCancelingDate(false)}
+                      disabled={auditSubmitting}
+                    >
+                      Keep Date
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={handleCancelDate}
+                      disabled={auditSubmitting}
+                      style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, fontWeight: 700 }}
+                    >
+                      {auditSubmitting ? 'Cancelling...' : 'Yes, Cancel Date'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Auditor Management Section */}
+              {isEditingAuditors && !isAuditCompleted ? (
+                <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: 12, padding: '18px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div>
+                      <h4 style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                        {isDualStage ? `Change Stage ${activeStage} Auditor(s)` : 'Change / Reassign Auditor(s)'}
+                      </h4>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                        Modify the auditor assignments for this session.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsEditingAuditors(false)}
+                      style={{ fontSize: 12 }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 16, marginBottom: 20 }}>
+                    {auditForm.auditors.map((auditor, i) => (
+                      <div key={i} style={{ padding: '16px', border: '1.5px solid #e2e8f0', borderRadius: '10px', position: 'relative', background: '#ffffff' }}>
+                        {auditForm.auditors.length > 1 && (
+                          <button
+                            type="button"
+                            style={{ position: 'absolute', top: 14, right: 14, border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                            onClick={() => {
+                              const newAuditors = auditForm.auditors.filter((_, idx) => idx !== i);
+                              setAuditForm({ ...auditForm, auditors: newAuditors });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>Auditor {i + 1}</span>
+                          {auditor.inspector_id && auditor.inspector_id !== 'custom' && (
+                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                              ✓ Registered Auditor Linked
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Registered Auditor Dropdown */}
+                        <div className="form-group" style={{ marginBottom: 14 }}>
+                          <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', fontSize: 12 }}>
+                            Select Auditor <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <select
+                            className="form-control"
+                            value={auditor.inspector_id || ''}
+                            onChange={e => handleSelectAuditor(i, e.target.value)}
+                            style={{
+                              borderColor: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#16a34a' : '#cbd5e1',
+                              background: auditor.inspector_id && auditor.inspector_id !== 'custom' ? '#f0fdf4' : '#ffffff',
+                              fontWeight: 600,
+                              fontSize: 13,
+                              padding: '9px 12px'
+                            }}
+                          >
+                            <option value="">-- Choose Registered Auditor --</option>
+                            {inspectorsList.map(aud => (
+                              <option key={aud._id || aud.id} value={aud._id || aud.id}>
+                                👤 {aud.full_name || aud.name} ({aud.email}) — [AUDITOR]
+                              </option>
+                            ))}
+                            <option value="custom">✏️ Enter Custom / External Auditor Details</option>
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Name</label>
+                            <input
+                              className="form-control"
+                              disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                              value={auditor.name}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, name: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. Dr. Ahmad Khan"
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Auditor Email</label>
+                            <input
+                              type="email"
+                              className="form-control"
+                              disabled={!!auditor.inspector_id && auditor.inspector_id !== 'custom'}
+                              value={auditor.email}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, email: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. ahmad@hfa.org"
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Contact Number</label>
+                            <input
+                              className="form-control"
+                              value={auditor.contact_number}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, contact_number: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="+44..."
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Audit Purpose / Role</label>
+                            <input
+                              className="form-control"
+                              value={auditor.purpose}
+                              onChange={e => {
+                                const newAuditors = [...auditForm.auditors];
+                                newAuditors[i] = { ...auditor, purpose: e.target.value };
+                                setAuditForm({ ...auditForm, auditors: newAuditors });
+                              }}
+                              placeholder="e.g. Halal Facility & Systems Audit"
+                            />
+                          </div>
+                        </div>
                       </div>
+                    ))}
+
+                    <div style={{ textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          const newAuditors = [...auditForm.auditors, { name: '', email: '', contact_number: '', purpose: '', inspector_id: '' }];
+                          setAuditForm({ ...auditForm, auditors: newAuditors });
+                        }}
+                      >
+                        + Add Another Auditor
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setIsEditingAuditors(false)}
+                      disabled={auditSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={auditSubmitting}
+                      onClick={handleAssignAuditors}
+                    >
+                      {auditSubmitting ? 'Saving...' : 'Save Updated Auditors'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Assigned Auditor Team ({existingAudit.auditors?.length || 0})
+                    </div>
+                    {!isAuditCompleted && canAssignAuditor(currentUser) && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: '#0f766e', border: '1px solid #99f6e4', background: '#f0fdfa', fontSize: 12, padding: '5px 10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={startEditingAuditors}
+                      >
+                        <Edit3 size={13} /> Change Auditor(s)
+                      </button>
                     )}
                   </div>
-                ))}
-              </div>
 
-              {existingAudit.status !== 'audit_completed' && (
+                  <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+                    {existingAudit.auditors?.map((a, idx) => (
+                      <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{a.name}</div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{a.email} {a.contact_number ? `• ${a.contact_number}` : ''}</div>
+                        </div>
+                        {a.purpose && (
+                          <div>
+                            <span style={{ fontSize: 11, color: '#475569', background: '#e2e8f0', padding: '3px 8px', borderRadius: '6px' }}>
+                              {a.purpose}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Complete Audit Action */}
+              {!isAuditCompleted && existingAudit.status !== 'audit_completed' && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '16px 18px', borderRadius: 12, marginTop: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
                     {isDualStage ? `Stage ${activeStage} Audit Completion` : 'Audit Session Completion'}

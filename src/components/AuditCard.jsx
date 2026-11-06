@@ -85,6 +85,7 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
       nc_flagged: 'NC Flagged',
       nc_closed: 'NC Closed',
       audit_report_submitted: 'Audit Report Submitted',
+      cancelled: 'Date Cancelled',
     };
     if (statusMap[s]) return statusMap[s];
     return s
@@ -219,6 +220,16 @@ export default function AuditCard({ audits, status, app, initialProduct, isIniti
                 {auditObj.client_availability_note || app?.client_audit_availability_note || app?.client_availability_note}
               </div>
             )}
+          </div>
+        ) : auditObj.status === 'cancelled' ? (
+          <div style={{ marginBottom: 12, padding: '12px 14px', background: '#fef2f2', borderRadius: 10, border: '1px solid #fecaca' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertTriangle size={14} />
+              <span>Audit Date Cancelled</span>
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12, color: '#991b1b' }}>
+              The scheduled audit date was cancelled. Click Manage to propose or set a new date.
+            </div>
           </div>
         ) : auditObj.status === 'dates_proposed' ? (
           <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fefce8', borderRadius: 10, border: '1px solid #fde68a' }}>

@@ -469,7 +469,7 @@ export default function AdminCreateCertificate() {
 
         try {
           if (curSiteId) {
-            const prodRes = await api.get(`/api/products?site_id=${curSiteId}&all=true`);
+            const prodRes = await api.get(`/api/products?site_id=${curSiteId}&all=true&sort=asc`);
             const siteProds = Array.isArray(prodRes?.data?.data) ? prodRes.data.data : (Array.isArray(prodRes?.data) ? prodRes.data : (Array.isArray(prodRes) ? prodRes : []));
             if (Array.isArray(siteProds) && siteProds.length > 0) {
               prodList = siteProds;
@@ -478,7 +478,7 @@ export default function AdminCreateCertificate() {
 
           // Fallback to client ID if site query returned 0 products
           if (prodList.length === 0 && curClientId) {
-            const clientProdRes = await api.get(`/api/products?client_id=${curClientId}&all=true`);
+            const clientProdRes = await api.get(`/api/products?client_id=${curClientId}&all=true&sort=asc`);
             const clientProds = Array.isArray(clientProdRes?.data?.data) ? clientProdRes.data.data : (Array.isArray(clientProdRes?.data) ? clientProdRes.data : (Array.isArray(clientProdRes) ? clientProdRes : []));
             if (Array.isArray(clientProds) && clientProds.length > 0) {
               if (curSiteId) {
@@ -805,7 +805,7 @@ export default function AdminCreateCertificate() {
     const cId = c._id || c.id;
     if (cId) {
       try {
-        const pRes = await api.get(`/api/products?client_id=${cId}&all=true`);
+        const pRes = await api.get(`/api/products?client_id=${cId}&all=true&sort=asc`);
         const pList = Array.isArray(pRes.data?.data) ? pRes.data.data : (Array.isArray(pRes.data) ? pRes.data : (Array.isArray(pRes) ? pRes : []));
         const activeProds = pList.filter(p => !['inactive', 'rejected', 'deleted'].includes(String(p.status || '').toLowerCase()));
         if (activeProds.length > 0) {
@@ -845,14 +845,14 @@ export default function AdminCreateCertificate() {
       // Dynamically fetch and update products for the selected site
       try {
         let fetchedList = [];
-        const prodRes = await api.get(`/api/products?site_id=${sId}&all=true`);
+        const prodRes = await api.get(`/api/products?site_id=${sId}&all=true&sort=asc`);
         const siteProds = Array.isArray(prodRes?.data?.data) ? prodRes.data.data : (Array.isArray(prodRes?.data) ? prodRes.data : (Array.isArray(prodRes) ? prodRes : []));
         if (Array.isArray(siteProds) && siteProds.length > 0) {
           fetchedList = siteProds;
         } else {
           const cId = selectedClient?._id || selectedClient?.id || clientUser?._id || clientUser?.id || app?.client_id?._id || app?.client_id;
           if (cId) {
-            const clientRes = await api.get(`/api/products?client_id=${cId}&all=true`);
+            const clientRes = await api.get(`/api/products?client_id=${cId}&all=true&sort=asc`);
             const clientProds = Array.isArray(clientRes?.data?.data) ? clientRes.data.data : (Array.isArray(clientRes?.data) ? clientRes.data : (Array.isArray(clientRes) ? clientRes : []));
             const siteFiltered = clientProds.filter(p => {
               const pSiteId = typeof p.site_id === 'object' ? (p.site_id?._id || p.site_id?.id) : p.site_id;

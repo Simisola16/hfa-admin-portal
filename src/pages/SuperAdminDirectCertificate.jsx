@@ -126,7 +126,7 @@ export default function SuperAdminDirectCertificate() {
   useEffect(() => {
     if (selectedClient?._id || selectedClient?.id) {
       const cId = selectedClient._id || selectedClient.id;
-      let url = `/api/products?client_id=${cId}&all=true`;
+      let url = `/api/products?client_id=${cId}&all=true&sort=asc`;
       if (selectedSiteId) {
         url += `&site_id=${selectedSiteId}`;
       }
@@ -492,7 +492,7 @@ export default function SuperAdminDirectCertificate() {
 
     setLoadingCatalog(true);
     try {
-      let endpoint = `/api/products?client_id=${clientId}&all=true`;
+      let endpoint = `/api/products?client_id=${clientId}&all=true&sort=asc`;
       if (siteId) {
         endpoint += `&site_id=${siteId}`;
       }

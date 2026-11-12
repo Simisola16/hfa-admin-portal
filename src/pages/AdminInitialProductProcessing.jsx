@@ -5,7 +5,7 @@ import {
   Building2, FileText, User,
   AlertCircle, Clock, Package, Download, Eye,
   Sparkles, Send, FileSpreadsheet, Plus, X,
-  FileCheck, Printer
+  FileCheck, Printer, RotateCcw
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -943,9 +943,20 @@ export default function AdminInitialProductProcessing() {
                           </span>
                         </div>
                       </div>
-                      <Link to={`/admin/initial-products/${id}/logsheet`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
-                        Open Logsheet &rarr;
-                      </Link>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {canManageForm && (
+                          <Link
+                            to={`/admin/initial-products/${id}/logsheet?redo=1`}
+                            className="btn btn-outline btn-sm"
+                            style={{ fontWeight: 700, color: '#b45309', borderColor: '#f59e0b', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                          >
+                            <RotateCcw size={13} /> Redo Logsheet
+                          </Link>
+                        )}
+                        <Link to={`/admin/initial-products/${id}/logsheet`} className="btn btn-outline btn-sm" style={{ fontWeight: 700 }}>
+                          Open Logsheet &rarr;
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}

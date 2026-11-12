@@ -698,6 +698,19 @@ export default function AdminLogsheetManage() {
                 variant: 'default',
                 onClick: () => navigate(getLogsheetLink(l))
               },
+              l.status !== 'Done' && l.status !== 'done' && {
+                label: 'Redo Logsheet',
+                description: 'Reset signatures and enter edit mode to make changes',
+                icon: RotateCcw,
+                variant: 'warning',
+                onClick: () => {
+                  if (window.confirm(`Are you sure you want to redo the logsheet for "${l.company_name}"? All existing signatures will be reset so you can edit and submit again.`)) {
+                    const link = getLogsheetLink(l);
+                    const separator = link.includes('?') ? '&' : '?';
+                    navigate(`${link}${separator}redo=1`);
+                  }
+                }
+              },
               {
                 label: 'Delete Logsheet',
                 description: 'Permanently remove this logsheet entry',

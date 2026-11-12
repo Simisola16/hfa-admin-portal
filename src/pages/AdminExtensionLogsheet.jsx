@@ -191,7 +191,7 @@ export default function AdminExtensionLogsheet() {
         suggested_certificate_type: chosenCertType,
         recommended_scheme: chosenCertType,
         submit_for_signature: submitForSig,
-        clear_signatures: isRedoing || false,
+        clear_signatures: false,
         is_redo: isRedoing || false
       };
       const res = await api.post(`/api/extension-applications/${id}/logsheet`, payload);
@@ -200,7 +200,7 @@ export default function AdminExtensionLogsheet() {
       if (isRedoing) {
         setIsRedoing(false);
         await fetchDetails();
-        toast.success('Extension logsheet updated! Previous signatures cleared.');
+        toast.success('Extension logsheet updated! Existing signed signatures have been preserved.');
       } else {
         toast.success(submitForSig ? 'Logsheet submitted for signatures!' : 'Logsheet draft saved successfully!');
         if (submitForSig) {
@@ -419,7 +419,7 @@ export default function AdminExtensionLogsheet() {
                   cursor: 'pointer', boxShadow: '0 2px 4px rgba(180,83,9,0.25)'
                 }}
               >
-                {saving ? 'Saving & Resetting...' : <><Save size={14} /> Save &amp; Re-submit Logsheet</>}
+                {saving ? 'Saving & Updating...' : <><Save size={14} /> Save &amp; Update Logsheet</>}
               </button>
             </>
           ) : !isSubmittedForSig ? (
@@ -454,7 +454,7 @@ export default function AdminExtensionLogsheet() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm('Are you sure you want to redo this extension logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                    if (window.confirm('Are you sure you want to redo this extension logsheet? You will be able to edit all details while keeping existing signed signatures.')) {
                       setIsRedoing(true);
                     }
                   }}
@@ -463,7 +463,7 @@ export default function AdminExtensionLogsheet() {
                     background: '#fffbeb', border: '1px solid #f59e0b', color: '#b45309',
                     padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
                   }}
-                  title="Redo logsheet and reset signatures"
+                  title="Edit logsheet details (keeps existing signatures)"
                 >
                   <RotateCcw size={14} /> Redo Logsheet
                 </button>
@@ -533,7 +533,7 @@ export default function AdminExtensionLogsheet() {
                   Redo Extension Logsheet Active
                 </div>
                 <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
-                  You can now edit the extension parameters below. When saved, all previously signed signatures will be removed and the logsheet will return to Waiting for Signature.
+                  You can now edit the extension parameters below. When saved, your changes will be updated while keeping all existing signed signatures intact.
                 </div>
               </div>
             </div>
@@ -899,6 +899,40 @@ export default function AdminExtensionLogsheet() {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Comment / Remark Box */}
+          <div style={{ marginTop: 10 }}>
+            <label style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', display: 'block', marginBottom: 8 }}>
+              Comment / Remark:
+            </label>
+            {isLocked ? (
+              <div style={{
+                width: '100%', padding: '14px 16px', borderRadius: 8,
+                border: '1px solid #e2e8f0', backgroundColor: '#f8fafc',
+                fontSize: 13.5, lineHeight: 1.6,
+                color: (formData.comments || logsheet?.comments) ? '#1e293b' : '#64748b',
+                whiteSpace: 'pre-wrap',
+                fontStyle: (formData.comments || logsheet?.comments) ? 'normal' : 'italic'
+              }}>
+                {formData.comments || logsheet?.comments || 'No additional comments or remarks recorded.'}
+              </div>
+            ) : (
+              <textarea
+                rows={4}
+                value={formData.comments || ''}
+                onChange={(e) => setFormData(f => ({ ...f, comments: e.target.value }))}
+                placeholder="Add any comments, remarks, conditions, or committee notes for this extension logsheet..."
+                style={{
+                  width: '100%', padding: '14px 16px', borderRadius: 8,
+                  border: '1.5px solid #64748b',
+                  backgroundColor: '#ffffff',
+                  fontSize: 13.5, lineHeight: 1.6,
+                  color: '#0f172a',
+                  resize: 'vertical'
+                }}
+              />
+            )}
           </div>
 
           {/* ── Section 2: Committee Signatures & Approval Block (Visible ONLY in Waiting for Signatures / Locked state) ── */}

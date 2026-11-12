@@ -181,7 +181,15 @@ export default function AdminCreateLogsheet() {
     isSurveillance
   );
 
-  const isDirectCreation = isDirectLogsheetRoute && !directLogsheetId && !currentLogsheet?._id;
+  const isDirectCreation = Boolean(
+    (isDirectLogsheetRoute || currentLogsheet?.source_type === 'direct') &&
+    !appId &&
+    !addonId &&
+    !resolvedInitialProductId &&
+    !currentLogsheet?.application_id &&
+    !currentLogsheet?.addon_application_id &&
+    !currentLogsheet?.initial_product_application_id
+  );
 
   const effectiveLogsheetType = currentLogsheet
     ? (currentLogsheet.logsheet_type === 'initial_product' ||
@@ -375,20 +383,20 @@ export default function AdminCreateLogsheet() {
     if (isSurveillanceLogsheet) {
       return [
         { id: 1, label: '1. Company Details', icon: Building },
-        { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+        { id: 2, label: '2. Comment / Remark', icon: MessageSquare }
       ];
     }
     if (isDirectCreation) {
       if (directLogsheetType === 'extension') {
         return [
           { id: 1, label: '1. Facility & Extension Details', icon: Building },
-          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+          { id: 2, label: '2. Comment / Remark', icon: MessageSquare }
         ];
       }
       if (directLogsheetType === 'product') {
         return [
           { id: 1, label: '1. Product Evaluation', icon: Package },
-          { id: 2, label: '2. Comment / Reason', icon: MessageSquare }
+          { id: 2, label: '2. Comment / Remark', icon: MessageSquare }
         ];
       }
     }
@@ -396,14 +404,14 @@ export default function AdminCreateLogsheet() {
       return [
         { id: 1, label: '1. Company & Site Details', icon: Building },
         { id: 2, label: '2. Review of Application', icon: FileText },
-        { id: 4, label: '3. Comment / Reason', icon: MessageSquare }
+        { id: 4, label: '3. Comment / Remark', icon: MessageSquare }
       ];
     }
     return [
       { id: 1, label: '1. Company & Site Details', icon: Building },
       { id: 2, label: '2. Review of Application', icon: FileText },
       { id: 3, label: '3. Certificate Status', icon: Award },
-      { id: 4, label: '4. Comment / Reason', icon: MessageSquare }
+      { id: 4, label: '4. Comment / Remark', icon: MessageSquare }
     ];
   };
 
@@ -571,10 +579,20 @@ export default function AdminCreateLogsheet() {
               confirmed: false
             }));
 
-            // Fetch signatures for signing panel
+            // Fetch signatures & lookup data for signing/redo panel
             try {
-              const sigsRes = await api.get('/api/signatures');
+              const [sigsRes, usersRes, sitesRes] = await Promise.all([
+                api.get('/api/signatures').catch(() => ({ data: [] })),
+                logDoc.source_type === 'direct' ? api.get('/api/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+                logDoc.source_type === 'direct' ? api.get('/api/sites').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
+              ]);
               setSignatures(Array.isArray(sigsRes) ? sigsRes : (sigsRes?.data?.data || sigsRes?.data || []));
+              if (logDoc.source_type === 'direct') {
+                const userList = Array.isArray(usersRes) ? usersRes : (Array.isArray(usersRes?.data) ? usersRes.data : []);
+                const siteList = Array.isArray(sitesRes) ? sitesRes : (Array.isArray(sitesRes?.data) ? sitesRes.data : []);
+                setDirectClients(userList.filter(u => u.role === 'client'));
+                setDirectSites(siteList);
+              }
             } catch (e) {
               console.log('Failed to fetch signatures', e);
             }
@@ -2012,24 +2030,11 @@ export default function AdminCreateLogsheet() {
     setSubmitting(true);
     try {
       const targetAppId = appId || application?._id || application?.id || currentLogsheet?.application_id?._id || currentLogsheet?.application_id;
-      // Bug fix: only clear signatures when actually in redo mode, not just because a logsheet exists
+      // Preserve existing signed signatures when redoing/updating logsheet
       const isRedoingSave = isRedoing;
       const redoPayload = isRedoingSave ? {
-        clear_signatures: true,
-        is_redo: true,
-        mufti_signature: null,
-        mufti_sign_name: null,
-        mufti_sign_date: null,
-        ceo_signature: null,
-        ceo_sign_name: null,
-        ceo_sign_date: null,
-        manager_signature: null,
-        manager_sign_name: null,
-        manager_sign_date: null,
-        mufti2_signature: null,
-        mufti2_sign_name: null,
-        mufti2_sign_date: null,
-        status: 'Waiting for Signature'
+        clear_signatures: false,
+        is_redo: true
       } : {};
 
       if (isInitialProduct) {
@@ -2045,7 +2050,7 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          toast.success('Logsheet updated! All previous signatures cleared.');
+          toast.success('Logsheet updated! Existing signed signatures have been preserved.');
           setIsRedoing(false);
           // Small delay to ensure server write is committed before re-fetching
           await new Promise(resolve => setTimeout(resolve, 400));
@@ -2066,7 +2071,7 @@ export default function AdminCreateLogsheet() {
           client_id: application?.client_id?._id || application?.client_id,
         });
         if (isRedoing) {
-          toast.success('Logsheet updated! All previous signatures cleared.');
+          toast.success('Logsheet updated! Existing signed signatures have been preserved.');
           setIsRedoing(false);
           // Small delay to ensure server write is committed before re-fetching
           await new Promise(resolve => setTimeout(resolve, 400));
@@ -2096,7 +2101,7 @@ export default function AdminCreateLogsheet() {
             ...redoPayload
           });
           if (isRedoing) {
-            toast.success('Direct Logsheet updated successfully! All previous signatures cleared.');
+            toast.success('Direct Logsheet updated! Existing signed signatures have been preserved.');
             setIsRedoing(false);
             await new Promise(resolve => setTimeout(resolve, 400));
             await fetchData();
@@ -2163,11 +2168,13 @@ export default function AdminCreateLogsheet() {
           site_id: application?.site_id?._id || application?.site_id
         });
 
-        // Explicitly update application status in DB to logsheet_created
-        await api.put(`/api/applications/${targetAppId}/status`, {
-          status: 'logsheet_created',
-          note: isRedoing ? 'LogSheet updated and redone. Signatures reset, awaiting signatures.' : 'LogSheet created. Awaiting signatory signatures.'
-        }).catch(() => {});
+        // Explicitly update application status in DB to logsheet_created if not already signed/completed
+        if (!isRedoing || !['logsheet_signed', 'application_successful', 'certificate_issued', 'done'].includes(application?.status)) {
+          await api.put(`/api/applications/${targetAppId}/status`, {
+            status: 'logsheet_created',
+            note: isRedoing ? 'LogSheet details updated (existing signatures preserved).' : 'LogSheet created. Awaiting signatory signatures.'
+          }).catch(() => {});
+        }
 
         const savedLogsheetId = postRes.data?.data?._id || postRes.data?._id;
         if (savedLogsheetId) {
@@ -2178,7 +2185,7 @@ export default function AdminCreateLogsheet() {
         }
 
         if (isRedoing) {
-          toast.success(isSurveillanceLogsheet ? 'Surveillance Logsheet updated successfully! All previous signatures cleared.' : 'LogSheet updated successfully! All previous signatures cleared.');
+          toast.success(isSurveillanceLogsheet ? 'Surveillance Logsheet updated! Existing signed signatures have been preserved.' : 'LogSheet updated! Existing signed signatures have been preserved.');
           setIsRedoing(false);
           // Small delay to ensure server write is committed before re-fetching
           await new Promise(resolve => setTimeout(resolve, 400));
@@ -2211,7 +2218,7 @@ export default function AdminCreateLogsheet() {
               type="button"
               className="btn btn-outline btn-sm"
               onClick={() => {
-                if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details while keeping existing signed signatures.')) {
                   setIsRedoing(true);
                   setActiveTab(1);
                 }
@@ -2227,7 +2234,7 @@ export default function AdminCreateLogsheet() {
                 padding: '6px 14px',
                 borderRadius: 8
               }}
-              title="Edit logsheet and reset signatures"
+              title="Edit logsheet details (keeps existing signatures)"
             >
               <RotateCcw size={14} /> Redo Logsheet
             </button>
@@ -2283,7 +2290,7 @@ export default function AdminCreateLogsheet() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details, and saving will reset all existing signatures.')) {
+                      if (window.confirm('Are you sure you want to redo this logsheet? You will be able to edit all details while keeping existing signed signatures.')) {
                         setIsRedoing(true);
                         setActiveTab(1);
                       }
@@ -2379,7 +2386,7 @@ export default function AdminCreateLogsheet() {
                 Redo Logsheet Mode Active
               </div>
               <div style={{ fontSize: 12.5, color: '#b45309', marginTop: 2 }}>
-                You can now edit any details across all tabs. When you click <strong>Save &amp; Update Logsheet</strong> below, any signed signatures will be removed and the logsheet will return to Waiting for Signature.
+                You can now edit any details across all tabs. When you click <strong>Save &amp; Update Logsheet</strong> below, your changes will be saved while keeping all existing signed signatures intact.
               </div>
             </div>
           </div>
@@ -2832,11 +2839,47 @@ export default function AdminCreateLogsheet() {
               </div>
             )}
 
-            {/* Section 5: Committee Comments & Recommendation Notes */}
+            {/* Extension Details Block (for Direct Extension Logsheets) */}
+            {isExtensionLogsheet && (
+              <div style={{ background: '#fffbeb', borderRadius: 12, border: '1.5px solid #fde68a', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ fontSize: 14, fontWeight: 800, color: '#92400e', borderBottom: '1.5px solid #fef3c7', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <Clock size={16} style={{ color: '#d97706' }} />
+                  Certificate Extension Details
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: form.extension_reason ? 14 : 0 }}>
+                  <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>Existing Certificate Number</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.existing_certificate_number || currentLogsheet?.existing_certificate_number || '—'}</div>
+                  </div>
+                  <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>Extension Duration</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>{form.extension_days || currentLogsheet?.extension_days || 30} Days</div>
+                  </div>
+                  <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>Extended Expiry Date</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f766e', marginTop: 3 }}>
+                      {(form.extended_expiry_date || currentLogsheet?.extended_expiry_date)
+                        ? new Date(form.extended_expiry_date || currentLogsheet?.extended_expiry_date).toLocaleDateString('en-GB')
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+                {(form.extension_reason || currentLogsheet?.extension_reason) && (
+                  <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 11, color: '#92400e', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Justification for Extension</div>
+                    <div style={{ fontSize: 13.5, color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                      {form.extension_reason || currentLogsheet?.extension_reason}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section 5: Comment / Remark & Committee Recommendation Notes */}
             <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', borderBottom: '1.5px solid #f1f5f9', paddingBottom: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 <MessageSquare size={16} style={{ color: '#047857' }} />
-                {isProduct ? '4. Committee Comments & Recommendation Notes' : '5. Committee Comments & Recommendation Notes'}
+                {isProduct ? '4. Comment / Remark & Committee Notes' : '5. Comment / Remark & Committee Notes'}
               </h4>
               <div style={{
                 background: '#f8fafc',
@@ -2844,12 +2887,12 @@ export default function AdminCreateLogsheet() {
                 borderRadius: 8,
                 border: '1px solid #e2e8f0',
                 fontSize: 13.5,
-                color: form.comment ? '#1e293b' : '#64748b',
+                color: (form.comment || currentLogsheet?.comment) ? '#1e293b' : '#64748b',
                 whiteSpace: 'pre-wrap',
                 lineHeight: 1.6,
-                fontStyle: form.comment ? 'normal' : 'italic'
+                fontStyle: (form.comment || currentLogsheet?.comment) ? 'normal' : 'italic'
               }}>
-                {form.comment || 'No additional committee notes or conditions recorded.'}
+                {form.comment || currentLogsheet?.comment || 'No additional comments or remarks recorded.'}
               </div>
             </div>
 
@@ -4517,8 +4560,8 @@ export default function AdminCreateLogsheet() {
                       required
                       rows={5}
                       className="form-control"
-                      value={form.extension_reason || form.comment || ''}
-                      onChange={e => setForm({ ...form, extension_reason: e.target.value, comment: e.target.value })}
+                      value={form.extension_reason || ''}
+                      onChange={e => setForm({ ...form, extension_reason: e.target.value })}
                       placeholder="State the detailed operational, technical, or auditing justification for granting the certificate extension..."
                       style={{ fontSize: 13.5, lineHeight: 1.6 }}
                     />
@@ -5920,7 +5963,7 @@ export default function AdminCreateLogsheet() {
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
                       <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                        2. Comment / Reason
+                        2. Comment / Remark
                       </h3>
                       <span style={{ fontSize: 12, background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
                         {isSurveillanceLogsheet ? 'Surveillance Decision Record' : directLogsheetType === 'extension' ? 'Extension Decision Record' : 'Product Evaluation Record'}
@@ -5928,15 +5971,15 @@ export default function AdminCreateLogsheet() {
                     </div>
                     <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 16px 0', lineHeight: 1.5 }}>
                       {isSurveillanceLogsheet
-                        ? 'Provide official review committee comments, surveillance audit verification details, and rationale for issuing the Surveillance Letter.'
+                        ? 'Provide official review committee comments, remarks, surveillance audit verification details, and rationale for issuing the Surveillance Letter.'
                         : directLogsheetType === 'extension'
-                        ? 'Provide justification, operational conditions, and committee rationale for extending halal certificate validity.'
-                        : 'Provide formulation clearance comments, laboratory analysis notes, and committee rationale for product certification.'}
+                        ? 'Provide additional comments, remarks, operational conditions, and committee rationale for extending halal certificate validity.'
+                        : 'Provide formulation clearance comments, remarks, laboratory analysis notes, and committee rationale for product certification.'}
                     </p>
 
                     <div className="form-group">
                       <label className="form-label" style={{ fontWeight: 700, fontSize: 13 }}>
-                        Comment / Reason for Decision
+                        Comment / Remark (Reason for Decision)
                       </label>
                       <textarea
                         className="form-control"
@@ -6128,13 +6171,35 @@ export default function AdminCreateLogsheet() {
 
             {activeTab === 4 && (!isDirectCreation || directLogsheetType === 'normal' || isProduct) && !isSurveillanceLogsheet && (
               <div className="form-group">
-                <label className="form-label">Comment / Reason for Decision</label>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MessageSquare size={15} style={{ color: 'var(--primary)' }} />
+                  Comment / Remark (Reason for Decision)
+                </label>
                 <textarea
                   className="form-control"
                   rows={8}
                   style={{ fontSize: 14, padding: 14 }}
-                  placeholder="Enter final review comments, conditions, or recommendations..."
-                  value={form.comment}
+                  placeholder="Enter review comments, remarks, conditions, or recommendations..."
+                  value={form.comment || ''}
+                  onChange={e => setForm({ ...form, comment: e.target.value })}
+                />
+              </div>
+            )}
+
+            {/* Always-accessible Comment / Remark Box when on earlier tabs */}
+            {!(activeTab === 4 || (activeTab === 2 && (isSurveillanceLogsheet || (isDirectCreation && directLogsheetType !== 'normal')))) && (
+              <div style={{ background: '#ffffff', padding: '18px 20px', borderRadius: 10, border: '1.5px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginTop: 8 }}>
+                <label className="form-label" style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <MessageSquare size={16} style={{ color: '#047857' }} />
+                  <span>Comment / Remark</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: '#64748b' }}>(Visible on Logsheet View)</span>
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  style={{ fontSize: 13.5, padding: 12, lineHeight: 1.5 }}
+                  placeholder="Add any comments, remarks, conditions, or committee notes for this logsheet..."
+                  value={form.comment || ''}
                   onChange={e => setForm({ ...form, comment: e.target.value })}
                 />
               </div>
@@ -6201,7 +6266,7 @@ export default function AdminCreateLogsheet() {
                   }}
                 >
                   {submitting
-                    ? (isRedoing ? 'Saving & Resetting Signatures...' : 'Saving Record...')
+                    ? (isRedoing ? 'Saving & Updating Logsheet...' : 'Saving Record...')
                     : (isRedoing
                       ? 'Save & Update Logsheet'
                       : isSurveillanceLogsheet

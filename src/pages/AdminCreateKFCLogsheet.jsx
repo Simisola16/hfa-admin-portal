@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import {
   UploadCloud, ChevronLeft, Building, FileText, CheckCircle2,
   PenTool, Check, Lock, X, Download, Printer,
-  Package, Mail, User, MapPin, AlertCircle, Calendar, Plus, Trash2
+  Package, Mail, User, MapPin, AlertCircle, Calendar, Plus, Trash2, RotateCcw
 } from 'lucide-react';
 import { getPdfUrl } from '../lib/pdfUtils';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 export default function AdminCreateKFCLogsheet() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile, loading: authLoading } = useAuth();
   const currentUser = profile || user;
 
@@ -26,6 +27,10 @@ export default function AdminCreateKFCLogsheet() {
 
   const [loading, setLoading] = useState(Boolean(id));
   const [submitting, setSubmitting] = useState(false);
+  const [isRedoing, setIsRedoing] = useState(() => {
+    const sp = new URLSearchParams(location.search);
+    return sp.get('redo') === '1' || sp.get('redo') === 'true';
+  });
   const [currentLogsheet, setCurrentLogsheet] = useState(null);
   const [signatures, setSignatures] = useState([]);
   const [uploadingReport, setUploadingReport] = useState(false);
@@ -86,7 +91,7 @@ export default function AdminCreateKFCLogsheet() {
   ];
 
   const totalSignedCount = signatories.filter(s => !!s.signature).length;
-  const isReadOnly = Boolean(currentLogsheet);
+  const isReadOnly = Boolean(currentLogsheet) && !isRedoing;
   const isApproved = currentLogsheet?.status === 'Completed' || currentLogsheet?.status === 'Approved';
 
   const userRole = (currentUser?.role || '').toLowerCase();
@@ -166,6 +171,13 @@ export default function AdminCreateKFCLogsheet() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get('redo') === '1' || sp.get('redo') === 'true') {
+      setIsRedoing(true);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (id) {
@@ -274,16 +286,29 @@ export default function AdminCreateKFCLogsheet() {
         is_kfc: true,
         certificate_type: 'KFC Logsheet',
         certificate_standard: 'KFC Logsheet',
-        status: 'Waiting for Signature'
+        status: currentLogsheet?.status || 'Waiting for Signature',
+        ...(isRedoing || Boolean(currentLogsheet?._id) ? {
+          _id: currentLogsheet?._id,
+          id: currentLogsheet?._id,
+          clear_signatures: false,
+          is_redo: true
+        } : {})
       };
 
       const res = await api.post('/api/application-logsheets/kfc', payload);
-      const createdId = res.data?.data?._id || res.data?._id;
-      toast.success('🍗 KFC Logsheet created successfully and moved to Waiting for Signature!');
-      if (createdId) {
-        navigate(`/logsheet/kfc/${createdId}`);
+      const createdId = res.data?.data?._id || res.data?._id || currentLogsheet?._id;
+      if (isRedoing) {
+        toast.success('🍗 KFC Logsheet updated! Existing signed signatures have been preserved.');
+        setIsRedoing(false);
+        await fetchLogsheet();
+        navigate(`/logsheet/kfc/${createdId}`, { replace: true });
       } else {
-        navigate('/logsheet/waiting-signature');
+        toast.success('🍗 KFC Logsheet created successfully and moved to Waiting for Signature!');
+        if (createdId) {
+          navigate(`/logsheet/kfc/${createdId}`);
+        } else {
+          navigate('/logsheet/waiting-signature');
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || 'Failed to create KFC Logsheet');
@@ -485,6 +510,28 @@ export default function AdminCreateKFCLogsheet() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {Boolean(currentLogsheet) && !isRedoing && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to redo this KFC logsheet? You will be able to edit all details while keeping existing signed signatures.')) {
+                  setIsRedoing(true);
+                }
+              }}
+              className="btn btn-outline btn-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontWeight: 700,
+                color: '#b45309',
+                borderColor: '#f59e0b',
+                background: '#fffbeb'
+              }}
+            >
+              <RotateCcw size={14} /> Redo Logsheet
+            </button>
+          )}
           {isReadOnly && (
             <button
               type="button"
@@ -632,13 +679,13 @@ export default function AdminCreateKFCLogsheet() {
                   </div>
                 </div>
 
-                {/* 7. Remark */}
+                {/* 7. Comment / Remark */}
                 <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: 8, border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    7. Remark / Committee Notes
+                    7. Comment / Remark &amp; Committee Notes
                   </div>
                   <div style={{ fontSize: 13.5, color: '#1e293b', marginTop: 4, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {form.remark || '—'}
+                    {form.remark || currentLogsheet?.comment || '—'}
                   </div>
                 </div>
 
@@ -1119,10 +1166,10 @@ export default function AdminCreateKFCLogsheet() {
                 </div>
               </div>
 
-              {/* 8. Remark */}
+              {/* 8. Comment / Remark */}
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>
-                  Remark / Reason for Decision
+                  Comment / Remark (Reason for Decision)
                 </label>
                 <textarea
                   rows={3}
@@ -1216,19 +1263,19 @@ export default function AdminCreateKFCLogsheet() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 10 }}>
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={() => isRedoing ? setIsRedoing(false) : navigate(-1)}
                 className="btn btn-ghost"
                 style={{ border: '1px solid #cbd5e1' }}
               >
-                Cancel
+                {isRedoing ? 'Cancel Redo' : 'Cancel'}
               </button>
               <button
                 type="submit"
                 disabled={submitting}
                 className="btn btn-primary"
                 style={{
-                  background: 'linear-gradient(135deg, #b91c1c, #dc2626)',
-                  borderColor: '#b91c1c',
+                  background: isRedoing ? '#b45309' : 'linear-gradient(135deg, #b91c1c, #dc2626)',
+                  borderColor: isRedoing ? '#b45309' : '#b91c1c',
                   color: '#fff',
                   fontWeight: 800,
                   fontSize: 14,
@@ -1242,11 +1289,11 @@ export default function AdminCreateKFCLogsheet() {
               >
                 {submitting ? (
                   <>
-                    <span className="spinner-white" /> Creating KFC Logsheet...
+                    <span className="spinner-white" /> {isRedoing ? 'Saving & Updating Logsheet...' : 'Creating KFC Logsheet...'}
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={16} /> Create KFC Logsheet
+                    <CheckCircle2 size={16} /> {isRedoing ? 'Save & Update KFC Logsheet' : 'Create KFC Logsheet'}
                   </>
                 )}
               </button>

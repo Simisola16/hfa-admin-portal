@@ -1634,10 +1634,11 @@ export default function AdminDirectLogsheet() {
                 )}
 
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Committee Executive Comments & Technical Endorsement</label>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5 }}>Comment / Remark (Committee Executive Comments &amp; Technical Endorsement)</label>
                   <textarea
                     className="form-control"
                     rows={3}
+                    placeholder="Add any comments, remarks, conditions, or committee notes..."
                     value={form.comment}
                     onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
                     style={{ borderRadius: 10 }}
@@ -2119,6 +2120,22 @@ export default function AdminDirectLogsheet() {
                   </div>
                 </div>
               )}
+
+              {/* Comment / Remark Block */}
+              <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+                  Comment / Remark &amp; Committee Notes
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: inspectLogsheet.comment ? '#0f172a' : '#64748b',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.5,
+                  fontStyle: inspectLogsheet.comment ? 'normal' : 'italic'
+                }}>
+                  {inspectLogsheet.comment || 'No additional comments or remarks recorded.'}
+                </div>
+              </div>
 
               {/* Signatures Block */}
               <div>

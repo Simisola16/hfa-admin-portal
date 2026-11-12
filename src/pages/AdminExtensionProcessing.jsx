@@ -701,18 +701,32 @@ export default function AdminExtensionProcessing() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => navigate(`/extension-applications/${id}/logsheet`)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    background: '#0f172a', color: 'white', border: 'none',
-                    padding: '10px 16px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer'
-                  }}
-                >
-                  <FileText size={15} />
-                  {logsheet?.status && logsheet.status !== 'Draft' ? 'View & Edit Extension Logsheet' : 'Open & Configure Extension Logsheet'}
-                  <ChevronRight size={14} />
-                </button>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => navigate(`/extension-applications/${id}/logsheet`)}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        background: '#0f172a', color: 'white', border: 'none',
+                        padding: '10px 16px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer'
+                      }}
+                    >
+                      <FileText size={15} />
+                      {logsheet?.status && logsheet.status !== 'Draft' ? 'View & Edit Extension Logsheet' : 'Open & Configure Extension Logsheet'}
+                      <ChevronRight size={14} />
+                    </button>
+                    {logsheet?.status && logsheet.status !== 'Draft' && !isApproved && (
+                      <button
+                        onClick={() => navigate(`/extension-applications/${id}/logsheet?redo=1`)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          background: '#fffbeb', color: '#b45309', border: '1.5px solid #f59e0b',
+                          padding: '10px 16px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer'
+                        }}
+                      >
+                        Redo Logsheet
+                      </button>
+                    )}
+                  </div>
               </>
             )}
           </div>

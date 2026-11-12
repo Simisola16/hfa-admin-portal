@@ -333,7 +333,7 @@ export default function AdminCreateLogsheet() {
         reviewer_name: user?.full_name || 'HFA Food Technologist',
         status_date: todayStr,
         review_date: todayStr,
-        comment: prev.comment || (subType === 'addon' ? 'Recommended for add-on product certification endorsement.' : 'Recommended for initial product approval endorsement.')
+        comment: prev.comment || ''
       }));
     } else {
       setForm(prev => ({
@@ -790,7 +790,7 @@ export default function AdminCreateLogsheet() {
             new_client: 'No',
             agreement_signed: 'Yes',
             status_date: todayStr,
-            comment: 'Recommended for add-on product certification endorsement.',
+            comment: '',
             confirmed: false
           }));
         }
@@ -951,7 +951,7 @@ export default function AdminCreateLogsheet() {
             new_client: 'No',
             agreement_signed: 'Yes',
             status_date: todayStr,
-            comment: 'Recommended for initial product approval endorsement.',
+            comment: '',
             confirmed: false
           }));
         }
@@ -1218,7 +1218,7 @@ export default function AdminCreateLogsheet() {
             agreement_signed: 'Yes',
             status_date: todayStr,
 
-            comment: 'Recommended for Halal certification approval following successful audit and compliance review.',
+            comment: '',
             confirmed: false,
 
             document_urls: existingReports,
@@ -4920,8 +4920,7 @@ export default function AdminCreateLogsheet() {
                           setForm(prev => ({
                             ...prev,
                             product_sub_type: 'initial',
-                            audit_type: 'Initial Product Evaluation',
-                            comment: prev.comment || 'Recommended for initial product approval endorsement.'
+                            audit_type: 'Initial Product Evaluation'
                           }));
                         }}
                         style={{
@@ -4948,8 +4947,7 @@ export default function AdminCreateLogsheet() {
                           setForm(prev => ({
                             ...prev,
                             product_sub_type: 'addon',
-                            audit_type: 'Add-on Products Certification',
-                            comment: prev.comment || 'Recommended for add-on product certification endorsement.'
+                            audit_type: 'Add-on Products Certification'
                           }));
                         }}
                         style={{

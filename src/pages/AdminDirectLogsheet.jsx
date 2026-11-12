@@ -224,7 +224,7 @@ export default function AdminDirectLogsheet() {
     status_date: todayStr,
 
     // Tab 4: Comments
-    comment: 'Direct logsheet verified and submitted for Shari\'a & Technical Committee review.',
+    comment: '',
 
     // Supporting Files
     document_urls: [],
@@ -237,20 +237,15 @@ export default function AdminDirectLogsheet() {
     setSelectedType(typeId);
     setForm(prev => {
       let updatedAuditType = 'Direct Logsheet Review';
-      let defaultComment = 'Direct logsheet verified and submitted for Shari\'a & Technical Committee review.';
       
       if (typeId === 'extension') {
         updatedAuditType = 'Certificate Extension Review';
-        defaultComment = 'Certificate extension evaluated and recommended based on satisfactory compliance history.';
       } else if (typeId === 'addon') {
         updatedAuditType = 'Add-on Product Review';
-        defaultComment = 'Add-on products evaluated and verified compliant with Halal scheme standards.';
       } else if (typeId === 'initial_product') {
         updatedAuditType = 'Initial Product Evaluation';
-        defaultComment = 'Initial product formulations and ingredients cleared for Halal processing.';
       } else if (typeId === 'surveillance') {
         updatedAuditType = 'Re-audit';
-        defaultComment = 'Surveillance audit completed with satisfactory compliance verified. Recommended for Surveillance Letter issuance.';
       }
 
       return {
@@ -266,7 +261,7 @@ export default function AdminDirectLogsheet() {
         pork_free_statement: typeId === 'surveillance' ? (prev.pork_free_statement || 'Confirmed - signed pork-free declaration in place') : prev.pork_free_statement,
         reviewed_by: typeId === 'surveillance' ? (prev.reviewed_by || 'Audit Manager') : prev.reviewed_by,
         reviewer_name: typeId === 'surveillance' ? (prev.reviewer_name || 'Enas') : prev.reviewer_name,
-        comment: defaultComment
+        comment: prev.comment || ''
       };
     });
   };

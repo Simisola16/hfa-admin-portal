@@ -275,7 +275,7 @@ export default function AdminChangeSupplierProcessing() {
     return <div style={{ padding: 80, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>;
   }
   if (!app) {
-    return <div style={{ padding: 80, textAlign: 'center', color: '#dc2626' }}>Change Supplier Application not found.</div>;
+    return <div style={{ padding: 80, textAlign: 'center', color: '#dc2626' }}>Supplier/Manufacturer Update Application not found.</div>;
   }
 
   const siteName = app.site_id?.name || app.application_id?.establishment_name || app.certificate_id?.site_name || 'Main Facility';
@@ -360,7 +360,7 @@ export default function AdminChangeSupplierProcessing() {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#d97706', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Truck size={14} /> Change Supplier / Manufacturer Processing Workflow
+            <Truck size={14} /> Supplier/Manufacturer Update Processing Workflow
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
@@ -394,7 +394,7 @@ export default function AdminChangeSupplierProcessing() {
             Current Workflow Stage
           </div>
           <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-            {app.status === 'submitted' && 'Change supplier/manufacturer request submitted. Review the details and accept or reject.'}
+            {app.status === 'submitted' && 'Supplier/Manufacturer Update request submitted. Review the details and accept or reject.'}
             {app.status === 'accepted' && 'Application accepted. Assign Food Technology specialists to handle technical supplier/manufacturer review.'}
             {app.status === 'ft_assigned' && `Assigned FT: ${ftNames || 'Inspector'}. Review specifications or request additional compliance documents from the client.`}
             {app.status === 'all_forms_received' && 'All supplier/manufacturer documents verified and confirmed! You can now proceed to create the Committee Logsheet.'}
@@ -538,7 +538,7 @@ export default function AdminChangeSupplierProcessing() {
                       <td style={{ padding: '12px 14px', color: '#64748b' }}><code>{p.code || '—'}</code></td>
                       <td style={{ padding: '12px 14px' }}>
                         <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontWeight: 700 }}>
-                          <Truck size={11} /> Change Supplier
+                          <Truck size={11} /> Supplier/Manufacturer Update
                         </span>
                       </td>
                     </tr>
@@ -764,7 +764,7 @@ export default function AdminChangeSupplierProcessing() {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Request Type</div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#b45309', marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Truck size={14} /> Change Supplier / Manufacturer
+                  <Truck size={14} /> Supplier/Manufacturer Update
                 </div>
               </div>
             </div>
@@ -778,7 +778,7 @@ export default function AdminChangeSupplierProcessing() {
         <div className="modal-overlay" onClick={() => setActionType(null)}>
           <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">Review Change Supplier Request</div>
+              <div className="modal-title">Review Supplier/Manufacturer Update Request</div>
               <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -76,6 +76,49 @@ export const resolveAddOnClientName = (app) => {
   );
 };
 
+const normalizeAuditorKey = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const formatAuditorDisplayName = (str) => {
+  if (!str) return '';
+  return String(str)
+    .trim()
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ');
+};
+
+const getAssignedAuditorsArray = (app) => {
+  if (!app) return [];
+  const rawList = [];
+  (app.assigned_food_techs || []).forEach(ft => {
+    const n = ft?.full_name || ft?.name || (typeof ft === 'string' && !/^[0-9a-fA-F]{24}$/.test(ft) ? ft : null);
+    if (n) rawList.push(n);
+  });
+  if (app.assigned_food_tech) {
+    const n = app.assigned_food_tech?.full_name || app.assigned_food_tech?.name || (typeof app.assigned_food_tech === 'string' && !/^[0-9a-fA-F]{24}$/.test(app.assigned_food_tech) ? app.assigned_food_tech : null);
+    if (n) rawList.push(n);
+  }
+  if (app.assigned_ft_custom?.name) {
+    String(app.assigned_ft_custom.name).split(',').forEach(part => {
+      if (part.trim()) rawList.push(part.trim());
+    });
+  }
+  if (app.assigned_ft_details) {
+    String(app.assigned_ft_details).split(',').forEach(part => {
+      if (part.trim()) rawList.push(part.trim());
+    });
+  }
+  const seen = new Set();
+  const result = [];
+  for (const raw of rawList) {
+    const formatted = formatAuditorDisplayName(raw);
+    const key = normalizeAuditorKey(formatted);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push({ key, name: formatted });
+  }
+  return result;
+};
+
 export default function AdminAddOnApplications() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -88,7 +131,21 @@ export default function AdminAddOnApplications() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [auditorFilter, setAuditorFilter] = useState('all');
+  const [auditorSearchInput, setAuditorSearchInput] = useState('');
+  const [showAuditorDropdown, setShowAuditorDropdown] = useState(false);
+  const auditorDropdownRef = useRef(null);
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (auditorDropdownRef.current && !auditorDropdownRef.current.contains(e.target)) {
+        setShowAuditorDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [pageSize, setPageSize] = useState(25);
   const [expandedId, setExpandedId] = useState(null);
 
@@ -286,6 +343,54 @@ export default function AdminAddOnApplications() {
     return { total, pending, inProgress, completed };
   }, [safeApps]);
 
+  const auditorOptions = useMemo(() => {
+    const map = new Map();
+    (ftUsers || []).forEach(u => {
+      const name = formatAuditorDisplayName(u?.full_name || u?.name);
+      const key = normalizeAuditorKey(name);
+      if (key && !map.has(key)) {
+        map.set(key, { key, name, count: 0 });
+      }
+    });
+    (safeApps || []).forEach(app => {
+      const auditors = getAssignedAuditorsArray(app);
+      auditors.forEach(({ key, name }) => {
+        if (!map.has(key)) {
+          map.set(key, { key, name, count: 0 });
+        }
+      });
+    });
+    (baseList || []).forEach(app => {
+      const auditors = getAssignedAuditorsArray(app);
+      auditors.forEach(({ key, name }) => {
+        const existing = map.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          map.set(key, { key, name, count: 1 });
+        }
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [safeApps, baseList, ftUsers]);
+
+  const selectedAuditorObj = useMemo(() => {
+    if (auditorFilter === 'all') return null;
+    if (auditorFilter === 'unassigned') return { key: 'unassigned', name: 'Unassigned' };
+    return auditorOptions.find(o => o.key === auditorFilter) || { key: auditorFilter, name: auditorFilter };
+  }, [auditorFilter, auditorOptions]);
+
+  const filteredAuditorOptions = useMemo(() => {
+    const q = auditorSearchInput.trim().toLowerCase();
+    if (!q) return auditorOptions;
+    return auditorOptions.filter(o => o.name.toLowerCase().includes(q) || o.key.includes(normalizeAuditorKey(q)));
+  }, [auditorOptions, auditorSearchInput]);
+
+  const getAssignedFtNames = (app) => {
+    const list = getAssignedAuditorsArray(app);
+    return list.length > 0 ? list.map(a => a.name).join(', ') : null;
+  };
+
   const filtered = useMemo(() => {
     const safeBaseList = Array.isArray(baseList) ? baseList : [];
     return safeBaseList.filter(a => {
@@ -306,14 +411,25 @@ export default function AdminAddOnApplications() {
         if (typeFilter === 'add_product' && at !== 'add_product' && at !== '') return false;
       }
 
+      if (auditorFilter !== 'all') {
+        const appAuditors = getAssignedAuditorsArray(a);
+        if (auditorFilter === 'unassigned') {
+          if (appAuditors.length > 0) return false;
+        } else {
+          if (!appAuditors.some(aud => aud.key === auditorFilter)) return false;
+        }
+      }
+
       if (!search.trim()) return true;
       const s = search.toLowerCase();
       const refNo = (a.application_number || `ADDON-${String(a._id || '').slice(-6).toUpperCase()}`).toLowerCase();
       const clientNameStr = resolveAddOnClientName(a).toLowerCase();
       const dateStr = formatDate(a.created_at || a.submission_date || a.createdAt).toLowerCase();
+      const ftStr = (getAssignedFtNames(a) || '').toLowerCase();
       return (
         refNo.includes(s) ||
         clientNameStr.includes(s) ||
+        ftStr.includes(s) ||
         a.application_number?.toLowerCase().includes(s) ||
         a.client_id?.company_name?.toLowerCase().includes(s) ||
         a.client_id?.full_name?.toLowerCase().includes(s) ||
@@ -325,7 +441,7 @@ export default function AdminAddOnApplications() {
         (a.products || []).some(p => (p.name || p.new_name || p.code || p.new_code)?.toLowerCase().includes(s))
       );
     });
-  }, [baseList, statusFilter, typeFilter, search]);
+  }, [baseList, statusFilter, typeFilter, auditorFilter, search]);
 
   // Order strictly according to date descending (newest first)
   const sorted = useMemo(() => {
@@ -338,7 +454,7 @@ export default function AdminAddOnApplications() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, typeFilter, view]);
+  }, [search, statusFilter, typeFilter, auditorFilter, view]);
 
   const paginatedApps = useMemo(() => {
     return sorted.slice((page - 1) * pageSize, page * pageSize);
@@ -351,15 +467,6 @@ export default function AdminAddOnApplications() {
   };
 
   const meta = getViewMeta();
-
-  const getAssignedFtNames = (app) => {
-    const arr = (app.assigned_food_techs || []).map(ft => ft.full_name || ft.name || (typeof ft === 'string' ? ft : null)).filter(Boolean);
-    if (app.assigned_ft_custom?.name) arr.push(app.assigned_ft_custom.name);
-    else if (app.assigned_ft_details) arr.push(app.assigned_ft_details);
-    else if (app.assigned_food_tech?.full_name) arr.push(app.assigned_food_tech.full_name);
-    if (arr.length > 0) return arr.join(', ');
-    return null;
-  };
 
   return (
     <div className="animate-in" style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 64 }}>
@@ -520,6 +627,228 @@ export default function AdminAddOnApplications() {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+          {/* Type-to-Select Assigned Auditor Filter */}
+          <div ref={auditorDropdownRef} style={{ position: 'relative', minWidth: 220 }}>
+            <div
+              onClick={() => setShowAuditorDropdown(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: auditorFilter !== 'all' ? '#eff6ff' : '#fff',
+                border: `1px solid ${auditorFilter !== 'all' ? '#93c5fd' : '#e2e8f0'}`,
+                borderRadius: 8,
+                padding: '6px 10px',
+                cursor: 'text',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Users size={14} style={{ color: auditorFilter !== 'all' ? '#2563eb' : '#64748b', flexShrink: 0 }} />
+              {selectedAuditorObj && !showAuditorDropdown ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedAuditorObj.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setAuditorFilter('all');
+                      setAuditorSearchInput('');
+                    }}
+                    title="Clear auditor filter"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder={selectedAuditorObj ? selectedAuditorObj.name : 'Filter by Assigned Auditor...'}
+                    value={auditorSearchInput}
+                    onFocus={() => setShowAuditorDropdown(true)}
+                    onChange={e => {
+                      setAuditorSearchInput(e.target.value);
+                      setShowAuditorDropdown(true);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && filteredAuditorOptions.length > 0) {
+                        e.preventDefault();
+                        setAuditorFilter(filteredAuditorOptions[0].key);
+                        setAuditorSearchInput('');
+                        setShowAuditorDropdown(false);
+                      } else if (e.key === 'Escape') {
+                        setShowAuditorDropdown(false);
+                      }
+                    }}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      outline: 'none',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#1e293b',
+                      width: '100%'
+                    }}
+                  />
+                  {auditorSearchInput ? (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setAuditorSearchInput('');
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0, display: 'flex' }}
+                    >
+                      <X size={13} />
+                    </button>
+                  ) : (
+                    <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  )}
+                </>
+              )}
+            </div>
+
+            {showAuditorDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  left: 0,
+                  right: 0,
+                  minWidth: 250,
+                  maxHeight: 280,
+                  overflowY: 'auto',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06)',
+                  zIndex: 50,
+                  padding: 6
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditorFilter('all');
+                    setAuditorSearchInput('');
+                    setShowAuditorDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: auditorFilter === 'all' ? '#f1f5f9' : 'transparent',
+                    color: '#0f172a',
+                    fontSize: 12,
+                    fontWeight: auditorFilter === 'all' ? 700 : 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>All Assigned Auditors</span>
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{baseList.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditorFilter('unassigned');
+                    setAuditorSearchInput('');
+                    setShowAuditorDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: auditorFilter === 'unassigned' ? '#f1f5f9' : 'transparent',
+                    color: '#64748b',
+                    fontSize: 12,
+                    fontWeight: auditorFilter === 'unassigned' ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid #f1f5f9',
+                    marginBottom: 4
+                  }}
+                >
+                  <span>Unassigned Requests</span>
+                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>
+                    {baseList.filter(a => getAssignedAuditorsArray(a).length === 0).length}
+                  </span>
+                </button>
+
+                {filteredAuditorOptions.length === 0 ? (
+                  <div style={{ padding: '12px 10px', fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
+                    No matching auditor found
+                  </div>
+                ) : (
+                  filteredAuditorOptions.map(opt => {
+                    const isSelected = auditorFilter === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setAuditorFilter(opt.key);
+                          setAuditorSearchInput('');
+                          setShowAuditorDropdown(false);
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          borderRadius: 6,
+                          border: 'none',
+                          background: isSelected ? '#eff6ff' : 'transparent',
+                          color: isSelected ? '#1d4ed8' : '#1e293b',
+                          fontSize: 12,
+                          fontWeight: isSelected ? 700 : 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <User size={12} style={{ color: isSelected ? '#2563eb' : '#64748b', flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.name}</span>
+                        </span>
+                        <span style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          padding: '1px 7px',
+                          borderRadius: 10,
+                          background: isSelected ? '#dbeafe' : '#f1f5f9',
+                          color: isSelected ? '#1d4ed8' : '#475569',
+                          flexShrink: 0
+                        }}>
+                          {opt.count}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
@@ -539,8 +868,8 @@ export default function AdminAddOnApplications() {
             <option value="all">All Request Types</option>
             <option value="add_product">➕ Add Product</option>
             <option value="remove_product">🗑️ Remove Product</option>
-            <option value="change_ingredients">🧪 Change Ingredients</option>
-            <option value="change_supplier">🚚 Change Supplier</option>
+            <option value="change_ingredients">🧪 Ingredients Update</option>
+            <option value="change_supplier">🚚 Supplier/Manufacturer Update</option>
           </select>
 
           <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', minWidth: 240, maxWidth: 360, flex: 1 }}>
@@ -624,11 +953,11 @@ export default function AdminAddOnApplications() {
                           </span>
                           {(app.addon_type === 'change_supplier' || app.addon_type === 'change_supplier_manufacturer') ? (
                             <span style={{ fontSize: 11, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <Truck size={11} /> Change Supplier
+                              <Truck size={11} /> Supplier/Manufacturer Update
                             </span>
                           ) : (app.addon_type === 'change_ingredients' || app.addon_type === 'change_ingredient') ? (
                             <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <Beaker size={11} /> Change Ingredients
+                              <Beaker size={11} /> Ingredients Update
                             </span>
                           ) : app.addon_type === 'remove_product' ? (
                             <span style={{ fontSize: 11, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', padding: '1px 7px', borderRadius: 4, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -880,7 +1209,11 @@ export default function AdminAddOnApplications() {
                                               : p.type === 'Remove product'
                                                 ? '#991b1b'
                                                 : '#0369a1'
-                                      }}>{p.type || (app.addon_type === 'change_supplier' ? 'Change Supplier' : app.addon_type === 'change_ingredients' ? 'Change Ingredients' : 'Add product')}</span>
+                                      }}>{(p.type?.toLowerCase().includes('supplier') || p.type?.toLowerCase().includes('manufacturer'))
+                                          ? 'Supplier/Manufacturer Update'
+                                          : p.type?.toLowerCase().includes('ingredient')
+                                            ? 'Ingredients Update'
+                                            : (p.type || (app.addon_type === 'change_supplier' ? 'Supplier/Manufacturer Update' : app.addon_type === 'change_ingredients' ? 'Ingredients Update' : 'Add product'))}</span>
                                     </td>
                                   </tr>
                                 ))}

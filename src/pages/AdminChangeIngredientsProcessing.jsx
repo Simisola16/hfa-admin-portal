@@ -268,7 +268,7 @@ export default function AdminChangeIngredientsProcessing() {
     return <div style={{ padding: 80, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>;
   }
   if (!app) {
-    return <div style={{ padding: 80, textAlign: 'center', color: '#dc2626' }}>Change Ingredients Application not found.</div>;
+    return <div style={{ padding: 80, textAlign: 'center', color: '#dc2626' }}>Ingredients Update Application not found.</div>;
   }
 
   const siteName = app.site_id?.name || app.application_id?.establishment_name || app.certificate_id?.site_name || 'Main Facility';
@@ -372,7 +372,7 @@ export default function AdminChangeIngredientsProcessing() {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8b5cf6', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Layers size={13} /> Change Ingredients Processing Workflow
+            <Layers size={13} /> Ingredients Update Processing Workflow
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
@@ -406,7 +406,7 @@ export default function AdminChangeIngredientsProcessing() {
             Current Workflow Stage
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {app.status === 'submitted' && 'Change ingredients request submitted. Review the formulation details and accept or reject.'}
+            {app.status === 'submitted' && 'Ingredients Update request submitted. Review the formulation details and accept or reject.'}
             {app.status === 'accepted' && 'Application accepted. Assign Food Technology specialists to handle technical formulation review.'}
             {app.status === 'ft_assigned' && `Assigned FT: ${ftNames || 'Inspector'}. Review specifications or request additional compliance documents from the client.`}
             {app.status === 'all_forms_received' && 'All formulation documents verified and confirmed! You can now proceed to create the Committee Logsheet.'}
@@ -547,7 +547,7 @@ export default function AdminChangeIngredientsProcessing() {
                       <td style={{ padding: '12px 14px', color: '#64748b' }}><code>{p.code || '—'}</code></td>
                       <td style={{ padding: '12px 14px' }}>
                         <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
-                          <Layers size={11} /> Change ingredients
+                          <Layers size={11} /> Ingredients Update
                         </span>
                       </td>
                     </tr>
@@ -826,7 +826,7 @@ export default function AdminChangeIngredientsProcessing() {
         <div className="modal-overlay" style={{ zIndex: 1000 }}>
           <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-header">
-              <span className="modal-title">Review Change Ingredients Request</span>
+              <span className="modal-title">Review Ingredients Update Request</span>
               <button className="modal-close" onClick={() => setActionType(null)}><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ padding: 24, display: 'grid', gap: 16 }}>

@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, Upload, Download, Check, Eye, ClipboardList, Award, Users,
-  HelpCircle, MessageSquare, CheckCircle2, ShieldCheck, Sparkles
+  HelpCircle, MessageSquare, CheckCircle2, ShieldCheck, Sparkles, RotateCcw
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -1182,7 +1182,17 @@ export default function AdminAddOnProcessing() {
                       {isReadyForCert ? 'All required committee signatures verified — Ready for Certificate' : 'Halal Committee Review in Progress'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {canCreateLogsheet(user) && app.status !== 'completed' && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ fontWeight: 700, color: '#b45309', borderColor: '#f59e0b', background: '#fffbeb', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => navigate(`/addon-applications/${app._id}/logsheet?redo=1`)}
+                      >
+                        <RotateCcw size={13} /> Redo Logsheet
+                      </button>
+                    )}
                     <button className="btn btn-primary btn-sm" style={{ background: '#0d9488', borderColor: '#0d9488' }} onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}>
                       Open Logsheet
                     </button>

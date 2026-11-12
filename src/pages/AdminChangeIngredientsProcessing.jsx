@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, X, RefreshCw,
   Building2, FileText, User, Calendar, Shield,
   ChevronRight, AlertCircle, Clock, Package, UploadCloud, Download, Check, Eye, ClipboardList, Award, Users,
-  MessageSquare, CheckCircle2, ShieldCheck, Layers, Paperclip, Beaker
+  MessageSquare, CheckCircle2, ShieldCheck, Layers, Paperclip, Beaker, RotateCcw
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -478,15 +478,26 @@ export default function AdminChangeIngredientsProcessing() {
             </button>
           )}
 
-          {/* 5. View Logsheet if created */}
+          {/* 5. View / Redo Logsheet if created */}
           {['logsheet_created', 'waiting_sharia_signature', 'completed'].includes(app.status) && (
-            <button
-              className="btn btn-outline"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#0e7490', color: '#0e7490' }}
-              onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}
-            >
-              <FileText size={15} /> View Committee Logsheet
-            </button>
+            <>
+              <button
+                className="btn btn-outline"
+                style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#0e7490', color: '#0e7490' }}
+                onClick={() => navigate(`/addon-applications/${app._id}/logsheet`)}
+              >
+                <FileText size={15} /> View Committee Logsheet
+              </button>
+              {canCreateLogsheet(user) && app.status !== 'completed' && (
+                <button
+                  className="btn btn-outline"
+                  style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, color: '#b45309', borderColor: '#f59e0b', background: '#fffbeb' }}
+                  onClick={() => navigate(`/addon-applications/${app._id}/logsheet?redo=1`)}
+                >
+                  <RotateCcw size={15} /> Redo Logsheet
+                </button>
+              )}
+            </>
           )}
 
           {/* Completed Badge */}

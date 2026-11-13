@@ -26,11 +26,19 @@ async function request(method, path, body, isFormData = false) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { error: text || res.statusText || 'Request failed' };
+      const isHtml = contentType.includes('text/html') || /^\s*</.test(text);
+      data = {
+        error: (res.status >= 500 || isHtml)
+          ? 'Server error'
+          : (text || res.statusText || 'Request failed'),
+      };
     }
   }
 
-  if (!res.ok) throw new Error(data?.error || data?.message || `Request failed with status ${res.status}`);
+  if (!res.ok) {
+    const fallback = res.status >= 500 ? 'Server error' : `Request failed with status ${res.status}`;
+    throw new Error(data?.error || data?.message || fallback);
+  }
   return data;
 }
 
@@ -69,7 +77,8 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Request failed with status ${res.status}`);
+      const fallback = res.status >= 500 ? 'Server error' : `Request failed with status ${res.status}`;
+      throw new Error(err.error || err.message || fallback);
     }
     return res.blob();
   },

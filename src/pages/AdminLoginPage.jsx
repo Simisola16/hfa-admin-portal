@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Shield, KeyRound, Mail, ArrowLeft, CheckCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import ReCaptcha from '../components/ReCaptcha';
+import { RECAPTCHA_ENABLED } from '../lib/recaptcha';
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState('');
+  const recaptchaRef = useRef(null);
 
   // Forgot password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -23,12 +27,16 @@ export default function AdminLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (RECAPTCHA_ENABLED && !recaptchaToken) {
+      return toast.error('Please complete the "I\'m not a robot" verification');
+    }
     setLoading(true);
     try {
-      await login(username, password);
+      await login(username, password, recaptchaToken);
       toast.success('Welcome back, Admin!');
       navigate('/dashboard');
     } catch (err) {
+      recaptchaRef.current?.reset();
       toast.error(err.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -153,7 +161,9 @@ export default function AdminLoginPage() {
                 </div>
               </div>
 
-              <button type="submit" className="auth-btn-primary" disabled={loading} style={{ marginTop: 24 }}>
+              <ReCaptcha ref={recaptchaRef} onChange={setRecaptchaToken} />
+
+              <button type="submit" className="auth-btn-primary" disabled={loading} style={{ marginTop: 8 }}>
                 {loading ? <span className="spinner-white" /> : <><Shield size={18} /> Sign In to Portal</>}
               </button>
 

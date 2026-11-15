@@ -1,0 +1,8 @@
+const GOOGLE_DEV_TEST_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+
+export const RECAPTCHA_SITE_KEY =
+  import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
+  (import.meta.env.DEV ? GOOGLE_DEV_TEST_SITE_KEY : '');
+
+export const RECAPTCHA_ENABLED = Boolean(RECAPTCHA_SITE_KEY);
+

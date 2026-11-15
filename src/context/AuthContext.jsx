@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
    * Calls the dedicated /api/auth/admin/login endpoint which only
    * accepts users with role === 'admin'.
    */
-  const login = async (username, password) => {
+  const login = async (username, password, recaptchaToken) => {
     let clientTimezone = '';
     let clientIp = '';
     let clientCity = '';
@@ -64,6 +64,7 @@ export function AuthProvider({ children }) {
     const data = await api.post('/api/auth/admin/login', { 
       username, 
       password,
+      recaptchaToken,
       client_timezone: clientTimezone,
       client_ip: clientIp,
       client_city: clientCity,

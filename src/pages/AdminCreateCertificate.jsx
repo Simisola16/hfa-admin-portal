@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'reac
 import {
   Award, ArrowLeft, RefreshCw, Send, FileText,
   AlertTriangle, Building, Building2, MapPin, Calendar, Package, Plus, Trash2,
-  ExternalLink, Download, Check, X, ShieldCheck, Eye,
+  ExternalLink, Download, Check, X, ShieldCheck, Eye, UploadCloud,
   Search, CheckSquare, Square, Filter, Layers, Info, CheckCircle,
   CheckCircle2, ArrowRight, ChevronLeft, ChevronRight, Clock
 } from 'lucide-react';
@@ -89,6 +89,8 @@ export default function AdminCreateCertificate() {
   const [livePreviewUrl, setLivePreviewUrl] = useState(null);
   const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
   const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [customFile, setCustomFile] = useState(null);
+  const [customFilePreview, setCustomFilePreview] = useState(null);
 
   // Form State
   const [form, setForm] = useState({
@@ -1116,13 +1118,21 @@ export default function AdminCreateCertificate() {
         formData.append('is_extension', 'true');
         formData.append('extension_application_id', app._id);
       }
+      if (customFile) {
+        formData.append('certificate_file', customFile);
+      }
 
       const certRes = await api.post('/api/certificates', formData, true);
 
       if (certRes?.success || certRes?.data || certRes?._id) {
-        toast.success('Certificate created successfully! Redirecting to dashboard...');
+        const newCertId = certRes?.data?._id || certRes?._id || certRes?.certificate?._id;
+        toast.success('Certificate created successfully! Opening review studio...');
         setTimeout(() => {
-          navigate('/dashboard');
+          if (newCertId) {
+            navigate(`/certificates/${newCertId}/review`);
+          } else {
+            navigate('/dashboard');
+          }
         }, 500);
       }
     } catch (err) {
@@ -1159,7 +1169,7 @@ export default function AdminCreateCertificate() {
 
   const selectedCount = siteProducts.filter(p => p.isSelected).length;
   const rawPdfUrl = getPdfUrl(livePreviewUrl);
-  const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
+  const pdfUrl = customFilePreview || (rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '');
   const regenerating = generatingPreview;
   const isSurvLetter = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
 
@@ -1415,6 +1425,81 @@ export default function AdminCreateCertificate() {
                   <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Expiry Date</div>
                   <div style={{ fontWeight: 700, color: '#dc2626', marginTop: 2 }}>{form.expiry_date || '—'}</div>
                 </div>
+              </div>
+
+              {/* Upload Custom Replacement PDF Box */}
+              <div style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 18, marginTop: 16, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <UploadCloud size={16} style={{ color: '#047857' }} />
+                  Upload Custom / Stamped Certificate PDF (Optional)
+                </div>
+                <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
+                  If you have an externally generated or signed PDF file, you can upload it directly to replace the system-generated document.
+                </p>
+                {customFile && (
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1.5px solid #86efac',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    marginBottom: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                      <CheckCircle size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {customFile.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomFile(null);
+                        setCustomFilePreview(null);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11.5, fontWeight: 700 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: '1.5px dashed #cbd5e1',
+                  background: '#f8fafc',
+                  cursor: 'pointer',
+                  color: '#334155',
+                  fontSize: 12,
+                  fontWeight: 700
+                }}>
+                  <UploadCloud size={16} color="#047857" />
+                  {customFile ? 'Change Uploaded PDF Document' : 'Choose Custom PDF Document'}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.type !== 'application/pdf') {
+                          toast.error('Please upload a valid PDF document.');
+                          return;
+                        }
+                        setCustomFile(f);
+                        setCustomFilePreview(URL.createObjectURL(f));
+                        toast.success(`Custom PDF "${f.name}" selected.`);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
               </div>
             </div>
           </div>

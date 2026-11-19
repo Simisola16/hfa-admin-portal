@@ -122,6 +122,7 @@ export default function SuperAdminDirectCertificate() {
 
   // Existing Products for selected client
   const [clientExistingProducts, setClientExistingProducts] = useState([]);
+  const [customPdfFile, setCustomPdfFile] = useState(null);
 
   useEffect(() => {
     if (selectedClient?._id || selectedClient?.id) {
@@ -932,8 +933,11 @@ export default function SuperAdminDirectCertificate() {
       formData.append('products', JSON.stringify(isSurvLetter ? [] : validProducts));
       formData.append('product_table_columns', productTableColumns);
 
-      // Options — certificate PDF is always auto-generated
-      formData.append('auto_generate_pdf', true);
+      // Options — certificate PDF
+      formData.append('auto_generate_pdf', !customPdfFile);
+      if (customPdfFile) {
+        formData.append('certificate_file', customPdfFile);
+      }
 
       const res = await api.post('/api/certificates/direct-issue', formData, true);
 
@@ -2259,8 +2263,57 @@ export default function SuperAdminDirectCertificate() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>PDF Mode:</span>
-                      <span style={{ color: '#16a34a', fontWeight: 600 }}>⚡ Auto-Generated</span>
+                      <span style={{ color: customPdfFile ? '#0284c7' : '#16a34a', fontWeight: 600 }}>
+                        {customPdfFile ? `📎 Custom Upload: ${customPdfFile.name}` : '⚡ Auto-Generated'}
+                      </span>
                     </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, marginBottom: 16 }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      padding: '10px',
+                      borderRadius: 8,
+                      border: '1.5px dashed #cbd5e1',
+                      background: '#f8fafc',
+                      cursor: 'pointer',
+                      color: '#334155',
+                      fontSize: 12,
+                      fontWeight: 700
+                    }}>
+                      <Upload size={14} color="#047857" />
+                      {customPdfFile ? `Replace: ${customPdfFile.name}` : 'Upload Custom Certificate PDF (Optional)'}
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            if (f.type !== 'application/pdf') {
+                              toast.error('Please upload a valid PDF document.');
+                              return;
+                            }
+                            setCustomPdfFile(f);
+                            toast.success(`Custom PDF "${f.name}" selected.`);
+                          }
+                        }}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    {customPdfFile && (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setCustomPdfFile(null)}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                        >
+                          Remove custom PDF (use auto-generate)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

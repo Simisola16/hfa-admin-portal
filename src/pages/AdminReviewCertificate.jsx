@@ -806,6 +806,18 @@ export default function AdminReviewCertificate() {
       toast.error('Only staff with Review Certificate Privilege or Superadmin can regenerate certificate drafts.');
       return;
     }
+
+    if (cert?.is_custom_upload) {
+      const confirmOver = window.confirm(
+        '⚠️ WARNING: This certificate currently has an admin-uploaded PDF attached.\n\n' +
+        'Syncing and regenerating from template will discard your uploaded PDF file and replace it with a system-generated document.\n\n' +
+        'Are you sure you want to proceed and regenerate from template?'
+      );
+      if (!confirmOver) {
+        return;
+      }
+    }
+
     setRegenerating(true);
     try {
       // First save current inputs
@@ -828,14 +840,17 @@ export default function AdminReviewCertificate() {
         expiry_date: form.expiry_date,
         products_covered: isRegenSurv ? [] : form.products_covered,
         product_details: isRegenSurv ? [] : form.product_details,
-        product_table_columns: form.product_table_columns || 2
+        product_table_columns: form.product_table_columns || 2,
+        force_regenerate: true
       });
 
       const newCertUrl = res.certificateUrl || res.data?.certificateUrl || res.data?.data?.certificate_url;
       if (newCertUrl) {
         setCert(prev => ({
           ...prev,
-          certificate_url: newCertUrl
+          certificate_url: newCertUrl,
+          is_custom_upload: false,
+          uploaded_filename: null
         }));
         setPreviewTimestamp(Date.now());
         toast.success('Certificate PDF regenerated successfully!');
@@ -868,8 +883,10 @@ export default function AdminReviewCertificate() {
       formData.append('certificate_number', form.certificate_number);
 
       const res = await api.put(`/api/certificates/${certId}`, formData, true);
-      setCert(res.data?.data || res.data);
-      toast.success('Custom certificate PDF uploaded.');
+      const updated = res.data?.data || res.data;
+      setCert(updated);
+      setPreviewTimestamp(Date.now());
+      toast.success('Custom certificate PDF uploaded and locked in.');
     } catch (err) {
       toast.error('Failed to upload PDF: ' + (err.response?.data?.error || err.message));
     } finally {
@@ -1097,6 +1114,19 @@ export default function AdminReviewCertificate() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FileText size={18} style={{ color: '#047857' }} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Live Certificate Document</span>
+                {cert?.is_custom_upload && (
+                  <span style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    border: '1px solid #86efac'
+                  }}>
+                    ✓ Custom Upload Attached
+                  </span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
@@ -1194,6 +1224,28 @@ export default function AdminReviewCertificate() {
             <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
               If you have an externally generated or signed PDF file, you can upload it directly to replace the system-generated document.
             </p>
+            {cert?.is_custom_upload && (
+              <div style={{
+                background: '#f0fdf4',
+                border: '1.5px solid #86efac',
+                borderRadius: 10,
+                padding: '12px 14px',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                <CheckCircle size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
+                    Custom Admin Upload Active: {cert.uploaded_filename || 'Uploaded Document.pdf'}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#166534', marginTop: 2 }}>
+                    This exact PDF document is preserved and will be issued directly to the client. The system will NOT alter or regenerate it upon approval.
+                  </div>
+                </div>
+              </div>
+            )}
             <label style={{
               display: 'flex',
               alignItems: 'center',

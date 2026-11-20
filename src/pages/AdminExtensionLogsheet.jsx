@@ -228,7 +228,16 @@ export default function AdminExtensionLogsheet() {
     (s.name === 'HFA Admin' && (currentUser?.role === 'superadmin' || currentUser?.role === 'admin'))
   );
 
-  const is30Days = formData.extension_duration_type === '30_days' || Number(formData.extension_days) <= 30;
+  const is30Days = isLocked && logsheet
+    ? Boolean(
+        logsheet.signatures_required === 1 ||
+        logsheet.extension_duration_type === '30_days' ||
+        (Number(logsheet.extension_days) > 0 && Number(logsheet.extension_days) <= 30)
+      )
+    : Boolean(
+        formData.extension_duration_type === '30_days' ||
+        (Number(formData.extension_days) > 0 && Number(formData.extension_days) <= 30)
+      );
 
   const openSignModal = (roleKey = null) => {
     if (!hasSignaturePrivilege) {
@@ -303,14 +312,14 @@ export default function AdminExtensionLogsheet() {
       roleKey: 'Ceo',
       label: 'Authorized Officer / CEO Signature (30-Day Extension)',
       btnRole: 'CEO / Authorized Officer',
-      signature: logsheet?.single_signature,
-      name: logsheet?.single_sign_name,
-      date: logsheet?.single_sign_date
+      signature: logsheet?.single_signature || logsheet?.ceo_signature,
+      name: logsheet?.single_sign_name || logsheet?.ceo_sign_name,
+      date: logsheet?.single_sign_date || logsheet?.ceo_sign_date
     }
   ] : [
     {
       roleKey: 'Mufti',
-      label: '1. Shariah / Mufti Signature',
+      label: 'Mufti / Shariah Signatory',
       btnRole: 'Mufti',
       signature: logsheet?.mufti_signature,
       name: logsheet?.mufti_sign_name,
@@ -318,7 +327,7 @@ export default function AdminExtensionLogsheet() {
     },
     {
       roleKey: 'Ceo',
-      label: '2. Chief Executive Officer (CEO)',
+      label: 'CEO / Executive Signatory',
       btnRole: 'CEO',
       signature: logsheet?.ceo_signature,
       name: logsheet?.ceo_sign_name,
@@ -326,7 +335,7 @@ export default function AdminExtensionLogsheet() {
     },
     {
       roleKey: 'Manager',
-      label: '3. Operations / Certification Manager',
+      label: 'Manager / Technical Signatory',
       btnRole: 'Manager',
       signature: logsheet?.manager_signature,
       name: logsheet?.manager_sign_name,
@@ -334,7 +343,7 @@ export default function AdminExtensionLogsheet() {
     },
     {
       roleKey: 'Mufti2',
-      label: '4. Second Shariah / Technical Expert',
+      label: 'Mufti 2 / Secondary Shariah',
       btnRole: 'Mufti 2',
       signature: logsheet?.mufti2_signature,
       name: logsheet?.mufti2_sign_name,
@@ -485,6 +494,87 @@ export default function AdminExtensionLogsheet() {
           )}
         </div>
       </div>
+
+      {/* ── Top Signatory Status & Roster Banner (Matches Normal Logsheet) ── */}
+      {isSubmittedForSig && (
+        <div style={{
+          background: isFullySigned ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: `1.5px solid ${isFullySigned ? '#86efac' : '#fed7aa'}`,
+          borderRadius: 12,
+          padding: '16px 20px',
+          marginBottom: 20,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: isFullySigned ? '#bbf7d0' : '#fde68a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: isFullySigned ? '#166534' : '#b45309', flexShrink: 0
+              }}>
+                {isFullySigned ? <CheckCircle2 size={22} /> : <Clock size={22} />}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: isFullySigned ? '#166534' : '#b45309' }}>
+                  Logsheet Status
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  {isFullySigned ? 'Ready for Certificate Issuance' : 'Waiting for Committee Signatures'}
+                </div>
+              </div>
+            </div>
+
+            {!isFullySigned && hasSignaturePrivilege && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => openSignModal()}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, padding: '8px 16px', boxShadow: '0 2px 4px rgba(21,128,61,0.2)' }}
+                >
+                  <PenTool size={14} /> Apply My Signature
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quick signatory status cards */}
+          <div style={{ borderTop: `1px solid ${isFullySigned ? '#dcfce7' : '#fed7aa'}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: isFullySigned ? '#15803d' : '#9a3412', letterSpacing: '0.05em', marginBottom: 6 }}>
+              {is30Days ? 'Authorized Officer Signatory (1 Signature Required)' : 'Committee Signatory Roster (All Signatures Required)'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 4 }}>
+              {signatories.map((s, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  background: s.signature ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                  borderRadius: 8,
+                  border: `1px solid ${s.signature ? (isFullySigned ? '#86efac' : '#fed7aa') : '#e2e8f0'}`,
+                  fontSize: 12
+                }}>
+                  {s.signature ? (
+                    <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  ) : (
+                    <Clock size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                  )}
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 600, color: s.signature ? '#0f172a' : '#64748b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {s.label.split('/')[0].trim()}
+                    </div>
+                    <div style={{ fontSize: 11, color: s.signature ? '#15803d' : '#94a3b8' }}>
+                      {s.signature ? (s.name || 'Signed') : 'Awaiting'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Document Sheet Container ── */}
       <div style={{
@@ -966,7 +1056,7 @@ export default function AdminExtensionLogsheet() {
                   }}>
                     {isFullySigned ? <Check size={13} strokeWidth={3} /> : <Clock size={13} />}
                     {is30Days
-                      ? (logsheet?.single_signature ? '1 / 1 Signed (Complete)' : '0 / 1 Signed (Pending)')
+                      ? ((logsheet?.single_signature || logsheet?.ceo_signature) ? '1 / 1 Signed (Complete)' : '0 / 1 Signed (Pending)')
                       : `${totalSignedCount} / 4 Signatures Collected`}
                   </span>
 
@@ -1061,16 +1151,25 @@ export default function AdminExtensionLogsheet() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            height: 50,
+                            height: 54,
                             marginBottom: 8
                           }}>
                             <img
                               src={getPdfUrl(s.signature)}
                               alt={`${s.label} Signature`}
-                              style={{ maxHeight: 40, maxWidth: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) {
+                                  e.target.nextSibling.style.display = 'inline-flex';
+                                }
+                              }}
+                              style={{ maxHeight: 44, maxWidth: '100%', objectFit: 'contain' }}
                             />
+                            <div style={{ display: 'none', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#047857' }}>
+                              <CheckCircle2 size={16} /> Digitally Signed
+                            </div>
                           </div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
                             {s.name || 'Authorised Signatory'}
                           </div>
                           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
@@ -1237,13 +1336,15 @@ export default function AdminExtensionLogsheet() {
                     {is30Days ? 'Single Role Sign' : 'Committee Sign'}
                   </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {[
-                    { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.mufti_signature) },
-                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.ceo_signature) },
-                    { key: 'Manager', label: 'Manager (Technical Auditor)', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.manager_signature) },
-                    { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(is30Days ? logsheet?.single_signature : logsheet?.mufti2_signature) },
-                  ].map(r => {
+                <div style={{ display: 'grid', gridTemplateColumns: is30Days ? '1fr' : '1fr 1fr', gap: 10 }}>
+                  {(is30Days ? [
+                    { key: 'Ceo', label: 'Authorized Officer / CEO (30-Day Extension)', isSigned: Boolean(logsheet?.single_signature || logsheet?.ceo_signature) }
+                  ] : [
+                    { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(logsheet?.mufti_signature) },
+                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(logsheet?.ceo_signature) },
+                    { key: 'Manager', label: 'Manager (Technical Auditor)', isSigned: Boolean(logsheet?.manager_signature) },
+                    { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(logsheet?.mufti2_signature) },
+                  ]).map(r => {
                     const isSelected = sigRole === r.key;
                     const isAlreadySigned = r.isSigned;
                     const isRestrictedForMufti = isMuftiUser && (r.key === 'Ceo' || r.key === 'Manager');

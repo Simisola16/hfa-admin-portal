@@ -108,12 +108,12 @@ export default function AdminExtensionProcessing() {
   const is30Days = logsheet?.signatures_required === 1 || logsheet?.extension_duration_type === '30_days' || (logsheet?.extension_days && logsheet.extension_days <= 30);
   const sigCount = is30Days ? (Boolean(logsheet?.single_signature || logsheet?.ceo_signature) ? 1 : 0) : [
     logsheet?.mufti_signature,
-    logsheet?.ceo_signature || logsheet?.single_signature,
+    logsheet?.ceo_signature,
     logsheet?.manager_signature,
     logsheet?.mufti2_signature
   ].filter(Boolean).length;
   const totalSigsRequired = is30Days ? 1 : 4;
-  const isFullySigned = sigCount >= totalSigsRequired || logsheet?.status === 'Signed';
+  const isFullySigned = sigCount >= totalSigsRequired;
 
   // ─── Strict 4-Stage Locking & Progression Rules ───
   // Stage 1: Extension Form Received & Request Review
@@ -810,7 +810,7 @@ export default function AdminExtensionProcessing() {
                   ) : (
                     [
                       { role: '1. Mufti / Shariah', signed: !!logsheet?.mufti_signature, name: logsheet?.mufti_sign_name, sig: logsheet?.mufti_signature },
-                      { role: '2. Chief Executive Officer', signed: !!(logsheet?.ceo_signature || logsheet?.single_signature), name: logsheet?.ceo_sign_name || logsheet?.single_sign_name, sig: logsheet?.ceo_signature || logsheet?.single_signature },
+                      { role: '2. Chief Executive Officer', signed: !!logsheet?.ceo_signature, name: logsheet?.ceo_sign_name, sig: logsheet?.ceo_signature },
                       { role: '3. Certification Manager', signed: !!logsheet?.manager_signature, name: logsheet?.manager_sign_name, sig: logsheet?.manager_signature },
                       { role: '4. Second Mufti / Expert', signed: !!logsheet?.mufti2_signature, name: logsheet?.mufti2_sign_name, sig: logsheet?.mufti2_signature },
                     ].map((s) => (

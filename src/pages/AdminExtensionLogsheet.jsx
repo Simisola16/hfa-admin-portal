@@ -228,13 +228,16 @@ export default function AdminExtensionLogsheet() {
     (s.name === 'HFA Admin' && (currentUser?.role === 'superadmin' || currentUser?.role === 'admin'))
   );
 
-  const is30Days = Boolean(
-    (logsheet?.signatures_required === 1) ||
-    (logsheet?.extension_duration_type === '30_days') ||
-    (logsheet?.extension_days && Number(logsheet.extension_days) <= 30) ||
-    (formData.extension_duration_type === '30_days') ||
-    (formData.extension_days && Number(formData.extension_days) <= 30)
-  );
+  const is30Days = isLocked && logsheet
+    ? Boolean(
+        logsheet.signatures_required === 1 ||
+        logsheet.extension_duration_type === '30_days' ||
+        (Number(logsheet.extension_days) > 0 && Number(logsheet.extension_days) <= 30)
+      )
+    : Boolean(
+        formData.extension_duration_type === '30_days' ||
+        (Number(formData.extension_days) > 0 && Number(formData.extension_days) <= 30)
+      );
 
   const openSignModal = (roleKey = null) => {
     if (!hasSignaturePrivilege) {
@@ -249,7 +252,7 @@ export default function AdminExtensionLogsheet() {
       } else {
         const available = [
           { key: 'Mufti', signed: !!logsheet?.mufti_signature },
-          { key: 'Ceo', signed: !!(logsheet?.ceo_signature || logsheet?.single_signature) },
+          { key: 'Ceo', signed: !!logsheet?.ceo_signature },
           { key: 'Manager', signed: !!logsheet?.manager_signature },
           { key: 'Mufti2', signed: !!logsheet?.mufti2_signature }
         ].find(r => !r.signed);
@@ -326,9 +329,9 @@ export default function AdminExtensionLogsheet() {
       roleKey: 'Ceo',
       label: 'CEO / Executive Signatory',
       btnRole: 'CEO',
-      signature: logsheet?.ceo_signature || logsheet?.single_signature,
-      name: logsheet?.ceo_sign_name || logsheet?.single_sign_name,
-      date: logsheet?.ceo_sign_date || logsheet?.single_sign_date
+      signature: logsheet?.ceo_signature,
+      name: logsheet?.ceo_sign_name,
+      date: logsheet?.ceo_sign_date
     },
     {
       roleKey: 'Manager',
@@ -349,7 +352,7 @@ export default function AdminExtensionLogsheet() {
   ];
 
   const totalSignedCount = signatories.filter(s => Boolean(s.signature)).length;
-  const isFullySigned = totalSignedCount === signatories.length || logsheet?.status === 'Signed';
+  const isFullySigned = totalSignedCount === signatories.length;
 
   if (loading) {
     return (
@@ -1338,7 +1341,7 @@ export default function AdminExtensionLogsheet() {
                     { key: 'Ceo', label: 'Authorized Officer / CEO (30-Day Extension)', isSigned: Boolean(logsheet?.single_signature || logsheet?.ceo_signature) }
                   ] : [
                     { key: 'Mufti', label: 'Mufti / Shariah Signatory', isSigned: Boolean(logsheet?.mufti_signature) },
-                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(logsheet?.ceo_signature || logsheet?.single_signature) },
+                    { key: 'Ceo', label: 'CEO / Executive Signatory', isSigned: Boolean(logsheet?.ceo_signature) },
                     { key: 'Manager', label: 'Manager (Technical Auditor)', isSigned: Boolean(logsheet?.manager_signature) },
                     { key: 'Mufti2', label: 'Mufti 2 / Secondary Shariah', isSigned: Boolean(logsheet?.mufti2_signature) },
                   ]).map(r => {

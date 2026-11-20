@@ -11,8 +11,8 @@
 export const getPdfUrl = (url) => {
   if (!url) return '';
 
-  // Already a full absolute URL (S3 direct, CDN, Cloudinary, or HTTP/HTTPS)
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  // Already a full absolute URL (S3 direct, CDN, Cloudinary, or HTTP/HTTPS) or data/blob URI
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) return url;
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://backend.hfaportal.company';
 

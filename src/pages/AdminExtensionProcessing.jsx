@@ -11,6 +11,7 @@ import {
   Lock, Unlock, ArrowRight
 } from 'lucide-react';
 import { generateHfaId } from '../lib/idGenerator';
+import { getPdfUrl } from '../lib/pdfUtils';
 
 export default function AdminExtensionProcessing() {
   const { id } = useParams();
@@ -104,10 +105,10 @@ export default function AdminExtensionProcessing() {
   const isRejected = app?.status === 'rejected';
 
   // Signatures required count & completed count
-  const is30Days = logsheet?.extension_duration_type === '30_days' || (logsheet?.extension_days && logsheet.extension_days <= 30);
-  const sigCount = is30Days ? (logsheet?.single_signature ? 1 : 0) : [
+  const is30Days = logsheet?.signatures_required === 1 || logsheet?.extension_duration_type === '30_days' || (logsheet?.extension_days && logsheet.extension_days <= 30);
+  const sigCount = is30Days ? (Boolean(logsheet?.single_signature || logsheet?.ceo_signature) ? 1 : 0) : [
     logsheet?.mufti_signature,
-    logsheet?.ceo_signature,
+    logsheet?.ceo_signature || logsheet?.single_signature,
     logsheet?.manager_signature,
     logsheet?.mufti2_signature
   ].filter(Boolean).length;
@@ -777,27 +778,41 @@ export default function AdminExtensionProcessing() {
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0',
-                      background: logsheet?.single_signature ? '#f0fdf4' : 'white'
+                      background: (logsheet?.single_signature || logsheet?.ceo_signature) ? '#f0fdf4' : 'white'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <PenTool size={14} color={logsheet?.single_signature ? '#008744' : '#64748b'} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <PenTool size={14} color={(logsheet?.single_signature || logsheet?.ceo_signature) ? '#008744' : '#64748b'} />
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Authorized Signatory / CEO</div>
-                          {logsheet?.single_sign_name && (
-                            <div style={{ fontSize: 11, color: '#008744' }}>Signed by {logsheet.single_sign_name}</div>
+                          {(logsheet?.single_sign_name || logsheet?.ceo_sign_name) && (
+                            <div style={{ fontSize: 11, color: '#008744', fontWeight: 600 }}>Signed by {logsheet.single_sign_name || logsheet.ceo_sign_name}</div>
                           )}
                         </div>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: logsheet?.single_signature ? '#008744' : '#94a3b8' }}>
-                        {logsheet?.single_signature ? 'Signed' : 'Pending'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {(logsheet?.single_signature || logsheet?.ceo_signature) && (
+                          <div style={{
+                            background: '#fff', border: '1px solid #bbf7d0', borderRadius: 6,
+                            padding: '2px 8px', height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            <img
+                              src={getPdfUrl(logsheet.single_signature || logsheet.ceo_signature)}
+                              alt="Signature"
+                              style={{ maxHeight: 26, maxWidth: 90, objectFit: 'contain' }}
+                            />
+                          </div>
+                        )}
+                        <span style={{ fontSize: 12, fontWeight: 700, color: (logsheet?.single_signature || logsheet?.ceo_signature) ? '#008744' : '#94a3b8' }}>
+                          {(logsheet?.single_signature || logsheet?.ceo_signature) ? 'Signed' : 'Pending'}
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     [
-                      { role: '1. Mufti / Shariah', signed: !!logsheet?.mufti_signature, name: logsheet?.mufti_sign_name },
-                      { role: '2. Chief Executive Officer', signed: !!logsheet?.ceo_signature, name: logsheet?.ceo_sign_name },
-                      { role: '3. Certification Manager', signed: !!logsheet?.manager_signature, name: logsheet?.manager_sign_name },
-                      { role: '4. Second Mufti / Expert', signed: !!logsheet?.mufti2_signature, name: logsheet?.mufti2_sign_name },
+                      { role: '1. Mufti / Shariah', signed: !!logsheet?.mufti_signature, name: logsheet?.mufti_sign_name, sig: logsheet?.mufti_signature },
+                      { role: '2. Chief Executive Officer', signed: !!(logsheet?.ceo_signature || logsheet?.single_signature), name: logsheet?.ceo_sign_name || logsheet?.single_sign_name, sig: logsheet?.ceo_signature || logsheet?.single_signature },
+                      { role: '3. Certification Manager', signed: !!logsheet?.manager_signature, name: logsheet?.manager_sign_name, sig: logsheet?.manager_signature },
+                      { role: '4. Second Mufti / Expert', signed: !!logsheet?.mufti2_signature, name: logsheet?.mufti2_sign_name, sig: logsheet?.mufti2_signature },
                     ].map((s) => (
                       <div
                         key={s.role}
@@ -807,16 +822,30 @@ export default function AdminExtensionProcessing() {
                           background: s.signed ? '#f0fdf4' : 'white'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <PenTool size={14} color={s.signed ? '#008744' : '#64748b'} />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{s.role}</div>
-                            {s.name && <div style={{ fontSize: 11, color: '#008744' }}>Signed by {s.name}</div>}
+                            {s.name && <div style={{ fontSize: 11, color: '#008744', fontWeight: 600 }}>Signed by {s.name}</div>}
                           </div>
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: s.signed ? '#008744' : '#94a3b8' }}>
-                          {s.signed ? 'Signed' : 'Pending'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {s.sig && (
+                            <div style={{
+                              background: '#fff', border: '1px solid #bbf7d0', borderRadius: 6,
+                              padding: '2px 8px', height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              <img
+                                src={getPdfUrl(s.sig)}
+                                alt="Signature"
+                                style={{ maxHeight: 26, maxWidth: 90, objectFit: 'contain' }}
+                              />
+                            </div>
+                          )}
+                          <span style={{ fontSize: 12, fontWeight: 700, color: s.signed ? '#008744' : '#94a3b8' }}>
+                            {s.signed ? 'Signed' : 'Pending'}
+                          </span>
+                        </div>
                       </div>
                     ))
                   )}

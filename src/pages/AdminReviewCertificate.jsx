@@ -1378,10 +1378,10 @@ export default function AdminReviewCertificate() {
                     Registered Business Address <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <textarea
-                    rows={1}
+                    rows={2}
                     required
                     className="form-control"
-                    style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                    style={{ minHeight: 52, fontSize: 12.5, resize: 'vertical' }}
                     value={form.company_address}
                     onChange={e => setForm({ ...form, company_address: e.target.value })}
                     placeholder="Head office / registered legal business address"
@@ -1405,9 +1405,9 @@ export default function AdminReviewCertificate() {
                     )}
                   </div>
                   <textarea
-                    rows={1}
+                    rows={2}
                     className="form-control"
-                    style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                    style={{ minHeight: 52, fontSize: 12.5, resize: 'vertical' }}
                     value={form.manufacturing_address}
                     onChange={e => setForm({ ...form, manufacturing_address: e.target.value })}
                     placeholder="Physical site location where certified products are manufactured (Optional)"

@@ -108,6 +108,7 @@ export default function SuperAdminDirectCertificate() {
     return d.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('Directly issued with certified products by Superadmin.');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isGso = certType === 'GSO MEAT' || certType === 'GSO NON MEAT' || certType === 'SMIIC' || (certType && (certType.includes('GSO') || certType.includes('SMIIC')));
   const isSurvLetter = certType === 'SURVEILLANCE LETTER' || String(certType || '').toUpperCase().includes('SURVEILLANCE');
@@ -861,8 +862,8 @@ export default function SuperAdminDirectCertificate() {
     toast.success('Sample products loaded!');
   };
 
-  // Form Submission
-  const handleSubmitDirectCertificate = async (e) => {
+  // Form Submission — validates and opens confirmation modal instead of submitting immediately
+  const handleSubmitDirectCertificate = (e) => {
     e.preventDefault();
 
     // Validations
@@ -887,6 +888,12 @@ export default function SuperAdminDirectCertificate() {
       return toast.error('Please specify at least one product name to certify.');
     }
 
+    setShowConfirmModal(true);
+  };
+
+  // Actual API submission triggered only from the confirmation modal
+  const executeSubmitDirectCertificate = async () => {
+    const validProducts = products.filter(p => p.name && p.name.trim());
 
     setSubmitting(true);
     const toastId = toast.loading('Generating official certificate & registering products...');
@@ -1115,7 +1122,14 @@ export default function SuperAdminDirectCertificate() {
       {/* TAB 1: DIRECT CERTIFICATE & PRODUCT ISSUANCE STUDIO          */}
       {/* ──────────────────────────────────────────────────────────── */}
       {activeTab === 'create' && (
-        <form onSubmit={handleSubmitDirectCertificate}>
+        <form
+          onSubmit={handleSubmitDirectCertificate}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: 24, alignItems: 'start' }}>
             {/* Left Column: Form Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -1404,12 +1418,13 @@ export default function SuperAdminDirectCertificate() {
                     </div>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
                       <label className="form-label" style={{ fontSize: 12.5 }}>Registered Business Address</label>
-                      <input
-                        type="text"
+                      <textarea
                         className="form-control"
+                        rows={2}
                         placeholder="Company registered address as it will appear on the certificate"
                         value={certCompanyAddress}
                         onChange={e => setCertCompanyAddress(e.target.value)}
+                        style={{ resize: 'vertical', minHeight: 52 }}
                       />
                     </div>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -2675,6 +2690,112 @@ export default function SuperAdminDirectCertificate() {
                 Scheme: <strong>{certType}</strong> • Issue: <strong>{issueDate}</strong> • Expiry: <strong>{expiryDate}</strong>
               </span>
               <button type="button" className="btn btn-primary" onClick={() => setShowPreviewModal(false)}>Close Preview</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirmation Modal before issuing direct certificate */}
+      {showConfirmModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 540, borderRadius: 16, overflow: 'hidden' }}>
+            <div className="modal-header" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '18px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: '#dcfce7', color: '#15803d', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#166534' }}>
+                    Confirm Direct Certificate Issuance
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#15803d' }}>
+                    Please review all details before issuing this certificate
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="modal-close" onClick={() => !submitting && setShowConfirmModal(false)}><X size={18} /></button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '24px' }}>
+              <div style={{ background: '#fffbeb', border: '1px solid #fef08a', borderRadius: 10, padding: '14px 16px', marginBottom: 18, color: '#854d0e', fontSize: 13, lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, marginBottom: 4 }}>
+                  <AlertTriangle size={16} color="#d97706" /> Are you sure you want to issue this certificate?
+                </div>
+                Once confirmed, the official certificate and products will be generated and published immediately.
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Certificate Number:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{certNumber}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Company Name:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{certCompanyName || selectedClient?.company_name || selectedClient?.full_name || '—'}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Company Address:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{certCompanyAddress || '—'}</strong>
+                </div>
+                {certManufacturingFacility && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: '#64748b' }}>Manufacturing Address:</span>
+                    <strong style={{ color: '#0f172a', textAlign: 'right' }}>{certManufacturingFacility}</strong>
+                  </div>
+                )}
+                {certProductCategory && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: '#64748b' }}>Product Category:</span>
+                    <strong style={{ color: '#0369a1', textAlign: 'right' }}>{certProductCategory}</strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Type:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{certType}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Validity:</span>
+                  <strong style={{ color: '#047857', textAlign: 'right' }}>{issueDate} → {expiryDate}</strong>
+                </div>
+                {!isSurvLetter && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: '#64748b' }}>Products:</span>
+                    <strong style={{ color: '#0f172a', textAlign: 'right' }}>{products.filter(p => p.name && p.name.trim()).length} Products</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={submitting}
+                style={{ fontSize: 13, fontWeight: 600 }}
+              >
+                Cancel / Keep Editing
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  executeSubmitDirectCertificate();
+                }}
+                disabled={submitting}
+                style={{
+                  background: '#047857',
+                  borderColor: '#047857',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <Sparkles size={14} />
+                Confirm &amp; Issue Certificate
+              </button>
             </div>
           </div>
         </div>

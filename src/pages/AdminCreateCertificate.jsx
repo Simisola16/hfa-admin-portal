@@ -91,6 +91,7 @@ export default function AdminCreateCertificate() {
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [customFile, setCustomFile] = useState(null);
   const [customFilePreview, setCustomFilePreview] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Form State
   const [form, setForm] = useState({
@@ -1051,8 +1052,8 @@ export default function AdminCreateCertificate() {
     }
   }, [loading, form.company_name, livePreviewUrl]);
 
-  // Handle Form Submission
-  const handleSubmit = async (e) => {
+  // Handle Form Submission — validates and opens confirmation modal instead of submitting immediately
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!canIssueCertificate(currentUser)) {
       return toast.error('Only Certificate Officer or Superadmin can generate and issue certificates.');
@@ -1060,7 +1061,11 @@ export default function AdminCreateCertificate() {
     if (!form.company_name.trim()) return toast.error('Company name is required.');
     if (isSurveillance && !form.audit_date) return toast.error('Audit date is required.');
     if (!form.issue_date || !form.expiry_date) return toast.error('Validity dates are required.');
+    setShowConfirmModal(true);
+  };
 
+  // Actual API submission triggered only from the confirmation modal
+  const executeSubmit = async () => {
     setSubmitting(true);
     try {
       const selectedProds = siteProducts.filter(p => p.isSelected);
@@ -1128,6 +1133,7 @@ export default function AdminCreateCertificate() {
       toast.error(err.response?.data?.error || err.message || 'Failed to create certificate.');
     } finally {
       setSubmitting(false);
+      setShowConfirmModal(false);
     }
   };
 
@@ -1312,7 +1318,14 @@ export default function AdminCreateCertificate() {
       )}
 
       {/* Main Dual-Pane Layout */}
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="dual-pane-grid" style={{ gap: 24, alignItems: 'start' }}>
 
           {/* LEFT PANE: Live Certificate Document Preview — STICKY */}
@@ -1651,10 +1664,10 @@ export default function AdminCreateCertificate() {
                       )}
                     </div>
                     <textarea
-                      rows={1}
+                      rows={2}
                       required
                       className="form-control"
-                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      style={{ minHeight: 52, fontSize: 12.5, resize: 'vertical' }}
                       value={form.company_address}
                       onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
                       placeholder="Head office / registered legal business address"
@@ -1678,9 +1691,9 @@ export default function AdminCreateCertificate() {
                       )}
                     </div>
                     <textarea
-                      rows={1}
+                      rows={2}
                       className="form-control"
-                      style={{ minHeight: 42, height: 42, fontSize: 12.5, resize: 'vertical' }}
+                      style={{ minHeight: 52, fontSize: 12.5, resize: 'vertical' }}
                       value={form.manufacturing_address}
                       onChange={e => setForm(f => ({ ...f, manufacturing_address: e.target.value }))}
                       placeholder="Physical facility location where certified products are manufactured (Optional)"
@@ -2288,6 +2301,117 @@ export default function AdminCreateCertificate() {
 
         </div>
       </form>
+
+      {/* Confirmation Modal before creating certificate */}
+      {showConfirmModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal" style={{ maxWidth: 540, borderRadius: 16, overflow: 'hidden' }}>
+            <div className="modal-header" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '18px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: '#dcfce7', color: '#15803d', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#166534' }}>
+                    Confirm Certificate Creation
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#15803d' }}>
+                    Please review all details before creating this certificate
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="modal-close" onClick={() => !submitting && setShowConfirmModal(false)}><X size={18} /></button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '24px' }}>
+              <div style={{ background: '#fffbeb', border: '1px solid #fef08a', borderRadius: 10, padding: '14px 16px', marginBottom: 18, color: '#854d0e', fontSize: 13, lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, marginBottom: 4 }}>
+                  <AlertTriangle size={16} color="#d97706" /> Are you sure you want to create this certificate?
+                </div>
+                Please verify the Company Name, Addresses, Dates, and Products below before submitting.
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Certificate Number:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{form.certificate_number}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Company Name:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{form.company_name}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Company Address:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{form.company_address || '—'}</strong>
+                </div>
+                {form.manufacturing_address && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: '#64748b' }}>Manufacturing Address:</span>
+                    <strong style={{ color: '#0f172a', textAlign: 'right' }}>{form.manufacturing_address}</strong>
+                  </div>
+                )}
+                {(form.product_category || form.scope) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: '#64748b' }}>Product Category:</span>
+                    <strong style={{ color: '#0369a1', textAlign: 'right' }}>{form.product_category || form.scope}</strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Type:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{form.certificate_type}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Validity:</span>
+                  <strong style={{ color: '#047857', textAlign: 'right' }}>{form.issue_date} → {form.expiry_date}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: '#64748b' }}>Products:</span>
+                  <strong style={{ color: '#0f172a', textAlign: 'right' }}>{siteProducts.filter(p => p.isSelected).length} Selected</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={submitting}
+                style={{ fontSize: 13, fontWeight: 600 }}
+              >
+                Cancel / Keep Editing
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={executeSubmit}
+                disabled={submitting}
+                style={{
+                  background: '#047857',
+                  borderColor: '#047857',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                {submitting ? (
+                  <>
+                    <span className="spin"><RefreshCw size={14} /></span>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Send size={14} />
+                    Confirm &amp; Create Certificate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

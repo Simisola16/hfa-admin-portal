@@ -217,16 +217,39 @@ export default function AdminExtensionLogsheet() {
     }
   };
 
-  const userSignature = signatures.find(s =>
-    (s.user_id && (s.user_id === currentUser?._id || s.user_id === currentUser?.id)) ||
-    (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase()) ||
-    (s.username && currentUser?.email && s.username.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ||
-    (s.name && currentUser?.full_name && s.name.toLowerCase() === currentUser.full_name.toLowerCase()) ||
-    (s.name && currentUser?.name && s.name.toLowerCase() === currentUser.name.toLowerCase()) ||
-    (s.username && currentUser?.name && s.username.toLowerCase() === currentUser.name.toLowerCase()) ||
-    (s.username === 'admin' && (currentUser?.username === 'admin' || currentUser?.role === 'superadmin' || currentUser?.full_name === 'HFA Admin')) ||
-    (s.name === 'HFA Admin' && (currentUser?.role === 'superadmin' || currentUser?.role === 'admin'))
-  );
+  const currentUserIdStr = String(currentUser?._id || currentUser?.id || '');
+  const currentUsernameLower = (currentUser?.username || '').trim().toLowerCase();
+  const currentEmailLower = (currentUser?.email || '').trim().toLowerCase();
+  const currentEmailPrefix = currentEmailLower ? currentEmailLower.split('@')[0].trim() : '';
+  const currentFullNameLower = (currentUser?.full_name || currentUser?.name || '').trim().toLowerCase();
+
+  // Strictly match the logged-in user's OWN signature first (never let generic "HFA Admin" shadow another admin)
+  const userSignature =
+    signatures.find(s => s.user_id && currentUserIdStr && String(s.user_id) === currentUserIdStr) ||
+    signatures.find(s => {
+      const sigUser = (s.username || '').trim().toLowerCase();
+      if (!sigUser) return false;
+      return (
+        (currentUsernameLower && sigUser === currentUsernameLower) ||
+        (currentEmailLower && sigUser === currentEmailLower) ||
+        (currentEmailPrefix && sigUser === currentEmailPrefix)
+      );
+    }) ||
+    signatures.find(s => {
+      const sigName = (s.name || '').trim().toLowerCase();
+      return Boolean(sigName && currentFullNameLower && sigName === currentFullNameLower);
+    }) ||
+    signatures.find(s => {
+      const isGenericAdminAccount =
+        currentUsernameLower === 'admin' ||
+        currentEmailLower === 'admin@hfa.com' ||
+        currentFullNameLower === 'hfa admin';
+      if (!isGenericAdminAccount) return false;
+      const sigUser = (s.username || '').trim().toLowerCase();
+      const sigName = (s.name || '').trim().toLowerCase();
+      return sigUser === 'admin' || sigUser === 'admin@hfa.com' || sigName === 'hfa admin';
+    }) ||
+    null;
 
   const is30Days = isLocked && logsheet
     ? Boolean(
@@ -283,7 +306,7 @@ export default function AdminExtensionLogsheet() {
     }
 
     const sigData = userSignature?.signature_url;
-    const signerName = userSignature?.name || currentUser?.full_name || currentUser?.name || 'Staff Officer';
+    const signerName = currentUser?.full_name || userSignature?.name || currentUser?.name || currentUser?.username || 'Authorized Signatory';
 
     setSigning(true);
     try {
@@ -1401,7 +1424,7 @@ export default function AdminExtensionLogsheet() {
                   <div style={{ padding: '14px 18px', border: '1px solid #bbf7d0', background: '#f0fdf4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <div>
                       <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>AUTHENTICATED USER</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{userSignature.name || currentUser?.full_name || currentUser?.name || 'HFA Admin'}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{currentUser?.full_name || userSignature.name || currentUser?.name || 'Authorized Signatory'}</div>
                     </div>
                     <img
                       src={getPdfUrl(userSignature.signature_url)}

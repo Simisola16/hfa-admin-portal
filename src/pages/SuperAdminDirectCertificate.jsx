@@ -1418,12 +1418,13 @@ export default function SuperAdminDirectCertificate() {
                     </div>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
                       <label className="form-label" style={{ fontSize: 12.5 }}>Registered Business Address</label>
-                      <input
-                        type="text"
+                      <textarea
                         className="form-control"
+                        rows={2}
                         placeholder="Company registered address as it will appear on the certificate"
                         value={certCompanyAddress}
                         onChange={e => setCertCompanyAddress(e.target.value)}
+                        style={{ resize: 'vertical', minHeight: 52 }}
                       />
                     </div>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>

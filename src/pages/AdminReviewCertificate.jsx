@@ -518,7 +518,7 @@ export default function AdminReviewCertificate() {
         certificate_type: resolvedCertType,
         company_name: c.company_name || client?.company_name || client?.full_name || c.application_id?.establishment_name || '',
         product_category: resolvedCategory,
-        company_address: c.company_address || client?.address || c.application_id?.establishment_address || '',
+        company_address: (c.company_address || '').trim(),
         manufacturing_address: (c.manufacturing_address || '').trim(),
         scope: resolvedCategory,
         issue_date: c.issue_date ? new Date(c.issue_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],

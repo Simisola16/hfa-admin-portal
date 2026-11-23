@@ -414,7 +414,7 @@ export default function AdminCreateCertificate() {
           }
         }
 
-        if ((!detectedLogsheetCat || !detectedLogsheetCompAddr) && clientIdStr) {
+        if ((!detectedLogsheetCat) && clientIdStr) {
           try {
             const logsheetRes2 = await api.get(`/api/application-logsheets?client_id=${clientIdStr}&limit=1`).catch(() => null);
             const logsheetData2 = logsheetRes2?.data?.data || logsheetRes2?.data;
@@ -427,12 +427,6 @@ export default function AdminCreateCertificate() {
               }
               if (!detectedLogsheetCat && (l2.product_category || l2.productCategory)) {
                 detectedLogsheetCat = l2.product_category || l2.productCategory;
-              }
-              if (!detectedLogsheetCompAddr && l2.company_address) {
-                detectedLogsheetCompAddr = l2.company_address;
-              }
-              if (!detectedLogsheetMfgAddr && l2.manufacturing_address) {
-                detectedLogsheetMfgAddr = l2.manufacturing_address;
               }
             }
           } catch (_) {}
@@ -597,14 +591,9 @@ export default function AdminCreateCertificate() {
         ).trim();
         const compName = clientCompName || resolvedClient?.full_name || appData.establishment_name || parentAppData?.establishment_name || '';
 
-        // Auto-fill Company Registered Address from the address of the company
-        const clientFullAddress = formatClientAddress(resolvedClient) || resolvedClient?.address || '';
-        const appAddress = (appData.establishment_address || appData.company_address || appData.registered_address || parentAppData?.establishment_address || parentAppData?.company_address || '').trim();
-        const compAddr = (clientFullAddress || appAddress || detectedLogsheetCompAddr || '').trim() || appAddress || clientFullAddress;
-
-        // Manufacturing / Facility Address (Optional - only prefill if specifically specified in logsheet/application)
-        const appMfgAddress = (appData.manufacturer_address || parentAppData?.manufacturer_address || '').trim();
-        const mfgAddr = (detectedLogsheetMfgAddr || appMfgAddress || '').trim();
+        // Use the exact Company Address and Manufacturing Address from the logsheet (no fallbacks)
+        const compAddr = (detectedLogsheetCompAddr || '').trim();
+        const mfgAddr = (detectedLogsheetMfgAddr || '').trim();
 
         // Resolve Product Category:
         // Priority: Logsheet Category -> Application Category -> Parent App Category -> Products Schedule -> Scope

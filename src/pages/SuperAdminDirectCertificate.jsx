@@ -307,8 +307,8 @@ export default function SuperAdminDirectCertificate() {
           const l = res?.data?.data || res?.data;
           if (l) {
             if (l.company_name) setCertCompanyName(l.company_name);
-            if (l.company_address) setCertCompanyAddress(l.company_address);
-            if (l.manufacturing_address) setCertManufacturingFacility(l.manufacturing_address);
+            setCertCompanyAddress(l.company_address || '');
+            setCertManufacturingFacility(l.manufacturing_address || '');
             if (l.product_category || l.productCategory) setCertProductCategory(l.product_category || l.productCategory);
             const isSurv = Boolean(
               queryCertType?.toUpperCase().includes('SURVEILLANCE') ||
@@ -412,10 +412,12 @@ export default function SuperAdminDirectCertificate() {
               const onlySite = list[0];
               const sId = onlySite._id || onlySite.id;
               setSelectedSiteId(sId);
-              const siteAddr = formatSiteAddress(onlySite);
-              setCustomSiteAddress(siteAddr);
-              setCertCompanyAddress(siteAddr);
-              setCertManufacturingFacility(onlySite.name ? `${onlySite.name}, ${siteAddr}` : siteAddr);
+              if (!queryLogsheetId) {
+                const siteAddr = formatSiteAddress(onlySite);
+                setCustomSiteAddress(siteAddr);
+                setCertCompanyAddress(siteAddr);
+                setCertManufacturingFacility(onlySite.name ? `${onlySite.name}, ${siteAddr}` : siteAddr);
+              }
             }
           }
         })
@@ -470,12 +472,14 @@ export default function SuperAdminDirectCertificate() {
       const singleSite = clientSites[0];
       const sId = singleSite._id || singleSite.id;
       setSelectedSiteId(sId);
-      const siteAddr = formatSiteAddress(singleSite);
-      setCustomSiteAddress(siteAddr);
-      setCertCompanyAddress(siteAddr);
-      setCertManufacturingFacility(singleSite.name ? `${singleSite.name}, ${siteAddr}` : siteAddr);
+      if (!queryLogsheetId) {
+        const siteAddr = formatSiteAddress(singleSite);
+        setCustomSiteAddress(siteAddr);
+        setCertCompanyAddress(siteAddr);
+        setCertManufacturingFacility(singleSite.name ? `${singleSite.name}, ${siteAddr}` : siteAddr);
+      }
     }
-  }, [selectedClient, clientSites, selectedSiteId]);
+  }, [selectedClient, clientSites, selectedSiteId, queryLogsheetId]);
 
   // Fetch Client Products Catalog (strictly scoped per site)
   const fetchClientCatalog = async (clientId, siteId) => {
@@ -893,9 +897,9 @@ export default function SuperAdminDirectCertificate() {
       // Client info
       formData.append('client_id', selectedClient._id || selectedClient.id);
 
-      // Facility info
-      const effectiveAddress = (certCompanyAddress || customSiteAddress || resolvedBusinessAddress || '').trim();
-      const effectiveMfgAddress = (certManufacturingFacility || effectiveAddress).trim();
+      // Facility info (no fallbacks; use exact input values)
+      const effectiveAddress = (certCompanyAddress || '').trim();
+      const effectiveMfgAddress = (certManufacturingFacility || '').trim();
       if (selectedSiteId) {
         formData.append('site_id', selectedSiteId);
       }

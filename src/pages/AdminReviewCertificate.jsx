@@ -81,6 +81,7 @@ export default function AdminReviewCertificate() {
   });
 
   const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
 
   const [newProdName, setNewProdName] = useState('');
   const [newProdCode, setNewProdCode] = useState('');
@@ -785,11 +786,13 @@ export default function AdminReviewCertificate() {
         products_covered: isSaveSurv ? [] : form.products_covered,
         product_details: isSaveSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
-        review_notes: form.review_notes
+        review_notes: form.review_notes,
+        ...(previewPdfUrl ? { certificate_url: previewPdfUrl, is_custom_upload: false } : {})
       };
 
       const res = await api.put(`/api/certificates/${certId}`, payload);
       setCert(res.data?.data || res.data);
+      setPreviewPdfUrl(null);
       if (!silent) toast.success('Certificate changes saved.');
       return true;
     } catch (err) {
@@ -820,9 +823,6 @@ export default function AdminReviewCertificate() {
 
     setRegenerating(true);
     try {
-      // First save current inputs
-      await handleSave(true);
-
       const isRegenSurv = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
       const res = await api.post(`/api/certificates/${certId}/regenerate`, {
         certificate_number: form.certificate_number,
@@ -841,21 +841,16 @@ export default function AdminReviewCertificate() {
         products_covered: isRegenSurv ? [] : form.products_covered,
         product_details: isRegenSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
-        force_regenerate: true
+        force_regenerate: true,
+        preview_only: true
       });
 
       const newCertUrl = res.certificateUrl || res.data?.certificateUrl || res.data?.data?.certificate_url;
       if (newCertUrl) {
-        setCert(prev => ({
-          ...prev,
-          certificate_url: newCertUrl,
-          is_custom_upload: false,
-          uploaded_filename: null
-        }));
+        setPreviewPdfUrl(newCertUrl);
         setPreviewTimestamp(Date.now());
-        toast.success('Certificate PDF regenerated successfully!');
+        toast.success('Preview regenerated! Click Save Changes or Send to Client to apply.');
       } else {
-        fetchCertificate();
         setPreviewTimestamp(Date.now());
         toast.success('Certificate preview refreshed!');
       }
@@ -1032,7 +1027,7 @@ export default function AdminReviewCertificate() {
   const isUnderReview = cert?.status === 'under_review' || cert?.status === 'draft';
   const isGso = form.certificate_type === 'GSO MEAT' || form.certificate_type === 'GSO NON MEAT' || form.certificate_type === 'SMIIC' || (form.certificate_type && (form.certificate_type.includes('GSO') || form.certificate_type.includes('SMIIC')));
   const isSurvLetter = form.certificate_type === 'SURVEILLANCE LETTER' || String(form.certificate_type || '').toUpperCase().includes('SURVEILLANCE');
-  const rawPdfUrl = getPdfUrl(cert?.certificate_url);
+  const rawPdfUrl = getPdfUrl(previewPdfUrl || cert?.certificate_url);
   const pdfUrl = rawPdfUrl ? (rawPdfUrl.includes('?') ? `${rawPdfUrl}&t=${previewTimestamp}` : `${rawPdfUrl}?t=${previewTimestamp}`) : '';
 
   return (
@@ -1168,6 +1163,7 @@ export default function AdminReviewCertificate() {
             }}>
               {pdfUrl ? (
                 <iframe
+                  key={pdfUrl}
                   src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`}
                   title="Certificate PDF Preview"
                   style={{ width: '100%', height: '100%', border: 'none' }}

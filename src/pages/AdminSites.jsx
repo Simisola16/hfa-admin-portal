@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { MapPin, Search, ExternalLink, RefreshCw, X, Building2, Phone, Mail, Globe, User, ShieldCheck } from 'lucide-react';
+import { MapPin, Search, ExternalLink, RefreshCw, X, Building2, Trash2, AlertTriangle } from 'lucide-react';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../lib/permissions';
 
 export default function AdminSites() {
+  const { user } = useAuth();
+  const canDeleteSite = isSuperAdmin(user);
+
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [selectedSite, setSelectedSite] = useState(null);
+  const [siteToDelete, setSiteToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -27,6 +34,26 @@ export default function AdminSites() {
   useEffect(() => {
     fetchSites();
   }, []);
+
+  const handleDeleteSite = async () => {
+    if (!siteToDelete || !canDeleteSite) return;
+    const targetId = (siteToDelete._id || siteToDelete.id || '').toString();
+    if (!targetId) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/sites/${targetId}`);
+      setSites(prev => prev.filter(s => (s._id || s.id || '').toString() !== targetId));
+      if (selectedSite && (selectedSite._id || selectedSite.id || '').toString() === targetId) {
+        setSelectedSite(null);
+      }
+      toast.success('Site deleted successfully');
+      setSiteToDelete(null);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to delete site');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const getSiteCompany = (site) => {
     if (!site) return '—';
@@ -171,13 +198,26 @@ export default function AdminSites() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
-                          title="View Site Details"
-                          onClick={() => setSelectedSite(site)}
-                        >
-                          <ExternalLink size={14} />
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            title="View Site Details"
+                            onClick={() => setSelectedSite(site)}
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                          {canDeleteSite && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              title="Delete Site"
+                              style={{ color: '#dc2626' }}
+                              onClick={() => setSiteToDelete(site)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -319,6 +359,52 @@ export default function AdminSites() {
             <div className="modal-footer" style={{ padding: '14px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
               <button className="btn btn-primary" onClick={() => setSelectedSite(null)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Site Modal (Superadmin Only) */}
+      {siteToDelete && canDeleteSite && (
+        <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => !deleting && setSiteToDelete(null)}>
+          <div className="modal" style={{ maxWidth: 460, borderRadius: 14 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ padding: '16px 22px', background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AlertTriangle size={20} style={{ color: '#dc2626' }} />
+                <div className="modal-title" style={{ fontSize: 15, fontWeight: 800, color: '#991b1b' }}>
+                  Delete Registered Site
+                </div>
+              </div>
+              <button type="button" className="modal-close" onClick={() => !deleting && setSiteToDelete(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: 22, fontSize: 13.5, color: '#334155', lineHeight: 1.55 }}>
+              Are you sure you want to permanently delete{' '}
+              <strong>{siteToDelete.name}</strong> ({getSiteCompany(siteToDelete)})?
+              <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+                This action cannot be undone.
+              </div>
+            </div>
+            <div className="modal-footer" style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={deleting}
+                onClick={() => setSiteToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={deleting}
+                onClick={handleDeleteSite}
+                style={{ background: '#dc2626', borderColor: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Trash2 size={14} />
+                {deleting ? 'Deleting...' : 'Delete Site'}
               </button>
             </div>
           </div>

@@ -675,10 +675,14 @@ export default function AdminReviewCertificate() {
     toast.success('Deselected all products from certificate.');
   };
 
-  // Update specific field on a selected product (e.g. code or category)
+  // Update specific field on a selected product (e.g. name, code or category)
   const handleUpdateProductDetail = (index, field, value) => {
     const updated = [...form.product_details];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+      ...(field === 'name' ? { description: value } : {})
+    };
     const updatedCovered = updated.map(p => p.name);
     setForm(f => ({
       ...f,

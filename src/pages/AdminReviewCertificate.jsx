@@ -437,26 +437,10 @@ export default function AdminReviewCertificate() {
           }
         });
 
-        // If the certificate had products from other sites or no matching items for this facility, default to all site products
+        // Only apply site-filtered matches when any matched; never auto-dump all site products onto the certificate
         if (filteredDetails.length > 0) {
           resolvedDetails = filteredDetails;
-        } else {
-          resolvedDetails = fetchedSiteProducts.map((p, idx) => ({
-            id: p.id || p._id,
-            name: p.name,
-            code: p.code || p.barcode || `PRD-${String(idx + 1).padStart(2, '0')}`,
-            category: p.category || 'Halal Certified',
-            barcode: p.barcode || ''
-          }));
         }
-      } else if (resolvedDetails.length === 0 && fetchedSiteProducts.length > 0) {
-        resolvedDetails = fetchedSiteProducts.map((p, idx) => ({
-          id: p.id || p._id,
-          name: p.name,
-          code: p.code || p.barcode || `PRD-${String(idx + 1).padStart(2, '0')}`,
-          category: p.category || 'Halal Certified',
-          barcode: p.barcode || ''
-        }));
       }
 
       const finalProductsCovered = resolvedDetails.map(p => p.name);
@@ -787,7 +771,7 @@ export default function AdminReviewCertificate() {
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: isSaveSurv ? [] : form.products_covered,
+        products_covered: isSaveSurv ? [] : form.product_details.map(p => p.name).filter(Boolean),
         product_details: isSaveSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes,
@@ -842,7 +826,7 @@ export default function AdminReviewCertificate() {
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: isRegenSurv ? [] : form.products_covered,
+        products_covered: isRegenSurv ? [] : form.product_details.map(p => p.name).filter(Boolean),
         product_details: isRegenSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
         force_regenerate: true,

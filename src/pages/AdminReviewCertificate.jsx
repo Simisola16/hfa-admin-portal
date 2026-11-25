@@ -51,6 +51,7 @@ export default function AdminReviewCertificate() {
   const [approving, setApproving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [isEditingProducts, setIsEditingProducts] = useState(false);
   const [applicationData, setApplicationData] = useState(null);
 
 
@@ -539,15 +540,16 @@ export default function AdminReviewCertificate() {
     }
   }, [certId]);
 
-  // Check if a site product is currently picked for certificate (strictly by product ID)
+  // Check if a site product is currently picked for certificate (by ID first, then by name/code)
   const isProductSelected = (prod) => {
     if (!prod) return false;
     const prodId = typeof prod === 'object' ? (prod._id || prod.id) : null;
     if (prodId) {
-      return form.product_details.some(p => {
+      const idMatched = form.product_details.some(p => {
         const pId = p._id || p.id;
         return pId && String(pId) === String(prodId);
       });
+      if (idMatched) return true;
     }
 
     const prodName = typeof prod === 'string' ? prod.trim().toLowerCase() : (prod.name || '').trim().toLowerCase();
@@ -556,14 +558,16 @@ export default function AdminReviewCertificate() {
 
     return form.product_details.some(p => {
       const pName = (p.name || '').trim().toLowerCase();
+      if (pName !== prodName) return false;
       const pCode = (p.code || p.barcode || '').trim().toLowerCase();
-      return pName === prodName && pCode === prodCode;
+      if (prodCode && pCode) return pCode === prodCode;
+      return true;
     });
   };
 
   // Toggle selection of a product from the site inventory
   const handleToggleProduct = (prod) => {
-    if (!prod) return;
+    if (!isEditingProducts || !prod) return;
     const prodName = (prod.name || '').trim();
     if (!prodName && !prod.id && !prod._id) return;
 
@@ -617,6 +621,7 @@ export default function AdminReviewCertificate() {
 
   // Select all products visible in the site inventory list
   const handleSelectAllSiteProducts = (productsToSelect) => {
+    if (!isEditingProducts) return;
     const list = productsToSelect || siteProducts;
     if (list.length === 0) return;
 
@@ -651,6 +656,7 @@ export default function AdminReviewCertificate() {
 
   // Deselect all products from certificate
   const handleDeselectAllSiteProducts = () => {
+    if (!isEditingProducts) return;
     setForm(f => ({
       ...f,
       product_details: [],
@@ -921,7 +927,7 @@ export default function AdminReviewCertificate() {
         original_cycle_start_date: form.original_cycle_start_date,
         certification_start_date: form.certification_start_date,
         expiry_date: form.expiry_date,
-        products_covered: isApproveSurv ? [] : form.products_covered,
+        products_covered: isApproveSurv ? [] : form.product_details.map(p => p.name).filter(Boolean),
         product_details: isApproveSurv ? [] : form.product_details,
         product_table_columns: form.product_table_columns || 2,
         review_notes: form.review_notes
@@ -1706,17 +1712,48 @@ export default function AdminReviewCertificate() {
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
                     type="button"
+                    className={isEditingProducts ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'}
+                    onClick={() => setIsEditingProducts(prev => !prev)}
+                    style={{
+                      fontSize: 11.5,
+                      padding: '4px 12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      ...(isEditingProducts
+                        ? { background: '#16a34a', borderColor: '#16a34a', color: '#ffffff' }
+                        : { borderColor: '#047857', color: '#047857', fontWeight: 700 })
+                    }}
+                  >
+                    {isEditingProducts ? <Check size={13} /> : <Lock size={13} />}
+                    {isEditingProducts ? 'Done Editing' : 'Edit Product'}
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-outline btn-sm"
+                    disabled={!isEditingProducts}
                     onClick={() => handleSelectAllSiteProducts(filteredSiteProducts)}
-                    style={{ fontSize: 11.5, padding: '4px 10px' }}
+                    style={{
+                      fontSize: 11.5,
+                      padding: '4px 10px',
+                      opacity: isEditingProducts ? 1 : 0.5,
+                      cursor: isEditingProducts ? 'pointer' : 'not-allowed'
+                    }}
                   >
                     Select All ({filteredSiteProducts.length})
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
+                    disabled={!isEditingProducts}
                     onClick={handleDeselectAllSiteProducts}
-                    style={{ fontSize: 11.5, padding: '4px 10px', color: '#dc2626' }}
+                    style={{
+                      fontSize: 11.5,
+                      padding: '4px 10px',
+                      color: '#dc2626',
+                      opacity: isEditingProducts ? 1 : 0.5,
+                      cursor: isEditingProducts ? 'pointer' : 'not-allowed'
+                    }}
                   >
                     Deselect All
                   </button>
@@ -1869,16 +1906,18 @@ export default function AdminReviewCertificate() {
                         <th style={{ width: 40, padding: '8px 10px', textAlign: 'center' }}>
                           <input
                             type="checkbox"
+                            disabled={!isEditingProducts}
                             checked={filteredSiteProducts.length > 0 && filteredSiteProducts.every(item => isProductSelected(item))}
                             onChange={(e) => {
+                              if (!isEditingProducts) return;
                               if (e.target.checked) {
                                 handleSelectAllSiteProducts(filteredSiteProducts);
                               } else {
                                 handleDeselectAllSiteProducts();
                               }
                             }}
-                            style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                            title="Select/Deselect All Displayed Products"
+                            style={{ cursor: isEditingProducts ? 'pointer' : 'not-allowed', accentColor: '#16a34a', width: 15, height: 15, opacity: isEditingProducts ? 1 : 0.6 }}
+                            title={isEditingProducts ? 'Select/Deselect All Displayed Products' : 'Click "Edit Product" to enable selection'}
                           />
                         </th>
                         <th style={{ width: 44, padding: '8px 6px', textAlign: 'center' }}>#</th>
@@ -1900,20 +1939,21 @@ export default function AdminReviewCertificate() {
                           return (
                             <tr
                               key={prod._id || prod.id || itemIndex}
-                              onClick={() => handleToggleProduct(prod)}
+                              onClick={() => isEditingProducts && handleToggleProduct(prod)}
                               style={{
                                 borderBottom: '1px solid #f1f5f9',
                                 background: selected ? '#f0fdf4' : (itemIndex % 2 === 0 ? '#ffffff' : '#fafafa'),
-                                cursor: 'pointer',
+                                cursor: isEditingProducts ? 'pointer' : 'default',
                                 transition: 'background-color 0.15s ease'
                               }}
                             >
                               <td style={{ textAlign: 'center', padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
+                                  disabled={!isEditingProducts}
                                   checked={selected}
-                                  onChange={() => handleToggleProduct(prod)}
-                                  style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                                  onChange={() => isEditingProducts && handleToggleProduct(prod)}
+                                  style={{ cursor: isEditingProducts ? 'pointer' : 'not-allowed', accentColor: '#16a34a', width: 15, height: 15, opacity: isEditingProducts ? 1 : 0.65 }}
                                 />
                               </td>
                               <td style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{itemIndex + 1}</td>

@@ -377,7 +377,7 @@ export default function AdminReviewCertificate() {
         : (resolvedProducts.length > 0
           ? resolvedProducts.map((p, idx) => ({
             name: typeof p === 'string' ? p : p.name,
-            code: typeof p === 'object' && p.code ? p.code : `GEN-${String(idx + 1).padStart(2, '0')}`,
+            code: typeof p === 'object' && p.code ? p.code : '',
             category: typeof p === 'object' && p.category ? p.category : 'Halal Certified',
             barcode: typeof p === 'object' && p.barcode ? p.barcode : ''
           }))
@@ -599,7 +599,7 @@ export default function AdminReviewCertificate() {
       }));
     } else {
       // Select / Add
-      const newCode = prod.code || prod.barcode || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
+      const newCode = prod.code || prod.barcode || '';
       const newCat = prod.category || 'Halal Certified';
       const newItem = {
         id: prod.id || prod._id || `p_${Date.now()}`,
@@ -631,7 +631,7 @@ export default function AdminReviewCertificate() {
         toAdd.push({
           id: p.id || p._id || `p_${Date.now()}_${idx}`,
           name: p.name,
-          code: p.code || p.barcode || `PRD-${String(form.product_details.length + toAdd.length + 1).padStart(2, '0')}`,
+          code: p.code || p.barcode || '',
           category: p.category || 'Halal Certified',
           barcode: p.barcode || '',
           description: p.description || ''
@@ -686,7 +686,7 @@ export default function AdminReviewCertificate() {
     const nextIndex = form.product_details.length + 1;
     const newItem = {
       name: '',
-      code: `PRD-${String(nextIndex).padStart(2, '0')}`,
+      code: '',
       category: form.product_category || 'Halal Certified',
       barcode: ''
     };
@@ -704,7 +704,7 @@ export default function AdminReviewCertificate() {
       toast.error('Please enter product name.');
       return;
     }
-    const newCode = newProdCode.trim() || `PRD-${String(form.product_details.length + 1).padStart(2, '0')}`;
+    const newCode = newProdCode.trim();
     const newCat = newProdCat.trim() || form.product_category || 'Halal Certified';
 
     const newItem = {

@@ -532,7 +532,7 @@ export default function AdminCreateCertificate() {
               prodList = validRemaining.map((p, idx) => ({
                 _id: p._id || `cert-prod-${idx}`,
                 name: p.name || p.product_name || `Product ${idx + 1}`,
-                code: p.code || p.product_code || `PRD-${idx + 1}`,
+                code: p.code || p.product_code || '',
                 category: p.category || parentCertData.product_category || 'General Food Products'
               }));
             }
@@ -557,7 +557,7 @@ export default function AdminCreateCertificate() {
               .map((p, idx) => ({
                 _id: `log-prod-${idx}`,
                 name: typeof p === 'string' ? p : (p.name || p.product_name || p.title || `Product ${idx + 1}`),
-                code: typeof p === 'object' && p.code ? p.code : `PRD-${String(idx + 1).padStart(2, '0')}`,
+                code: typeof p === 'object' && p.code ? p.code : '',
                 category: (typeof p === 'object' && p.category) ? p.category : (detectedLogsheetCat || 'General Food Products')
               }));
           }
@@ -941,7 +941,7 @@ export default function AdminCreateCertificate() {
     const newP = {
       _id: `custom-${Date.now()}`,
       name: newProdName.trim(),
-      code: newProdCode.trim() || `PRD-${siteProducts.length + 1}`,
+      code: newProdCode.trim(),
       category: newProdCat || 'General Food Products',
       isSelected: true
     };
@@ -994,7 +994,7 @@ export default function AdminCreateCertificate() {
       const selectedProds = siteProducts.filter(p => p.isSelected);
       const validProducts = selectedProds.map((p, idx) => ({
         name: (p.name || '').trim(),
-        code: (p.code || '').trim() || `PRD-${String(idx + 1).padStart(2, '0')}`,
+        code: (p.code || '').trim(),
         category: p.category || form.product_category || 'Halal Certified',
         barcode: p.barcode || ''
       })).filter(p => p.name);
